@@ -1,10 +1,53 @@
 /// Alignment pattern detection
 /// Alignment patterns appear in QR codes version 2 and above
-/// They have a similar structure to finder patterns but with different ratios
 use crate::models::{BitMatrix, Point};
 
-/// Detect alignment patterns in the QR code
-pub fn detect_alignment_patterns(matrix: &BitMatrix, version: u8) -> Vec<Point> {
-    // TODO: Implement alignment pattern detection
-    Vec::new()
+/// Get alignment center positions for a QR version
+pub fn get_alignment_positions(version: u8) -> Vec<(usize, usize)> {
+    if version < 2 {
+        return Vec::new();
+    }
+
+    let centers = match version {
+        2 => vec![6, 18],
+        3 => vec![6, 22],
+        4 => vec![6, 26],
+        5 => vec![6, 30],
+        6 => vec![6, 34],
+        _ => vec![6, 18], // Simplified for now
+    };
+
+    let mut positions = Vec::new();
+    for &row in &centers {
+        for &col in &centers {
+            // Skip finder pattern positions
+            if (row == 6 && col == 6)
+                || (row == 6 && col == *centers.last().unwrap_or(&6))
+                || (row == *centers.last().unwrap_or(&6) && col == 6)
+            {
+                continue;
+            }
+            positions.push((row, col));
+        }
+    }
+
+    positions
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_version_1_no_alignment() {
+        let positions = get_alignment_positions(1);
+        assert!(positions.is_empty());
+    }
+
+    #[test]
+    fn test_version_2_has_alignment() {
+        let positions = get_alignment_positions(2);
+        assert!(!positions.is_empty());
+        assert!(positions.contains(&(18, 18)));
+    }
 }
