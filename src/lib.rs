@@ -12,6 +12,7 @@ pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
+use decoder::decoder::QrDecoder;
 use detector::finder::FinderDetector;
 use utils::binarization::otsu_binarize;
 use utils::grayscale::rgb_to_grayscale;
@@ -35,10 +36,25 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     // Step 3: Detect finder patterns
     let finder_patterns = FinderDetector::detect(&binary);
 
-    // For now, return empty (need to implement full decode pipeline)
-    // TODO: Extract QR regions, perspective transform, decode
-    let _ = finder_patterns;
-    Vec::new()
+    // Step 4: Group finder patterns into potential QR codes and decode
+    let mut results = Vec::new();
+
+    // Need at least 3 finder patterns for a valid QR code
+    if finder_patterns.len() >= 3 {
+        // Try to find valid QR code combinations
+        // For simplicity, try first 3 patterns
+        // TODO: Better grouping logic
+        if let Some(qr) = QrDecoder::decode(
+            &binary,
+            &finder_patterns[0].center,
+            &finder_patterns[1].center,
+            &finder_patterns[2].center,
+        ) {
+            results.push(qr);
+        }
+    }
+
+    results
 }
 
 /// Detect QR codes from a pre-computed grayscale image
@@ -57,9 +73,21 @@ pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<Q
     // Step 2: Detect finder patterns
     let finder_patterns = FinderDetector::detect(&binary);
 
-    // TODO: Extract and decode QR codes
-    let _ = finder_patterns;
-    Vec::new()
+    // Step 3: Decode QR codes
+    let mut results = Vec::new();
+
+    if finder_patterns.len() >= 3 {
+        if let Some(qr) = QrDecoder::decode(
+            &binary,
+            &finder_patterns[0].center,
+            &finder_patterns[1].center,
+            &finder_patterns[2].center,
+        ) {
+            results.push(qr);
+        }
+    }
+
+    results
 }
 
 /// Detector with configuration options
