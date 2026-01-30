@@ -12,6 +12,10 @@ pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
+use detector::finder::FinderDetector;
+use utils::binarization::otsu_binarize;
+use utils::grayscale::rgb_to_grayscale;
+
 /// Detect QR codes in an RGB image
 ///
 /// # Arguments
@@ -22,8 +26,18 @@ pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 /// # Returns
 /// Vector of detected QR codes
 pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    // TODO: Implement detection pipeline
-    let _ = (image, width, height);
+    // Step 1: Convert to grayscale
+    let gray = rgb_to_grayscale(image, width, height);
+
+    // Step 2: Binarize
+    let binary = otsu_binarize(&gray, width, height);
+
+    // Step 3: Detect finder patterns
+    let finder_patterns = FinderDetector::detect(&binary);
+
+    // For now, return empty (need to implement full decode pipeline)
+    // TODO: Extract QR regions, perspective transform, decode
+    let _ = finder_patterns;
     Vec::new()
 }
 
@@ -37,8 +51,14 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
 /// # Returns
 /// Vector of detected QR codes
 pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    // TODO: Implement detection pipeline
-    let _ = (image, width, height);
+    // Step 1: Binarize
+    let binary = otsu_binarize(image, width, height);
+
+    // Step 2: Detect finder patterns
+    let finder_patterns = FinderDetector::detect(&binary);
+
+    // TODO: Extract and decode QR codes
+    let _ = finder_patterns;
     Vec::new()
 }
 
@@ -69,5 +89,18 @@ impl Detector {
 impl Default for Detector {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_empty() {
+        // Test with empty image
+        let image = vec![0u8; 300]; // 10x10 RGB
+        let codes = detect(&image, 10, 10);
+        assert!(codes.is_empty());
     }
 }

@@ -41,23 +41,23 @@ impl FinderDetector {
 
         for x in 1..width {
             let color = matrix.get(x, y);
-            
+
             if color != current_color {
                 // Save completed run
                 let run_len = x - run_start;
                 run_lengths.push(run_len);
                 run_colors.push(current_color);
-                
+
                 run_start = x;
                 current_color = color;
-                
+
                 // Check if we have enough runs for a pattern (need at least 5 ending in black)
                 if run_colors.len() >= 5 {
                     // Check the last 5 runs
                     let end_idx = run_colors.len();
-                    let colors = &run_colors[end_idx-5..end_idx];
-                    let lengths = &run_lengths[end_idx-5..end_idx];
-                    
+                    let colors = &run_colors[end_idx - 5..end_idx];
+                    let lengths = &run_lengths[end_idx - 5..end_idx];
+
                     // Pattern should be: black-white-black-white-black
                     if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
                         if let Some(pattern) = Self::check_pattern(lengths, x, y) {
@@ -75,33 +75,34 @@ impl FinderDetector {
         if lengths.len() != 5 {
             return None;
         }
-        
+
         let b1 = lengths[0];
         let w1 = lengths[1];
         let b2 = lengths[2];
         let w2 = lengths[3];
         let b3 = lengths[4];
-        
+
         let total = (b1 + w1 + b2 + w2 + b3) as f32;
         let unit = total / 7.0;
-        
+
         // Check ratios with tolerance
         let r1 = b1 as f32 / unit;
         let r2 = w1 as f32 / unit;
         let r3 = b2 as f32 / unit;
         let r4 = w2 as f32 / unit;
         let r5 = b3 as f32 / unit;
-        
+
         const TOL: f32 = 0.5;
-        if (r1 - 1.0).abs() <= TOL &&
-           (r2 - 1.0).abs() <= TOL &&
-           (r3 - 3.0).abs() <= TOL &&
-           (r4 - 1.0).abs() <= TOL &&
-           (r5 - 1.0).abs() <= TOL {
+        if (r1 - 1.0).abs() <= TOL
+            && (r2 - 1.0).abs() <= TOL
+            && (r3 - 3.0).abs() <= TOL
+            && (r4 - 1.0).abs() <= TOL
+            && (r5 - 1.0).abs() <= TOL
+        {
             let center_x = (end_x as f32) - (b3 as f32) - (w2 as f32) - (b2 as f32 / 2.0);
             return Some(FinderPattern::new(center_x, y as f32, unit));
         }
-        
+
         None
     }
 
@@ -146,21 +147,33 @@ mod tests {
         let y = 5;
         let unit = 3;
         let x_start = 2;
-        
+
         // Black(3) - White(3) - Black(9) - White(3) - Black(3)
-        for x in x_start..x_start+unit { matrix.set(x, y, true); }
+        for x in x_start..x_start + unit {
+            matrix.set(x, y, true);
+        }
         // x_start+unit to x_start+2*unit is white (default)
-        for x in x_start+2*unit..x_start+5*unit { matrix.set(x, y, true); }
+        for x in x_start + 2 * unit..x_start + 5 * unit {
+            matrix.set(x, y, true);
+        }
         // x_start+5*unit to x_start+6*unit is white (default)
-        for x in x_start+6*unit..x_start+7*unit { matrix.set(x, y, true); }
-        
+        for x in x_start + 6 * unit..x_start + 7 * unit {
+            matrix.set(x, y, true);
+        }
+
         let patterns = FinderDetector::detect(&matrix);
-        
+
         assert!(!patterns.is_empty(), "Should detect the pattern");
-        
+
         let expected_center = x_start as f32 + 3.5 * unit as f32;
-        let found = patterns.iter().any(|p| (p.center.x - expected_center).abs() < 3.0);
-        assert!(found, "Should find pattern near x={}, got centers: {:?}", 
-                expected_center, patterns.iter().map(|p| p.center.x).collect::<Vec<_>>());
+        let found = patterns
+            .iter()
+            .any(|p| (p.center.x - expected_center).abs() < 3.0);
+        assert!(
+            found,
+            "Should find pattern near x={}, got centers: {:?}",
+            expected_center,
+            patterns.iter().map(|p| p.center.x).collect::<Vec<_>>()
+        );
     }
 }
