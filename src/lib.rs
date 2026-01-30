@@ -1,4 +1,4 @@
-//! ScanRust - World's fastest QR code scanning library
+//! RustQR - World's fastest QR code scanning library
 //!
 //! A pure Rust QR code detection and decoding library with zero dependencies.
 //! Designed for maximum speed and cross-platform compatibility.

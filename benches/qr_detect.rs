@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use scanrust::{detect, detect_from_grayscale};
+use rust_qr::{detect, detect_from_grayscale};
 
 fn bench_detect_small(c: &mut Criterion) {
     // Create a 100x100 RGB image
