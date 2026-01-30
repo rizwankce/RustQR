@@ -140,3 +140,11 @@ This project is dual-licensed under MIT and Apache 2.0. You may choose either li
 - Inspired by BoofCV, ZXing, and ZBar
 - Benchmark test images from BoofCV dataset
 - QR Code specification: ISO/IEC 18004:2015
+
+## Built With AI
+
+This project was developed using:
+- **Kimi K2.5** - Large language model by Moonshot AI
+- **OpenCode** - AI coding agent CLI
+
+The entire library was written through collaborative AI-assisted development.
