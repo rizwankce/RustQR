@@ -1,6 +1,5 @@
 /// Reed-Solomon error correction for QR codes
 /// QR codes use RS over GF(256) with primitive polynomial x^8 + x^4 + x^3 + x^2 + 1
-
 /// GF(256) field operations using log/exp tables
 pub struct Gf256;
 
@@ -122,13 +121,13 @@ impl ReedSolomonDecoder {
         let n = received.len();
         let mut syndrome = vec![0u8; self.num_ecc_codewords];
 
-        for i in 0..self.num_ecc_codewords {
+        for (i, syndrome_i) in syndrome.iter_mut().enumerate().take(self.num_ecc_codewords) {
             let mut sum = 0u8;
-            for j in 0..n {
-                let term = Gf256::mul(received[j], Gf256::pow(2, (i * j) as u8));
+            for (j, &received_j) in received.iter().enumerate().take(n) {
+                let term = Gf256::mul(received_j, Gf256::pow(2, (i * j) as u8));
                 sum ^= term;
             }
-            syndrome[i] = sum;
+            *syndrome_i = sum;
         }
 
         syndrome
@@ -226,18 +225,15 @@ impl ReedSolomonDecoder {
         error_positions: &[usize],
     ) -> Result<Vec<u8>, &'static str> {
         // Forney algorithm
-        let mut omega = syndrome.to_vec();
-
         // omega = syndrome * sigma mod x^(2t)
-        let mut result = vec![0u8; syndrome.len()];
+        let mut omega = vec![0u8; syndrome.len()];
         for i in 0..syndrome.len() {
             for j in 0..=i {
                 if j < sigma.len() && i - j < syndrome.len() {
-                    result[i] ^= Gf256::mul(sigma[j], syndrome[i - j]);
+                    omega[i] ^= Gf256::mul(sigma[j], syndrome[i - j]);
                 }
             }
         }
-        omega = result;
 
         let mut values = Vec::with_capacity(error_positions.len());
 
@@ -253,9 +249,9 @@ impl ReedSolomonDecoder {
 
             // Evaluate sigma' at x
             let mut sigma_prime_val = 0u8;
-            for i in 1..sigma.len() {
+            for (i, &coeff) in sigma.iter().enumerate().skip(1) {
                 if i % 2 == 1 {
-                    let term = Gf256::mul(sigma[i], Gf256::pow(x, (i - 1) as u8));
+                    let term = Gf256::mul(coeff, Gf256::pow(x, (i - 1) as u8));
                     sigma_prime_val ^= term;
                 }
             }

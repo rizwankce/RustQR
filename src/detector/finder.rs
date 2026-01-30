@@ -112,8 +112,7 @@ impl FinderDetector {
 
         for candidate in candidates {
             let mut found = false;
-            for idx in 0..merged.len() {
-                let existing = &merged[idx];
+            for existing in &mut merged {
                 let dx = candidate.center.x - existing.center.x;
                 let dy = candidate.center.y - existing.center.y;
                 let dist_sq = dx * dx + dy * dy;
@@ -122,7 +121,7 @@ impl FinderDetector {
                     let new_x = (existing.center.x + candidate.center.x) / 2.0;
                     let new_y = (existing.center.y + candidate.center.y) / 2.0;
                     let new_module = (existing.module_size + candidate.module_size) / 2.0;
-                    merged[idx] = FinderPattern::new(new_x, new_y, new_module);
+                    *existing = FinderPattern::new(new_x, new_y, new_module);
                     found = true;
                     break;
                 }

@@ -3,7 +3,7 @@ use crate::decoder::format::FormatInfo;
 use crate::decoder::unmask::unmask;
 use crate::decoder::version::VersionInfo;
 /// Main QR code decoder - wires everything together
-use crate::models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
+use crate::models::{BitMatrix, Point, QRCode, Version};
 use crate::utils::geometry::PerspectiveTransform;
 
 /// Main QR decoder that processes a detected QR region
@@ -41,11 +41,11 @@ impl QrDecoder {
 
         // Read version info (for v7+)
         let version = if dimension >= 45 {
-            VersionInfo::extract(&qr_matrix).map(|v| Version::Model2(v))
+            VersionInfo::extract(&qr_matrix).map(Version::Model2)
         } else {
             // Infer version from dimension
             let version_num = ((dimension - 17) / 4) as u8;
-            if version_num >= 1 && version_num <= 40 {
+            if (1..=40).contains(&version_num) {
                 Some(Version::Model2(version_num))
             } else {
                 None
@@ -101,7 +101,7 @@ impl QrDecoder {
     fn estimate_dimension(
         top_left: &Point,
         top_right: &Point,
-        bottom_right: &Point,
+        _bottom_right: &Point,
         module_size: f32,
     ) -> Option<usize> {
         // Calculate width in modules
@@ -132,7 +132,7 @@ impl QrDecoder {
             (raw_version + 1) as u8
         };
 
-        if version >= 1 && version <= 40 {
+        if (1..=40).contains(&version) {
             Some((17 + 4 * version) as usize)
         } else {
             None
@@ -155,12 +155,7 @@ impl QrDecoder {
             Point::new(dimension as f32 - 3.5, dimension as f32 - 3.5), // Bottom-right
         ];
 
-        let dst = [
-            top_left.clone(),
-            top_right.clone(),
-            bottom_left.clone(),
-            bottom_right.clone(),
-        ];
+        let dst = [*top_left, *top_right, *bottom_left, *bottom_right];
 
         let transform = PerspectiveTransform::from_points(&dst, &src)?;
 

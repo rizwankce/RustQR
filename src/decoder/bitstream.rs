@@ -29,10 +29,8 @@ impl BitstreamExtractor {
                         bits.push(matrix.get(col as usize, row));
                     }
                     // Check adjacent column
-                    if col > 0 {
-                        if Self::is_data_module(matrix, row, (col - 1) as usize, dimension) {
-                            bits.push(matrix.get((col - 1) as usize, row));
-                        }
+                    if col > 0 && Self::is_data_module(matrix, row, (col - 1) as usize, dimension) {
+                        bits.push(matrix.get((col - 1) as usize, row));
                     }
                 }
             } else {
@@ -42,10 +40,8 @@ impl BitstreamExtractor {
                         bits.push(matrix.get(col as usize, row));
                     }
                     // Check adjacent column
-                    if col > 0 {
-                        if Self::is_data_module(matrix, row, (col - 1) as usize, dimension) {
-                            bits.push(matrix.get((col - 1) as usize, row));
-                        }
+                    if col > 0 && Self::is_data_module(matrix, row, (col - 1) as usize, dimension) {
+                        bits.push(matrix.get((col - 1) as usize, row));
                     }
                 }
             }

@@ -50,21 +50,17 @@ impl PerspectiveTransform {
         }
 
         // Solve using Gaussian elimination
-        if let Some(solution) = solve_linear_system(&a, &b) {
-            Some(Self {
-                a11: solution[0],
-                a12: solution[1],
-                a13: solution[2],
-                a21: solution[3],
-                a22: solution[4],
-                a23: solution[5],
-                a31: solution[6],
-                a32: solution[7],
-                a33: 1.0,
-            })
-        } else {
-            None
-        }
+        solve_linear_system(&a, &b).map(|solution| Self {
+            a11: solution[0],
+            a12: solution[1],
+            a13: solution[2],
+            a21: solution[3],
+            a22: solution[4],
+            a23: solution[5],
+            a31: solution[6],
+            a32: solution[7],
+            a33: 1.0,
+        })
     }
 
     /// Transform a point using this perspective matrix
@@ -85,6 +81,7 @@ impl PerspectiveTransform {
 }
 
 /// Solve 8x8 linear system using Gaussian elimination
+#[allow(clippy::needless_range_loop)]
 fn solve_linear_system(a: &[[f32; 8]; 8], b: &[f32; 8]) -> Option<[f32; 8]> {
     let mut a = *a;
     let mut b = *b;

@@ -9,7 +9,7 @@ impl BchDecoder {
         Some(((data >> 3) & 0x03, data & 0x07))
     }
 
-    fn correct_format(mut codeword: u16) -> Option<u16> {
+    fn correct_format(codeword: u16) -> Option<u16> {
         if codeword == 0 {
             return None;
         }

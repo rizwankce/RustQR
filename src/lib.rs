@@ -4,15 +4,20 @@
 //! Designed for maximum speed and cross-platform compatibility.
 
 #![warn(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
 
+/// QR code decoding modules (error correction, format extraction, data modes)
 pub mod decoder;
+/// QR code detection modules (finder patterns, alignment, timing)
 pub mod detector;
+/// Core data structures (QRCode, BitMatrix, Point, etc.)
 pub mod models;
+/// Utility functions (grayscale, binarization, geometry)
 pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
-use decoder::decoder::QrDecoder;
+use decoder::qr_decoder::QrDecoder;
 use detector::finder::FinderDetector;
 use utils::binarization::otsu_binarize;
 use utils::grayscale::rgb_to_grayscale;

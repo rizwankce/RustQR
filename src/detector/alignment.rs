@@ -1,7 +1,3 @@
-/// Alignment pattern detection
-/// Alignment patterns appear in QR codes version 2 and above
-use crate::models::{BitMatrix, Point};
-
 /// Get alignment center positions for a QR version
 pub fn get_alignment_positions(version: u8) -> Vec<(usize, usize)> {
     if version < 2 {
@@ -20,11 +16,12 @@ pub fn get_alignment_positions(version: u8) -> Vec<(usize, usize)> {
     let mut positions = Vec::new();
     for &row in &centers {
         for &col in &centers {
-            // Skip finder pattern positions
-            if (row == 6 && col == 6)
-                || (row == 6 && col == *centers.last().unwrap_or(&6))
-                || (row == *centers.last().unwrap_or(&6) && col == 6)
-            {
+            // Skip finder pattern positions (top-left, top-right, bottom-left corners)
+            let last = *centers.last().unwrap_or(&6);
+            let is_top_left = row == 6 && col == 6;
+            let is_top_right = row == 6 && col == last;
+            let is_bottom_left = row == last && col == 6;
+            if is_top_left || is_top_right || is_bottom_left {
                 continue;
             }
             positions.push((row, col));

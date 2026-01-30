@@ -64,7 +64,7 @@ impl VersionInfo {
         // Top 6 bits are version number
         let version = (corrected >> 12) as u8;
 
-        if version >= 7 && version <= 40 {
+        if (7..=40).contains(&version) {
             Some(version)
         } else {
             None
@@ -83,7 +83,7 @@ impl VersionInfo {
         None
     }
 
-    fn correct_errors(mut codeword: u32) -> Option<u32> {
+    fn correct_errors(codeword: u32) -> Option<u32> {
         // BCH(18,6) can correct up to 3 errors
         if Self::check_version(codeword) {
             return Some(codeword);

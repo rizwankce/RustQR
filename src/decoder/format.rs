@@ -48,11 +48,7 @@ impl FormatInfo {
             bit_count += 1;
         }
 
-        if bit_count == 15 {
-            Some(bits)
-        } else {
-            None
-        }
+        if bit_count == 15 { Some(bits) } else { None }
     }
 
     /// Decode 15-bit format info
@@ -77,7 +73,7 @@ impl FormatInfo {
         })
     }
 
-    fn correct_errors(mut codeword: u16) -> Option<u16> {
+    fn correct_errors(codeword: u16) -> Option<u16> {
         // BCH(15,5) can correct up to 3 errors
         // For simplicity, try all single-bit corrections first
 
@@ -131,7 +127,7 @@ mod tests {
     #[test]
     fn test_format_extraction() {
         // Create a simple 21x21 matrix with some format bits
-        let mut matrix = BitMatrix::new(21, 21);
+        let matrix = BitMatrix::new(21, 21);
 
         // Set format info for EC level M (01), mask pattern 0 (000)
         // Format bits: 00101 (5 bits) + ECC (10 bits)
