@@ -8,6 +8,7 @@
 pub mod decoder;
 pub mod detector;
 pub mod models;
+pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 

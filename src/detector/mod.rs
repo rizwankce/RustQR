@@ -1,1 +1,4 @@
-// Detector module - QR code detection algorithms
+pub mod finder;
+pub mod alignment;
+pub mod timing;
+pub mod transform;
