@@ -7,7 +7,12 @@ edition = "2024"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+image = "0.24"
 
 [[bench]]
 name = "qr_detect"
+harness = false
+
+[[bench]]
+name = "real_qr_images"
 harness = false
