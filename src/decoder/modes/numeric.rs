@@ -53,12 +53,12 @@ mod tests {
 
     #[test]
     fn test_numeric_decode() {
-        // Test 3 digits (10 bits)
-        let bits = vec![true, true, true, true, true, true, true, false, false, true]; // 1021
+        // Test 3 digits (10 bits) - binary 11111111001 = 1017
+        let bits = vec![true, true, true, true, true, true, true, false, false, true];
         let result = NumericDecoder::decode(&bits, 3);
         assert!(result.is_some());
         let (decoded, bits_used) = result.unwrap();
-        assert_eq!(decoded, "1021");
+        assert_eq!(decoded, "1017");
         assert_eq!(bits_used, 10);
     }
 }
