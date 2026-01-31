@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rust_qr::utils::memory_pool::BufferPool;
 use rust_qr::{detect, detect_with_pool};
 

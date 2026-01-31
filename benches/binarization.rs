@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rust_qr::utils::binarization::{adaptive_binarize, otsu_binarize, threshold_binarize};
 
 fn bench_otsu_binarize_small(c: &mut Criterion) {

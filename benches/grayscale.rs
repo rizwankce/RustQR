@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rust_qr::utils::grayscale::{rgb_to_grayscale, rgba_to_grayscale};
 
 fn bench_rgb_to_grayscale_small(c: &mut Criterion) {

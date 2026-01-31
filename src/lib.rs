@@ -106,6 +106,7 @@ pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<Q
 /// use rust_qr::utils::memory_pool::BufferPool;
 ///
 /// let mut pool = BufferPool::new();
+/// let image = vec![0u8; 640 * 480 * 3]; // RGB image buffer
 /// let codes = rust_qr::detect_with_pool(&image, 640, 480, &mut pool);
 /// ```
 pub fn detect_with_pool(
