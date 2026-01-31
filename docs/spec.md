@@ -1,8 +1,8 @@
-# ScanRust Specification
+# RustQR Specification
 
 ## Project Overview
 
-**Name:** scanrust  
+**Name:** RustQR  
 **Language:** Rust  
 **Purpose:** World's fastest QR code scanning library, cross-platform, zero third-party dependencies
 
@@ -57,7 +57,7 @@ All versions (1-40) with all models:
 ### Core Modules
 
 ```
-scanrust/
+RustQR/
 ├── src/
 │   ├── lib.rs              # Public API
 │   ├── detector/           # QR code detection
@@ -150,7 +150,7 @@ scanrust/
 
 ### Goal: Become the Fastest QR Scanner
 
-We will benchmark scanrust against the best libraries in the industry, following methodologies from:
+We will benchmark RustQR against the best libraries in the industry, following methodologies from:
 - [Dynamsoft QR Code Benchmark](https://www.dynamsoft.com/codepool/qr-code-reading-benchmark-and-comparison.html)
 - [BoofCV Performance Tests](https://boofcv.org/index.php?title=Performance:QrCode)
 - [barcode-reading-benchmark repo](https://github.com/tony-xlh/barcode-reading-benchmark)
