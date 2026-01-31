@@ -48,11 +48,7 @@ impl FormatInfo {
             bit_count += 1;
         }
 
-        if bit_count == 15 {
-            Some(bits)
-        } else {
-            None
-        }
+        if bit_count == 15 { Some(bits) } else { None }
     }
 
     /// Decode 15-bit format info
