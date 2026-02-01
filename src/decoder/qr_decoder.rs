@@ -19,12 +19,21 @@ impl QrDecoder {
     ) -> Option<QRCode> {
         // Estimate module size from finder patterns
         let module_size = Self::estimate_module_size(top_left, top_right, bottom_left)?;
+        #[cfg(debug_assertions)]
+        eprintln!("    DECODE: module_size={:.2}", module_size);
 
         // Calculate the bottom-right corner
         let bottom_right = Self::calculate_bottom_right(top_left, top_right, bottom_left)?;
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "    DECODE: bottom_right=({:.1}, {:.1})",
+            bottom_right.x, bottom_right.y
+        );
 
         // Determine QR code dimension (version)
         let dimension = Self::estimate_dimension(top_left, top_right, &bottom_right, module_size)?;
+        #[cfg(debug_assertions)]
+        eprintln!("    DECODE: dimension={}", dimension);
 
         // Extract the QR code region with perspective correction
         let qr_matrix = Self::extract_qr_region(
@@ -35,9 +44,26 @@ impl QrDecoder {
             &bottom_right,
             dimension,
         )?;
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "    DECODE: extracted {}x{} matrix",
+            qr_matrix.width(),
+            qr_matrix.height()
+        );
 
         // Read format info
-        let format_info = FormatInfo::extract(&qr_matrix)?;
+        let format_info = match FormatInfo::extract(&qr_matrix) {
+            Some(fi) => {
+                #[cfg(debug_assertions)]
+                eprintln!("    DECODE: format info OK");
+                fi
+            }
+            None => {
+                #[cfg(debug_assertions)]
+                eprintln!("    DECODE: format info extraction FAILED");
+                return None;
+            }
+        };
 
         // Read version info (for v7+)
         let version = if dimension >= 45 {

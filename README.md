@@ -104,33 +104,6 @@ We welcome contributions! Areas we need help with:
 
 See [docs/optimize.md](docs/optimize.md) for optimization opportunities.
 
-## Roadmap
-
-### Phase 1: Foundation (Complete)
-- Reed-Solomon error correction
-- BCH decoder
-- Data structures
-
-### Phase 2: Detection (Complete)
-- Grayscale conversion
-- Binarization
-- Finder pattern detection
-
-### Phase 3: Decoding (Complete)
-- Format info extraction
-- Version detection
-- Data modes
-
-### Phase 4: Optimization (In Progress)
-- SIMD operations
-- Parallel processing
-- Integral images
-
-### Phase 5: Platform Support (Planned)
-- WASM target
-- FFI bindings
-- Mobile support
-
 ## Benchmarks
 
 Reading rate comparison across different QR code image categories (based on [Dynamsoft benchmark](https://www.dynamsoft.com/codepool/qr-code-reading-benchmark-and-comparison.html) using the BoofCV dataset with 536 images containing 1232 QR codes):
