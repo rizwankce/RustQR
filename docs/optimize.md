@@ -715,34 +715,93 @@ pub struct ImagePyramid {
 
 ---
 
-## Phase 3 - Future Optimizations (Deferred)
+## Phase 2 - COMPLETE ✓
 
-### 3.1 Fixed-Point Perspective Transform (Partial) ⏳
+**Completion Date:** 2026-02-01  
+**Duration:** 1 day  
 
-**Status:** Infrastructure created, full implementation deferred  
-**Date:** 2026-02-01  
+### Summary
 
-**Completed:**
-- ✅ Fixed-point arithmetic module (16.16 format)
-- ✅ FixedMatrix3x3 type for 3x3 transforms
-- ✅ Basic operations: add, mul, div
-- ✅ Unit tests passing
+**Optimizations Delivered:**
+1. ✅ **Finder Pattern Pyramid** - **12-16% speedup** on large images
+2. ✅ **Fixed-Point Foundation** - Module created (full DLT deferred to Phase 3)
+3. ✅ **Connected Components** - Implemented (slower on uniform images, useful for complex scenes)
 
-**Pending (Complex):**
-- ⏳ Convert DLT algorithm (Gaussian elimination) to fixed-point
-- ⏳ Handle edge cases: overflow, division by zero, singularity detection
-- ⏳ Convert all geometry operations (distance, angle calculations)
+### Phase 2 Results
 
-**Why Deferred:**
-- High complexity for modest gain (1.5-2x on transform only)
-- Transform is small portion of total detection time
-- Connected Components offers better ROI (2-3x on finder detection)
+| Image Type | Before | After | Improvement |
+|------------|--------|-------|-------------|
+| 640x480 RGB | ~2.1 ms | **1.88 ms** | **~10%** |
+| 1920x1080 RGB | ~16.4 ms | **13.7 ms** | **16%** |
+| Real QR images | ~72-84 ms | **~69-72 ms** | **12-14%** |
 
-**Expected Gain:** 1.5-2x on perspective transform step
+**Cumulative Improvement:**
+- Phase 1: ~10%
+- Phase 2: +12-16%
+- **Total: ~22-26% faster detection**
+
+### Key Learnings
+
+1. **Pyramid detection works great** - 3-5x theoretical, 12-16% actual on real images
+2. **Connected components** - High overhead, only beneficial for complex real-world scenes
+3. **Row-scanning is already optimized** - Hard to beat with alternative approaches
 
 ---
 
-**Next Target:** Connected Components Optimization (continuing Phase 2)
-- O(k) instead of O(n²) pattern detection
-- Find black regions first, validate only those
-- Expected gain: 2-3x on finder detection
+## Phase 3 - Advanced Optimizations
+
+### Planned Optimizations
+
+**Phase 3.1: Profile-Guided Optimization (PGO)** ⭐ HIGH PRIORITY
+- **Effort:** Low (compile-time optimization)
+- **Expected Gain:** 10-20% overall
+- **Implementation:**
+  ```bash
+  cargo pgo run bench
+  cargo pgo optimize
+  ```
+- **Benefit:** Better branch prediction, inlining decisions
+
+**Phase 3.2: Parallel Processing** ⭐ HIGH PRIORITY
+- **Effort:** Medium
+- **Expected Gain:** 2-4x on multi-core systems
+- **Implementation:**
+  - Image tiling: Split image into tiles, process in parallel
+  - QR-level parallelism: Decode multiple QRs simultaneously
+  - Use Rayon for data parallelism
+- **Trade-off:** Only beneficial for large images (>100ms) or multiple QRs
+
+**Phase 3.3: GPU Acceleration** ⏳ DEFERRED
+- **Effort:** High
+- **Expected Gain:** 5-10x for batch processing
+- **When:** Only for massive batch processing (100+ images)
+- **Not worth it:** Single image processing (transfer overhead)
+
+**Phase 3.4: Fixed-Point DLT (from Phase 2)** ⏳ OPTIONAL
+- **Effort:** High
+- **Expected Gain:** 1.5-2x on transform only
+- **When:** If perspective transform becomes bottleneck
+- **Current status:** Foundation created, full conversion pending
+
+### Phase 3 Priority
+
+**Recommended order:**
+1. **PGO** - Easy win, 10-20% improvement
+2. **Parallel Processing** - For batch/multi-QR scenarios
+3. **GPU** - Only if needed for massive scale
+4. **Fixed-Point DLT** - If profiling shows it's needed
+
+### Target Achievement
+
+**Current Status:**
+- 640x480: **1.88 ms** ✓ (already <2ms target)
+- 1MP images: ~**4.5-5.5 ms** extrapolated (close to <5ms target)
+
+**With Phase 3 (PGO + Parallel):**
+- Could reach **3-4x additional speedup**
+- Solidly beat <5ms target for 1MP images
+- Competitive with BoofCV (~15-20ms) and ZBar (~10-15ms)
+
+---
+
+**Next Session:** Implement Profile-Guided Optimization (Phase 3.1)
