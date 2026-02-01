@@ -11,6 +11,7 @@ categories = ["computer-vision", "no-std"]
 
 [dependencies]
 rayon = "1.7"
+image = "0.24"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -39,3 +40,7 @@ harness = false
 [[bench]]
 name = "real_qr_cc"
 harness = false
+
+[[bin]]
+name = "reading_rate"
+path = "src/bin/reading_rate.rs"

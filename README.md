@@ -131,6 +131,32 @@ See [docs/optimize.md](docs/optimize.md) for optimization opportunities.
 - FFI bindings
 - Mobile support
 
+## Benchmarks
+
+Reading rate comparison across different QR code image categories (based on [Dynamsoft benchmark](https://www.dynamsoft.com/codepool/qr-code-reading-benchmark-and-comparison.html) using the BoofCV dataset with 536 images containing 1232 QR codes):
+
+| Category | Dynamsoft | BoofCV | ZBar | RustQR |
+|----------|-----------|--------|------|--------|
+| blurred | 66.15% | 38.46% | 35.38% | N/A |
+| brightness | 81.18% | 78.82% | 50.59% | N/A |
+| bright_spots | 43.30% | 27.84% | 19.59% | N/A |
+| close | 95.00% | 100.00% | 12.50% | N/A |
+| curved | 70.00% | 56.67% | 35.00% | N/A |
+| damaged | 51.16% | 16.28% | 25.58% | N/A |
+| glare | 84.91% | 32.08% | 35.85% | N/A |
+| high_version | 97.30% | 40.54% | 27.03% | N/A |
+| lots | 100.00% | 99.76% | 18.10% | N/A |
+| monitor | 100.00% | 82.35% | 0.00% | **0.00%** |
+| nominal | 93.59% | 89.74% | 66.67% | N/A |
+| noncompliant | 92.31% | 3.85% | 50.00% | N/A |
+| pathological | 95.65% | 43.48% | 65.22% | N/A |
+| perspective | 62.86% | 80.00% | 42.86% | N/A |
+| rotations | 99.25% | 96.24% | 48.87% | N/A |
+| shadows | 100.00% | 85.00% | 90.00% | N/A |
+| **total average** | **83.29%** | **60.69%** | **38.95%** | **Pending** |
+
+> **Note:** This is a work in progress. Only the `monitor` category has been tested so far. More categories will be added as testing continues. N/A indicates categories that have not yet been tested.
+
 ## License
 
 This project is dual-licensed under MIT and Apache 2.0. You may choose either license.
