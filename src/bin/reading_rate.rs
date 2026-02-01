@@ -64,25 +64,24 @@ fn main() {
     println!("RustQR QR Code Reading Rate Benchmark");
     println!("=====================================\n");
 
-    // Categories to test (based on BoofCV dataset)
+    // Categories to test (based on BoofCV/Dynamsoft dataset)
     let categories = vec![
+        ("blurred", "Blurred QR codes"),
+        ("bright_spots", "Bright spots/glare"),
+        ("brightness", "Various brightness levels"),
+        ("close", "Close-up QR codes"),
+        ("curved", "Curved surface QR codes"),
+        ("damaged", "Damaged QR codes"),
+        ("glare", "Glare/light reflections"),
+        ("high_version", "High capacity QR codes"),
+        ("lots", "Many QR codes in one image"),
         ("monitor", "Standard QR codes on monitor"),
-        // Add more categories as they become available:
-        // ("blurred", "Blurred QR codes"),
-        // ("brightness", "Various brightness levels"),
-        // ("bright_spots", "Bright spots/glare"),
-        // ("close", "Close-up QR codes"),
-        // ("curved", "Curved surface QR codes"),
-        // ("damaged", "Damaged QR codes"),
-        // ("glare", "Glare/light reflections"),
-        // ("high_version", "High capacity QR codes"),
-        // ("lots", "Many QR codes in one image"),
-        // ("nominal", "Standard/nominal conditions"),
-        // ("noncompliant", "Non-standard QR codes"),
-        // ("pathological", "Pathological cases"),
-        // ("perspective", "Perspective distortion"),
-        // ("rotations", "Rotated QR codes"),
-        // ("shadows", "Shadows on QR codes"),
+        ("nominal", "Standard/nominal conditions"),
+        ("noncompliant", "Non-standard QR codes"),
+        ("pathological", "Pathological cases"),
+        ("perspective", "Perspective distortion"),
+        ("rotations", "Rotated QR codes"),
+        ("shadows", "Shadows on QR codes"),
     ];
 
     let mut total_rate = 0.0;
@@ -90,7 +89,10 @@ fn main() {
 
     for (dir, description) in categories {
         println!("Testing: {} - {}", dir, description);
-        let rate = calculate_reading_rate(&format!("benches/images/{}", dir));
+        let rate = calculate_reading_rate(&format!(
+            "/Users/rizwan/Downloads/qrcodes 2/detection/{}",
+            dir
+        ));
         total_rate += rate;
         count += 1;
     }
