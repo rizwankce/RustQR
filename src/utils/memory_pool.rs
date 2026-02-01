@@ -34,15 +34,19 @@ impl BufferPool {
     /// Returns a mutable slice that can be used for grayscale conversion
     pub fn get_grayscale_buffer(&mut self, size: usize) -> &mut [u8] {
         if size > self.grayscale_capacity {
-            // Need to grow the buffer
-            self.grayscale_buffer
-                .reserve(size - self.grayscale_capacity);
-            self.grayscale_capacity = size;
+            // Need to grow the buffer - reserve additional space
+            let additional = size - self.grayscale_buffer.len();
+            self.grayscale_buffer.reserve(additional);
+            // Update capacity after reserve
+            self.grayscale_capacity = self.grayscale_buffer.capacity();
         }
 
         // Safety: We're ensuring the buffer has enough capacity
-        unsafe {
-            self.grayscale_buffer.set_len(size);
+        // Only set_len if size <= capacity (which we ensured above)
+        if size <= self.grayscale_buffer.capacity() {
+            unsafe {
+                self.grayscale_buffer.set_len(size);
+            }
         }
 
         &mut self.grayscale_buffer[..size]
