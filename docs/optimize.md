@@ -633,3 +633,116 @@ The path to "world's fastest" is clear:
 4. Profile-guided optimization (compiler magic)
 
 **With focused effort over 4 weeks, achieving <5ms for 1MP images is realistic.**
+
+---
+
+## Phase 2 Progress - Finder Pattern Pyramid ✓
+
+**Implementation Date:** 2026-02-01  
+**Status:** COMPLETE - 12-16% speedup on large images
+
+### Algorithm
+
+**Multi-Scale Detection Strategy:**
+1. **Create image pyramid** - Downscale by 2x and 4x using majority voting
+2. **Coarse detection** - Find patterns at lowest resolution (4x faster scanning)
+3. **Map to original** - Convert coarse coordinates to original scale
+4. **Refined search** - Scan only 10px window around candidates at full resolution
+5. **Validation** - Module size check (0.5x-2.0x ratio) to filter false positives
+
+**Activation Threshold:**
+- Images >= 1600px: Full pyramid (level0 + level1 + level2)
+- Images >= 400px: Single downscale (level0 + level1)
+- Images < 400px: Direct detection (no pyramid overhead)
+
+### Performance Results
+
+**Synthetic Benchmarks:**
+| Image Size | Before | After | Improvement |
+|------------|--------|-------|-------------|
+| 1920x1080 RGB | 16.4 ms | **13.7 ms** | **-16.4%** ✓ |
+| 640x480 RGB | 2.11 ms | **2.10 ms** | stable |
+| 100x100 RGB | 136 µs | **136 µs** | stable |
+
+**Real QR Images (BoofCV Dataset):**
+| Image | Before | After | Improvement |
+|-------|--------|-------|-------------|
+| image008.jpg (complex) | 84.3 ms | **72.7 ms** | **-13.8%** ✓ |
+| image009.jpg (complex) | 79.5 ms | **69.6 ms** | **-12.5%** ✓ |
+| image016.jpg | 12.08 ms | *testing* | - |
+| image017.jpg | 10.38 ms | *testing* | - |
+| image002.jpg (simple) | 8.27 ms | *testing* | - |
+
+### Implementation Details
+
+**ImagePyramid Module:**
+```rust
+pub struct ImagePyramid {
+    pub level0: BitMatrix,      // Original resolution
+    pub level1: Option<BitMatrix>, // 0.5x (50%)
+    pub level2: Option<BitMatrix>, // 0.25x (25%)
+}
+```
+
+**Downscaling Algorithm:**
+- Majority voting on 2x2 blocks
+- Black if 2+ pixels are black
+- Preserves finder pattern structure
+- O(n) single-pass algorithm
+
+**Key Optimizations:**
+- Only search 10px window around coarse candidates
+- Module size ratio validation (0.5x-2.0x)
+- Early exit if no coarse candidates found
+- Lazy pyramid creation (only for large images)
+
+### Phase 2 Status
+
+**Completed:** 1 of 2 Phase 2 optimizations
+1. ✅ **Finder Pattern Pyramid** - 12-16% speedup on large images
+2. 🔄 **Connected Components** - Next (2-3x speedup expected)
+
+**Deferred to Phase 3:**
+- ⏳ **Fixed-Point Perspective Transform** - Partially implemented (arithmetic module created)
+  - Complexity: High (requires full DLT algorithm conversion)
+  - Impact: 1.5-2x on transform only (smaller portion of pipeline)
+  - Status: Fixed and FixedMatrix3x3 types created, but DLT conversion pending
+
+**Cumulative Progress:**
+- Phase 1: ~10% speedup (SIMD + Early Termination + Memory Pools)
+- Phase 2 (so far): +12-16% speedup (Pyramid)
+- **Total improvement: ~22-26% faster detection**
+
+---
+
+## Phase 3 - Future Optimizations (Deferred)
+
+### 3.1 Fixed-Point Perspective Transform (Partial) ⏳
+
+**Status:** Infrastructure created, full implementation deferred  
+**Date:** 2026-02-01  
+
+**Completed:**
+- ✅ Fixed-point arithmetic module (16.16 format)
+- ✅ FixedMatrix3x3 type for 3x3 transforms
+- ✅ Basic operations: add, mul, div
+- ✅ Unit tests passing
+
+**Pending (Complex):**
+- ⏳ Convert DLT algorithm (Gaussian elimination) to fixed-point
+- ⏳ Handle edge cases: overflow, division by zero, singularity detection
+- ⏳ Convert all geometry operations (distance, angle calculations)
+
+**Why Deferred:**
+- High complexity for modest gain (1.5-2x on transform only)
+- Transform is small portion of total detection time
+- Connected Components offers better ROI (2-3x on finder detection)
+
+**Expected Gain:** 1.5-2x on perspective transform step
+
+---
+
+**Next Target:** Connected Components Optimization (continuing Phase 2)
+- O(k) instead of O(n²) pattern detection
+- Find black regions first, validate only those
+- Expected gain: 2-3x on finder detection
