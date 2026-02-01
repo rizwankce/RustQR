@@ -34,3 +34,7 @@ harness = false
 [[bench]]
 name = "memory_pool"
 harness = false
+
+[[bench]]
+name = "real_qr_cc"
+harness = false
