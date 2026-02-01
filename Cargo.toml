@@ -10,6 +10,7 @@ keywords = ["qr", "qrcode", "barcode", "scanning", "vision"]
 categories = ["computer-vision", "no-std"]
 
 [dependencies]
+rayon = "1.7"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

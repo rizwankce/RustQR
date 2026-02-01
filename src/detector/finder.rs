@@ -40,6 +40,41 @@ impl FinderDetector {
         Self::merge_candidates(candidates)
     }
 
+    /// Detect finder patterns using parallel processing
+    /// Processes rows in parallel for multi-core speedup
+    pub fn detect_parallel(matrix: &BitMatrix) -> Vec<FinderPattern> {
+        use rayon::prelude::*;
+
+        let width = matrix.width();
+        let height = matrix.height();
+
+        // Collect candidates from all rows in parallel
+        let all_candidates: Vec<Vec<FinderPattern>> = (0..height)
+            .into_par_iter()
+            .filter_map(|y| {
+                // Early termination: Skip rows with low variance
+                if !Self::has_significant_edges(matrix, y, width) {
+                    return None;
+                }
+
+                let row_candidates = Self::scan_row(matrix, y, width);
+                if row_candidates.is_empty() {
+                    None
+                } else {
+                    Some(row_candidates)
+                }
+            })
+            .collect();
+
+        // Flatten all candidates
+        let mut candidates = Vec::new();
+        for row_candidates in all_candidates {
+            candidates.extend(row_candidates);
+        }
+
+        Self::merge_candidates(candidates)
+    }
+
     /// Detect finder patterns using multi-scale pyramid approach
     /// For large images, this is 3-5x faster than single-scale detection
     pub fn detect_with_pyramid(matrix: &BitMatrix) -> Vec<FinderPattern> {

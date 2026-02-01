@@ -309,6 +309,53 @@ fn rgba_to_grayscale_scalar_unrolled(rgba: &[u8], gray: &mut [u8], pixel_count: 
     }
 }
 
+// ============== Parallel Processing with Rayon ==============
+
+use rayon::prelude::*;
+
+/// Convert RGB to grayscale using parallel processing
+/// Processes rows in parallel for multi-core speedup
+pub fn rgb_to_grayscale_parallel(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let pixel_count = width * height;
+    let mut gray = vec![0u8; pixel_count];
+
+    // Process rows in parallel
+    gray.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
+        let row_start = y * width * 3;
+        for x in 0..width {
+            let idx = row_start + x * 3;
+            let r = rgb[idx] as i32;
+            let g = rgb[idx + 1] as i32;
+            let b = rgb[idx + 2] as i32;
+            let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
+            row[x] = lum.min(255) as u8;
+        }
+    });
+
+    gray
+}
+
+/// Convert RGBA to grayscale using parallel processing
+pub fn rgba_to_grayscale_parallel(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let pixel_count = width * height;
+    let mut gray = vec![0u8; pixel_count];
+
+    // Process rows in parallel
+    gray.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
+        let row_start = y * width * 4;
+        for x in 0..width {
+            let idx = row_start + x * 4;
+            let r = rgba[idx] as i32;
+            let g = rgba[idx + 1] as i32;
+            let b = rgba[idx + 2] as i32;
+            let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
+            row[x] = lum.min(255) as u8;
+        }
+    });
+
+    gray
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
