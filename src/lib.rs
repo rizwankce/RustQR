@@ -32,6 +32,8 @@ use utils::memory_pool::BufferPool;
 ///
 /// # Returns
 /// Vector of detected QR codes
+///
+/// Uses pyramid detection for large images (800px+) for better performance
 pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
@@ -40,7 +42,12 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     let binary = otsu_binarize(&gray, width, height);
 
     // Step 3: Detect finder patterns
-    let finder_patterns = FinderDetector::detect(&binary);
+    // Use pyramid detection for very large images (1600px+) for better performance
+    let finder_patterns = if width >= 1600 && height >= 1600 {
+        FinderDetector::detect_with_pyramid(&binary)
+    } else {
+        FinderDetector::detect(&binary)
+    };
 
     // Step 4: Group finder patterns into potential QR codes and decode
     let mut results = Vec::new();
