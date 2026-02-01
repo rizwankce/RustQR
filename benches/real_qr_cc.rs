@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use rust_qr::detector::finder::FinderDetector;
 use rust_qr::utils::binarization::otsu_binarize;
 use rust_qr::utils::grayscale::rgb_to_grayscale;
