@@ -1,4 +1,5 @@
 /// Finder pattern detection using 1:1:3:1:1 ratio scanning with early termination optimizations
+use crate::detector::connected_components::find_black_regions;
 use crate::detector::pyramid::ImagePyramid;
 use crate::models::{BitMatrix, Point};
 
@@ -358,6 +359,52 @@ impl FinderDetector {
         }
 
         merged
+    }
+
+    /// Detect finder patterns using connected components approach
+    /// O(k) where k = number of black regions instead of O(n²)
+    pub fn detect_with_connected_components(matrix: &BitMatrix) -> Vec<FinderPattern> {
+        let width = matrix.width();
+        let height = matrix.height();
+        let mut candidates = Vec::new();
+
+        // Find all black regions
+        let regions = find_black_regions(matrix);
+
+        // For each region, check if it could be a finder pattern center
+        for (min_x, min_y, max_x, max_y) in regions {
+            let region_width = max_x - min_x + 1;
+            let region_height = max_y - min_y + 1;
+
+            // Skip very small or very large regions
+            if region_width < 5 || region_height < 5 {
+                continue;
+            }
+            if region_width > width / 4 || region_height > height / 4 {
+                continue;
+            }
+
+            // Check aspect ratio (finder patterns are roughly square)
+            let aspect_ratio = region_width as f32 / region_height as f32;
+            if aspect_ratio < 0.5 || aspect_ratio > 2.0 {
+                continue;
+            }
+
+            // Scan this region for finder patterns
+            let search_min_x = min_x.saturating_sub(5);
+            let search_max_x = (max_x + 5).min(width - 1);
+
+            for y in min_y..=max_y {
+                if !Self::has_significant_edges(matrix, y, width) {
+                    continue;
+                }
+                let row_candidates =
+                    Self::scan_row_in_range(matrix, y, width, search_min_x, search_max_x);
+                candidates.extend(row_candidates);
+            }
+        }
+
+        Self::merge_candidates(candidates)
     }
 }
 
