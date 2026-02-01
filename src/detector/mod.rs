@@ -6,9 +6,12 @@
 //! - Timing pattern reading (to establish the grid)
 //! - Perspective transform (to correct for skew/rotation)
 //! - Image pyramid for multi-scale detection (Phase 2 optimization)
+//! - Connected components for O(k) pattern detection (Phase 2 optimization)
 
 /// Alignment pattern detection for QR versions 2+
 pub mod alignment;
+/// Connected components labeling for efficient pattern detection
+pub mod connected_components;
 /// Finder pattern detection using 1:1:3:1:1 ratio scanning
 pub mod finder;
 /// Image pyramid for multi-scale finder detection
