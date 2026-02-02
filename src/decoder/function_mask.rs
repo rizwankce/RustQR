@@ -126,7 +126,7 @@ pub fn alignment_pattern_positions(version: u8) -> Vec<usize> {
     } else {
         let numerator = version as usize * 4 + num_align as usize * 2 + 1;
         let denom = (num_align as usize * 2).saturating_sub(2);
-        ((numerator + denom - 1) / denom) * 2
+        (numerator / denom) * 2
     };
 
     let mut positions = vec![0usize; num_align as usize];
@@ -137,4 +137,23 @@ pub fn alignment_pattern_positions(version: u8) -> Vec<usize> {
         pos -= step as isize;
     }
     positions
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_alignment_positions() {
+        // Version 1: no alignment patterns
+        assert_eq!(alignment_pattern_positions(1), Vec::<usize>::new());
+        // Version 2: [6, 18]
+        assert_eq!(alignment_pattern_positions(2), vec![6, 18]);
+        // Version 7: [6, 22, 38] (spec)
+        assert_eq!(alignment_pattern_positions(7), vec![6, 22, 38]);
+        // Version 10: [6, 28, 50]
+        assert_eq!(alignment_pattern_positions(10), vec![6, 28, 50]);
+        // Version 14: [6, 26, 46, 66]
+        assert_eq!(alignment_pattern_positions(14), vec![6, 26, 46, 66]);
+    }
 }

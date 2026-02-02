@@ -518,6 +518,12 @@ impl Default for Detector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decoder::qr_decoder::QrDecoder;
+    use crate::utils::binarization::adaptive_binarize;
+    use crate::utils::geometry::PerspectiveTransform;
+    use crate::utils::grayscale::rgb_to_grayscale;
+    use std::fs;
+    use std::path::Path;
 
     #[test]
     fn test_detect_empty() {
@@ -530,7 +536,7 @@ mod tests {
     #[test]
     fn test_real_qr() {
         // Load a real QR code image and see how many finder patterns we detect
-        let img_path = "benches/images/monitor/image001.jpg";
+        let img_path = "benches/images/boofcv/monitor/image001.jpg";
         let img = image::open(img_path).expect("Failed to load image");
         let rgb_img = img.to_rgb8();
         let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
@@ -569,5 +575,171 @@ mod tests {
             "Expected to find at least 3 finder patterns, found {}",
             patterns.len()
         );
+    }
+
+    fn order_points(points: &[Point; 4]) -> (Point, Point, Point, Point) {
+        let mut tl = points[0];
+        let mut tr = points[0];
+        let mut br = points[0];
+        let mut bl = points[0];
+
+        let mut min_sum = f32::INFINITY;
+        let mut max_sum = f32::NEG_INFINITY;
+        let mut min_diff = f32::INFINITY;
+        let mut max_diff = f32::NEG_INFINITY;
+
+        for &p in points.iter() {
+            let sum = p.x + p.y;
+            let diff = p.x - p.y;
+            if sum < min_sum {
+                min_sum = sum;
+                tl = p;
+            }
+            if sum > max_sum {
+                max_sum = sum;
+                br = p;
+            }
+            if diff < min_diff {
+                min_diff = diff;
+                bl = p;
+            }
+            if diff > max_diff {
+                max_diff = diff;
+                tr = p;
+            }
+        }
+
+        (tl, tr, br, bl)
+    }
+
+    fn load_points(txt_path: &str) -> Option<[Point; 4]> {
+        let content = fs::read_to_string(txt_path).ok()?;
+        let mut vals = Vec::new();
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            for tok in line.split_whitespace() {
+                if let Ok(v) = tok.parse::<f32>() {
+                    vals.push(v);
+                }
+            }
+        }
+        if vals.len() < 8 {
+            return None;
+        }
+        Some([
+            Point::new(vals[0], vals[1]),
+            Point::new(vals[2], vals[3]),
+            Point::new(vals[4], vals[5]),
+            Point::new(vals[6], vals[7]),
+        ])
+    }
+
+    #[test]
+    fn test_real_qr_decode_image001() {
+        let image_path = "benches/images/boofcv/monitor/image001.jpg";
+        let points_path = "benches/images/boofcv/monitor/image001.txt";
+
+        assert!(
+            Path::new(image_path).exists(),
+            "Missing image: {}",
+            image_path
+        );
+        assert!(
+            Path::new(points_path).exists(),
+            "Missing points: {}",
+            points_path
+        );
+
+        let points = load_points(points_path).expect("Failed to parse points");
+        let (tl, tr, br, bl) = order_points(&points);
+
+        let img = image::open(image_path).expect("Failed to open image");
+        let rgb = img.to_rgb8();
+        let (width, height) = rgb.dimensions();
+        let raw = rgb.into_raw();
+        let gray = rgb_to_grayscale(&raw, width as usize, height as usize);
+        let binary = adaptive_binarize(&gray, width as usize, height as usize, 31);
+
+        let offsets = [0.0f32, 0.5, 1.0];
+        let expected = "4376471154038";
+        // 13-digit numeric fits in Version 1-M; try a small range to keep the test fast
+        for version in 1..=3u8 {
+            let dimension = 17 + 4 * version as usize;
+            for &offset in &offsets {
+                let src_min = offset;
+                let src_max = dimension as f32 - offset;
+                let src = [
+                    Point::new(src_min, src_min),
+                    Point::new(src_max, src_min),
+                    Point::new(src_max, src_max),
+                    Point::new(src_min, src_max),
+                ];
+                let dst = [tl, tr, br, bl];
+                let transform = match PerspectiveTransform::from_points(&src, &dst) {
+                    Some(t) => t,
+                    None => continue,
+                };
+
+                let tl_f = transform.transform(&Point::new(3.5, 3.5));
+                let tr_f = transform.transform(&Point::new(dimension as f32 - 3.5, 3.5));
+                let bl_f = transform.transform(&Point::new(3.5, dimension as f32 - 3.5));
+                let module_size = tl_f.distance(&tr_f) / (dimension as f32 - 7.0);
+
+                if let Some(qr) = QrDecoder::decode_with_gray(
+                    &binary,
+                    &gray,
+                    width as usize,
+                    height as usize,
+                    &tl_f,
+                    &tr_f,
+                    &bl_f,
+                    module_size,
+                ) {
+                    if qr.content == expected {
+                        return;
+                    }
+                }
+            }
+        }
+
+        panic!("Expected payload not decoded: {}", expected);
+    }
+
+    #[test]
+    fn test_smoke_real_images() {
+        // Quick smoke test: run full detect() pipeline on a few nominal images
+        // Just check that we find at least one QR code (no content check)
+        let base = "benches/images/boofcv/nominal";
+        if !Path::new(base).exists() {
+            eprintln!("Skipping: benchmark images not found");
+            return;
+        }
+
+        let images = ["image001.jpg", "image002.jpg", "image003.jpg"];
+        let mut decoded = 0;
+        for name in &images {
+            let path = format!("{}/{}", base, name);
+            if !Path::new(&path).exists() {
+                continue;
+            }
+            let img = image::open(&path).expect("Failed to open image");
+            let rgb = img.to_rgb8();
+            let (w, h) = rgb.dimensions();
+            let raw = rgb.into_raw();
+            let results = detect(&raw, w as usize, h as usize);
+            if !results.is_empty() {
+                decoded += 1;
+                eprintln!("  {}: decoded {} QR code(s), first content={:?}",
+                    name, results.len(), &results[0].content);
+            } else {
+                eprintln!("  {}: no QR codes found", name);
+            }
+        }
+        eprintln!("Decoded {}/{} images", decoded, images.len());
+        // At least one should decode if our fixes are working
+        assert!(decoded > 0, "Expected to decode at least 1 real image");
     }
 }
