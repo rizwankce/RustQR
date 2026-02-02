@@ -1,0 +1,13 @@
+# Relative paths from benches/images/boofcv
+monitor/image001.jpg
+monitor/image008.jpg
+rotations/image040.jpg
+perspective/image023.jpg
+shadows/image008.jpg
+nominal/image040.jpg
+noncompliant/image008.jpg
+high_version/image023.jpg
+glare/image040.jpg
+bright_spots/image023.jpg
+blurred/image040.jpg
+pathological/image023.png
