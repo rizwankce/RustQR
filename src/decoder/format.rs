@@ -11,157 +11,103 @@ pub struct FormatInfo {
 impl FormatInfo {
     /// Extract format info from QR code matrix
     pub fn extract(matrix: &BitMatrix) -> Option<Self> {
-        eprintln!(
-            "[DEBUG] FormatInfo::extract called, matrix size: {}x{}",
-            matrix.width(),
-            matrix.height()
-        );
+        let bits_a = Self::read_format_bits_top_left(matrix)?;
+        let bits_b = Self::read_format_bits_other(matrix)?;
 
-        // Try reading from top-left area (around finder pattern)
-        let format_bits = match Self::read_format_bits_top_left(matrix) {
-            Some(bits) => {
-                eprintln!(
-                    "[DEBUG] read_format_bits_top_left returned: 0b{:015b} (0x{:04X})",
-                    bits, bits
-                );
-                bits
-            }
-            None => {
-                eprintln!("[DEBUG] read_format_bits_top_left returned None");
-                return None;
-            }
-        };
+        let bits_a_rev = Self::reverse_15(bits_a);
+        let bits_b_rev = Self::reverse_15(bits_b);
 
-        Self::decode(format_bits)
+        // Try both copies (and reversed); take the one with the smallest Hamming distance.
+        let (best_a, dist_a) = Self::decode_with_distance(bits_a)
+            .or_else(|| Self::decode_with_distance(bits_a_rev))?;
+        let (best_b, dist_b) = Self::decode_with_distance(bits_b)
+            .or_else(|| Self::decode_with_distance(bits_b_rev))?;
+
+        if dist_a <= dist_b {
+            Some(best_a)
+        } else {
+            Some(best_b)
+        }
     }
 
     fn read_format_bits_top_left(matrix: &BitMatrix) -> Option<u16> {
-        let version_size = matrix.width();
-        eprintln!(
-            "[DEBUG] read_format_bits_top_left: matrix size = {}",
-            version_size
-        );
-        if version_size < 21 {
-            eprintln!("[DEBUG] Matrix too small, need at least 21x21");
+        let size = matrix.width();
+        if size < 21 {
             return None;
         }
-
-        // Format info bits are located at:
-        // - Row 8, columns 0-7 (excluding timing pattern at column 6)
-        // - Column 8, rows 0-7 (excluding timing pattern at row 6)
         let mut bits: u16 = 0;
-        let mut bit_count = 0;
 
-        // Read row 8, columns 0-7 (skip column 6 which is timing)
-        eprintln!("[DEBUG] Reading row 8, columns 0-7 (skip col 6):");
-        for col in 0..8 {
-            if col == 6 {
-                continue; // Skip timing pattern
-            }
-            let is_black = matrix.get(col, 8);
-            bits = (bits << 1) | (is_black as u16);
-            bit_count += 1;
-            eprintln!(
-                "  col {}: {} (bit {})",
-                col,
-                if is_black { 1 } else { 0 },
-                bit_count
-            );
+        // Order matches QR spec (and Nayuki) bit placement.
+        for row in 0..6 {
+            bits = (bits << 1) | (matrix.get(8, row) as u16);
+        }
+        bits = (bits << 1) | (matrix.get(8, 7) as u16);
+        bits = (bits << 1) | (matrix.get(8, 8) as u16);
+        bits = (bits << 1) | (matrix.get(7, 8) as u16);
+        for col in (0..6).rev() {
+            bits = (bits << 1) | (matrix.get(col, 8) as u16);
         }
 
-        // Read column 8, rows 0-7 (skip row 6 which is timing, read bottom-up)
-        eprintln!("[DEBUG] Reading column 8, rows 7-0 (skip row 6, bottom-up):");
-        for row in (0..8).rev() {
-            if row == 6 {
-                continue; // Skip timing pattern
-            }
-            let is_black = matrix.get(8, row);
-            bits = (bits << 1) | (is_black as u16);
-            bit_count += 1;
-            eprintln!(
-                "  row {}: {} (bit {})",
-                row,
-                if is_black { 1 } else { 0 },
-                bit_count
-            );
-        }
-
-        eprintln!("[DEBUG] Total bits read: {}, expected: 15", bit_count);
-        eprintln!("[DEBUG] Final bits value: 0b{:015b} (0x{:04X})", bits, bits);
-
-        if bit_count == 15 {
-            Some(bits)
-        } else {
-            None
-        }
+        Some(bits)
     }
 
-    /// Decode 15-bit format info
-    fn decode(format_bits: u16) -> Option<Self> {
-        // Try to correct errors using BCH
-        let corrected = Self::correct_errors(format_bits)?;
+    fn read_format_bits_other(matrix: &BitMatrix) -> Option<u16> {
+        let size = matrix.width();
+        if size < 21 {
+            return None;
+        }
+        let mut bits: u16 = 0;
 
-        // Extract data bits (top 5 bits)
-        let data_bits = (corrected >> 10) & 0x1F;
+        for j in 0..8 {
+            bits = (bits << 1) | (matrix.get(size - 1 - j, 8) as u16);
+        }
+        for row in (size - 7)..=size - 1 {
+            bits = (bits << 1) | (matrix.get(8, row) as u16);
+        }
 
-        // EC level is bits 4-3
-        let ec_bits = ((data_bits >> 3) & 0x03) as u8;
-        let ec_level = ECLevel::from_bits(ec_bits)?;
-
-        // Mask pattern is bits 2-0
-        let mask_bits = (data_bits & 0x07) as u8;
-        let mask_pattern = MaskPattern::from_bits(mask_bits)?;
-
-        Some(Self {
-            ec_level,
-            mask_pattern,
-        })
+        Some(bits)
     }
 
-    fn correct_errors(codeword: u16) -> Option<u16> {
-        // BCH(15,5) can correct up to 3 errors
-        // For simplicity, try all single-bit corrections first
-
-        if Self::check_format(codeword) {
-            return Some(codeword);
-        }
-
-        // Try flipping each bit
-        for i in 0..15 {
-            let test = codeword ^ (1 << i);
-            if Self::check_format(test) {
-                return Some(test);
-            }
-        }
-
-        // Try double-bit errors
-        for i in 0..15 {
-            for j in (i + 1)..15 {
-                let test = codeword ^ (1 << i) ^ (1 << j);
-                if Self::check_format(test) {
-                    return Some(test);
+    fn decode_with_distance(format_bits: u16) -> Option<(Self, u32)> {
+        let mut best: Option<(Self, u32)> = None;
+        for ecl_bits in 0..4u16 {
+            for mask in 0..8u16 {
+                let data = (ecl_bits << 3) | mask;
+                let mut rem = data;
+                for _ in 0..10 {
+                    rem = (rem << 1) ^ (((rem >> 9) & 1) * 0x537);
+                }
+                let candidate = ((data << 10) | rem) ^ 0x5412;
+                let dist = (candidate ^ format_bits).count_ones();
+                if dist <= 3 {
+                    let ec_level = match ecl_bits {
+                        0 => ECLevel::M,
+                        1 => ECLevel::L,
+                        2 => ECLevel::H,
+                        3 => ECLevel::Q,
+                        _ => continue,
+                    };
+                    let mask_pattern = MaskPattern::from_bits(mask as u8)?;
+                    let info = Self {
+                        ec_level,
+                        mask_pattern,
+                    };
+                    match best {
+                        Some((_, best_dist)) if dist >= best_dist => {}
+                        _ => best = Some((info, dist)),
+                    }
                 }
             }
         }
-
-        None
+        best
     }
 
-    fn check_format(codeword: u16) -> bool {
-        // BCH(15,5) generator polynomial: x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
-        // Simplified check - XOR with generator polynomial
-        const GENERATOR: u16 = 0x537;
-        let mut remainder = codeword;
-
-        for _ in 0..5 {
-            if remainder & 0x4000 != 0 {
-                remainder ^= GENERATOR << 4;
-            }
-            remainder <<= 1;
+    fn reverse_15(bits: u16) -> u16 {
+        let mut out = 0u16;
+        for i in 0..15 {
+            out = (out << 1) | ((bits >> i) & 1);
         }
-
-        let syndrome = (remainder >> 5) & 0x3FF;
-        syndrome == 0
+        out
     }
 }
 
@@ -183,10 +129,4 @@ mod tests {
         let _ = FormatInfo::extract(&matrix);
     }
 
-    #[test]
-    fn test_format_check() {
-        // Test that a valid format passes the check
-        // Format with all zeros should have syndrome 0
-        assert!(FormatInfo::check_format(0));
-    }
 }

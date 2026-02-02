@@ -298,6 +298,7 @@ impl FinderDetector {
     }
 
     /// Quick ratio validation - rough check before expensive floating-point math
+    /// Returns true if the pattern passes basic ratio checks
     fn quick_ratio_check(lengths: &[usize]) -> bool {
         let b1 = lengths[0];
         let w1 = lengths[1];
@@ -312,28 +313,39 @@ impl FinderDetector {
         // 2. Whites should be roughly equal to outer blacks
         // 3. Minimum size check (avoid detecting tiny noise)
 
-        // Increased minimum: 7 modules at ~6 pixels each = 42 pixels
-        // This filters out text/shadow noise while keeping real QR patterns
-        if total < 42 {
+        // Minimum size: allow very small QR codes
+        // 7 modules at ~1 pixel each = 7 pixels absolute minimum
+        if total < 7 {
+            #[cfg(debug_assertions)]
+            eprintln!("FINDER: Rejected - total {} < 7", total);
             return false;
         }
 
         // Maximum size check: prevent detecting huge patterns that aren't QRs
-        // Version 40 QR at 100px per module would be ~700px total
-        if total > 800 {
+        // Large QR codes in high-res images can have finder patterns up to ~1500px
+        if total > 2000 {
+            #[cfg(debug_assertions)]
+            eprintln!("FINDER: Rejected - total {} > 2000", total);
             return false;
         }
 
-        // Individual run checks: each run should be at least 4 pixels
-        // Real QR modules are never just 1-2 pixels wide
-        if b1 < 4 || w1 < 4 || b2 < 4 || w2 < 4 || b3 < 4 {
+        // Individual run checks: each run should be at least 2 pixels
+        // Small QR codes in low-res images can have 2-3px modules
+        if b1 < 2 || w1 < 2 || b2 < 2 || w2 < 2 || b3 < 2 {
             return false;
         }
 
         // Check if center black is significantly larger than outer blacks
-        // b2 should be roughly 2-4x larger than b1 and b3
+        // b2 should be roughly 1.5-5x larger than b1 and b3 (relaxed for small patterns)
         let b2_min = b1.min(b3);
-        if b2 < b2_min * 2 || b2 > b2_min * 5 {
+        if b2 < b2_min * 3 / 2 || b2 > b2_min * 5 {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "FINDER: Rejected - b2 {} not 1.5-5x of min {} (ratio={:.1})",
+                b2,
+                b2_min,
+                b2 as f32 / b2_min as f32
+            );
             return false;
         }
 
@@ -342,7 +354,16 @@ impl FinderDetector {
         let w1_ok = w1 >= outer_avg / 2 && w1 <= outer_avg * 2;
         let w2_ok = w2 >= outer_avg / 2 && w2 <= outer_avg * 2;
 
-        w1_ok && w2_ok
+        if !w1_ok || !w2_ok {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "FINDER: Rejected - whites not balanced: w1={}, w2={}, outer_avg={}",
+                w1, w2, outer_avg
+            );
+            return false;
+        }
+
+        true
     }
 
     fn check_pattern(lengths: &[usize], end_x: usize, y: usize) -> Option<FinderPattern> {
@@ -382,7 +403,9 @@ impl FinderDetector {
 
     fn merge_candidates(candidates: Vec<FinderPattern>) -> Vec<FinderPattern> {
         let mut merged: Vec<FinderPattern> = Vec::new();
-        const MERGE_DIST: f32 = 5.0;
+        // Increased from 5.0 to 50.0 to properly merge duplicate detections
+        // of the same finder pattern at slightly different positions
+        const MERGE_DIST: f32 = 50.0;
 
         for candidate in candidates {
             let mut found = false;
@@ -504,16 +527,16 @@ mod tests {
         let valid = vec![6, 6, 18, 6, 6];
         assert!(FinderDetector::quick_ratio_check(&valid));
 
-        // Too small (individual runs < 4)
-        let small = vec![2, 2, 6, 2, 2];
-        assert!(!FinderDetector::quick_ratio_check(&small));
+        // Bad ratios - center too small relative to outer
+        let bad_small_center = vec![2, 2, 2, 2, 2];
+        assert!(!FinderDetector::quick_ratio_check(&bad_small_center));
 
-        // Too small total (< 42)
-        let small_total = vec![4, 4, 12, 4, 4]; // total = 28
-        assert!(!FinderDetector::quick_ratio_check(&small_total));
+        // Whites unbalanced
+        let bad_whites = vec![4, 1, 12, 8, 4];
+        assert!(!FinderDetector::quick_ratio_check(&bad_whites));
 
-        // Bad ratios - center not 3x
-        let bad_center = vec![6, 6, 10, 6, 6];
+        // Bad ratios - center not larger than outer
+        let bad_center = vec![6, 6, 6, 6, 6];
         assert!(!FinderDetector::quick_ratio_check(&bad_center));
     }
 }

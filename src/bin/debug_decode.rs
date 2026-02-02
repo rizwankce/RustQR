@@ -1,6 +1,5 @@
 // Debug test to trace through QR decoder step by step
 use rust_qr::decoder::format::FormatInfo;
-use rust_qr::decoder::qr_decoder::QrDecoder;
 use rust_qr::detector::finder::{FinderDetector, FinderPattern};
 use rust_qr::models::{BitMatrix, Point};
 use rust_qr::utils::geometry::PerspectiveTransform;
@@ -25,10 +24,15 @@ fn main() {
     println!("Image: {}x{} ({} pixels)", width, height, width * height);
 
     // Convert and binarize
+    use rust_qr::utils::binarization::adaptive_binarize;
     use rust_qr::utils::binarization::otsu_binarize;
     use rust_qr::utils::grayscale::rgb_to_grayscale;
     let gray = rgb_to_grayscale(&raw_pixels, width as usize, height as usize);
-    let binary = otsu_binarize(&gray, width as usize, height as usize);
+    let binary = if width >= 800 || height >= 800 {
+        adaptive_binarize(&gray, width as usize, height as usize, 31)
+    } else {
+        otsu_binarize(&gray, width as usize, height as usize)
+    };
 
     // Find patterns
     let patterns = FinderDetector::detect(&binary);
@@ -42,113 +46,87 @@ fn main() {
         );
     }
 
-    if patterns.len() >= 3 {
-        // Try first 3 patterns manually
-        let tl = &patterns[0].center;
-        let tr = &patterns[1].center;
-        let bl = &patterns[2].center;
+    // If we have hand-labeled corner points, try a direct format decode from those corners
+    let points_path = Path::new("benches/images/monitor/image001.txt");
+    if points_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(points_path) {
+            let mut vals = Vec::new();
+            for line in content.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                for tok in line.split_whitespace() {
+                    if let Ok(v) = tok.parse::<f32>() {
+                        vals.push(v);
+                    }
+                }
+            }
+            if vals.len() >= 8 {
+                let mut pts = vec![
+                    Point::new(vals[0], vals[1]),
+                    Point::new(vals[2], vals[3]),
+                    Point::new(vals[4], vals[5]),
+                    Point::new(vals[6], vals[7]),
+                ];
+                pts.sort_by(|a, b| (a.x + a.y).partial_cmp(&(b.x + b.y)).unwrap());
+                let top_left = pts[0];
+                let bottom_right = pts[3];
+                let others = vec![pts[1], pts[2]];
+                let top_right = if others[0].x > others[1].x { others[0] } else { others[1] };
+                let bottom_left = if others[0].x > others[1].x { others[1] } else { others[0] };
 
-        println!("\n--- Testing with first 3 patterns ---");
-        println!(
-            "TL: ({:.1}, {:.1}), TR: ({:.1}, {:.1}), BL: ({:.1}, {:.1})",
-            tl.x, tl.y, tr.x, tr.y, bl.x, bl.y
-        );
+                println!("\n--- Testing with hand-labeled corners ---");
+                println!(
+                    "TL=({:.1},{:.1}) TR=({:.1},{:.1}) BL=({:.1},{:.1}) BR=({:.1},{:.1})",
+                    top_left.x,
+                    top_left.y,
+                    top_right.x,
+                    top_right.y,
+                    bottom_left.x,
+                    bottom_left.y,
+                    bottom_right.x,
+                    bottom_right.y
+                );
 
-        // Step 1: Estimate module size
-        let d12 = tl.distance(tr);
-        let d13 = tl.distance(bl);
-        let avg_dist = (d12 + d13) / 2.0;
-        let module_size = avg_dist / 7.0;
-        println!(
-            "Distances: d12={:.1}, d13={:.1}, avg={:.1}",
-            d12, d13, avg_dist
-        );
-        println!("Module size: {:.2}", module_size);
+                for version in 1..=40u8 {
+                    let dimension = 17 + 4 * version as usize;
+                    let src = [
+                        Point::new(0.0, 0.0),
+                        Point::new(dimension as f32 - 1.0, 0.0),
+                        Point::new(dimension as f32 - 1.0, dimension as f32 - 1.0),
+                        Point::new(0.0, dimension as f32 - 1.0),
+                    ];
+                    let dst = [top_left, top_right, bottom_right, bottom_left];
+                    let transform = match PerspectiveTransform::from_points(&src, &dst) {
+                        Some(t) => t,
+                        None => continue,
+                    };
 
-        // Step 2: Calculate bottom-right
-        let br_x = tr.x + bl.x - tl.x;
-        let br_y = tr.y + bl.y - tl.y;
-        println!("Calculated BR: ({:.1}, {:.1})", br_x, br_y);
-
-        // Step 3: Estimate dimension
-        let width_pixels = tl.distance(tr);
-        let width_modules = (width_pixels / module_size).round() as usize;
-        let dimension = width_modules + 7;
-        println!(
-            "Width in pixels: {:.1}, modules: {}, dimension: {}",
-            width_pixels, width_modules, dimension
-        );
-
-        if dimension < 21 {
-            println!("ERROR: dimension {} is too small (min 21)", dimension);
-        } else {
-            // Step 4: Try perspective transform
-            let src = [
-                Point::new(3.5, 3.5),
-                Point::new(dimension as f32 - 3.5, 3.5),
-                Point::new(3.5, dimension as f32 - 3.5),
-                Point::new(dimension as f32 - 3.5, dimension as f32 - 3.5),
-            ];
-            let dst = [*tl, *tr, *bl, Point::new(br_x, br_y)];
-
-            match PerspectiveTransform::from_points(&dst, &src) {
-                Some(transform) => {
-                    println!("Perspective transform: OK");
-
-                    // Step 5: Extract and try format info
                     let mut qr_matrix = BitMatrix::new(dimension, dimension);
                     for y in 0..dimension {
                         for x in 0..dimension {
-                            let module_center = Point::new(x as f32 + 0.5, y as f32 + 0.5);
-                            let img_point = transform.transform(&module_center);
-                            let img_x = img_point.x as usize;
-                            let img_y = img_point.y as usize;
-                            if img_x < binary.width() && img_y < binary.height() {
-                                qr_matrix.set(x, y, binary.get(img_x, img_y));
+                            let p = Point::new(x as f32, y as f32);
+                            let img_point = transform.transform(&p);
+                            let img_x = img_point.x.floor() as isize;
+                            let img_y = img_point.y.floor() as isize;
+                            if img_x >= 0
+                                && img_y >= 0
+                                && (img_x as usize) < binary.width()
+                                && (img_y as usize) < binary.height()
+                            {
+                                qr_matrix.set(x, y, binary.get(img_x as usize, img_y as usize));
                             }
                         }
                     }
 
-                    println!("Extracted {}x{} matrix", dimension, dimension);
-
-                    // Try format extraction
-                    match FormatInfo::extract(&qr_matrix) {
-                        Some(format) => {
-                            println!(
-                                "Format extracted: EC={:?}, Mask={:?}",
-                                format.ec_level, format.mask_pattern
-                            );
-                        }
-                        None => {
-                            println!("ERROR: Format extraction failed!");
-
-                            // Debug: show what bits were read
-                            if dimension >= 21 {
-                                print!("Row 8, cols 0-7 (skip 6): ");
-                                for col in 0..8 {
-                                    if col == 6 {
-                                        print!("X ");
-                                        continue;
-                                    }
-                                    print!("{} ", if qr_matrix.get(col, 8) { "B" } else { "W" });
-                                }
-                                println!();
-
-                                print!("Col 8, rows 0-7 (skip 6, bottom-up): ");
-                                for row in (0..8).rev() {
-                                    if row == 6 {
-                                        print!("X ");
-                                        continue;
-                                    }
-                                    print!("{} ", if qr_matrix.get(8, row) { "B" } else { "W" });
-                                }
-                                println!();
-                            }
-                        }
+                    if let Some(info) = FormatInfo::extract(&qr_matrix) {
+                        println!(
+                            "Version {} format: EC={:?} Mask={:?}",
+                            version, info.ec_level, info.mask_pattern
+                        );
+                        break;
                     }
-                }
-                None => {
-                    println!("ERROR: Perspective transform failed!");
                 }
             }
         }

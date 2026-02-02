@@ -8,8 +8,8 @@ fn main() {
 
     // Test with a real QR image from the benchmark dataset
     let test_images = vec![
-        "/Users/rizwan/Downloads/qrcodes 2/detection/monitor/image001.jpg",
-        "/Users/rizwan/Downloads/qrcodes 2/detection/nominal/image001.jpg",
+        "benches/images/monitor/image001.jpg",
+        "benches/images/monitor/image002.jpg",
     ];
 
     for image_path in test_images {
@@ -48,14 +48,12 @@ fn main() {
                     let patterns = rust_qr::detector::finder::FinderDetector::detect(&binary);
 
                     println!("    Found {} finder patterns", patterns.len());
-                    if patterns.len() >= 3 {
-                        println!("    First 3 patterns:");
-                        for (i, p) in patterns.iter().take(3).enumerate() {
-                            println!(
-                                "      {}: center=({:.1}, {:.1}), size={:.1}",
-                                i, p.center.x, p.center.y, p.module_size
-                            );
-                        }
+                    println!("    All patterns:");
+                    for (i, p) in patterns.iter().enumerate() {
+                        println!(
+                            "      {}: center=({:.1}, {:.1}), size={:.1}",
+                            i, p.center.x, p.center.y, p.module_size
+                        );
                     }
                 } else {
                     println!("  ✓ Found {} QR code(s):", results.len());

@@ -5,7 +5,7 @@ fn main() {
     println!("Testing Improved QR Detector");
     println!("==============================\n");
 
-    let image_path = "/Users/rizwan/Downloads/qrcodes 2/detection/monitor/image001.jpg";
+    let image_path = "benches/images/monitor/image001.jpg";
 
     if !Path::new(image_path).exists() {
         println!("✗ Image not found: {}", image_path);

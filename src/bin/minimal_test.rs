@@ -36,7 +36,7 @@ fn main() {
 
     // Try to decode
     println!("\nAttempting to decode...");
-    match QrDecoder::decode(&matrix, &top_left, &top_right, &bottom_left) {
+    match QrDecoder::decode(&matrix, &top_left, &top_right, &bottom_left, 1.0) {
         Some(qr) => {
             println!("✓ SUCCESS! Decoded QR code: {:?}", qr);
         }

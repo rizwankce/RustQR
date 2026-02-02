@@ -89,10 +89,7 @@ fn main() {
 
     for (dir, description) in categories {
         println!("Testing: {} - {}", dir, description);
-        let rate = calculate_reading_rate(&format!(
-            "/Users/rizwan/Downloads/qrcodes 2/detection/{}",
-            dir
-        ));
+        let rate = calculate_reading_rate(&format!("benches/images/{}", dir));
         total_rate += rate;
         count += 1;
     }

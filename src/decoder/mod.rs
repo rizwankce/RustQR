@@ -12,12 +12,16 @@ pub mod bch;
 pub mod bitstream;
 /// Format information extraction (mask pattern, EC level)
 pub mod format;
+/// Function module mask builder (finder/timing/format/alignment/version)
+pub mod function_mask;
 /// Data mode decoders (numeric, alphanumeric, byte)
 pub mod modes;
 /// Main QR decoder that orchestrates the decoding pipeline
 pub mod qr_decoder;
 /// Reed-Solomon error correction
 pub mod reed_solomon;
+/// QR specification tables (ECC codewords/blocks)
+pub mod tables;
 /// QR code unmasking (removes mask patterns)
 pub mod unmask;
 /// Version information extraction (versions 7-40)
