@@ -94,63 +94,97 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     results
 }
 
-/// Group finder patterns that likely belong to the same QR code
-/// Patterns in the same group should have similar module sizes and form a valid triangle
+/// Improved finder pattern grouping that clusters by proximity first
 fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
     let mut groups: Vec<Vec<usize>> = Vec::new();
+    let mut used = vec![false; patterns.len()];
 
-    // Try all combinations of 3 patterns
+    // Group by similar module size first
+    let mut size_groups: Vec<Vec<usize>> = Vec::new();
+
     for i in 0..patterns.len() {
+        if used[i] {
+            continue;
+        }
+
+        let mut group = vec![i];
+        used[i] = true;
+
+        // Find all patterns with similar size
         for j in (i + 1)..patterns.len() {
-            for k in (j + 1)..patterns.len() {
-                let pi = &patterns[i];
-                let pj = &patterns[j];
-                let pk = &patterns[k];
+            if used[j] {
+                continue;
+            }
 
-                // Check module sizes are similar
-                let size_ratio_ij = pi.module_size / pj.module_size;
-                let size_ratio_ik = pi.module_size / pk.module_size;
-                let size_ratio_jk = pj.module_size / pk.module_size;
-
-                let sizes_ok = size_ratio_ij >= 0.7
-                    && size_ratio_ij <= 1.4
-                    && size_ratio_ik >= 0.7
-                    && size_ratio_ik <= 1.4
-                    && size_ratio_jk >= 0.7
-                    && size_ratio_jk <= 1.4;
-
-                if !sizes_ok {
-                    continue;
+            let size_ratio = patterns[i].module_size / patterns[j].module_size;
+            if size_ratio >= 0.85 && size_ratio <= 1.18 {
+                // Also check proximity - should be within 100px
+                let dist = patterns[i].center.distance(&patterns[j].center);
+                if dist < 100.0 {
+                    group.push(j);
+                    used[j] = true;
                 }
+            }
+        }
 
-                // Check distances form a reasonable triangle
-                let d_ij = pi.center.distance(&pj.center);
-                let d_ik = pi.center.distance(&pk.center);
-                let d_jk = pj.center.distance(&pk.center);
+        if group.len() >= 3 {
+            size_groups.push(group);
+        }
+    }
 
-                // All distances should be roughly similar (within 2:1 ratio)
-                let max_d = d_ij.max(d_ik).max(d_jk);
-                let min_d = d_ij.min(d_ik).min(d_jk);
+    // For each size group, try to find valid triangles
+    for group in size_groups {
+        // Reset used for this group
+        let mut group_used = vec![false; group.len()];
 
-                if max_d / min_d >= 2.0 {
-                    continue;
+        // Try all combinations of 3 within this group
+        for i in 0..group.len() {
+            for j in (i + 1)..group.len() {
+                for k in (j + 1)..group.len() {
+                    if group_used[i] || group_used[j] || group_used[k] {
+                        continue;
+                    }
+
+                    let idx_i = group[i];
+                    let idx_j = group[j];
+                    let idx_k = group[k];
+
+                    let pi = &patterns[idx_i];
+                    let pj = &patterns[idx_j];
+                    let pk = &patterns[idx_k];
+
+                    // Check distances form a valid triangle
+                    let d_ij = pi.center.distance(&pj.center);
+                    let d_ik = pi.center.distance(&pk.center);
+                    let d_jk = pj.center.distance(&pk.center);
+
+                    // All distances should be reasonable (not too small, not too large)
+                    let min_d = d_ij.min(d_ik).min(d_jk);
+                    let max_d = d_ij.max(d_ik).max(d_jk);
+
+                    // Minimum: at least 7 modules apart
+                    let avg_module = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
+                    if min_d < avg_module * 6.0 {
+                        continue;
+                    }
+
+                    // Maximum: no more than 500px
+                    if max_d > 500.0 {
+                        continue;
+                    }
+
+                    // Ratio check: all sides within 2.5:1 ratio
+                    if max_d / min_d >= 2.5 {
+                        continue;
+                    }
+
+                    // Valid group found
+                    groups.push(vec![idx_i, idx_j, idx_k]);
+                    group_used[i] = true;
+                    group_used[j] = true;
+                    group_used[k] = true;
+                    break; // Move to next group
                 }
-
-                // Minimum distance should be at least ~7 modules (finder pattern size)
-                let avg_module = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
-                if min_d < avg_module * 7.0 {
-                    continue;
-                }
-
-                // Maximum distance check: QR codes can't be arbitrarily large
-                // Version 40 QR code is 177x177 modules, at ~3px min module = ~531px max
-                // Add some margin: reject if max distance > 600 pixels
-                if max_d > 600.0 {
-                    continue;
-                }
-
-                // Valid group found
-                groups.push(vec![i, j, k]);
             }
         }
     }

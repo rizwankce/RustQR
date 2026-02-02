@@ -312,8 +312,21 @@ impl FinderDetector {
         // 2. Whites should be roughly equal to outer blacks
         // 3. Minimum size check (avoid detecting tiny noise)
 
-        if total < 21 {
-            // Minimum 7 modules at 3 pixels each
+        // Increased minimum: 7 modules at ~6 pixels each = 42 pixels
+        // This filters out text/shadow noise while keeping real QR patterns
+        if total < 42 {
+            return false;
+        }
+
+        // Maximum size check: prevent detecting huge patterns that aren't QRs
+        // Version 40 QR at 100px per module would be ~700px total
+        if total > 800 {
+            return false;
+        }
+
+        // Individual run checks: each run should be at least 4 pixels
+        // Real QR modules are never just 1-2 pixels wide
+        if b1 < 4 || w1 < 4 || b2 < 4 || w2 < 4 || b3 < 4 {
             return false;
         }
 
@@ -449,12 +462,13 @@ mod tests {
 
     #[test]
     fn test_simple_line_pattern() {
-        let mut matrix = BitMatrix::new(25, 10);
-        let y = 5;
-        let unit = 3;
-        let x_start = 2;
+        let mut matrix = BitMatrix::new(50, 20);
+        let y = 10;
+        let unit = 6; // Minimum 6 pixels per run (new minimum is 4, using 6 for margin)
+        let x_start = 5;
 
-        // Black(3) - White(3) - Black(9) - White(3) - Black(3)
+        // Black(6) - White(6) - Black(18) - White(6) - Black(6)
+        // Total = 42 pixels, meets new minimum
         for x in x_start..x_start + unit {
             matrix.set(x, y, true);
         }
@@ -485,16 +499,21 @@ mod tests {
 
     #[test]
     fn test_quick_ratio_check() {
-        // Valid pattern: 3-3-9-3-3 (unit = 3)
-        let valid = vec![3, 3, 9, 3, 3];
+        // Valid pattern: 6-6-18-6-6 (unit = 6, total = 42)
+        // Meets new minimum: each run >= 4, total >= 42
+        let valid = vec![6, 6, 18, 6, 6];
         assert!(FinderDetector::quick_ratio_check(&valid));
 
-        // Too small
-        let small = vec![1, 1, 3, 1, 1];
+        // Too small (individual runs < 4)
+        let small = vec![2, 2, 6, 2, 2];
         assert!(!FinderDetector::quick_ratio_check(&small));
 
+        // Too small total (< 42)
+        let small_total = vec![4, 4, 12, 4, 4]; // total = 28
+        assert!(!FinderDetector::quick_ratio_check(&small_total));
+
         // Bad ratios - center not 3x
-        let bad_center = vec![3, 3, 5, 3, 3];
+        let bad_center = vec![6, 6, 10, 6, 6];
         assert!(!FinderDetector::quick_ratio_check(&bad_center));
     }
 }
