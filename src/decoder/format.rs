@@ -11,14 +11,38 @@ pub struct FormatInfo {
 impl FormatInfo {
     /// Extract format info from QR code matrix
     pub fn extract(matrix: &BitMatrix) -> Option<Self> {
+        eprintln!(
+            "[DEBUG] FormatInfo::extract called, matrix size: {}x{}",
+            matrix.width(),
+            matrix.height()
+        );
+
         // Try reading from top-left area (around finder pattern)
-        let format_bits = Self::read_format_bits_top_left(matrix)?;
+        let format_bits = match Self::read_format_bits_top_left(matrix) {
+            Some(bits) => {
+                eprintln!(
+                    "[DEBUG] read_format_bits_top_left returned: 0b{:015b} (0x{:04X})",
+                    bits, bits
+                );
+                bits
+            }
+            None => {
+                eprintln!("[DEBUG] read_format_bits_top_left returned None");
+                return None;
+            }
+        };
+
         Self::decode(format_bits)
     }
 
     fn read_format_bits_top_left(matrix: &BitMatrix) -> Option<u16> {
         let version_size = matrix.width();
+        eprintln!(
+            "[DEBUG] read_format_bits_top_left: matrix size = {}",
+            version_size
+        );
         if version_size < 21 {
+            eprintln!("[DEBUG] Matrix too small, need at least 21x21");
             return None;
         }
 
@@ -29,6 +53,7 @@ impl FormatInfo {
         let mut bit_count = 0;
 
         // Read row 8, columns 0-7 (skip column 6 which is timing)
+        eprintln!("[DEBUG] Reading row 8, columns 0-7 (skip col 6):");
         for col in 0..8 {
             if col == 6 {
                 continue; // Skip timing pattern
@@ -36,9 +61,16 @@ impl FormatInfo {
             let is_black = matrix.get(col, 8);
             bits = (bits << 1) | (is_black as u16);
             bit_count += 1;
+            eprintln!(
+                "  col {}: {} (bit {})",
+                col,
+                if is_black { 1 } else { 0 },
+                bit_count
+            );
         }
 
         // Read column 8, rows 0-7 (skip row 6 which is timing, read bottom-up)
+        eprintln!("[DEBUG] Reading column 8, rows 7-0 (skip row 6, bottom-up):");
         for row in (0..8).rev() {
             if row == 6 {
                 continue; // Skip timing pattern
@@ -46,9 +78,22 @@ impl FormatInfo {
             let is_black = matrix.get(8, row);
             bits = (bits << 1) | (is_black as u16);
             bit_count += 1;
+            eprintln!(
+                "  row {}: {} (bit {})",
+                row,
+                if is_black { 1 } else { 0 },
+                bit_count
+            );
         }
 
-        if bit_count == 15 { Some(bits) } else { None }
+        eprintln!("[DEBUG] Total bits read: {}, expected: 15", bit_count);
+        eprintln!("[DEBUG] Final bits value: 0b{:015b} (0x{:04X})", bits, bits);
+
+        if bit_count == 15 {
+            Some(bits)
+        } else {
+            None
+        }
     }
 
     /// Decode 15-bit format info
