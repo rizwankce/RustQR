@@ -69,6 +69,15 @@ impl BitMatrix {
         self.data.fill(0);
     }
 
+    /// Reset matrix to new dimensions, reusing allocation if possible
+    pub fn reset(&mut self, width: usize, height: usize) {
+        let bytes_needed = (width * height + 7) / 8;
+        self.width = width;
+        self.height = height;
+        self.data.resize(bytes_needed, 0);
+        self.data.fill(0);
+    }
+
     /// Get raw data as bytes
     pub fn as_bytes(&self) -> &[u8] {
         &self.data

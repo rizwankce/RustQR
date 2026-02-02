@@ -19,7 +19,7 @@ pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
 use decoder::qr_decoder::QrDecoder;
 use detector::finder::{FinderDetector, FinderPattern};
-use utils::binarization::{adaptive_binarize, otsu_binarize};
+use utils::binarization::{adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into};
 use utils::grayscale::{rgb_to_grayscale, rgb_to_grayscale_with_buffer};
 use utils::memory_pool::BufferPool;
 
@@ -413,25 +413,27 @@ pub fn detect_with_pool(
     height: usize,
     pool: &mut BufferPool,
 ) -> Vec<QRCode> {
-    let pixel_count = width * height;
+    // Get all buffers at once via split borrowing
+    let (gray_buffer, bin_adaptive, bin_otsu, integral) = pool.get_all_buffers(width, height);
 
     // Step 1: Convert to grayscale using pre-allocated buffer
-    let gray_buffer = pool.get_grayscale_buffer(pixel_count);
     rgb_to_grayscale_with_buffer(image, width, height, gray_buffer);
 
-    // Step 2: Binarize (creates new BitMatrix - could also be pooled)
-    let binary_adaptive = adaptive_binarize(gray_buffer, width, height, 31);
-    let binary_otsu = otsu_binarize(gray_buffer, width, height);
-    let binary = if width >= 800 || height >= 800 {
-        binary_adaptive.clone()
-    } else {
-        binary_otsu.clone()
-    };
+    // Step 2: Binarize into pooled BitMatrix buffers
+    adaptive_binarize_into(gray_buffer, width, height, 31, bin_adaptive, integral);
+    otsu_binarize_into(gray_buffer, width, height, bin_otsu);
 
     // Step 3: Detect finder patterns
     let mut finder_patterns = Vec::new();
-    finder_patterns.extend(FinderDetector::detect(&binary_adaptive));
-    finder_patterns.extend(FinderDetector::detect(&binary_otsu));
+    finder_patterns.extend(FinderDetector::detect(bin_adaptive));
+    finder_patterns.extend(FinderDetector::detect(bin_otsu));
+
+    // Select which binary image to use for decoding (no clone needed — just a reference)
+    let binary: &BitMatrix = if width >= 800 || height >= 800 {
+        bin_adaptive
+    } else {
+        bin_otsu
+    };
 
     // Step 4: Group and decode
     let mut results = Vec::new();
@@ -446,7 +448,7 @@ pub fn detect_with_pool(
                 &finder_patterns[group[2]],
             ) {
                 if let Some(qr) = QrDecoder::decode_with_gray(
-                    &binary,
+                    binary,
                     gray_buffer,
                     width,
                     height,

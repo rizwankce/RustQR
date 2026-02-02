@@ -3,18 +3,28 @@
 pub fn otsu_binarize(gray: &[u8], width: usize, height: usize) -> crate::models::BitMatrix {
     use crate::models::BitMatrix;
 
-    let threshold = calculate_otsu_threshold(gray);
     let mut binary = BitMatrix::new(width, height);
+    otsu_binarize_into(gray, width, height, &mut binary);
+    binary
+}
+
+/// Otsu binarization writing into an existing BitMatrix (avoids allocation)
+pub fn otsu_binarize_into(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    output: &mut crate::models::BitMatrix,
+) {
+    output.reset(width, height);
+    let threshold = calculate_otsu_threshold(gray);
 
     for y in 0..height {
         for x in 0..width {
             let idx = y * width + x;
             let is_black = gray[idx] < threshold;
-            binary.set(x, y, is_black);
+            output.set(x, y, is_black);
         }
     }
-
-    binary
 }
 
 /// Binarize using adaptive thresholding with integral images
@@ -27,10 +37,35 @@ pub fn adaptive_binarize(
 ) -> crate::models::BitMatrix {
     use crate::models::BitMatrix;
 
-    // Build integral image for O(1) box sum queries
-    let integral = build_integral_image(gray, width, height);
     let mut binary = BitMatrix::new(width, height);
+    let mut integral = build_integral_image(gray, width, height);
+    adaptive_binarize_core(gray, width, height, window_size, &mut binary, &mut integral);
+    binary
+}
 
+/// Adaptive binarization writing into existing buffers (avoids allocation)
+pub fn adaptive_binarize_into(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    window_size: usize,
+    output: &mut crate::models::BitMatrix,
+    integral: &mut Vec<u32>,
+) {
+    output.reset(width, height);
+    build_integral_image_into(gray, width, height, integral);
+    adaptive_binarize_core(gray, width, height, window_size, output, integral);
+}
+
+/// Core adaptive binarization logic shared by allocating and _into variants
+fn adaptive_binarize_core(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    window_size: usize,
+    binary: &mut crate::models::BitMatrix,
+    integral: &[u32],
+) {
     let half_window = window_size / 2;
 
     for y in 0..height {
@@ -44,7 +79,7 @@ pub fn adaptive_binarize(
             let y2 = (y + half_window).min(height - 1);
 
             let pixel_count = (x2 - x1 + 1) * (y2 - y1 + 1);
-            let local_sum = query_integral_sum(&integral, width, height, x1, y1, x2, y2);
+            let local_sum = query_integral_sum(integral, width, height, x1, y1, x2, y2);
             let local_mean = (local_sum / pixel_count as u32) as u8;
 
             // Use local mean as threshold
@@ -53,14 +88,21 @@ pub fn adaptive_binarize(
             binary.set(x, y, is_black);
         }
     }
-
-    binary
 }
 
 /// Build integral image for fast box sum queries
 /// integral[y][x] = sum of all pixels from (0,0) to (x,y)
 fn build_integral_image(gray: &[u8], width: usize, height: usize) -> Vec<u32> {
     let mut integral = vec![0u32; width * height];
+    build_integral_image_into(gray, width, height, &mut integral);
+    integral
+}
+
+/// Build integral image into an existing buffer (avoids allocation)
+fn build_integral_image_into(gray: &[u8], width: usize, height: usize, integral: &mut Vec<u32>) {
+    let len = width * height;
+    integral.resize(len, 0);
+    integral.fill(0);
 
     for y in 0..height {
         let mut row_sum = 0u32;
@@ -75,8 +117,6 @@ fn build_integral_image(gray: &[u8], width: usize, height: usize) -> Vec<u32> {
             }
         }
     }
-
-    integral
 }
 
 /// Query sum of rectangle from (x1,y1) to (x2,y2) using integral image
