@@ -522,15 +522,48 @@ impl QrDecoder {
     }
 
     pub(crate) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
-        let mut best: Option<(QRCode, i32)> = None;
+        let orientations = Self::prioritized_orientations(qr_matrix);
 
-        for oriented in Self::orientations(qr_matrix) {
-            let dimension = oriented.width();
+        // Early exit: if no orientation has valid finder patterns, the matrix
+        // is not a recognizable QR code — skip all decode attempts.
+        let has_any_finders = orientations.iter().any(|m| Self::has_finders_correct(m));
+        if !has_any_finders {
+            return None;
+        }
 
-            // Build candidate format/mask combos.
-            let mut candidates = Vec::new();
-            if let Some(info) = FormatInfo::extract(&oriented) {
-                candidates.push(info);
+        let traversal_opts = [
+            (true, false),
+            (true, true),
+            (false, false),
+            (false, true),
+        ];
+
+        // Pass 1: try only extracted format info (1 combo per orientation)
+        for oriented in &orientations {
+            if !Self::has_finders_correct(oriented) {
+                continue;
+            }
+            if let Some(format_info) = FormatInfo::extract(oriented) {
+                for &(start_upward, swap_columns) in &traversal_opts {
+                    if let Some(qr) = Self::try_decode_single(
+                        oriented,
+                        version_num,
+                        &format_info,
+                        start_upward,
+                        swap_columns,
+                        true,
+                        false,
+                    ) {
+                        return Some(qr);
+                    }
+                }
+            }
+        }
+
+        // Pass 2: extracted format failed — try all 32 EC/mask combos
+        for oriented in &orientations {
+            if !Self::has_finders_correct(oriented) {
+                continue;
             }
 
             let all_ec = [ECLevel::L, ECLevel::M, ECLevel::Q, ECLevel::H];
@@ -541,89 +574,25 @@ impl QrDecoder {
                             ec_level: ec,
                             mask_pattern,
                         };
-                        if !candidates
-                            .iter()
-                            .any(|c| c.ec_level == ec && c.mask_pattern == mask_pattern)
-                        {
-                            candidates.push(info);
-                        }
-                    }
-                }
-            }
-
-            let traversal_opts = [
-                (true, false),
-                (true, true),
-                (false, false),
-                (false, true),
-            ];
-
-            for format_info in candidates {
-                let func = FunctionMask::new(version_num);
-                let mut unmasked = oriented.clone();
-                unmask(&mut unmasked, &format_info.mask_pattern, &func);
-
-                for (start_upward, swap_columns) in traversal_opts {
-                    let bits = BitstreamExtractor::extract_with_options(
-                        &unmasked,
-                        dimension,
-                        &func,
-                        start_upward,
-                        swap_columns,
-                    );
-                    let mut bitstreams = vec![bits.clone()];
-                    let mut reversed = bits;
-                    reversed.reverse();
-                    bitstreams.push(reversed);
-
-                    for stream in bitstreams {
-                        for codewords in [
-                            Self::bits_to_codewords(&stream),
-                            Self::bits_to_codewords_lsb(&stream),
-                        ] {
-                        let data_codewords = match Self::deinterleave_and_correct(
-                            &codewords,
-                            version_num,
-                            format_info.ec_level,
-                        ) {
-                            Some(v) => v,
-                            None => continue,
-                        };
-
-                        if let Some((data, content)) =
-                            Self::decode_payload(&data_codewords, version_num)
-                        {
-                            if data.is_empty() {
-                                continue;
+                        for &(start_upward, swap_columns) in &traversal_opts {
+                            if let Some(qr) = Self::try_decode_single(
+                                oriented,
+                                version_num,
+                                &info,
+                                start_upward,
+                                swap_columns,
+                                true,
+                                false,
+                            ) {
+                                return Some(qr);
                             }
-                            let version = if dimension >= 45 {
-                                VersionInfo::extract(&oriented)
-                                    .map(Version::Model2)
-                                    .unwrap_or(Version::Model2(version_num))
-                            } else {
-                                Version::Model2(version_num)
-                            };
-
-                            let score = Self::score_content(&content).max(0);
-                            let qr = QRCode::new(
-                                data,
-                                content,
-                                version,
-                                format_info.ec_level,
-                                format_info.mask_pattern,
-                            );
-                        match &best {
-                            Some((_, best_score)) if *best_score >= score => {}
-                            _ => best = Some((qr, score)),
-                        }
                         }
                     }
                 }
             }
         }
-        }
 
-        best.map(|(qr, _)| qr)
+        None
     }
 
     fn score_content(content: &str) -> i32 {
@@ -748,6 +717,143 @@ impl QrDecoder {
             }
         }
         out
+    }
+
+    /// Check whether the matrix has finder patterns in the correct positions
+    /// for a properly oriented QR code: top-left (0,0), top-right (dim-7,0),
+    /// bottom-left (0,dim-7). Checks a small set of diagnostic cells at each
+    /// finder position (corners and center) to quickly determine orientation.
+    fn has_finders_correct(matrix: &BitMatrix) -> bool {
+        let dim = matrix.width();
+        if dim < 21 || matrix.height() < 21 {
+            return false;
+        }
+
+        // For each finder pattern we check:
+        //   - The center cell (3,3 offset from finder origin) → dark
+        //   - The 4 corners of the 7x7 finder → dark
+        //   - The separator cells just outside the finder → light
+        // This gives us a quick fingerprint with minimal reads.
+
+        // Diagnostic positions relative to a finder's top-left corner:
+        // (dx, dy, expected_dark)
+        let finder_checks: [(usize, usize, bool); 7] = [
+            (0, 0, true),   // top-left corner
+            (6, 0, true),   // top-right corner
+            (0, 6, true),   // bottom-left corner
+            (6, 6, true),   // bottom-right corner
+            (3, 3, true),   // center
+            (1, 1, false),  // inner white ring
+            (2, 2, true),   // inner black ring
+        ];
+
+        // Finder pattern origins: top-left, top-right, bottom-left
+        let origins = [
+            (0, 0),
+            (dim - 7, 0),
+            (0, dim - 7),
+        ];
+
+        let mut mismatches = 0;
+        for &(ox, oy) in &origins {
+            for &(dx, dy, expected) in &finder_checks {
+                let x = ox + dx;
+                let y = oy + dy;
+                if x >= dim || y >= matrix.height() {
+                    return false;
+                }
+                if matrix.get(x, y) != expected {
+                    mismatches += 1;
+                }
+            }
+        }
+
+        // Allow a small tolerance for noise (up to 3 out of 21 diagnostic cells)
+        mismatches <= 3
+    }
+
+    /// Return orientations with the most likely correct orientation first.
+    /// If `has_finders_correct` passes for a specific orientation, it is
+    /// placed at the front of the list. Otherwise all 8 are returned in
+    /// the default order.
+    fn prioritized_orientations(matrix: &BitMatrix) -> Vec<BitMatrix> {
+        let all = Self::orientations(matrix);
+        let mut prioritized = Vec::with_capacity(all.len());
+        let mut rest = Vec::new();
+
+        for m in all {
+            if Self::has_finders_correct(&m) {
+                prioritized.push(m);
+            } else {
+                rest.push(m);
+            }
+        }
+
+        prioritized.extend(rest);
+        prioritized
+    }
+
+    /// Attempt a single decode of an already-oriented matrix with specific
+    /// format info and traversal/bit ordering options.
+    fn try_decode_single(
+        oriented: &BitMatrix,
+        version_num: u8,
+        format_info: &FormatInfo,
+        start_upward: bool,
+        swap_columns: bool,
+        use_msb: bool,
+        reverse_stream: bool,
+    ) -> Option<QRCode> {
+        let dimension = oriented.width();
+        let func = FunctionMask::new(version_num);
+        let mut unmasked = oriented.clone();
+        unmask(&mut unmasked, &format_info.mask_pattern, &func);
+
+        let bits = BitstreamExtractor::extract_with_options(
+            &unmasked,
+            dimension,
+            &func,
+            start_upward,
+            swap_columns,
+        );
+
+        let bits = if reverse_stream {
+            let mut rev = bits;
+            rev.reverse();
+            rev
+        } else {
+            bits
+        };
+
+        let codewords = if use_msb {
+            Self::bits_to_codewords(&bits)
+        } else {
+            Self::bits_to_codewords_lsb(&bits)
+        };
+
+        let data_codewords =
+            Self::deinterleave_and_correct(&codewords, version_num, format_info.ec_level)?;
+
+        let (data, content) = Self::decode_payload(&data_codewords, version_num)?;
+        if data.is_empty() {
+            return None;
+        }
+
+        let version = if dimension >= 45 {
+            VersionInfo::extract(oriented)
+                .map(Version::Model2)
+                .unwrap_or(Version::Model2(version_num))
+        } else {
+            Version::Model2(version_num)
+        };
+
+        Some(QRCode::new(
+            data,
+            content,
+            version,
+            format_info.ec_level,
+            format_info.mask_pattern,
+        ))
     }
 
     fn bits_to_codewords(bits: &[bool]) -> Vec<u8> {
@@ -1069,5 +1175,52 @@ mod tests {
         assert!(result.is_some(), "Failed to decode golden QR matrix");
         let qr = result.unwrap();
         assert_eq!(qr.content, "4376471154038");
+    }
+
+    #[test]
+    fn test_has_finders_correct_golden_matrix() {
+        // The golden matrix is correctly oriented — has_finders_correct should return true
+        let grid: [[bool; 21]; 21] = [
+            [true, true, true, true, true, true, true, false, false, false, false, false, true, false, true, true, true, true, true, true, true],
+            [true, false, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, false, false, true],
+            [true, false, true, true, true, false, true, false, false, false, true, true, false, false, true, false, true, true, true, false, true],
+            [true, false, true, true, true, false, true, false, false, false, true, false, false, false, true, false, true, true, true, false, true],
+            [true, false, true, true, true, false, true, false, false, true, true, true, true, false, true, false, true, true, true, false, true],
+            [true, false, false, false, false, false, true, false, true, false, true, false, false, false, true, false, false, false, false, false, true],
+            [true, true, true, true, true, true, true, false, true, false, true, false, true, false, true, true, true, true, true, true, true],
+            [false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false],
+            [true, false, false, true, false, true, true, false, true, true, true, true, true, true, false, true, false, false, false, false, false],
+            [true, true, true, false, true, false, false, true, true, false, false, true, false, true, false, true, false, true, true, false, false],
+            [true, false, false, true, false, true, true, true, true, false, true, true, false, false, true, true, true, false, false, false, true],
+            [false, false, true, false, true, false, false, true, false, false, false, false, true, true, true, true, true, false, false, false, false],
+            [false, false, true, false, false, false, true, true, false, true, false, true, false, true, true, true, false, true, true, false, false],
+            [false, false, false, false, false, false, false, false, true, false, true, false, false, true, true, true, true, false, true, true, false],
+            [true, true, true, true, true, true, true, false, false, false, true, true, true, false, true, false, true, true, true, true, false],
+            [true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, true, false, false, false, false, true],
+            [true, false, true, true, true, false, true, false, false, true, true, false, true, true, true, false, false, true, false, true, true],
+            [true, false, true, true, true, false, true, false, true, false, true, false, false, true, true, true, true, false, false, true, true],
+            [true, false, true, true, true, false, true, false, false, true, true, true, false, true, true, true, false, true, false, false, true],
+            [true, false, false, false, false, false, true, false, false, true, true, true, true, false, false, true, true, false, false, true, false],
+            [true, true, true, true, true, true, true, false, true, true, true, false, false, true, false, true, true, true, false, false, false],
+        ];
+
+        let mut matrix = BitMatrix::new(21, 21);
+        for y in 0..21 {
+            for x in 0..21 {
+                matrix.set(x, y, grid[y][x]);
+            }
+        }
+
+        assert!(
+            QrDecoder::has_finders_correct(&matrix),
+            "has_finders_correct should return true for the golden matrix"
+        );
+
+        // A rotated version should NOT pass the check (finders in wrong positions)
+        let rotated = QrDecoder::rotate90(&matrix);
+        assert!(
+            !QrDecoder::has_finders_correct(&rotated),
+            "has_finders_correct should return false for a 90° rotated matrix"
+        );
     }
 }
