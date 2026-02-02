@@ -217,6 +217,7 @@ fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
         .collect();
 
     if large_indices.len() >= 3 {
+        #[cfg(debug_assertions)]
         eprintln!(
             "GROUP: Trying large-pattern cluster: {} patterns (max={:.1})",
             large_indices.len(),
@@ -243,6 +244,7 @@ fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
         .map(|(i, _)| i)
         .collect();
 
+    #[cfg(debug_assertions)]
     eprintln!(
         "GROUP: Starting with {} patterns, {} after size filtering (median={:.1})",
         patterns.len(),
@@ -255,6 +257,7 @@ fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
     }
 
     groups = build_groups(patterns, &valid_indices);
+    #[cfg(debug_assertions)]
     eprintln!("GROUP: Finished with {} groups", groups.len());
     groups
 }

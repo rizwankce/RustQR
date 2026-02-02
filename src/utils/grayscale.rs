@@ -94,11 +94,11 @@ unsafe fn rgb_to_grayscale_sse2(rgb: &[u8], gray: &mut [u8], pixel_count: usize)
     while i + 8 <= pixel_count {
         for j in 0..8 {
             let idx = (i + j) * 3;
-            let r = unsafe { *in_ptr.add(idx) } as i32;
-            let g = unsafe { *in_ptr.add(idx + 1) } as i32;
-            let b = unsafe { *in_ptr.add(idx + 2) } as i32;
+            let r = *in_ptr.add(idx) as i32;
+            let g = *in_ptr.add(idx + 1) as i32;
+            let b = *in_ptr.add(idx + 2) as i32;
             let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-            unsafe { *out_ptr.add(i + j) = lum.min(255) as u8 };
+            *out_ptr.add(i + j) = lum.min(255) as u8;
         }
         i += 8;
     }
@@ -106,11 +106,11 @@ unsafe fn rgb_to_grayscale_sse2(rgb: &[u8], gray: &mut [u8], pixel_count: usize)
     // Process remaining pixels
     for i in i..pixel_count {
         let idx = i * 3;
-        let r = unsafe { *in_ptr.add(idx) } as i32;
-        let g = unsafe { *in_ptr.add(idx + 1) } as i32;
-        let b = unsafe { *in_ptr.add(idx + 2) } as i32;
+        let r = *in_ptr.add(idx) as i32;
+        let g = *in_ptr.add(idx + 1) as i32;
+        let b = *in_ptr.add(idx + 2) as i32;
         let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-        unsafe { *out_ptr.add(i) = lum.min(255) as u8 };
+        *out_ptr.add(i) = lum.min(255) as u8;
     }
 }
 
@@ -125,11 +125,11 @@ unsafe fn rgba_to_grayscale_sse2(rgba: &[u8], gray: &mut [u8], pixel_count: usiz
     while i + 8 <= pixel_count {
         for j in 0..8 {
             let idx = (i + j) * 4;
-            let r = unsafe { *in_ptr.add(idx) } as i32;
-            let g = unsafe { *in_ptr.add(idx + 1) } as i32;
-            let b = unsafe { *in_ptr.add(idx + 2) } as i32;
+            let r = *in_ptr.add(idx) as i32;
+            let g = *in_ptr.add(idx + 1) as i32;
+            let b = *in_ptr.add(idx + 2) as i32;
             let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-            unsafe { *out_ptr.add(i + j) = lum.min(255) as u8 };
+            *out_ptr.add(i + j) = lum.min(255) as u8;
         }
         i += 8;
     }
@@ -137,11 +137,11 @@ unsafe fn rgba_to_grayscale_sse2(rgba: &[u8], gray: &mut [u8], pixel_count: usiz
     // Process remaining pixels
     for i in i..pixel_count {
         let idx = i * 4;
-        let r = unsafe { *in_ptr.add(idx) } as i32;
-        let g = unsafe { *in_ptr.add(idx + 1) } as i32;
-        let b = unsafe { *in_ptr.add(idx + 2) } as i32;
+        let r = *in_ptr.add(idx) as i32;
+        let g = *in_ptr.add(idx + 1) as i32;
+        let b = *in_ptr.add(idx + 2) as i32;
         let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-        unsafe { *out_ptr.add(i) = lum.min(255) as u8 };
+        *out_ptr.add(i) = lum.min(255) as u8;
     }
 }
 // ============== aarch64 NEON Implementation ==============
@@ -153,33 +153,44 @@ unsafe fn rgb_to_grayscale_neon(rgb: &[u8], gray: &mut [u8], pixel_count: usize)
     let in_ptr = rgb.as_ptr();
     let out_ptr = gray.as_mut_ptr();
 
-    // Process 16 pixels at a time using NEON
-    while i + 16 <= pixel_count {
-        // Load 48 bytes (16 RGB pixels) - each pixel is 3 bytes
-        // We need to deinterleave R, G, B channels from the RGBRGB... layout
+    // Process 8 pixels at a time (24 bytes RGB = 8 pixels)
+    // Use vld3_u8 to deinterleave R,G,B channels from 8 RGB pixels
+    while i + 8 <= pixel_count {
+        unsafe {
+            // vld3_u8 loads 24 bytes and deinterleaves into 3x8-byte registers
+            let rgb_channels = vld3_u8(in_ptr.add(i * 3));
+            let r = rgb_channels.0; // 8 R values
+            let g = rgb_channels.1; // 8 G values
+            let b = rgb_channels.2; // 8 B values
 
-        // For RGB, we process in chunks of 16 pixels = 48 bytes
-        // We'll use a simple approach: load and process 16 pixels at a time using scalar
-        // This is a fallback implementation that works correctly
-        for j in 0..16 {
-            let idx = (i + j) * 3;
-            let r = unsafe { *in_ptr.add(idx) } as i32;
-            let g = unsafe { *in_ptr.add(idx + 1) } as i32;
-            let b = unsafe { *in_ptr.add(idx + 2) } as i32;
-            let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-            unsafe { *out_ptr.add(i + j) = lum.min(255) as u8 };
+            // Widen to u16 for multiplication
+            let r16 = vmovl_u8(r);
+            let g16 = vmovl_u8(g);
+            let b16 = vmovl_u8(b);
+
+            // Y = (76*R + 150*G + 29*B) >> 8
+            let y16 = vshrq_n_u16::<8>(vaddq_u16(
+                vaddq_u16(vmulq_n_u16(r16, 76), vmulq_n_u16(g16, 150)),
+                vmulq_n_u16(b16, 29),
+            ));
+
+            // Narrow back to u8 and store
+            let y8 = vmovn_u16(y16);
+            vst1_u8(out_ptr.add(i), y8);
         }
-        i += 16;
+        i += 8;
     }
 
     // Process remaining pixels
     for i in i..pixel_count {
         let idx = i * 3;
-        let r = unsafe { *in_ptr.add(idx) } as i32;
-        let g = unsafe { *in_ptr.add(idx + 1) } as i32;
-        let b = unsafe { *in_ptr.add(idx + 2) } as i32;
-        let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-        unsafe { *out_ptr.add(i) = lum.min(255) as u8 };
+        unsafe {
+            let r = *in_ptr.add(idx) as i32;
+            let g = *in_ptr.add(idx + 1) as i32;
+            let b = *in_ptr.add(idx + 2) as i32;
+            let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
+            *out_ptr.add(i) = lum.min(255) as u8;
+        }
     }
 }
 
@@ -190,54 +201,44 @@ unsafe fn rgba_to_grayscale_neon(rgba: &[u8], gray: &mut [u8], pixel_count: usiz
     let in_ptr = rgba.as_ptr();
     let out_ptr = gray.as_mut_ptr();
 
-    while i + 16 <= pixel_count {
-        let rgba0 = vld1q_u8(in_ptr.add(i * 4));
-        let rgba1 = vld1q_u8(in_ptr.add(i * 4 + 16));
-        let rgba2 = vld1q_u8(in_ptr.add(i * 4 + 32));
-        let rgba3 = vld1q_u8(in_ptr.add(i * 4 + 48));
+    // Process 8 pixels at a time (32 bytes RGBA = 8 pixels)
+    // Use vld4_u8 to deinterleave R,G,B,A channels from 8 RGBA pixels
+    while i + 8 <= pixel_count {
+        unsafe {
+            // vld4_u8 loads 32 bytes and deinterleaves into 4x8-byte registers
+            let rgba_channels = vld4_u8(in_ptr.add(i * 4));
+            let r = rgba_channels.0; // 8 R values
+            let g = rgba_channels.1; // 8 G values
+            let b = rgba_channels.2; // 8 B values
 
-        let lut_r: [u8; 16] = [0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15];
-        let lut_g: [u8; 16] = [1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15, 0, 4, 8, 12];
-        let lut_b: [u8; 16] = [2, 6, 10, 14, 3, 7, 11, 15, 0, 4, 8, 12, 1, 5, 9, 13];
+            // Widen to u16 for multiplication
+            let r16 = vmovl_u8(r);
+            let g16 = vmovl_u8(g);
+            let b16 = vmovl_u8(b);
 
-        let tbl_r = vld1q_u8(lut_r.as_ptr());
-        let tbl_g = vld1q_u8(lut_g.as_ptr());
-        let tbl_b = vld1q_u8(lut_b.as_ptr());
+            // Y = (76*R + 150*G + 29*B) >> 8
+            let y16 = vshrq_n_u16::<8>(vaddq_u16(
+                vaddq_u16(vmulq_n_u16(r16, 76), vmulq_n_u16(g16, 150)),
+                vmulq_n_u16(b16, 29),
+            ));
 
-        let r_val = vqtbl1q_u8(rgba0, tbl_r);
-        let g_val = vqtbl1q_u8(rgba0, tbl_g);
-        let b_val = vqtbl1q_u8(rgba0, tbl_b);
-
-        let r_lo = vmovl_u8(vget_low_u8(r_val));
-        let r_hi = vmovl_u8(vget_high_u8(r_val));
-        let g_lo = vmovl_u8(vget_low_u8(g_val));
-        let g_hi = vmovl_u8(vget_high_u8(g_val));
-        let b_lo = vmovl_u8(vget_low_u8(b_val));
-        let b_hi = vmovl_u8(vget_high_u8(b_val));
-
-        let gray_lo = vshrq_n_u16::<8>(vaddq_u16(
-            vaddq_u16(vmulq_n_u16(r_lo, 76), vmulq_n_u16(g_lo, 150)),
-            vmulq_n_u16(b_lo, 29),
-        ));
-
-        let gray_hi = vshrq_n_u16::<8>(vaddq_u16(
-            vaddq_u16(vmulq_n_u16(r_hi, 76), vmulq_n_u16(g_hi, 150)),
-            vmulq_n_u16(b_hi, 29),
-        ));
-
-        let gray_val = vcombine_u8(vmovn_u16(gray_lo), vmovn_u16(gray_hi));
-        vst1q_u8(out_ptr.add(i), gray_val);
-
-        i += 16;
+            // Narrow back to u8 and store
+            let y8 = vmovn_u16(y16);
+            vst1_u8(out_ptr.add(i), y8);
+        }
+        i += 8;
     }
 
+    // Process remaining pixels
     for i in i..pixel_count {
         let idx = i * 4;
-        let r = unsafe { *in_ptr.add(idx) } as i32;
-        let g = *in_ptr.add(idx + 1) as i32;
-        let b = *in_ptr.add(idx + 2) as i32;
-        let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-        *out_ptr.add(i) = lum.min(255) as u8;
+        unsafe {
+            let r = *in_ptr.add(idx) as i32;
+            let g = *in_ptr.add(idx + 1) as i32;
+            let b = *in_ptr.add(idx + 2) as i32;
+            let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
+            *out_ptr.add(i) = lum.min(255) as u8;
+        }
     }
 }
 
@@ -253,7 +254,7 @@ fn rgb_to_grayscale_scalar_unrolled(rgb: &[u8], gray: &mut [u8], pixel_count: us
         for j in 0..8 {
             let idx = (i + j) * 3;
             unsafe {
-                let r = unsafe { *in_ptr.add(idx) } as i32;
+                let r = *in_ptr.add(idx) as i32;
                 let g = *in_ptr.add(idx + 1) as i32;
                 let b = *in_ptr.add(idx + 2) as i32;
                 let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
@@ -264,10 +265,10 @@ fn rgb_to_grayscale_scalar_unrolled(rgb: &[u8], gray: &mut [u8], pixel_count: us
     }
 
     // Process remaining pixels
-    unsafe {
-        for i in i..pixel_count {
-            let idx = i * 3;
-            let r = unsafe { *in_ptr.add(idx) } as i32;
+    for i in i..pixel_count {
+        let idx = i * 3;
+        unsafe {
+            let r = *in_ptr.add(idx) as i32;
             let g = *in_ptr.add(idx + 1) as i32;
             let b = *in_ptr.add(idx + 2) as i32;
             let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
@@ -286,7 +287,7 @@ fn rgba_to_grayscale_scalar_unrolled(rgba: &[u8], gray: &mut [u8], pixel_count: 
         for j in 0..8 {
             let idx = (i + j) * 4;
             unsafe {
-                let r = unsafe { *in_ptr.add(idx) } as i32;
+                let r = *in_ptr.add(idx) as i32;
                 let g = *in_ptr.add(idx + 1) as i32;
                 let b = *in_ptr.add(idx + 2) as i32;
                 let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
@@ -297,10 +298,10 @@ fn rgba_to_grayscale_scalar_unrolled(rgba: &[u8], gray: &mut [u8], pixel_count: 
     }
 
     // Process remaining pixels
-    unsafe {
-        for i in i..pixel_count {
-            let idx = i * 4;
-            let r = unsafe { *in_ptr.add(idx) } as i32;
+    for i in i..pixel_count {
+        let idx = i * 4;
+        unsafe {
+            let r = *in_ptr.add(idx) as i32;
             let g = *in_ptr.add(idx + 1) as i32;
             let b = *in_ptr.add(idx + 2) as i32;
             let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
