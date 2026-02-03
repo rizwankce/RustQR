@@ -524,13 +524,6 @@ impl QrDecoder {
     pub(crate) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
         let orientations = Self::prioritized_orientations(qr_matrix);
 
-        // Early exit: if no orientation has valid finder patterns, the matrix
-        // is not a recognizable QR code — skip all decode attempts.
-        let has_any_finders = orientations.iter().any(|m| Self::has_finders_correct(m));
-        if !has_any_finders {
-            return None;
-        }
-
         let traversal_opts = [
             (true, false),
             (true, true),
@@ -538,7 +531,7 @@ impl QrDecoder {
             (false, true),
         ];
 
-        // Pass 1: try only extracted format info (1 combo per orientation)
+        // Pass 1: try orientations with correct finders and extracted format info
         for oriented in &orientations {
             if !Self::has_finders_correct(oriented) {
                 continue;
@@ -560,7 +553,27 @@ impl QrDecoder {
             }
         }
 
-        // Pass 2: extracted format failed — try all 32 EC/mask combos
+        // Pass 2: try ALL orientations with extracted format info (no finder check)
+        // This handles cases where finder patterns are slightly corrupted but format info is readable
+        for oriented in &orientations {
+            if let Some(format_info) = FormatInfo::extract(oriented) {
+                for &(start_upward, swap_columns) in &traversal_opts {
+                    if let Some(qr) = Self::try_decode_single(
+                        oriented,
+                        version_num,
+                        &format_info,
+                        start_upward,
+                        swap_columns,
+                        true,
+                        false,
+                    ) {
+                        return Some(qr);
+                    }
+                }
+            }
+        }
+
+        // Pass 3: try all 32 EC/mask combos for orientations with correct finders
         for oriented in &orientations {
             if !Self::has_finders_correct(oriented) {
                 continue;
@@ -732,8 +745,8 @@ impl QrDecoder {
         // For each finder pattern we check:
         //   - The center cell (3,3 offset from finder origin) → dark
         //   - The 4 corners of the 7x7 finder → dark
-        //   - The separator cells just outside the finder → light
-        // This gives us a quick fingerprint with minimal reads.
+        //   - Some inner white ring cells → light
+        //   - Inner black ring cell → dark
 
         // Diagnostic positions relative to a finder's top-left corner:
         // (dx, dy, expected_dark)
@@ -768,8 +781,9 @@ impl QrDecoder {
             }
         }
 
-        // Allow a small tolerance for noise (up to 3 out of 21 diagnostic cells)
-        mismatches <= 3
+        // Allow more tolerance for noise (up to 5 out of 21 diagnostic cells)
+        // This handles edge sampling issues while still distinguishing orientation
+        mismatches <= 5
     }
 
     /// Return orientations with the most likely correct orientation first.

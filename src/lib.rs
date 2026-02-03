@@ -80,16 +80,31 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     for (group_idx, group) in groups.iter().enumerate() {
         if group.len() >= 3 {
             #[cfg(debug_assertions)]
-            eprintln!(
-                "DEBUG: Trying group {} with patterns {:?}",
-                group_idx, group
-            );
+            {
+                let p0 = &finder_patterns[group[0]];
+                let p1 = &finder_patterns[group[1]];
+                let p2 = &finder_patterns[group[2]];
+                eprintln!(
+                    "DEBUG: Trying group {} - ({:.1},{:.1}) ({:.1},{:.1}) ({:.1},{:.1}) sizes: {:.1},{:.1},{:.1}",
+                    group_idx,
+                    p0.center.x, p0.center.y,
+                    p1.center.x, p1.center.y,
+                    p2.center.x, p2.center.y,
+                    p0.module_size, p1.module_size, p2.module_size
+                );
+            }
 
             if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
                 &finder_patterns[group[0]],
                 &finder_patterns[group[1]],
                 &finder_patterns[group[2]],
             ) {
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "DEBUG: Ordered - TL=({:.1},{:.1}) TR=({:.1},{:.1}) BL=({:.1},{:.1}) module={:.2}",
+                    tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, module_size
+                );
+
                 match QrDecoder::decode_with_gray(
                     &binary,
                     &gray,
@@ -110,6 +125,9 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
                         eprintln!("DEBUG: Group {} failed to decode", group_idx);
                     }
                 }
+            } else {
+                #[cfg(debug_assertions)]
+                eprintln!("DEBUG: Group {} failed to order patterns", group_idx);
             }
         }
     }
@@ -262,81 +280,142 @@ fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
     groups
 }
 
+/// Represents a candidate triplet of finder patterns with a quality score
+struct TripletCandidate {
+    indices: [usize; 3],
+    /// Quality score: lower is better. Combines module_size variance and distance symmetry.
+    score: f32,
+}
+
 fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
-    let mut groups = Vec::new();
-    let mut used = vec![false; patterns.len()];
+    // Collect all valid triplet candidates with quality scores
+    let mut candidates: Vec<TripletCandidate> = Vec::new();
 
     for idx_i in 0..indices.len() {
         let i = indices[idx_i];
-        if used[i] {
-            continue;
-        }
         for idx_j in (idx_i + 1)..indices.len() {
             let j = indices[idx_j];
-            if used[j] {
-                continue;
-            }
             for idx_k in (idx_j + 1)..indices.len() {
                 let k = indices[idx_k];
-                if used[k] {
-                    continue;
+
+                if let Some(candidate) = evaluate_triplet(patterns, i, j, k) {
+                    candidates.push(candidate);
                 }
-
-                let pi = &patterns[i];
-                let pj = &patterns[j];
-                let pk = &patterns[k];
-
-                let sizes = [pi.module_size, pj.module_size, pk.module_size];
-                let min_size = sizes.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-                let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
-                let size_ratio = max_size / min_size;
-
-                if size_ratio < 0.33 || size_ratio > 3.0 {
-                    continue;
-                }
-
-                let d_ij = pi.center.distance(&pj.center);
-                let d_ik = pi.center.distance(&pk.center);
-                let d_jk = pj.center.distance(&pk.center);
-
-                let distances = [d_ij, d_ik, d_jk];
-                let min_d = distances.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-                let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
-
-                let avg_module = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
-                if min_d < avg_module * 3.0 {
-                    continue;
-                }
-                if max_d > 3000.0 {
-                    continue;
-                }
-                let distortion_ratio = max_d / min_d;
-                if distortion_ratio > 5.0 {
-                    continue;
-                }
-
-                let a2 = d_ij * d_ij;
-                let b2 = d_ik * d_ik;
-                let c2 = d_jk * d_jk;
-
-                let cos_i = (a2 + b2 - c2) / (2.0 * d_ij * d_ik);
-                let cos_j = (a2 + c2 - b2) / (2.0 * d_ij * d_jk);
-                let cos_k = (b2 + c2 - a2) / (2.0 * d_ik * d_jk);
-                let has_right_angle = cos_i.abs() < 0.3 || cos_j.abs() < 0.3 || cos_k.abs() < 0.3;
-                if !has_right_angle {
-                    continue;
-                }
-
-                groups.push(vec![i, j, k]);
-                used[i] = true;
-                used[j] = true;
-                used[k] = true;
-                break;
             }
         }
     }
 
+    // Sort by quality score (lower is better)
+    candidates.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Greedily assign patterns to best-scoring triplets
+    let mut groups = Vec::new();
+    let mut used = vec![false; patterns.len()];
+
+    for candidate in candidates {
+        let [i, j, k] = candidate.indices;
+        if used[i] || used[j] || used[k] {
+            continue;
+        }
+        groups.push(vec![i, j, k]);
+        used[i] = true;
+        used[j] = true;
+        used[k] = true;
+    }
+
     groups
+}
+
+/// Evaluate a triplet and return a candidate if valid, with a quality score
+fn evaluate_triplet(patterns: &[FinderPattern], i: usize, j: usize, k: usize) -> Option<TripletCandidate> {
+    let pi = &patterns[i];
+    let pj = &patterns[j];
+    let pk = &patterns[k];
+
+    // Module size consistency check - tightened to 1.5x max ratio
+    let sizes = [pi.module_size, pj.module_size, pk.module_size];
+    let min_size = sizes.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
+    let size_ratio = max_size / min_size;
+
+    // Real QR finder patterns should have very consistent module sizes
+    if size_ratio > 1.5 {
+        return None;
+    }
+
+    let d_ij = pi.center.distance(&pj.center);
+    let d_ik = pi.center.distance(&pk.center);
+    let d_jk = pj.center.distance(&pk.center);
+
+    let distances = [d_ij, d_ik, d_jk];
+    let min_d = distances.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
+
+    let avg_module = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
+
+    // Minimum distance check
+    if min_d < avg_module * 3.0 {
+        return None;
+    }
+
+    // Maximum distance check
+    if max_d > 3000.0 {
+        return None;
+    }
+
+    // Distortion ratio check
+    let distortion_ratio = max_d / min_d;
+    if distortion_ratio > 5.0 {
+        return None;
+    }
+
+    // Right angle check
+    let a2 = d_ij * d_ij;
+    let b2 = d_ik * d_ik;
+    let c2 = d_jk * d_jk;
+
+    let cos_i = (a2 + b2 - c2) / (2.0 * d_ij * d_ik);
+    let cos_j = (a2 + c2 - b2) / (2.0 * d_ij * d_jk);
+    let cos_k = (b2 + c2 - a2) / (2.0 * d_ik * d_jk);
+
+    let min_cos = cos_i.abs().min(cos_j.abs()).min(cos_k.abs());
+    if min_cos >= 0.3 {
+        return None;
+    }
+
+    // Calculate quality score (lower is better):
+    // 1. Module size variance (prefer consistent sizes)
+    let avg_size = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
+    let size_variance = ((pi.module_size - avg_size).powi(2)
+                       + (pj.module_size - avg_size).powi(2)
+                       + (pk.module_size - avg_size).powi(2)) / 3.0;
+    let size_score = size_variance / avg_size.powi(2);
+
+    // 2. Distance symmetry (for L-shape: two sides should be equal, diagonal is sqrt(2) * side)
+    // Sort distances: shortest two should be similar (the two sides), longest is diagonal
+    let mut sorted_d = distances;
+    sorted_d.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let side1 = sorted_d[0];
+    let side2 = sorted_d[1];
+    let diag = sorted_d[2];
+
+    // Ideal: side1 ≈ side2, diag ≈ sqrt(2) * side_avg
+    let side_avg = (side1 + side2) / 2.0;
+    let side_symmetry = ((side1 - side2) / side_avg).abs();
+    let expected_diag = side_avg * std::f32::consts::SQRT_2;
+    let diag_deviation = ((diag - expected_diag) / expected_diag).abs();
+    let geometry_score = side_symmetry + diag_deviation;
+
+    // 3. Right angle quality (prefer angles closer to 90 degrees)
+    let angle_score = min_cos; // Already 0-0.3 range, lower is better
+
+    // Combined score
+    let score = size_score * 100.0 + geometry_score * 10.0 + angle_score;
+
+    Some(TripletCandidate {
+        indices: [i, j, k],
+        score,
+    })
 }
 
 /// Detect QR codes from a pre-computed grayscale image

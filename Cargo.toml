@@ -44,3 +44,15 @@ harness = false
 [[bin]]
 name = "reading_rate"
 path = "src/bin/reading_rate.rs"
+
+[[bin]]
+name = "diagnose_pipeline"
+path = "src/bin/diagnose_pipeline.rs"
+
+[[bin]]
+name = "quick_test"
+path = "src/bin/quick_test.rs"
+
+[[bin]]
+name = "debug_matrix"
+path = "src/bin/debug_matrix.rs"
