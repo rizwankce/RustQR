@@ -389,10 +389,22 @@ where
         total += 1;
 
         if let Ok((pixels, width, height)) = load_rgb(&path) {
+            let start = Instant::now();
             let results = detect_qr(&pixels, width, height);
-            if !results.is_empty() {
+            let elapsed = start.elapsed();
+            let hit = !results.is_empty();
+            if hit {
                 successful += 1;
             }
+            println!(
+                "  [{}] {} -> {} ({:.2?})",
+                total,
+                path.display(),
+                if hit { "hit" } else { "miss" },
+                elapsed
+            );
+        } else {
+            println!("  [{}] {} -> load_failed", total, path.display());
         }
     }
 
