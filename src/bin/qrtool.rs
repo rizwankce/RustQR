@@ -276,12 +276,108 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         return;
     }
 
-    let images: Vec<PathBuf> = dataset_iter(&root, limit, smoke).collect();
+    let limited_images: Option<Vec<PathBuf>> = if smoke || limit.is_some() {
+        Some(dataset_iter(&root, limit, smoke).collect())
+    } else {
+        None
+    };
+    if let Some(images) = &limited_images {
+        if images.is_empty() {
+            println!("No images found under {}", root.display());
+            return;
+        }
+    }
+
+    let categories = [
+        ("blurred", "Blurred QR codes"),
+        ("bright_spots", "Bright spots/glare"),
+        ("brightness", "Various brightness levels"),
+        ("close", "Close-up QR codes"),
+        ("curved", "Curved surface QR codes"),
+        ("damaged", "Damaged QR codes"),
+        ("glare", "Glare/light reflections"),
+        ("high_version", "High capacity QR codes"),
+        ("lots", "Many QR codes in one image"),
+        ("monitor", "Standard QR codes on monitor"),
+        ("nominal", "Standard/nominal conditions"),
+        ("noncompliant", "Non-standard QR codes"),
+        ("pathological", "Pathological cases"),
+        ("perspective", "Perspective distortion"),
+        ("rotations", "Rotated QR codes"),
+        ("shadows", "Shadows on QR codes"),
+    ];
+
+    let mut total_rate = 0.0;
+    let mut count = 0usize;
+    let mut categories_found = 0usize;
+
+    for (dir, description) in categories {
+        let category_root = root.join(dir);
+        if !category_root.exists() {
+            continue;
+        }
+        if categories_found == 0 {
+            println!("RustQR QR Code Reading Rate Benchmark");
+            println!("=====================================\n");
+        }
+        categories_found += 1;
+        println!("Testing: {} - {}", dir, description);
+        let images: Vec<PathBuf> = if let Some(images) = &limited_images {
+            images
+                .iter()
+                .filter(|path| {
+                    path.strip_prefix(&root)
+                        .ok()
+                        .and_then(|rel| rel.components().next())
+                        .map(|c| c.as_os_str() == dir)
+                        .unwrap_or(false)
+                })
+                .cloned()
+                .collect()
+        } else {
+            dataset_iter(&category_root, None, false).collect()
+        };
+        if images.is_empty() {
+            println!("  {}: no images found", dir);
+            continue;
+        }
+        let (successful, total) = reading_rate_for_images(images.into_iter());
+        if total == 0 {
+            println!("  {}: no labeled images found", dir);
+            continue;
+        }
+        let rate = (successful as f64 / total as f64) * 100.0;
+        println!("  {}: {}/{} = {:.2}%", dir, successful, total, rate);
+        total_rate += rate;
+        count += 1;
+    }
+
+    if count > 0 {
+        let average = total_rate / count as f64;
+        println!("\n=====================================");
+        println!("Average Reading Rate: {:.2}%", average);
+        println!("=====================================");
+        return;
+    }
+
+    let images: Vec<PathBuf> = limited_images.unwrap_or_else(|| dataset_iter(&root, None, false).collect());
     if images.is_empty() {
         println!("No images found under {}", root.display());
         return;
     }
+    let (successful, total) = reading_rate_for_images(images.into_iter());
+    if total == 0 {
+        println!("No labeled images found under {}", root.display());
+        return;
+    }
+    let rate = (successful as f64 / total as f64) * 100.0;
+    println!("Reading rate: {}/{} = {:.2}%", successful, total, rate);
+}
 
+fn reading_rate_for_images<I>(images: I) -> (usize, usize)
+where
+    I: Iterator<Item = PathBuf>,
+{
     let mut total = 0usize;
     let mut successful = 0usize;
 
@@ -300,13 +396,7 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         }
     }
 
-    if total == 0 {
-        println!("No labeled images found under {}", root.display());
-        return;
-    }
-
-    let rate = (successful as f64 / total as f64) * 100.0;
-    println!("Reading rate: {}/{} = {:.2}%", successful, total, rate);
+    (successful, total)
 }
 
 fn dataset_bench_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {

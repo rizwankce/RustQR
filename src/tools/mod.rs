@@ -2,14 +2,37 @@ use crate::models::BitMatrix;
 use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
 use crate::utils::grayscale::rgb_to_grayscale;
 use crate::{QRCode, detect};
+use image::GenericImageView;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+fn max_dim_from_env() -> Option<u32> {
+    match env::var("QR_MAX_DIM") {
+        Ok(value) => match value.trim().parse::<u32>() {
+            Ok(0) => None,
+            Ok(v) => Some(v),
+            Err(_) => None,
+        },
+        Err(_) => None,
+    }
+}
+
 /// Load an image as RGB bytes along with its dimensions.
 pub fn load_rgb<P: AsRef<Path>>(path: P) -> Result<(Vec<u8>, usize, usize), image::ImageError> {
     let img = image::open(path)?;
-    let rgb = img.to_rgb8();
+    let rgb = if let Some(max_dim) = max_dim_from_env() {
+        let (orig_w, orig_h) = img.dimensions();
+        let max_side = orig_w.max(orig_h);
+        if max_side > max_dim {
+            let resized = img.resize(max_dim, max_dim, image::imageops::FilterType::Triangle);
+            resized.to_rgb8()
+        } else {
+            img.to_rgb8()
+        }
+    } else {
+        img.to_rgb8()
+    };
     let (width, height) = rgb.dimensions();
     Ok((rgb.into_raw(), width as usize, height as usize))
 }

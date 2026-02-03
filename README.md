@@ -95,6 +95,10 @@ Example:
 QR_MAX_DIM=0 QR_DEBUG=1 cargo test test_decode_monitor_image001 -- --nocapture
 ```
 
+Tooling note:
+
+- `QR_MAX_DIM` is also honored by `qrtool` (e.g., `reading-rate`) to downscale large images when set. Leave unset to disable downscaling.
+
 Run benchmarks:
 
 ```bash
@@ -103,6 +107,13 @@ cargo bench -- qr_detect
 
 # Real QR image benchmarks
 cargo bench --features tools --bench real_qr_images
+```
+
+Quick reading-rate runs (limit the dataset):
+
+```bash
+# Limit to 3 images (also supports QR_BENCH_LIMIT env var)
+cargo run --features tools --bin qrtool -- reading-rate --limit 3
 ```
 
 ## Contributing
