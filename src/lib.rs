@@ -14,6 +14,9 @@ pub mod detector;
 pub mod models;
 /// Utility functions (grayscale, binarization, geometry)
 pub mod utils;
+/// CLI/bench helpers (feature-gated)
+#[cfg(feature = "tools")]
+pub mod tools;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 

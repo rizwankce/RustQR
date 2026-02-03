@@ -90,7 +90,7 @@ Run benchmarks:
 cargo bench -- qr_detect
 
 # Real QR image benchmarks
-cargo bench --bench real_qr_images
+cargo bench --features tools --bench real_qr_images
 ```
 
 ## Contributing
@@ -132,7 +132,7 @@ Reading rate comparison across different QR code image categories (based on [Dyn
 >
 > Run the benchmark:
 > ```bash
-> cargo run --bin reading_rate --release
+> cargo run --features tools --bin qrtool --release -- reading-rate
 > ```
 
 ## License

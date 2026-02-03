@@ -69,9 +69,9 @@ Dataset layout:
 
 Benchmark commands:
 - Real images detection benchmark:
-  - `cargo bench --bench real_qr_images`
+  - `cargo bench --features tools --bench real_qr_images`
 - Connected components benchmark:
-  - `cargo bench --bench real_qr_cc`
+  - `cargo bench --features tools --bench real_qr_cc`
 
 Optional environment variables:
 - `QR_DATASET_ROOT` (default: `benches/images/boofcv`)
@@ -79,7 +79,7 @@ Optional environment variables:
 - `QR_SMOKE` (set to `1` to use `_smoke.txt` inside the dataset root)
 
 Example (smoke subset, no limit):
-- `QR_SMOKE=1 QR_BENCH_LIMIT=0 cargo bench --bench real_qr_images`
+- `QR_SMOKE=1 QR_BENCH_LIMIT=0 cargo bench --features tools --bench real_qr_images`
 
 ## Notes for next session
 - The core decode math (RS, alignment, bitstream→payload) is now correct. The golden test proves it.

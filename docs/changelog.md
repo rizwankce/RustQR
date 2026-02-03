@@ -29,7 +29,7 @@ Restored end-to-end detection on real images and updated the reading-rate baseli
    - `debug_detect` and `debug_decode` now detect **1 QR** on `monitor/image001.jpg`
    - Example decode: `4376471154038`
 
-5. **Reading rate run** ✅ (`cargo run --release --bin reading_rate`)
+5. **Reading rate run** ✅ (`cargo run --features tools --release --bin qrtool -- reading-rate`)
    - **Average reading rate: 14.93%** (up from 0.00%)
    - Captured per-category rates:
      - blurred: **35.56%**
@@ -139,7 +139,7 @@ Ran full benchmark suite and discovered that while **performance benchmarks work
    - Smoke test (5 images) completes successfully
    - Timing data collected (11ms - 1.15s per image depending on size/complexity)
 
-2. **Ran `reading_rate` benchmark** ✅
+2. **Ran `reading_rate` benchmark** ✅ (`cargo run --features tools --release --bin qrtool -- reading-rate`)
    - Tested all 536 BoofCV images across 16 categories
    - **Result: 0% detection rate across all categories**
 
@@ -149,7 +149,7 @@ Ran full benchmark suite and discovered that while **performance benchmarks work
    - Runs on Linux, macOS, Windows in parallel
    - Configurable: image limit, reading_rate toggle, Criterion toggle
 
-4. **Fixed `reading_rate` binary path** ✅
+4. **Fixed `reading_rate` binary path** ✅ (now via `qrtool reading-rate`)
    - Changed from `benches/images/` to `benches/images/boofcv/`
 
 ### Key Finding: 0% Detection Rate
