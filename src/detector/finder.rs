@@ -704,30 +704,35 @@ mod tests {
         let u = 3;
         let start = 5;
 
-        for y in start..start + u {
-            for x in start..start + 7 * u {
-                matrix.set(x, y, true);
-            }
-        }
-        for y in start + 2 * u..start + 5 * u {
-            for x in start..start + u {
-                matrix.set(x, y, true);
-            }
-            for x in start + 2 * u..start + 5 * u {
-                matrix.set(x, y, true);
-            }
-            for x in start + 6 * u..start + 7 * u {
-                matrix.set(x, y, true);
-            }
-        }
-        for y in start + 6 * u..start + 7 * u {
-            for x in start..start + 7 * u {
-                matrix.set(x, y, true);
+        for my in 0..7 {
+            for mx in 0..7 {
+                let is_border = mx == 0 || mx == 6 || my == 0 || my == 6;
+                let is_center = (2..=4).contains(&mx) && (2..=4).contains(&my);
+                if is_border || is_center {
+                    for y in start + my * u..start + (my + 1) * u {
+                        for x in start + mx * u..start + (mx + 1) * u {
+                            matrix.set(x, y, true);
+                        }
+                    }
+                }
             }
         }
 
         let patterns = FinderDetector::detect(&matrix);
         assert!(!patterns.is_empty(), "Should detect pattern");
+
+        let expected_center = start as f32 + 3.5 * u as f32;
+        let found = patterns.iter().any(|p| {
+            (p.center.x - expected_center).abs() < u as f32
+                && (p.center.y - expected_center).abs() < u as f32
+        });
+        assert!(
+            found,
+            "Expected pattern near ({}, {}), found: {:?}",
+            expected_center,
+            expected_center,
+            patterns
+        );
     }
 
     #[test]
