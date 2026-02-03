@@ -89,7 +89,7 @@ fn main() {
 
     for (dir, description) in categories {
         println!("Testing: {} - {}", dir, description);
-        let rate = calculate_reading_rate(&format!("benches/images/{}", dir));
+        let rate = calculate_reading_rate(&format!("benches/images/boofcv/{}", dir));
         total_rate += rate;
         count += 1;
     }

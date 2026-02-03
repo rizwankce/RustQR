@@ -1,0 +1,129 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      bench_limit:
+        description: 'Number of images to benchmark (0 = all 536)'
+        required: false
+        default: '50'
+        type: string
+      run_reading_rate:
+        description: 'Run reading rate benchmark'
+        required: false
+        default: true
+        type: boolean
+      run_criterion:
+        description: 'Run Criterion benchmarks'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    name: Benchmark on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+          - os: windows-latest
+            platform: windows
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-
+            ${{ runner.os }}-cargo-
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Run reading rate benchmark
+        if: ${{ inputs.run_reading_rate }}
+        run: |
+          echo "## Reading Rate Results - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo run --bin reading_rate --release 2>&1 | tee reading_rate_${{ matrix.platform }}.txt
+          cat reading_rate_${{ matrix.platform }}.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Run Criterion benchmarks (smoke)
+        if: ${{ inputs.run_criterion }}
+        env:
+          QR_SMOKE: "1"
+        run: |
+          echo "## Criterion Smoke Test - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --bench real_qr_images 2>&1 | tee criterion_smoke_${{ matrix.platform }}.txt
+          cat criterion_smoke_${{ matrix.platform }}.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Run Criterion benchmarks (full)
+        if: ${{ inputs.run_criterion && inputs.bench_limit != '0' }}
+        env:
+          QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
+        run: |
+          echo "## Criterion Full Test (${{ inputs.bench_limit }} images) - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --bench real_qr_images 2>&1 | tee criterion_full_${{ matrix.platform }}.txt
+          cat criterion_full_${{ matrix.platform }}.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ matrix.platform }}
+          path: |
+            reading_rate_*.txt
+            criterion_*.txt
+            target/criterion/
+          retention-days: 30
+
+  summary:
+    name: Aggregate Results
+    needs: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: results
+
+      - name: Create summary
+        run: |
+          echo "# Benchmark Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Reading Rate Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          for platform in linux macos windows; do
+            if [ -f "results/benchmark-results-$platform/reading_rate_$platform.txt" ]; then
+              echo "### $platform" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              grep -E "(Rate:|total|===|/[0-9])" "results/benchmark-results-$platform/reading_rate_$platform.txt" >> $GITHUB_STEP_SUMMARY || true
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          done
