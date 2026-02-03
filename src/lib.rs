@@ -12,17 +12,19 @@ pub mod decoder;
 pub mod detector;
 /// Core data structures (QRCode, BitMatrix, Point, etc.)
 pub mod models;
-/// Utility functions (grayscale, binarization, geometry)
-pub mod utils;
 /// CLI/bench helpers (feature-gated)
 #[cfg(feature = "tools")]
 pub mod tools;
+/// Utility functions (grayscale, binarization, geometry)
+pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
 use decoder::qr_decoder::QrDecoder;
 use detector::finder::{FinderDetector, FinderPattern};
-use utils::binarization::{adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into};
+use utils::binarization::{
+    adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into,
+};
 use utils::grayscale::{rgb_to_grayscale, rgb_to_grayscale_with_buffer};
 use utils::memory_pool::BufferPool;
 
@@ -388,7 +390,10 @@ fn decode_groups(
             continue;
         }
         #[cfg(debug_assertions)]
-        eprintln!("DEBUG: Trying group {} with patterns {:?}", group_idx, group);
+        eprintln!(
+            "DEBUG: Trying group {} with patterns {:?}",
+            group_idx, group
+        );
 
         if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
             &finder_patterns[group[0]],
@@ -545,7 +550,13 @@ pub fn detect_with_pool(
             } else {
                 bin_adaptive
             };
-            results = decode_groups(fallback_binary, gray_buffer, width, height, &fallback_patterns);
+            results = decode_groups(
+                fallback_binary,
+                gray_buffer,
+                width,
+                height,
+                &fallback_patterns,
+            );
         }
     }
 
@@ -662,5 +673,4 @@ mod tests {
             patterns.len()
         );
     }
-
 }

@@ -4,7 +4,7 @@
 //! EC level, and mask pattern from real QR code images. They protect against
 //! regressions in the two-pass decoder and Reed-Solomon implementation.
 
-use rust_qr::{detect, ECLevel, Version};
+use rust_qr::{ECLevel, Version, detect};
 
 /// Test detection and decoding from a real QR code image
 #[test]
@@ -31,7 +31,10 @@ fn test_decode_monitor_image001() {
         let qr = &codes[0];
 
         // The content should be non-empty
-        assert!(!qr.content.is_empty(), "Decoded content should not be empty");
+        assert!(
+            !qr.content.is_empty(),
+            "Decoded content should not be empty"
+        );
 
         // Verify version is in valid range (1-40)
         match qr.version {
@@ -80,7 +83,10 @@ fn test_decode_blurred_image() {
     // If we detect something, it should be valid
     if !codes.is_empty() {
         let qr = &codes[0];
-        assert!(!qr.content.is_empty(), "If decoded, content should not be empty");
+        assert!(
+            !qr.content.is_empty(),
+            "If decoded, content should not be empty"
+        );
 
         println!(
             "Decoded blurred QR: content='{}', version={:?}",
@@ -184,7 +190,10 @@ fn test_decode_damaged() {
     // Just verify that if we do decode, the result is valid
     if !codes.is_empty() {
         let qr = &codes[0];
-        assert!(!qr.content.is_empty(), "If decoded, content should not be empty");
+        assert!(
+            !qr.content.is_empty(),
+            "If decoded, content should not be empty"
+        );
 
         // Verify it used error correction successfully
         println!(
@@ -258,7 +267,9 @@ fn test_decode_nominal() {
         );
     } else {
         // Failure to decode nominal QR is a significant regression
-        println!("Warning: Could not decode nominal/ideal QR (SIGNIFICANT REGRESSION - investigate!)");
+        println!(
+            "Warning: Could not decode nominal/ideal QR (SIGNIFICANT REGRESSION - investigate!)"
+        );
     }
 }
 

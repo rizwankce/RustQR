@@ -73,8 +73,16 @@ fn main() {
                 let top_left = pts[0];
                 let bottom_right = pts[3];
                 let others = vec![pts[1], pts[2]];
-                let top_right = if others[0].x > others[1].x { others[0] } else { others[1] };
-                let bottom_left = if others[0].x > others[1].x { others[1] } else { others[0] };
+                let top_right = if others[0].x > others[1].x {
+                    others[0]
+                } else {
+                    others[1]
+                };
+                let bottom_left = if others[0].x > others[1].x {
+                    others[1]
+                } else {
+                    others[0]
+                };
 
                 println!("\n--- Testing with hand-labeled corners ---");
                 println!(

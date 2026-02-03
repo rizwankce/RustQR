@@ -1,7 +1,7 @@
 use crate::models::BitMatrix;
 use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
 use crate::utils::grayscale::rgb_to_grayscale;
-use crate::{detect, QRCode};
+use crate::{QRCode, detect};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -166,11 +166,7 @@ fn load_smoke_list(root: &Path) -> Option<Vec<PathBuf>> {
             paths.push(path);
         }
     }
-    if paths.is_empty() {
-        None
-    } else {
-        Some(paths)
-    }
+    if paths.is_empty() { None } else { Some(paths) }
 }
 
 fn collect_images(root: &Path) -> Vec<PathBuf> {

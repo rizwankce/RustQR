@@ -1,12 +1,12 @@
 use clap::{Parser, Subcommand};
-use rust_qr::detector::finder::FinderDetector;
 use rust_qr::decoder::format::FormatInfo;
+use rust_qr::detector::finder::FinderDetector;
 use rust_qr::models::{BitMatrix, Point};
-use rust_qr::utils::geometry::PerspectiveTransform;
 use rust_qr::tools::{
     bench_limit_from_env, binarize, binary_stats, dataset_iter, dataset_root_from_env, detect_qr,
     grayscale_stats, load_rgb, smoke_from_env, to_grayscale,
 };
+use rust_qr::utils::geometry::PerspectiveTransform;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -63,12 +63,8 @@ fn main() {
         Command::Detect { image } => detect_cmd(&image),
         Command::DebugDetect { image } => debug_detect_cmd(&image),
         Command::DebugDecode { image, points } => debug_decode_cmd(&image, points.as_deref()),
-        Command::ReadingRate { root, limit, smoke } => {
-            reading_rate_cmd(root, limit, smoke)
-        }
-        Command::DatasetBench { root, limit, smoke } => {
-            dataset_bench_cmd(root, limit, smoke)
-        }
+        Command::ReadingRate { root, limit, smoke } => reading_rate_cmd(root, limit, smoke),
+        Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
     }
 }
 
@@ -205,8 +201,16 @@ fn decode_from_points(binary: &BitMatrix, points: &[Point]) {
     let top_left = pts[0];
     let bottom_right = pts[3];
     let others = vec![pts[1], pts[2]];
-    let top_right = if others[0].x > others[1].x { others[0] } else { others[1] };
-    let bottom_left = if others[0].x > others[1].x { others[1] } else { others[0] };
+    let top_right = if others[0].x > others[1].x {
+        others[0]
+    } else {
+        others[1]
+    };
+    let bottom_left = if others[0].x > others[1].x {
+        others[1]
+    } else {
+        others[0]
+    };
 
     println!("\n--- Testing with hand-labeled corners ---");
     println!(

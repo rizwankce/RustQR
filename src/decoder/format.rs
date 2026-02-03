@@ -128,5 +128,4 @@ mod tests {
         // Just verify the extraction function doesn't panic
         let _ = FormatInfo::extract(&matrix);
     }
-
 }

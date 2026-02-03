@@ -1,6 +1,6 @@
 use crate::decoder::bitstream::BitstreamExtractor;
 use crate::decoder::format::FormatInfo;
-use crate::decoder::function_mask::{alignment_pattern_positions, FunctionMask};
+use crate::decoder::function_mask::{FunctionMask, alignment_pattern_positions};
 use crate::decoder::modes::{alphanumeric::AlphanumericDecoder, numeric::NumericDecoder};
 use crate::decoder::reed_solomon::ReedSolomonDecoder;
 use crate::decoder::tables::ec_block_info;
@@ -134,16 +134,11 @@ impl QrDecoder {
         for version_num in candidates {
             let dimension = 17 + 4 * version_num as usize;
             for br in &br_candidates {
-                let transform = match Self::build_transform(
-                    top_left,
-                    top_right,
-                    bottom_left,
-                    br,
-                    dimension,
-                ) {
-                    Some(t) => t,
-                    None => continue,
-                };
+                let transform =
+                    match Self::build_transform(top_left, top_right, bottom_left, br, dimension) {
+                        Some(t) => t,
+                        None => continue,
+                    };
                 let transform = Self::refine_transform_with_alignment(
                     binary,
                     &transform,
@@ -156,8 +151,9 @@ impl QrDecoder {
                 )
                 .unwrap_or(transform);
 
-                let qr_matrix =
-                    Self::extract_qr_region_gray_with_transform(gray, width, height, &transform, dimension);
+                let qr_matrix = Self::extract_qr_region_gray_with_transform(
+                    gray, width, height, &transform, dimension,
+                );
                 if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
                     return Some(qr);
                 }
@@ -167,7 +163,8 @@ impl QrDecoder {
                     return Some(qr);
                 }
 
-                let qr_matrix = Self::extract_qr_region_with_transform(binary, &transform, dimension);
+                let qr_matrix =
+                    Self::extract_qr_region_with_transform(binary, &transform, dimension);
                 if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
                     return Some(qr);
                 }
@@ -251,17 +248,10 @@ impl QrDecoder {
         bottom_right: &Point,
         dimension: usize,
     ) -> Option<BitMatrix> {
-        let transform = Self::build_transform(
-            top_left,
-            top_right,
-            bottom_left,
-            bottom_right,
-            dimension,
-        )?;
+        let transform =
+            Self::build_transform(top_left, top_right, bottom_left, bottom_right, dimension)?;
         Some(Self::extract_qr_region_with_transform(
-            matrix,
-            &transform,
-            dimension,
+            matrix, &transform, dimension,
         ))
     }
 
@@ -275,19 +265,10 @@ impl QrDecoder {
         bottom_right: &Point,
         dimension: usize,
     ) -> Option<BitMatrix> {
-        let transform = Self::build_transform(
-            top_left,
-            top_right,
-            bottom_left,
-            bottom_right,
-            dimension,
-        )?;
+        let transform =
+            Self::build_transform(top_left, top_right, bottom_left, bottom_right, dimension)?;
         Some(Self::extract_qr_region_gray_with_transform(
-            gray,
-            width,
-            height,
-            &transform,
-            dimension,
+            gray, width, height, &transform, dimension,
         ))
     }
 
@@ -371,15 +352,18 @@ impl QrDecoder {
                     for dx in -1..=1 {
                         let sx = img_x + dx;
                         let sy = img_y + dy;
-                        if sx >= 0 && sy >= 0 && (sx as usize) < width && (sy as usize) < height
-                        {
+                        if sx >= 0 && sy >= 0 && (sx as usize) < width && (sy as usize) < height {
                             let idx = sy as usize * width + sx as usize;
                             sum += gray[idx] as u32;
                             count += 1;
                         }
                     }
                 }
-                let avg = if count > 0 { (sum / count) as u8 } else { 255u8 };
+                let avg = if count > 0 {
+                    (sum / count) as u8
+                } else {
+                    255u8
+                };
                 samples.push(avg);
             }
         }
@@ -473,7 +457,8 @@ impl QrDecoder {
         for y in min_y..=max_y {
             for x in min_x..=max_x {
                 let center = Point::new(x as f32, y as f32);
-                let mismatch = match Self::alignment_pattern_mismatch(binary, &center, module_size) {
+                let mismatch = match Self::alignment_pattern_mismatch(binary, &center, module_size)
+                {
                     Some(v) => v,
                     None => continue,
                 };
@@ -498,8 +483,7 @@ impl QrDecoder {
         let mut mismatches = 0usize;
         for dy in -2i32..=2 {
             for dx in -2i32..=2 {
-                let expected_black =
-                    dx.abs() == 2 || dy.abs() == 2 || (dx == 0 && dy == 0);
+                let expected_black = dx.abs() == 2 || dy.abs() == 2 || (dx == 0 && dy == 0);
                 let sx = center.x + dx as f32 * module_size;
                 let sy = center.y + dy as f32 * module_size;
                 let ix = sx.round() as isize;
@@ -531,12 +515,7 @@ impl QrDecoder {
             return None;
         }
 
-        let traversal_opts = [
-            (true, false),
-            (true, true),
-            (false, false),
-            (false, true),
-        ];
+        let traversal_opts = [(true, false), (true, true), (false, false), (false, true)];
 
         // Pass 1: try only extracted format info (1 combo per orientation)
         for oriented in &orientations {
@@ -738,21 +717,17 @@ impl QrDecoder {
         // Diagnostic positions relative to a finder's top-left corner:
         // (dx, dy, expected_dark)
         let finder_checks: [(usize, usize, bool); 7] = [
-            (0, 0, true),   // top-left corner
-            (6, 0, true),   // top-right corner
-            (0, 6, true),   // bottom-left corner
-            (6, 6, true),   // bottom-right corner
-            (3, 3, true),   // center
-            (1, 1, false),  // inner white ring
-            (2, 2, true),   // inner black ring
+            (0, 0, true),  // top-left corner
+            (6, 0, true),  // top-right corner
+            (0, 6, true),  // bottom-left corner
+            (6, 6, true),  // bottom-right corner
+            (3, 3, true),  // center
+            (1, 1, false), // inner white ring
+            (2, 2, true),  // inner black ring
         ];
 
         // Finder pattern origins: top-left, top-right, bottom-left
-        let origins = [
-            (0, 0),
-            (dim - 7, 0),
-            (0, dim - 7),
-        ];
+        let origins = [(0, 0), (dim - 7, 0), (0, dim - 7)];
 
         let mut mismatches = 0;
         for &(ox, oy) in &origins {
@@ -1141,27 +1116,90 @@ mod tests {
         // Known-good 21x21 QR matrix for "4376471154038" (Version 1-M)
         // Generated with Python qrcode library
         let grid: [[bool; 21]; 21] = [
-            [true, true, true, true, true, true, true, false, false, false, false, false, true, false, true, true, true, true, true, true, true],
-            [true, false, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, true, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, false, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, true, false, true, false, true, true, true, false, true],
-            [true, false, false, false, false, false, true, false, true, false, true, false, false, false, true, false, false, false, false, false, true],
-            [true, true, true, true, true, true, true, false, true, false, true, false, true, false, true, true, true, true, true, true, true],
-            [false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false],
-            [true, false, false, true, false, true, true, false, true, true, true, true, true, true, false, true, false, false, false, false, false],
-            [true, true, true, false, true, false, false, true, true, false, false, true, false, true, false, true, false, true, true, false, false],
-            [true, false, false, true, false, true, true, true, true, false, true, true, false, false, true, true, true, false, false, false, true],
-            [false, false, true, false, true, false, false, true, false, false, false, false, true, true, true, true, true, false, false, false, false],
-            [false, false, true, false, false, false, true, true, false, true, false, true, false, true, true, true, false, true, true, false, false],
-            [false, false, false, false, false, false, false, false, true, false, true, false, false, true, true, true, true, false, true, true, false],
-            [true, true, true, true, true, true, true, false, false, false, true, true, true, false, true, false, true, true, true, true, false],
-            [true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, true, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, false, true, true, true, false, false, true, false, true, true],
-            [true, false, true, true, true, false, true, false, true, false, true, false, false, true, true, true, true, false, false, true, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, false, true, true, true, false, true, false, false, true],
-            [true, false, false, false, false, false, true, false, false, true, true, true, true, false, false, true, true, false, false, true, false],
-            [true, true, true, true, true, true, true, false, true, true, true, false, false, true, false, true, true, true, false, false, false],
+            [
+                true, true, true, true, true, true, true, false, false, false, false, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, false, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, true, false,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, false,
+                false, false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, true,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, true, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, false, true, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false, true, false, false,
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, false, true, true, true, true, true,
+                true, false, true, false, false, false, false, false,
+            ],
+            [
+                true, true, true, false, true, false, false, true, true, false, false, true, false,
+                true, false, true, false, true, true, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, true, true, false, true, true, false,
+                false, true, true, true, false, false, false, true,
+            ],
+            [
+                false, false, true, false, true, false, false, true, false, false, false, false,
+                true, true, true, true, true, false, false, false, false,
+            ],
+            [
+                false, false, true, false, false, false, true, true, false, true, false, true,
+                false, true, true, true, false, true, true, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, true, false, true, false,
+                false, true, true, true, true, false, true, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, false, false, true, true, true,
+                false, true, false, true, true, true, true, false,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, false, false,
+                false, false, true, true, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, false, true,
+                true, true, false, false, true, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, true, false, true, false, false,
+                true, true, true, true, false, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, false,
+                true, true, true, false, true, false, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, true, true,
+                true, false, false, true, true, false, false, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, true, true, false, false,
+                true, false, true, true, true, false, false, false,
+            ],
         ];
 
         let mut matrix = BitMatrix::new(21, 21);
@@ -1181,27 +1219,90 @@ mod tests {
     fn test_has_finders_correct_golden_matrix() {
         // The golden matrix is correctly oriented — has_finders_correct should return true
         let grid: [[bool; 21]; 21] = [
-            [true, true, true, true, true, true, true, false, false, false, false, false, true, false, true, true, true, true, true, true, true],
-            [true, false, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, true, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, false, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, true, false, true, false, true, true, true, false, true],
-            [true, false, false, false, false, false, true, false, true, false, true, false, false, false, true, false, false, false, false, false, true],
-            [true, true, true, true, true, true, true, false, true, false, true, false, true, false, true, true, true, true, true, true, true],
-            [false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false],
-            [true, false, false, true, false, true, true, false, true, true, true, true, true, true, false, true, false, false, false, false, false],
-            [true, true, true, false, true, false, false, true, true, false, false, true, false, true, false, true, false, true, true, false, false],
-            [true, false, false, true, false, true, true, true, true, false, true, true, false, false, true, true, true, false, false, false, true],
-            [false, false, true, false, true, false, false, true, false, false, false, false, true, true, true, true, true, false, false, false, false],
-            [false, false, true, false, false, false, true, true, false, true, false, true, false, true, true, true, false, true, true, false, false],
-            [false, false, false, false, false, false, false, false, true, false, true, false, false, true, true, true, true, false, true, true, false],
-            [true, true, true, true, true, true, true, false, false, false, true, true, true, false, true, false, true, true, true, true, false],
-            [true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, true, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, false, true, true, true, false, false, true, false, true, true],
-            [true, false, true, true, true, false, true, false, true, false, true, false, false, true, true, true, true, false, false, true, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, false, true, true, true, false, true, false, false, true],
-            [true, false, false, false, false, false, true, false, false, true, true, true, true, false, false, true, true, false, false, true, false],
-            [true, true, true, true, true, true, true, false, true, true, true, false, false, true, false, true, true, true, false, false, false],
+            [
+                true, true, true, true, true, true, true, false, false, false, false, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, false, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, true, false,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, false,
+                false, false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, true,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, true, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, false, true, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false, true, false, false,
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, false, true, true, true, true, true,
+                true, false, true, false, false, false, false, false,
+            ],
+            [
+                true, true, true, false, true, false, false, true, true, false, false, true, false,
+                true, false, true, false, true, true, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, true, true, false, true, true, false,
+                false, true, true, true, false, false, false, true,
+            ],
+            [
+                false, false, true, false, true, false, false, true, false, false, false, false,
+                true, true, true, true, true, false, false, false, false,
+            ],
+            [
+                false, false, true, false, false, false, true, true, false, true, false, true,
+                false, true, true, true, false, true, true, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, true, false, true, false,
+                false, true, true, true, true, false, true, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, false, false, true, true, true,
+                false, true, false, true, true, true, true, false,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, false, false,
+                false, false, true, true, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, false, true,
+                true, true, false, false, true, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, true, false, true, false, false,
+                true, true, true, true, false, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, false,
+                true, true, true, false, true, false, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, true, true,
+                true, false, false, true, true, false, false, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, true, true, false, false,
+                true, false, true, true, true, false, false, false,
+            ],
         ];
 
         let mut matrix = BitMatrix::new(21, 21);
@@ -1228,27 +1329,90 @@ mod tests {
     fn test_golden_matrix_verify_ec_and_version() {
         // Test that we correctly extract EC level and version from the golden matrix
         let grid: [[bool; 21]; 21] = [
-            [true, true, true, true, true, true, true, false, false, false, false, false, true, false, true, true, true, true, true, true, true],
-            [true, false, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, true, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, false, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, true, false, true, false, true, true, true, false, true],
-            [true, false, false, false, false, false, true, false, true, false, true, false, false, false, true, false, false, false, false, false, true],
-            [true, true, true, true, true, true, true, false, true, false, true, false, true, false, true, true, true, true, true, true, true],
-            [false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false],
-            [true, false, false, true, false, true, true, false, true, true, true, true, true, true, false, true, false, false, false, false, false],
-            [true, true, true, false, true, false, false, true, true, false, false, true, false, true, false, true, false, true, true, false, false],
-            [true, false, false, true, false, true, true, true, true, false, true, true, false, false, true, true, true, false, false, false, true],
-            [false, false, true, false, true, false, false, true, false, false, false, false, true, true, true, true, true, false, false, false, false],
-            [false, false, true, false, false, false, true, true, false, true, false, true, false, true, true, true, false, true, true, false, false],
-            [false, false, false, false, false, false, false, false, true, false, true, false, false, true, true, true, true, false, true, true, false],
-            [true, true, true, true, true, true, true, false, false, false, true, true, true, false, true, false, true, true, true, true, false],
-            [true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, true, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, false, true, true, true, false, false, true, false, true, true],
-            [true, false, true, true, true, false, true, false, true, false, true, false, false, true, true, true, true, false, false, true, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, false, true, true, true, false, true, false, false, true],
-            [true, false, false, false, false, false, true, false, false, true, true, true, true, false, false, true, true, false, false, true, false],
-            [true, true, true, true, true, true, true, false, true, true, true, false, false, true, false, true, true, true, false, false, false],
+            [
+                true, true, true, true, true, true, true, false, false, false, false, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, false, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, true, false,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, false,
+                false, false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, true,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, true, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, false, true, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false, true, false, false,
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, false, true, true, true, true, true,
+                true, false, true, false, false, false, false, false,
+            ],
+            [
+                true, true, true, false, true, false, false, true, true, false, false, true, false,
+                true, false, true, false, true, true, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, true, true, false, true, true, false,
+                false, true, true, true, false, false, false, true,
+            ],
+            [
+                false, false, true, false, true, false, false, true, false, false, false, false,
+                true, true, true, true, true, false, false, false, false,
+            ],
+            [
+                false, false, true, false, false, false, true, true, false, true, false, true,
+                false, true, true, true, false, true, true, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, true, false, true, false,
+                false, true, true, true, true, false, true, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, false, false, true, true, true,
+                false, true, false, true, true, true, true, false,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, false, false,
+                false, false, true, true, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, false, true,
+                true, true, false, false, true, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, true, false, true, false, false,
+                true, true, true, true, false, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, false,
+                true, true, true, false, true, false, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, true, true,
+                true, false, false, true, true, false, false, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, true, true, false, false,
+                true, false, true, true, true, false, false, false,
+            ],
         ];
 
         let mut matrix = BitMatrix::new(21, 21);
@@ -1374,27 +1538,90 @@ mod tests {
     fn test_orientation_detection() {
         // Test that we correctly detect and fix orientation
         let grid: [[bool; 21]; 21] = [
-            [true, true, true, true, true, true, true, false, false, false, false, false, true, false, true, true, true, true, true, true, true],
-            [true, false, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, true, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, false, true, false, false, false, true, false, true, true, true, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, true, false, true, false, true, true, true, false, true],
-            [true, false, false, false, false, false, true, false, true, false, true, false, false, false, true, false, false, false, false, false, true],
-            [true, true, true, true, true, true, true, false, true, false, true, false, true, false, true, true, true, true, true, true, true],
-            [false, false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, false],
-            [true, false, false, true, false, true, true, false, true, true, true, true, true, true, false, true, false, false, false, false, false],
-            [true, true, true, false, true, false, false, true, true, false, false, true, false, true, false, true, false, true, true, false, false],
-            [true, false, false, true, false, true, true, true, true, false, true, true, false, false, true, true, true, false, false, false, true],
-            [false, false, true, false, true, false, false, true, false, false, false, false, true, true, true, true, true, false, false, false, false],
-            [false, false, true, false, false, false, true, true, false, true, false, true, false, true, true, true, false, true, true, false, false],
-            [false, false, false, false, false, false, false, false, true, false, true, false, false, true, true, true, true, false, true, true, false],
-            [true, true, true, true, true, true, true, false, false, false, true, true, true, false, true, false, true, true, true, true, false],
-            [true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, true, false, false, false, false, true],
-            [true, false, true, true, true, false, true, false, false, true, true, false, true, true, true, false, false, true, false, true, true],
-            [true, false, true, true, true, false, true, false, true, false, true, false, false, true, true, true, true, false, false, true, true],
-            [true, false, true, true, true, false, true, false, false, true, true, true, false, true, true, true, false, true, false, false, true],
-            [true, false, false, false, false, false, true, false, false, true, true, true, true, false, false, true, true, false, false, true, false],
-            [true, true, true, true, true, true, true, false, true, true, true, false, false, true, false, true, true, true, false, false, false],
+            [
+                true, true, true, true, true, true, true, false, false, false, false, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, false, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, true, false,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, false, true, false,
+                false, false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, true,
+                false, true, false, true, true, true, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, true, false,
+                false, false, true, false, false, false, false, false, true,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, false, true, false, true,
+                false, true, true, true, true, true, true, true,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false, true, false, false,
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, false, true, true, true, true, true,
+                true, false, true, false, false, false, false, false,
+            ],
+            [
+                true, true, true, false, true, false, false, true, true, false, false, true, false,
+                true, false, true, false, true, true, false, false,
+            ],
+            [
+                true, false, false, true, false, true, true, true, true, false, true, true, false,
+                false, true, true, true, false, false, false, true,
+            ],
+            [
+                false, false, true, false, true, false, false, true, false, false, false, false,
+                true, true, true, true, true, false, false, false, false,
+            ],
+            [
+                false, false, true, false, false, false, true, true, false, true, false, true,
+                false, true, true, true, false, true, true, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, true, false, true, false,
+                false, true, true, true, true, false, true, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, false, false, true, true, true,
+                false, true, false, true, true, true, true, false,
+            ],
+            [
+                true, false, false, false, false, false, true, false, true, false, false, false,
+                false, false, true, true, false, false, false, false, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, false, true,
+                true, true, false, false, true, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, true, false, true, false, false,
+                true, true, true, true, false, false, true, true,
+            ],
+            [
+                true, false, true, true, true, false, true, false, false, true, true, true, false,
+                true, true, true, false, true, false, false, true,
+            ],
+            [
+                true, false, false, false, false, false, true, false, false, true, true, true,
+                true, false, false, true, true, false, false, true, false,
+            ],
+            [
+                true, true, true, true, true, true, true, false, true, true, true, false, false,
+                true, false, true, true, true, false, false, false,
+            ],
         ];
 
         let mut correct_matrix = BitMatrix::new(21, 21);
