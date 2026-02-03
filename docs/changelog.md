@@ -1,5 +1,85 @@
 # Changelog & Next Steps
 
+## 2026-02-03 — Detection Pipeline Investigation & Partial Fix
+
+### Summary
+Investigated the 0% detection rate and identified root causes. Fixed pattern grouping algorithm but discovered deeper issue with matrix extraction.
+
+### Completed
+
+1. **Added debug logging and traced detection pipeline** ✅
+   - Created `diagnose_pipeline.rs` - traces each stage of detection
+   - Created `debug_matrix.rs` - visualizes extracted QR matrices
+   - Created `quick_test.rs` - quick test on sample images
+
+2. **Fixed pattern grouping algorithm** ✅ (`src/lib.rs`)
+   - **Problem:** Greedy first-match algorithm was picking wrong pattern triplets
+   - **Root cause:** Triplet (TL, TR, outlier) was selected before correct triplet (TL, TR, BL)
+   - **Fix:** Replaced greedy algorithm with quality-based scoring:
+     - Evaluates ALL valid triplet candidates
+     - Scores by module_size variance, distance symmetry, and angle quality
+     - Sorts by score and assigns best-scoring triplets first
+   - Tightened module_size ratio check from 3.0x to 1.5x to filter outliers
+
+3. **Improved decoder robustness** ✅ (`src/decoder/qr_decoder.rs`)
+   - Added fallback decode pass that tries all orientations even without finder validation
+   - Increased finder pattern validation tolerance from 3 to 5 mismatches
+   - Format info extraction now works on partially corrupted matrices
+
+4. **Verified unit tests still pass** ✅
+   - All 55 unit tests passing
+   - Golden matrix decode tests working
+
+### Key Finding: Matrix Extraction Offset
+
+The investigation revealed the **true root cause** of the 0% detection rate:
+
+| Pipeline Stage | Status |
+|----------------|--------|
+| Grayscale conversion | ✅ Working |
+| Binarization (adaptive/Otsu) | ✅ Working |
+| Finder pattern detection | ✅ Working (finds patterns) |
+| Pattern grouping | ✅ **Fixed** (now finds correct triplets) |
+| Pattern ordering | ✅ Working |
+| **Matrix extraction** | ❌ **Broken** - offset by ~2 rows |
+| Decoding | ✅ Works on correct matrices |
+
+**Debug output from `debug_matrix.rs`:**
+```
+Extracted QR matrix (21x21):
+Top-left finder (0,0):
+  #.###.#   <- should be #######
+  #.###.#   <- should be #.....#
+  #.###.#   <- should be #.###.#
+  #.###.#
+  #.....#
+  #######   <- this should be row 0!
+  #......
+
+Format info: EC=Q, Mask=Pattern2  <- Successfully extracted!
+Finder patterns valid: false       <- But finders are offset
+```
+
+The extracted matrix shows rows 2-8 of the finder instead of rows 0-6. This ~2 row offset causes:
+- Finder validation to fail (5+ mismatches)
+- Data bits to be read from wrong positions
+- Decoding to fail even though format info extracts correctly
+
+### Pending: Fix Matrix Extraction
+
+The remaining issue is in the perspective transform or finder center detection:
+
+1. **Finder center detection** - y-coordinate may be biased toward one edge
+2. **Perspective transform mapping** - may have an offset error
+
+**Next Steps:**
+- [ ] Investigate finder pattern center calculation in `scan_row()`
+- [ ] Add offset correction to perspective transform
+- [ ] Try multiple transform variations with slight position adjustments
+- [ ] Validate fix brings detection rate above 0%
+
+---
+
 ## 2026-02-03 — Detection Accuracy Assessment
 
 ### Summary
@@ -49,22 +129,22 @@ shadows           | 14     | 0.00%
 
 The library runs but doesn't successfully detect/decode QR codes from real images.
 
-### Pending: Fix Detection Pipeline
+### Pending: Fix Detection Pipeline (Partially Addressed)
 
-The detection pipeline needs debugging. Possible failure points:
+The detection pipeline was debugged. Status of possible failure points:
 
-1. **Finder pattern detection** - patterns may not be found in real images
-2. **Pattern grouping** - `group_finder_patterns()` may fail to form valid triplets
-3. **Perspective transform** - corner estimation may be inaccurate
-4. **Matrix sampling** - bits may be read incorrectly
-5. **Format info extraction** - EC level/mask pattern decoding may fail
-6. **Data decoding** - Reed-Solomon or mode parsing may fail
+1. **Finder pattern detection** ✅ - patterns ARE found in real images
+2. **Pattern grouping** ✅ - FIXED: now correctly forms valid triplets
+3. **Perspective transform** ❌ - **ROOT CAUSE**: matrix extraction has ~2 row offset
+4. **Matrix sampling** ❌ - affected by transform offset
+5. **Format info extraction** ✅ - works even with offset (extracts EC=Q, Mask=Pattern2)
+6. **Data decoding** ✅ - works on correct matrices (golden tests pass)
 
-**Next Steps:**
-- [ ] Add debug logging to trace where detection fails
-- [ ] Test each pipeline stage independently
-- [ ] Compare against known-good QR matrices
-- [ ] Fix the root cause of 0% detection rate
+**Completed:**
+- [x] Add debug logging to trace where detection fails
+- [x] Test each pipeline stage independently
+- [x] Compare against known-good QR matrices
+- [ ] Fix the root cause of 0% detection rate (matrix extraction offset)
 
 ---
 
