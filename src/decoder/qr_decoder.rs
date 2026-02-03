@@ -22,22 +22,25 @@ impl QrDecoder {
         bottom_left: &Point,
         module_size: f32,
     ) -> Option<QRCode> {
-        #[cfg(debug_assertions)]
-        eprintln!("    DECODE: module_size={:.2}", module_size);
+        if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+            eprintln!("    DECODE: module_size={:.2}", module_size);
+        }
 
         // Calculate the bottom-right corner
         let bottom_right = Self::calculate_bottom_right(top_left, top_right, bottom_left)?;
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "    DECODE: bottom_right=({:.1}, {:.1})",
-            bottom_right.x, bottom_right.y
-        );
+        if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+            eprintln!(
+                "    DECODE: bottom_right=({:.1}, {:.1})",
+                bottom_right.x, bottom_right.y
+            );
+        }
 
         // Determine QR code dimension (version) estimate
         let estimated_dimension =
             Self::estimate_dimension(top_left, top_right, &bottom_right, module_size)?;
-        #[cfg(debug_assertions)]
-        eprintln!("    DECODE: estimated_dimension={}", estimated_dimension);
+        if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+            eprintln!("    DECODE: estimated_dimension={}", estimated_dimension);
+        }
 
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
         let mut candidates = Vec::new();
@@ -205,16 +208,18 @@ impl QrDecoder {
         // dimension should be approximately width_modules + 7 (finder pattern width)
         let dimension = width_modules + 7;
 
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "    DECODE: width_pixels={:.1}, width_modules={}, raw_dimension={}",
-            width_pixels, width_modules, dimension
-        );
+        if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+            eprintln!(
+                "    DECODE: width_pixels={:.1}, width_modules={}, raw_dimension={}",
+                width_pixels, width_modules, dimension
+            );
+        }
 
         // Minimum valid dimension is 21 (version 1)
         if dimension < 21 {
-            #[cfg(debug_assertions)]
-            eprintln!("    DECODE: dimension {} < 21, FAIL", dimension);
+            if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!("    DECODE: dimension {} < 21, FAIL", dimension);
+            }
             return None;
         }
 
@@ -222,20 +227,23 @@ impl QrDecoder {
         let raw_version = ((dimension - 17) as f32 / 4.0).round() as i32;
         let version = raw_version as u8;
 
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "    DECODE: raw_version={}, final_version={}",
-            raw_version, version
-        );
+        if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+            eprintln!(
+                "    DECODE: raw_version={}, final_version={}",
+                raw_version, version
+            );
+        }
 
         if (1..=40).contains(&version) {
             let final_dim = 17 + 4 * version as usize;
-            #[cfg(debug_assertions)]
-            eprintln!("    DECODE: final_dimension={}", final_dim);
+            if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!("    DECODE: final_dimension={}", final_dim);
+            }
             Some(final_dim)
         } else {
-            #[cfg(debug_assertions)]
-            eprintln!("    DECODE: version {} out of range, FAIL", version);
+            if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!("    DECODE: version {} out of range, FAIL", version);
+            }
             None
         }
     }

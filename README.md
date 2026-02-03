@@ -83,6 +83,18 @@ Run the test suite:
 cargo test
 ```
 
+Real-image test tuning:
+
+- `QR_MAX_DIM` sets the max image dimension for real-image tests (default: `1200`). Set to `0` to disable downscaling.
+- `QR_DEBUG=1` enables debug logging in detection/decoder paths (off by default).
+
+Example:
+
+```bash
+# Disable downscaling and enable debug logs for real-image tests
+QR_MAX_DIM=0 QR_DEBUG=1 cargo test test_decode_monitor_image001 -- --nocapture
+```
+
 Run benchmarks:
 
 ```bash

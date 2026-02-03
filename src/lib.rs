@@ -10,6 +10,8 @@
 pub mod decoder;
 /// QR code detection modules (finder patterns, alignment, timing)
 pub mod detector;
+/// Debug helpers (env-driven)
+pub(crate) mod debug;
 /// Core data structures (QRCode, BitMatrix, Point, etc.)
 pub mod models;
 /// CLI/bench helpers (feature-gated)
@@ -220,7 +222,9 @@ fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
     }
 
     #[cfg(debug_assertions)]
-    eprintln!("GROUP: Binned into {} size buckets", bins.len());
+    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+        eprintln!("GROUP: Binned into {} size buckets", bins.len());
+    }
 
     // Try each bin and its neighbor to allow slight size mismatch
     for i in 0..bins.len() {
@@ -378,22 +382,21 @@ fn decode_groups(
     let mut groups = group_finder_patterns(finder_patterns);
     score_and_trim_groups(&mut groups, finder_patterns, 40);
 
-    #[cfg(debug_assertions)]
-    eprintln!(
-        "DEBUG: Found {} finder patterns, formed {} groups",
-        finder_patterns.len(),
-        groups.len()
-    );
+    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+        eprintln!(
+            "DEBUG: Found {} finder patterns, formed {} groups",
+            finder_patterns.len(),
+            groups.len()
+        );
+    }
 
     for (group_idx, group) in groups.iter().enumerate() {
         if group.len() < 3 {
             continue;
         }
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "DEBUG: Trying group {} with patterns {:?}",
-            group_idx, group
-        );
+        if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+            eprintln!("DEBUG: Trying group {} with patterns {:?}", group_idx, group);
+        }
 
         if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
             &finder_patterns[group[0]],
@@ -411,13 +414,15 @@ fn decode_groups(
                 module_size,
             ) {
                 Some(qr) => {
-                    #[cfg(debug_assertions)]
-                    eprintln!("DEBUG: Group {} decoded successfully!", group_idx);
+                    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                        eprintln!("DEBUG: Group {} decoded successfully!", group_idx);
+                    }
                     results.push(qr);
                 }
                 None => {
-                    #[cfg(debug_assertions)]
-                    eprintln!("DEBUG: Group {} failed to decode", group_idx);
+                    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                        eprintln!("DEBUG: Group {} failed to decode", group_idx);
+                    }
                 }
             }
         }
@@ -620,6 +625,19 @@ impl Default for Detector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::GenericImageView;
+    use std::env;
+
+    fn test_max_dim(default: u32) -> u32 {
+        match env::var("QR_MAX_DIM") {
+            Ok(val) => match val.trim().parse::<u32>() {
+                Ok(0) => u32::MAX,
+                Ok(v) => v,
+                Err(_) => default,
+            },
+            Err(_) => default,
+        }
+    }
 
     #[test]
     fn test_detect_empty() {
@@ -634,7 +652,22 @@ mod tests {
         // Load a real QR code image and see how many finder patterns we detect
         let img_path = "benches/images/boofcv/monitor/image001.jpg";
         let img = image::open(img_path).expect("Failed to load image");
-        let rgb_img = img.to_rgb8();
+        let (orig_w, orig_h) = img.dimensions();
+        let max_dim = orig_w.max(orig_h);
+        let max_dim_limit = test_max_dim(1200);
+        let rgb_img = if max_dim > max_dim_limit {
+            let scale = max_dim_limit as f32 / max_dim as f32;
+            let new_w = (orig_w as f32 * scale).round().max(1.0) as u32;
+            let new_h = (orig_h as f32 * scale).round().max(1.0) as u32;
+            println!(
+                "Downscaling image for test from {}x{} to {}x{}",
+                orig_w, orig_h, new_w, new_h
+            );
+            let resized = img.resize(new_w, new_h, image::imageops::FilterType::Triangle);
+            resized.to_rgb8()
+        } else {
+            img.to_rgb8()
+        };
         let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
 
         println!("Loaded image: {}x{} pixels", width, height);

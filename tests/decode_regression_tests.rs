@@ -4,24 +4,68 @@
 //! EC level, and mask pattern from real QR code images. They protect against
 //! regressions in the two-pass decoder and Reed-Solomon implementation.
 
-use rust_qr::{ECLevel, Version, detect};
+use image::GenericImageView;
+use rust_qr::{detect, ECLevel, Version};
+use std::env;
+use std::sync::Once;
+
+static PRINT_TEST_SETTINGS: Once = Once::new();
+
+fn test_max_dim(default: u32) -> u32 {
+    match env::var("QR_MAX_DIM") {
+        Ok(val) => match val.trim().parse::<u32>() {
+            Ok(0) => u32::MAX,
+            Ok(v) => v,
+            Err(_) => default,
+        },
+        Err(_) => default,
+    }
+}
+
+fn load_rgb_downscaled(img_path: &str) -> Option<(Vec<u8>, usize, usize)> {
+    let max_dim = test_max_dim(1200);
+    PRINT_TEST_SETTINGS.call_once(|| {
+        if max_dim == u32::MAX {
+            println!("Test settings: QR_MAX_DIM=0 (downscaling disabled)");
+        } else {
+            println!("Test settings: QR_MAX_DIM={}", max_dim);
+        }
+    });
+    if !std::path::Path::new(img_path).exists() {
+        eprintln!("Skipping test: {} not found", img_path);
+        return None;
+    }
+
+    let img = image::open(img_path).expect("Failed to load image");
+    let (orig_w, orig_h) = img.dimensions();
+    let max_side = orig_w.max(orig_h);
+    let rgb_img = if max_side > max_dim {
+        let scale = max_dim as f32 / max_side as f32;
+        let new_w = (orig_w as f32 * scale).round().max(1.0) as u32;
+        let new_h = (orig_h as f32 * scale).round().max(1.0) as u32;
+        println!(
+            "Downscaling image for test from {}x{} to {}x{}",
+            orig_w, orig_h, new_w, new_h
+        );
+        let resized = img.resize(new_w, new_h, image::imageops::FilterType::Triangle);
+        resized.to_rgb8()
+    } else {
+        img.to_rgb8()
+    };
+
+    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
+    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    Some((rgb_bytes, width, height))
+}
 
 /// Test detection and decoding from a real QR code image
 #[test]
 fn test_decode_monitor_image001() {
     // This is a real QR code from the benchmark suite
     let img_path = "benches/images/boofcv/monitor/image001.jpg";
-
-    // Skip if image doesn't exist (CI might not have test images)
-    if !std::path::Path::new(img_path).exists() {
-        eprintln!("Skipping test: {} not found", img_path);
+    let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
         return;
-    }
-
-    let img = image::open(img_path).expect("Failed to load image");
-    let rgb_img = img.to_rgb8();
-    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
-    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    };
 
     // Detect QR codes
     let codes = detect(&rgb_bytes, width, height);
@@ -66,16 +110,9 @@ fn test_decode_monitor_image001() {
 #[test]
 fn test_decode_blurred_image() {
     let img_path = "benches/images/boofcv/blurred/image001.jpg";
-
-    if !std::path::Path::new(img_path).exists() {
-        eprintln!("Skipping test: {} not found", img_path);
+    let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
         return;
-    }
-
-    let img = image::open(img_path).expect("Failed to load image");
-    let rgb_img = img.to_rgb8();
-    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
-    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    };
 
     let codes = detect(&rgb_bytes, width, height);
 
@@ -101,16 +138,9 @@ fn test_decode_blurred_image() {
 #[test]
 fn test_decode_high_version() {
     let img_path = "benches/images/boofcv/high_version/image001.jpg";
-
-    if !std::path::Path::new(img_path).exists() {
-        eprintln!("Skipping test: {} not found", img_path);
+    let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
         return;
-    }
-
-    let img = image::open(img_path).expect("Failed to load image");
-    let rgb_img = img.to_rgb8();
-    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
-    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    };
 
     let codes = detect(&rgb_bytes, width, height);
 
@@ -142,16 +172,9 @@ fn test_decode_high_version() {
 #[test]
 fn test_decode_rotated() {
     let img_path = "benches/images/boofcv/rotations/image001.jpg";
-
-    if !std::path::Path::new(img_path).exists() {
-        eprintln!("Skipping test: {} not found", img_path);
+    let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
         return;
-    }
-
-    let img = image::open(img_path).expect("Failed to load image");
-    let rgb_img = img.to_rgb8();
-    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
-    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    };
 
     let codes = detect(&rgb_bytes, width, height);
 
@@ -173,16 +196,9 @@ fn test_decode_rotated() {
 #[test]
 fn test_decode_damaged() {
     let img_path = "benches/images/boofcv/damaged/image001.jpg";
-
-    if !std::path::Path::new(img_path).exists() {
-        eprintln!("Skipping test: {} not found", img_path);
+    let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
         return;
-    }
-
-    let img = image::open(img_path).expect("Failed to load image");
-    let rgb_img = img.to_rgb8();
-    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
-    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    };
 
     let codes = detect(&rgb_bytes, width, height);
 
@@ -209,16 +225,9 @@ fn test_decode_damaged() {
 #[test]
 fn test_decode_multiple_codes() {
     let img_path = "benches/images/boofcv/lots/image001.jpg";
-
-    if !std::path::Path::new(img_path).exists() {
-        eprintln!("Skipping test: {} not found", img_path);
+    let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
         return;
-    }
-
-    let img = image::open(img_path).expect("Failed to load image");
-    let rgb_img = img.to_rgb8();
-    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
-    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    };
 
     let codes = detect(&rgb_bytes, width, height);
 
@@ -243,16 +252,9 @@ fn test_decode_multiple_codes() {
 #[test]
 fn test_decode_nominal() {
     let img_path = "benches/images/boofcv/nominal/image001.jpg";
-
-    if !std::path::Path::new(img_path).exists() {
-        eprintln!("Skipping test: {} not found", img_path);
+    let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
         return;
-    }
-
-    let img = image::open(img_path).expect("Failed to load image");
-    let rgb_img = img.to_rgb8();
-    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
-    let rgb_bytes: Vec<u8> = rgb_img.into_raw();
+    };
 
     let codes = detect(&rgb_bytes, width, height);
 

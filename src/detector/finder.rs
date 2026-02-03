@@ -347,16 +347,18 @@ impl FinderDetector {
         // Minimum size: allow very small QR codes
         // 7 modules at ~1 pixel each = 7 pixels absolute minimum
         if total < 7 {
-            #[cfg(debug_assertions)]
-            eprintln!("FINDER: Rejected - total {} < 7", total);
+            if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!("FINDER: Rejected - total {} < 7", total);
+            }
             return false;
         }
 
         // Maximum size check: prevent detecting huge patterns that aren't QRs
         // Large QR codes in high-res images can have finder patterns up to ~1500px
         if total > 2000 {
-            #[cfg(debug_assertions)]
-            eprintln!("FINDER: Rejected - total {} > 2000", total);
+            if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!("FINDER: Rejected - total {} > 2000", total);
+            }
             return false;
         }
 
@@ -370,13 +372,14 @@ impl FinderDetector {
         // b2 should be roughly 1.5-5x larger than b1 and b3 (relaxed for small patterns)
         let b2_min = b1.min(b3);
         if b2 < b2_min * 3 / 2 || b2 > b2_min * 5 {
-            #[cfg(debug_assertions)]
-            eprintln!(
-                "FINDER: Rejected - b2 {} not 1.5-5x of min {} (ratio={:.1})",
-                b2,
-                b2_min,
-                b2 as f32 / b2_min as f32
-            );
+            if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!(
+                    "FINDER: Rejected - b2 {} not 1.5-5x of min {} (ratio={:.1})",
+                    b2,
+                    b2_min,
+                    b2 as f32 / b2_min as f32
+                );
+            }
             return false;
         }
 
@@ -386,11 +389,12 @@ impl FinderDetector {
         let w2_ok = w2 >= outer_avg / 2 && w2 <= outer_avg * 2;
 
         if !w1_ok || !w2_ok {
-            #[cfg(debug_assertions)]
-            eprintln!(
-                "FINDER: Rejected - whites not balanced: w1={}, w2={}, outer_avg={}",
-                w1, w2, outer_avg
-            );
+            if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!(
+                    "FINDER: Rejected - whites not balanced: w1={}, w2={}, outer_avg={}",
+                    w1, w2, outer_avg
+                );
+            }
             return false;
         }
 
