@@ -679,16 +679,41 @@ mod tests {
 
     #[test]
     fn test_simple_line_pattern() {
-        let mut matrix = BitMatrix::new(50, 20);
-        let y = 10;
-        let unit = 6; // Minimum 6 pixels per run (new minimum is 4, using 6 for margin)
-        let x_start = 5;
+        let mut matrix = BitMatrix::new(50, 50);
+        let center_y = 25;
+        let unit = 6;
+        let center_x = 25;
 
-        // Black(6) - White(6) - Black(18) - White(6) - Black(6)
-        // Total = 42 pixels, meets new minimum
-        for x in x_start..x_start + unit {
-            matrix.set(x, y, true);
+        // Create a proper 2D finder pattern (7x7 black-white-black in both directions)
+        // Black border (7x7)
+        for dy in 0..7 {
+            for dx in 0..7 {
+                matrix.set(center_x - 3 + dx, center_y - 3 + dy, true);
+            }
         }
+        // White ring (5x5 inside - already white by default)
+        // Black center (3x3 inside)
+        for dy in 0..3 {
+            for dx in 0..3 {
+                matrix.set(center_x - 1 + dx, center_y - 1 + dy, true);
+            }
+        }
+
+        let patterns = FinderDetector::detect(&matrix);
+
+        assert!(!patterns.is_empty(), "Should detect the pattern");
+
+        let found = patterns
+            .iter()
+            .any(|p| (p.center.x - center_x as f32).abs() < 3.0 && (p.center.y - center_y as f32).abs() < 3.0);
+        assert!(
+            found,
+            "Expected pattern near ({}, {}), found: {:?}",
+            center_x,
+            center_y,
+            patterns
+        );
+    }
         // x_start+unit to x_start+2*unit is white (default)
         for x in x_start + 2 * unit..x_start + 5 * unit {
             matrix.set(x, y, true);
