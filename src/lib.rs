@@ -6,12 +6,12 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 
+/// Debug helpers (env-driven)
+pub(crate) mod debug;
 /// QR code decoding modules (error correction, format extraction, data modes)
 pub mod decoder;
 /// QR code detection modules (finder patterns, alignment, timing)
 pub mod detector;
-/// Debug helpers (env-driven)
-pub(crate) mod debug;
 /// Core data structures (QRCode, BitMatrix, Point, etc.)
 pub mod models;
 /// CLI/bench helpers (feature-gated)
@@ -395,7 +395,10 @@ fn decode_groups(
             continue;
         }
         if cfg!(debug_assertions) && crate::debug::debug_enabled() {
-            eprintln!("DEBUG: Trying group {} with patterns {:?}", group_idx, group);
+            eprintln!(
+                "DEBUG: Trying group {} with patterns {:?}",
+                group_idx, group
+            );
         }
 
         if let Some((tl, tr, bl, module_size)) = order_finder_patterns(

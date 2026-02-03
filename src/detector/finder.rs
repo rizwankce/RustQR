@@ -729,9 +729,7 @@ mod tests {
         assert!(
             found,
             "Expected pattern near ({}, {}), found: {:?}",
-            expected_center,
-            expected_center,
-            patterns
+            expected_center, expected_center, patterns
         );
     }
 

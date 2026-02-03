@@ -360,7 +360,8 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         return;
     }
 
-    let images: Vec<PathBuf> = limited_images.unwrap_or_else(|| dataset_iter(&root, None, false).collect());
+    let images: Vec<PathBuf> =
+        limited_images.unwrap_or_else(|| dataset_iter(&root, None, false).collect());
     if images.is_empty() {
         println!("No images found under {}", root.display());
         return;

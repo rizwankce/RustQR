@@ -5,7 +5,7 @@
 //! regressions in the two-pass decoder and Reed-Solomon implementation.
 
 use image::GenericImageView;
-use rust_qr::{detect, ECLevel, Version};
+use rust_qr::{ECLevel, Version, detect};
 use std::env;
 use std::sync::Once;
 
