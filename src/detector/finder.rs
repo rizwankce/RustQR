@@ -215,8 +215,19 @@ impl FinderDetector {
                     if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
                         // Early termination 3: Quick ratio check before full validation
                         if Self::quick_ratio_check(lengths) {
-                            if let Some(pattern) = Self::check_pattern(lengths, x, y) {
-                                candidates.push(pattern);
+                            if let Some((center_x, _unit, total)) = Self::check_pattern(lengths, x) {
+                                if let Some((center_y, unit_v)) =
+                                    Self::cross_check_vertical(matrix, center_x, y, total)
+                                {
+                                    if let Some((refined_x, unit_h)) =
+                                        Self::cross_check_horizontal(matrix, center_x, center_y, total)
+                                    {
+                                        let module_size = (unit_h + unit_v) / 2.0;
+                                        candidates.push(FinderPattern::new(refined_x, center_y, module_size));
+                                    } else {
+                                        candidates.push(FinderPattern::new(center_x, center_y, unit_v));
+                                    }
+                                }
 
                                 // Early termination 4: Stop after finding enough patterns
                                 if candidates.len() >= MAX_PATTERNS_PER_ROW {
@@ -280,8 +291,19 @@ impl FinderDetector {
                     if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
                         // Quick ratio check before full validation
                         if Self::quick_ratio_check(lengths) {
-                            if let Some(pattern) = Self::check_pattern(lengths, x, y) {
-                                candidates.push(pattern);
+                            if let Some((center_x, _unit, total)) = Self::check_pattern(lengths, x) {
+                                if let Some((center_y, unit_v)) =
+                                    Self::cross_check_vertical(matrix, center_x, y, total)
+                                {
+                                    if let Some((refined_x, unit_h)) =
+                                        Self::cross_check_horizontal(matrix, center_x, center_y, total)
+                                    {
+                                        let module_size = (unit_h + unit_v) / 2.0;
+                                        candidates.push(FinderPattern::new(refined_x, center_y, module_size));
+                                    } else {
+                                        candidates.push(FinderPattern::new(center_x, center_y, unit_v));
+                                    }
+                                }
 
                                 // Early termination: Stop after finding enough patterns
                                 if candidates.len() >= MAX_PATTERNS_PER_ROW {
@@ -366,7 +388,7 @@ impl FinderDetector {
         true
     }
 
-    fn check_pattern(lengths: &[usize], end_x: usize, y: usize) -> Option<FinderPattern> {
+    fn check_pattern(lengths: &[usize], end_x: usize) -> Option<(f32, f32, usize)> {
         if lengths.len() != 5 {
             return None;
         }
@@ -395,10 +417,182 @@ impl FinderDetector {
             && (r5 - 1.0).abs() <= TOL
         {
             let center_x = (end_x as f32) - (b3 as f32) - (w2 as f32) - (b2 as f32 / 2.0);
-            return Some(FinderPattern::new(center_x, y as f32, unit));
+            return Some((center_x, unit, total as usize));
         }
 
         None
+    }
+
+    fn cross_check_vertical(
+        matrix: &BitMatrix,
+        center_x: f32,
+        center_y: usize,
+        total: usize,
+    ) -> Option<(f32, f32)> {
+        let x = center_x.round() as isize;
+        if x < 0 || (x as usize) >= matrix.width() {
+            return None;
+        }
+
+        let height = matrix.height() as isize;
+        let mut counts = [0usize; 5];
+
+        // Count up from center (black -> white -> black)
+        let mut y = center_y as isize;
+        while y >= 0 && matrix.get(x as usize, y as usize) {
+            counts[2] += 1;
+            y -= 1;
+        }
+        if y < 0 {
+            return None;
+        }
+        while y >= 0 && !matrix.get(x as usize, y as usize) {
+            counts[1] += 1;
+            y -= 1;
+        }
+        if y < 0 {
+            return None;
+        }
+        while y >= 0 && matrix.get(x as usize, y as usize) {
+            counts[0] += 1;
+            y -= 1;
+        }
+
+        // Count down from center (black -> white -> black)
+        y = center_y as isize + 1;
+        while y < height && matrix.get(x as usize, y as usize) {
+            counts[2] += 1;
+            y += 1;
+        }
+        while y < height && !matrix.get(x as usize, y as usize) {
+            counts[3] += 1;
+            y += 1;
+        }
+        while y < height && matrix.get(x as usize, y as usize) {
+            counts[4] += 1;
+            y += 1;
+        }
+
+        if counts.iter().any(|&c| c == 0) {
+            return None;
+        }
+
+        let total_v: usize = counts.iter().sum();
+        if total_v < 7 {
+            return None;
+        }
+        if total > 0 {
+            let diff = if total_v > total { total_v - total } else { total - total_v };
+            if diff > total {
+                return None;
+            }
+        }
+
+        let unit = total_v as f32 / 7.0;
+        let r1 = counts[0] as f32 / unit;
+        let r2 = counts[1] as f32 / unit;
+        let r3 = counts[2] as f32 / unit;
+        let r4 = counts[3] as f32 / unit;
+        let r5 = counts[4] as f32 / unit;
+
+        const TOL: f32 = 0.7;
+        if (r1 - 1.0).abs() > TOL
+            || (r2 - 1.0).abs() > TOL
+            || (r3 - 3.0).abs() > TOL
+            || (r4 - 1.0).abs() > TOL
+            || (r5 - 1.0).abs() > TOL
+        {
+            return None;
+        }
+
+        let center = y as f32 - counts[4] as f32 - counts[3] as f32 - (counts[2] as f32 / 2.0);
+        Some((center, unit))
+    }
+
+    fn cross_check_horizontal(
+        matrix: &BitMatrix,
+        center_x: f32,
+        center_y: f32,
+        total: usize,
+    ) -> Option<(f32, f32)> {
+        let y = center_y.round() as isize;
+        if y < 0 || (y as usize) >= matrix.height() {
+            return None;
+        }
+
+        let width = matrix.width() as isize;
+        let mut counts = [0usize; 5];
+
+        // Count left from center (black -> white -> black)
+        let mut x = center_x.round() as isize;
+        while x >= 0 && matrix.get(x as usize, y as usize) {
+            counts[2] += 1;
+            x -= 1;
+        }
+        if x < 0 {
+            return None;
+        }
+        while x >= 0 && !matrix.get(x as usize, y as usize) {
+            counts[1] += 1;
+            x -= 1;
+        }
+        if x < 0 {
+            return None;
+        }
+        while x >= 0 && matrix.get(x as usize, y as usize) {
+            counts[0] += 1;
+            x -= 1;
+        }
+
+        // Count right from center (black -> white -> black)
+        x = center_x.round() as isize + 1;
+        while x < width && matrix.get(x as usize, y as usize) {
+            counts[2] += 1;
+            x += 1;
+        }
+        while x < width && !matrix.get(x as usize, y as usize) {
+            counts[3] += 1;
+            x += 1;
+        }
+        while x < width && matrix.get(x as usize, y as usize) {
+            counts[4] += 1;
+            x += 1;
+        }
+
+        if counts.iter().any(|&c| c == 0) {
+            return None;
+        }
+
+        let total_h: usize = counts.iter().sum();
+        if total_h < 7 {
+            return None;
+        }
+        if total > 0 {
+            let diff = if total_h > total { total_h - total } else { total - total_h };
+            if diff > total {
+                return None;
+            }
+        }
+
+        let unit = total_h as f32 / 7.0;
+        let r1 = counts[0] as f32 / unit;
+        let r2 = counts[1] as f32 / unit;
+        let r3 = counts[2] as f32 / unit;
+        let r4 = counts[3] as f32 / unit;
+        let r5 = counts[4] as f32 / unit;
+
+        const TOL: f32 = 0.7;
+        if (r1 - 1.0).abs() > TOL
+            || (r2 - 1.0).abs() > TOL
+            || (r3 - 3.0).abs() > TOL
+            || (r4 - 1.0).abs() > TOL
+            || (r5 - 1.0).abs() > TOL
+        {
+            return None;
+        }
+
+        let center = x as f32 - counts[4] as f32 - counts[3] as f32 - (counts[2] as f32 / 2.0);
+        Some((center, unit))
     }
 
     fn merge_candidates(candidates: Vec<FinderPattern>) -> Vec<FinderPattern> {

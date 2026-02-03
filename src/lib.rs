@@ -38,79 +38,55 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
 
-    // Step 2: Binarize (use both adaptive and Otsu for robustness)
-    let binary_adaptive = adaptive_binarize(&gray, width, height, 31);
-    let binary_otsu = otsu_binarize(&gray, width, height);
-    let binary = if width >= 800 || height >= 800 {
-        binary_adaptive.clone()
+    // Step 2: Binarize (adaptive first on large images, Otsu on small)
+    let mut binary = if width >= 800 || height >= 800 {
+        adaptive_binarize(&gray, width, height, 31)
     } else {
-        binary_otsu.clone()
+        otsu_binarize(&gray, width, height)
     };
 
     // Step 3: Detect finder patterns
     // Use pyramid detection for very large images (1600px+) for better performance
-    let mut finder_patterns = Vec::new();
-    let patterns_adaptive = if width >= 1600 && height >= 1600 {
-        FinderDetector::detect_with_pyramid(&binary_adaptive)
+    let mut finder_patterns = if width >= 1600 && height >= 1600 {
+        FinderDetector::detect_with_pyramid(&binary)
     } else {
-        FinderDetector::detect(&binary_adaptive)
+        FinderDetector::detect(&binary)
     };
-    let patterns_otsu = if width >= 1600 && height >= 1600 {
-        FinderDetector::detect_with_pyramid(&binary_otsu)
-    } else {
-        FinderDetector::detect(&binary_otsu)
-    };
-    finder_patterns.extend(patterns_adaptive);
-    finder_patterns.extend(patterns_otsu);
 
-    // Step 4: Group finder patterns into potential QR codes and decode
-    let mut results = Vec::new();
+    // Fallback: if adaptive yields too few patterns, try Otsu (or vice-versa)
+    if finder_patterns.len() < 3 {
+        let fallback = if width >= 800 || height >= 800 {
+            otsu_binarize(&gray, width, height)
+        } else {
+            adaptive_binarize(&gray, width, height, 31)
+        };
+        let fallback_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&fallback)
+        } else {
+            FinderDetector::detect(&fallback)
+        };
+        if fallback_patterns.len() >= 3 {
+            binary = fallback;
+            finder_patterns = fallback_patterns;
+        }
+    }
 
-    // Group finder patterns by proximity and similar module size
-    let groups = group_finder_patterns(&finder_patterns);
+    let mut results = decode_groups(&binary, &gray, width, height, &finder_patterns);
 
-    #[cfg(debug_assertions)]
-    eprintln!(
-        "DEBUG: Found {} finder patterns, formed {} groups",
-        finder_patterns.len(),
-        groups.len()
-    );
-
-    // Try to decode each group of 3 patterns
-    for (group_idx, group) in groups.iter().enumerate() {
-        if group.len() >= 3 {
-            #[cfg(debug_assertions)]
-            eprintln!(
-                "DEBUG: Trying group {} with patterns {:?}",
-                group_idx, group
-            );
-
-            if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
-                &finder_patterns[group[0]],
-                &finder_patterns[group[1]],
-                &finder_patterns[group[2]],
-            ) {
-                match QrDecoder::decode_with_gray(
-                    &binary,
-                    &gray,
-                    width,
-                    height,
-                    &tl,
-                    &tr,
-                    &bl,
-                    module_size,
-                ) {
-                    Some(qr) => {
-                        #[cfg(debug_assertions)]
-                        eprintln!("DEBUG: Group {} decoded successfully!", group_idx);
-                        results.push(qr);
-                    }
-                    None => {
-                        #[cfg(debug_assertions)]
-                        eprintln!("DEBUG: Group {} failed to decode", group_idx);
-                    }
-                }
-            }
+    // Final fallback: if no decode, try the other binarizer end-to-end
+    if results.is_empty() {
+        let fallback = if width >= 800 || height >= 800 {
+            otsu_binarize(&gray, width, height)
+        } else {
+            adaptive_binarize(&gray, width, height, 31)
+        };
+        let fallback_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&fallback)
+        } else {
+            FinderDetector::detect(&fallback)
+        };
+        if fallback_patterns.len() >= 3 {
+            results = decode_groups(&fallback, &gray, width, height, &fallback_patterns);
         }
     }
 
@@ -178,6 +154,10 @@ fn order_finder_patterns(
     };
 
     let module_size = (d_tr + d_bl) / 2.0 / (dim as f32 - 7.0);
+    let module_ratio = module_size / avg_module;
+    if !(0.8..=1.2).contains(&module_ratio) {
+        return None;
+    }
 
     Some((tl.center, tr.center, bl.center, module_size))
 }
@@ -199,67 +179,60 @@ fn estimate_dimension_from_distance(distance: f32, module_size: f32) -> Option<u
 
 /// Simplified finder pattern grouping with relaxed constraints
 fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
-    let mut groups: Vec<Vec<usize>> = Vec::new();
-
     if patterns.len() < 3 {
-        return groups;
+        return Vec::new();
     }
 
-    let max_size = patterns
-        .iter()
-        .fold(0.0f32, |a, p| a.max(p.module_size));
-
-    let large_indices: Vec<usize> = patterns
+    let mut indexed: Vec<(usize, f32)> = patterns
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.module_size >= max_size * 0.5)
-        .map(|(i, _)| i)
+        .map(|(i, p)| (i, p.module_size))
         .collect();
+    indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
-    if large_indices.len() >= 3 {
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "GROUP: Trying large-pattern cluster: {} patterns (max={:.1})",
-            large_indices.len(),
-            max_size
-        );
-        let mut groups_large = build_groups(patterns, &large_indices);
-        if !groups_large.is_empty() {
-            return groups_large;
+    let mut bins: Vec<Vec<usize>> = Vec::new();
+    let mut current: Vec<usize> = Vec::new();
+    let mut bin_min = 0.0f32;
+    let bin_ratio = 1.25f32;
+
+    for (idx, size) in indexed {
+        if current.is_empty() {
+            current.push(idx);
+            bin_min = size;
+            continue;
+        }
+
+        if size <= bin_min * bin_ratio {
+            current.push(idx);
+        } else {
+            bins.push(current);
+            current = vec![idx];
+            bin_min = size;
+        }
+    }
+    if !current.is_empty() {
+        bins.push(current);
+    }
+
+    #[cfg(debug_assertions)]
+    eprintln!("GROUP: Binned into {} size buckets", bins.len());
+
+    // Try each bin and its neighbor to allow slight size mismatch
+    for i in 0..bins.len() {
+        let mut indices = bins[i].clone();
+        if i + 1 < bins.len() {
+            indices.extend_from_slice(&bins[i + 1]);
+        }
+        if indices.len() < 3 {
+            continue;
+        }
+        let groups = build_groups(patterns, &indices);
+        if !groups.is_empty() {
+            return groups;
         }
     }
 
-    // Fallback to median-based cluster
-    let mut sizes: Vec<f32> = patterns.iter().map(|p| p.module_size).collect();
-    sizes.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let median_size = sizes[sizes.len() / 2];
-
-    let valid_indices: Vec<usize> = patterns
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| {
-            let ratio = p.module_size / median_size;
-            ratio >= 0.5 && ratio <= 2.0
-        })
-        .map(|(i, _)| i)
-        .collect();
-
-    #[cfg(debug_assertions)]
-    eprintln!(
-        "GROUP: Starting with {} patterns, {} after size filtering (median={:.1})",
-        patterns.len(),
-        valid_indices.len(),
-        median_size
-    );
-
-    if valid_indices.len() < 3 {
-        return groups;
-    }
-
-    groups = build_groups(patterns, &valid_indices);
-    #[cfg(debug_assertions)]
-    eprintln!("GROUP: Finished with {} groups", groups.len());
-    groups
+    Vec::new()
 }
 
 fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
@@ -291,7 +264,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
                 let size_ratio = max_size / min_size;
 
-                if size_ratio < 0.33 || size_ratio > 3.0 {
+                if size_ratio > 1.5 {
                     continue;
                 }
 
@@ -339,6 +312,112 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
     groups
 }
 
+fn score_and_trim_groups(
+    groups: &mut Vec<Vec<usize>>,
+    patterns: &[FinderPattern],
+    max_groups: usize,
+) {
+    if groups.len() <= max_groups {
+        return;
+    }
+
+    groups.sort_by(|a, b| {
+        let sa = group_score(patterns, a);
+        let sb = group_score(patterns, b);
+        sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    groups.truncate(max_groups);
+}
+
+fn group_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
+    if group.len() < 3 {
+        return f32::INFINITY;
+    }
+    let p0 = &patterns[group[0]];
+    let p1 = &patterns[group[1]];
+    let p2 = &patterns[group[2]];
+
+    let sizes = [p0.module_size, p1.module_size, p2.module_size];
+    let min_size = sizes.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
+    let size_ratio = max_size / min_size;
+
+    let d01 = p0.center.distance(&p1.center);
+    let d02 = p0.center.distance(&p2.center);
+    let d12 = p1.center.distance(&p2.center);
+    let distances = [d01, d02, d12];
+    let min_d = distances.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
+    let distortion = max_d / min_d;
+
+    // Prefer near-right angle (small cosine) and size consistency
+    let a2 = d01 * d01;
+    let b2 = d02 * d02;
+    let c2 = d12 * d12;
+    let cos_i = ((a2 + b2 - c2) / (2.0 * d01 * d02)).abs();
+    let cos_j = ((a2 + c2 - b2) / (2.0 * d01 * d12)).abs();
+    let cos_k = ((b2 + c2 - a2) / (2.0 * d02 * d12)).abs();
+    let best_cos = cos_i.min(cos_j).min(cos_k);
+
+    size_ratio * 2.0 + distortion + best_cos
+}
+
+fn decode_groups(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    finder_patterns: &[FinderPattern],
+) -> Vec<QRCode> {
+    let mut results = Vec::new();
+    let mut groups = group_finder_patterns(finder_patterns);
+    score_and_trim_groups(&mut groups, finder_patterns, 40);
+
+    #[cfg(debug_assertions)]
+    eprintln!(
+        "DEBUG: Found {} finder patterns, formed {} groups",
+        finder_patterns.len(),
+        groups.len()
+    );
+
+    for (group_idx, group) in groups.iter().enumerate() {
+        if group.len() < 3 {
+            continue;
+        }
+        #[cfg(debug_assertions)]
+        eprintln!("DEBUG: Trying group {} with patterns {:?}", group_idx, group);
+
+        if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
+            &finder_patterns[group[0]],
+            &finder_patterns[group[1]],
+            &finder_patterns[group[2]],
+        ) {
+            match QrDecoder::decode_with_gray(
+                binary,
+                gray,
+                width,
+                height,
+                &tl,
+                &tr,
+                &bl,
+                module_size,
+            ) {
+                Some(qr) => {
+                    #[cfg(debug_assertions)]
+                    eprintln!("DEBUG: Group {} decoded successfully!", group_idx);
+                    results.push(qr);
+                }
+                None => {
+                    #[cfg(debug_assertions)]
+                    eprintln!("DEBUG: Group {} failed to decode", group_idx);
+                }
+            }
+        }
+    }
+
+    results
+}
+
 /// Detect QR codes from a pre-computed grayscale image
 ///
 /// # Arguments
@@ -350,44 +429,39 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
 /// Vector of detected QR codes
 pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     // Step 1: Binarize
-    let binary_adaptive = adaptive_binarize(image, width, height, 31);
-    let binary_otsu = otsu_binarize(image, width, height);
-    let binary = if width >= 800 || height >= 800 {
-        binary_adaptive.clone()
+    let mut binary = if width >= 800 || height >= 800 {
+        adaptive_binarize(image, width, height, 31)
     } else {
-        binary_otsu.clone()
+        otsu_binarize(image, width, height)
     };
 
     // Step 2: Detect finder patterns
-    let mut finder_patterns = Vec::new();
-    finder_patterns.extend(FinderDetector::detect(&binary_adaptive));
-    finder_patterns.extend(FinderDetector::detect(&binary_otsu));
+    let mut finder_patterns = FinderDetector::detect(&binary);
+    if finder_patterns.len() < 3 {
+        let fallback = if width >= 800 || height >= 800 {
+            otsu_binarize(image, width, height)
+        } else {
+            adaptive_binarize(image, width, height, 31)
+        };
+        let fallback_patterns = FinderDetector::detect(&fallback);
+        if fallback_patterns.len() >= 3 {
+            binary = fallback;
+            finder_patterns = fallback_patterns;
+        }
+    }
 
     // Step 3: Group finder patterns and decode QR codes
-    let mut results = Vec::new();
+    let mut results = decode_groups(&binary, image, width, height, &finder_patterns);
 
-    let groups = group_finder_patterns(&finder_patterns);
-
-    for group in groups {
-        if group.len() >= 3 {
-            if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
-                &finder_patterns[group[0]],
-                &finder_patterns[group[1]],
-                &finder_patterns[group[2]],
-            ) {
-                if let Some(qr) = QrDecoder::decode_with_gray(
-                    &binary,
-                    image,
-                    width,
-                    height,
-                    &tl,
-                    &tr,
-                    &bl,
-                    module_size,
-                ) {
-                    results.push(qr);
-                }
-            }
+    if results.is_empty() {
+        let fallback = if width >= 800 || height >= 800 {
+            otsu_binarize(image, width, height)
+        } else {
+            adaptive_binarize(image, width, height, 31)
+        };
+        let fallback_patterns = FinderDetector::detect(&fallback);
+        if fallback_patterns.len() >= 3 {
+            results = decode_groups(&fallback, image, width, height, &fallback_patterns);
         }
     }
 
@@ -424,42 +498,51 @@ pub fn detect_with_pool(
     otsu_binarize_into(gray_buffer, width, height, bin_otsu);
 
     // Step 3: Detect finder patterns
-    let mut finder_patterns = Vec::new();
-    finder_patterns.extend(FinderDetector::detect(bin_adaptive));
-    finder_patterns.extend(FinderDetector::detect(bin_otsu));
+    let mut finder_patterns = if width >= 800 || height >= 800 {
+        FinderDetector::detect(bin_adaptive)
+    } else {
+        FinderDetector::detect(bin_otsu)
+    };
 
     // Select which binary image to use for decoding (no clone needed — just a reference)
-    let binary: &BitMatrix = if width >= 800 || height >= 800 {
+    let mut binary: &BitMatrix = if width >= 800 || height >= 800 {
         bin_adaptive
     } else {
         bin_otsu
     };
 
+    if finder_patterns.len() < 3 {
+        let fallback_patterns = if width >= 800 || height >= 800 {
+            FinderDetector::detect(bin_otsu)
+        } else {
+            FinderDetector::detect(bin_adaptive)
+        };
+        if fallback_patterns.len() >= 3 {
+            finder_patterns = fallback_patterns;
+            binary = if width >= 800 || height >= 800 {
+                bin_otsu
+            } else {
+                bin_adaptive
+            };
+        }
+    }
+
     // Step 4: Group and decode
-    let mut results = Vec::new();
+    let mut results = decode_groups(binary, gray_buffer, width, height, &finder_patterns);
 
-    let groups = group_finder_patterns(&finder_patterns);
-
-    for group in groups {
-        if group.len() >= 3 {
-            if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
-                &finder_patterns[group[0]],
-                &finder_patterns[group[1]],
-                &finder_patterns[group[2]],
-            ) {
-                if let Some(qr) = QrDecoder::decode_with_gray(
-                    binary,
-                    gray_buffer,
-                    width,
-                    height,
-                    &tl,
-                    &tr,
-                    &bl,
-                    module_size,
-                ) {
-                    results.push(qr);
-                }
-            }
+    if results.is_empty() {
+        let fallback_patterns = if width >= 800 || height >= 800 {
+            FinderDetector::detect(bin_otsu)
+        } else {
+            FinderDetector::detect(bin_adaptive)
+        };
+        if fallback_patterns.len() >= 3 {
+            let fallback_binary: &BitMatrix = if width >= 800 || height >= 800 {
+                bin_otsu
+            } else {
+                bin_adaptive
+            };
+            results = decode_groups(fallback_binary, gray_buffer, width, height, &fallback_patterns);
         }
     }
 

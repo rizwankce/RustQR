@@ -5,6 +5,54 @@
 ### Summary
 Investigated the 0% detection rate and identified root causes. Fixed pattern grouping algorithm but discovered deeper issue with matrix extraction.
 
+## 2026-02-03 — Pipeline Restored + Reading Rate Jump
+
+### Summary
+Restored end-to-end detection on real images and updated the reading-rate baseline (no longer 0%).
+
+### Completed
+
+1. **Finder pattern validation tightened** ✅ (`src/detector/finder.rs`)
+   - Added **strict vertical + horizontal cross-checks** before accepting candidates
+   - Refined center and module size using cross-checks (reduces false positives)
+
+2. **Fast grouping + sanity checks** ✅ (`src/lib.rs`)
+   - Module-size **bucketing** (only group within adjacent size bins)
+   - Scored + trimmed candidate groups (top K) to limit decode attempts
+   - Added module-size sanity check between inferred size and distance-derived size
+
+3. **Binarizer fallback** ✅ (`src/lib.rs`)
+   - Primary binarizer based on size (adaptive for large, Otsu for small)
+   - If no decode, retry end-to-end with the alternate binarizer
+
+4. **Pipeline confirmation** ✅
+   - `debug_detect` and `debug_decode` now detect **1 QR** on `monitor/image001.jpg`
+   - Example decode: `4376471154038`
+
+5. **Reading rate run** ✅ (`cargo run --release --bin reading_rate`)
+   - **Average reading rate: 14.93%** (up from 0.00%)
+   - Captured per-category rates:
+     - blurred: **35.56%**
+     - bright_spots: **0.00%**
+     - brightness: **0.00%**
+     - close: **20.00%**
+     - curved: **17.78%**
+     - damaged: **13.51%**
+     - glare: **14.00%**
+     - high_version: **0.00%**
+     - lots: **0.00%**
+     - monitor: **64.71%**
+     - nominal: **46.15%**
+     - noncompliant: **0.00%**
+     - perspective: **20.00%**
+     - rotations: **0.00%**
+     - shadows: **7.14%**
+   - **Note:** The run output did not print a `pathological` line; re-run needed to confirm that category’s rate.
+
+### Remaining Work
+- Improve weak categories (bright_spots, brightness, high_version, lots, rotations).
+- Add a faster spatial index for grouping to scale with many finder patterns.
+
 ### Completed
 
 1. **Added debug logging and traced detection pipeline** ✅
