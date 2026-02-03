@@ -60,6 +60,8 @@ jobs:
 
       - name: Run reading rate benchmark
         if: ${{ inputs.run_reading_rate }}
+        env:
+          QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
         run: |
           echo "## Reading Rate Results - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -81,7 +83,7 @@ jobs:
         shell: bash
 
       - name: Run Criterion benchmarks (full)
-        if: ${{ inputs.run_criterion && inputs.bench_limit != '0' }}
+        if: ${{ inputs.run_criterion }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
         run: |
