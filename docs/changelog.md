@@ -1,5 +1,73 @@
 # Changelog & Next Steps
 
+## 2026-02-03 — Detection Accuracy Assessment
+
+### Summary
+Ran full benchmark suite and discovered that while **performance benchmarks work**, the **detection accuracy is 0%** on real-world images.
+
+### Completed Today
+
+1. **Ran `real_qr_images` benchmark suite** ✅
+   - Smoke test (5 images) completes successfully
+   - Timing data collected (11ms - 1.15s per image depending on size/complexity)
+
+2. **Ran `reading_rate` benchmark** ✅
+   - Tested all 536 BoofCV images across 16 categories
+   - **Result: 0% detection rate across all categories**
+
+3. **Created GitHub Actions benchmark workflow** ✅
+   - Added `.github/workflows/benchmark.yml`
+   - Manual trigger via `workflow_dispatch`
+   - Runs on Linux, macOS, Windows in parallel
+   - Configurable: image limit, reading_rate toggle, Criterion toggle
+
+4. **Fixed `reading_rate` binary path** ✅
+   - Changed from `benches/images/` to `benches/images/boofcv/`
+
+### Key Finding: 0% Detection Rate
+
+```
+Category          | Images | RustQR
+------------------|--------|--------
+blurred           | 45     | 0.00%
+bright_spots      | 32     | 0.00%
+brightness        | 28     | 0.00%
+close             | 40     | 0.00%
+curved            | 45     | 0.00%
+damaged           | 37     | 0.00%
+glare             | 50     | 0.00%
+high_version      | 33     | 0.00%
+lots              | 7      | 0.00%
+monitor           | 17     | 0.00%
+nominal           | 65     | 0.00%
+noncompliant      | 16     | 0.00%
+pathological      | 10     | 0.00%
+perspective       | 35     | 0.00%
+rotations         | 44     | 0.00%
+shadows           | 14     | 0.00%
+```
+
+The library runs but doesn't successfully detect/decode QR codes from real images.
+
+### Pending: Fix Detection Pipeline
+
+The detection pipeline needs debugging. Possible failure points:
+
+1. **Finder pattern detection** - patterns may not be found in real images
+2. **Pattern grouping** - `group_finder_patterns()` may fail to form valid triplets
+3. **Perspective transform** - corner estimation may be inaccurate
+4. **Matrix sampling** - bits may be read incorrectly
+5. **Format info extraction** - EC level/mask pattern decoding may fail
+6. **Data decoding** - Reed-Solomon or mode parsing may fail
+
+**Next Steps:**
+- [ ] Add debug logging to trace where detection fails
+- [ ] Test each pipeline stage independently
+- [ ] Compare against known-good QR matrices
+- [ ] Fix the root cause of 0% detection rate
+
+---
+
 ## 2026-02-02 — Benchmark Analysis & Improvement Plan
 
 After running all 6 Criterion benchmark suites (`binarization`, `grayscale`, `memory_pool`, `qr_detect`, `real_qr_cc`, `real_qr_images`), the following next steps were identified:
