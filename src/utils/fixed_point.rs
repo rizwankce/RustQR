@@ -15,8 +15,6 @@ impl Fixed {
     const FRACTIONAL_BITS: i32 = 16;
     /// Scaling factor: 2^16 = 65536
     const SCALE: i32 = 65536;
-    /// Half-scale for rounding
-    const HALF_SCALE: i32 = 32768;
 
     /// Create from integer
     pub const fn from_i32(n: i32) -> Self {

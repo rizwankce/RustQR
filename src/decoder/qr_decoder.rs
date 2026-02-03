@@ -240,6 +240,7 @@ impl QrDecoder {
         }
     }
 
+    #[allow(dead_code)]
     fn extract_qr_region(
         matrix: &BitMatrix,
         top_left: &Point,
@@ -255,6 +256,7 @@ impl QrDecoder {
         ))
     }
 
+    #[allow(dead_code)]
     fn extract_qr_region_gray(
         gray: &[u8],
         width: usize,
@@ -574,6 +576,7 @@ impl QrDecoder {
         None
     }
 
+    #[allow(dead_code)]
     fn score_content(content: &str) -> i32 {
         if content.is_empty() {
             return -10_000;

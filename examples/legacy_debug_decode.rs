@@ -1,6 +1,6 @@
 // Debug test to trace through QR decoder step by step
 use rust_qr::decoder::format::FormatInfo;
-use rust_qr::detector::finder::{FinderDetector, FinderPattern};
+use rust_qr::detector::finder::FinderDetector;
 use rust_qr::models::{BitMatrix, Point};
 use rust_qr::utils::geometry::PerspectiveTransform;
 use std::path::Path;

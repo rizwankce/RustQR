@@ -116,10 +116,6 @@ impl FinderDetector {
         const WINDOW_SIZE: usize = 10; // Search window in original pixels
 
         for coarse_pattern in coarse_candidates {
-            // Map coarse coordinates back to original
-            let orig_x = (coarse_pattern.center.x * scale) as usize;
-            let orig_y = (coarse_pattern.center.y * scale) as usize;
-
             // Get search window bounds
             let (min_x, min_y, max_x, max_y) = pyramid.get_search_window(
                 coarse_pattern.center.x as usize,
@@ -140,7 +136,7 @@ impl FinderDetector {
                 // Convert coarse module size to original scale for validation
                 let expected_module = coarse_pattern.module_size * scale;
 
-                for mut candidate in row_candidates {
+                for candidate in row_candidates {
                     // Validate module size matches expectation from coarse detection
                     let size_ratio = candidate.module_size / expected_module;
                     if size_ratio >= 0.5 && size_ratio <= 2.0 {

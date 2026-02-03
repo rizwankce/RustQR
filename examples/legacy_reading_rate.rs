@@ -23,7 +23,6 @@ fn calculate_reading_rate(category_dir: &str) -> f64 {
                     continue;
                 }
 
-                let file_stem = path.file_stem().unwrap().to_string_lossy();
                 let txt_file = path.with_extension("txt");
 
                 // Check if corresponding .txt file exists (ground truth)

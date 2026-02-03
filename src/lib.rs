@@ -3,7 +3,7 @@
 //! A pure Rust QR code detection and decoding library with zero dependencies.
 //! Designed for maximum speed and cross-platform compatibility.
 
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 
 /// QR code decoding modules (error correction, format extraction, data modes)
@@ -620,7 +620,6 @@ impl Default for Detector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
     fn test_detect_empty() {

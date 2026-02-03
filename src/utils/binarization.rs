@@ -278,7 +278,7 @@ mod tests {
     fn test_adaptive_binarize() {
         // Create image with varying brightness
         let mut gray = Vec::new();
-        for y in 0..10 {
+        for _y in 0..10 {
             for x in 0..10 {
                 // Left side darker, right side lighter
                 if x < 5 {

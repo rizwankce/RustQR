@@ -244,6 +244,7 @@ unsafe fn rgba_to_grayscale_neon(rgba: &[u8], gray: &mut [u8], pixel_count: usiz
 
 // ============== Scalar Fallback Implementation ==============
 
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn rgb_to_grayscale_scalar_unrolled(rgb: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgb.as_ptr();
@@ -277,6 +278,7 @@ fn rgb_to_grayscale_scalar_unrolled(rgb: &[u8], gray: &mut [u8], pixel_count: us
     }
 }
 
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn rgba_to_grayscale_scalar_unrolled(rgba: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgba.as_ptr();

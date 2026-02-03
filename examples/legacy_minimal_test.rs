@@ -1,7 +1,7 @@
 use rust_qr::decoder::qr_decoder::QrDecoder;
 /// Minimal test: Create a simple synthetic QR code and try to decode it
 /// This helps isolate whether the decoder works at all
-use rust_qr::models::{BitMatrix, Point, QRCode};
+use rust_qr::models::{BitMatrix, Point};
 
 fn main() {
     println!("Minimal QR Decoder Test");
