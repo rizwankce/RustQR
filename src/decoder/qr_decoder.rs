@@ -43,16 +43,12 @@ impl QrDecoder {
         }
 
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
+        // Only try versions near the estimated version to avoid pathological slowdowns
         let mut candidates = Vec::new();
         for delta in -2..=2 {
             let v = estimated_version + delta;
             if (1..=40).contains(&v) {
                 candidates.push(v as u8);
-            }
-        }
-        for v in 1..=40u8 {
-            if !candidates.contains(&v) {
-                candidates.push(v);
             }
         }
 
@@ -121,16 +117,12 @@ impl QrDecoder {
             Self::estimate_dimension(top_left, top_right, &bottom_right, module_size)?;
 
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
+        // Only try versions near the estimated version to avoid pathological slowdowns
         let mut candidates = Vec::new();
         for delta in -2..=2 {
             let v = estimated_version + delta;
             if (1..=40).contains(&v) {
                 candidates.push(v as u8);
-            }
-        }
-        for v in 1..=40u8 {
-            if !candidates.contains(&v) {
-                candidates.push(v);
             }
         }
 

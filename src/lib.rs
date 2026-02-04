@@ -30,6 +30,15 @@ use utils::binarization::{
 use utils::grayscale::{rgb_to_grayscale, rgb_to_grayscale_with_buffer};
 use utils::memory_pool::BufferPool;
 
+use std::time::{Duration, Instant};
+
+/// Maximum number of finder pattern groups to attempt decoding.
+/// Lower values improve worst-case performance but may miss QR codes in complex scenes.
+const MAX_GROUPS: usize = 15;
+
+/// Maximum time allowed for detection before giving up (prevents pathological slowdowns).
+const MAX_DETECTION_TIME: Duration = Duration::from_millis(500);
+
 /// Detect QR codes in an RGB image
 ///
 /// # Arguments
@@ -42,6 +51,9 @@ use utils::memory_pool::BufferPool;
 ///
 /// Uses pyramid detection for large images (800px+) for better performance
 pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    let start = Instant::now();
+    let deadline = Some(start + MAX_DETECTION_TIME);
+
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
 
@@ -78,10 +90,10 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
         }
     }
 
-    let mut results = decode_groups(&binary, &gray, width, height, &finder_patterns);
+    let mut results = decode_groups(&binary, &gray, width, height, &finder_patterns, deadline);
 
-    // Final fallback: if no decode, try the other binarizer end-to-end
-    if results.is_empty() {
+    // Final fallback: if no decode and time permits, try the other binarizer end-to-end
+    if results.is_empty() && deadline.map_or(true, |d| Instant::now() < d) {
         let fallback = if width >= 800 || height >= 800 {
             otsu_binarize(&gray, width, height)
         } else {
@@ -93,7 +105,14 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
             FinderDetector::detect(&fallback)
         };
         if fallback_patterns.len() >= 3 {
-            results = decode_groups(&fallback, &gray, width, height, &fallback_patterns);
+            results = decode_groups(
+                &fallback,
+                &gray,
+                width,
+                height,
+                &fallback_patterns,
+                deadline,
+            );
         }
     }
 
@@ -377,10 +396,11 @@ fn decode_groups(
     width: usize,
     height: usize,
     finder_patterns: &[FinderPattern],
+    deadline: Option<Instant>,
 ) -> Vec<QRCode> {
     let mut results = Vec::new();
     let mut groups = group_finder_patterns(finder_patterns);
-    score_and_trim_groups(&mut groups, finder_patterns, 40);
+    score_and_trim_groups(&mut groups, finder_patterns, MAX_GROUPS);
 
     if cfg!(debug_assertions) && crate::debug::debug_enabled() {
         eprintln!(
@@ -391,6 +411,16 @@ fn decode_groups(
     }
 
     for (group_idx, group) in groups.iter().enumerate() {
+        // Check timeout before each decode attempt
+        if let Some(deadline) = deadline {
+            if Instant::now() > deadline {
+                if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                    eprintln!("DEBUG: Timeout reached after {} groups", group_idx);
+                }
+                break;
+            }
+        }
+
         if group.len() < 3 {
             continue;
         }
@@ -444,6 +474,9 @@ fn decode_groups(
 /// # Returns
 /// Vector of detected QR codes
 pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    let start = Instant::now();
+    let deadline = Some(start + MAX_DETECTION_TIME);
+
     // Step 1: Binarize
     let mut binary = if width >= 800 || height >= 800 {
         adaptive_binarize(image, width, height, 31)
@@ -467,9 +500,9 @@ pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<Q
     }
 
     // Step 3: Group finder patterns and decode QR codes
-    let mut results = decode_groups(&binary, image, width, height, &finder_patterns);
+    let mut results = decode_groups(&binary, image, width, height, &finder_patterns, deadline);
 
-    if results.is_empty() {
+    if results.is_empty() && deadline.map_or(true, |d| Instant::now() < d) {
         let fallback = if width >= 800 || height >= 800 {
             otsu_binarize(image, width, height)
         } else {
@@ -477,7 +510,14 @@ pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<Q
         };
         let fallback_patterns = FinderDetector::detect(&fallback);
         if fallback_patterns.len() >= 3 {
-            results = decode_groups(&fallback, image, width, height, &fallback_patterns);
+            results = decode_groups(
+                &fallback,
+                image,
+                width,
+                height,
+                &fallback_patterns,
+                deadline,
+            );
         }
     }
 
@@ -503,6 +543,9 @@ pub fn detect_with_pool(
     height: usize,
     pool: &mut BufferPool,
 ) -> Vec<QRCode> {
+    let start = Instant::now();
+    let deadline = Some(start + MAX_DETECTION_TIME);
+
     // Get all buffers at once via split borrowing
     let (gray_buffer, bin_adaptive, bin_otsu, integral) = pool.get_all_buffers(width, height);
 
@@ -544,9 +587,16 @@ pub fn detect_with_pool(
     }
 
     // Step 4: Group and decode
-    let mut results = decode_groups(binary, gray_buffer, width, height, &finder_patterns);
+    let mut results = decode_groups(
+        binary,
+        gray_buffer,
+        width,
+        height,
+        &finder_patterns,
+        deadline,
+    );
 
-    if results.is_empty() {
+    if results.is_empty() && deadline.map_or(true, |d| Instant::now() < d) {
         let fallback_patterns = if width >= 800 || height >= 800 {
             FinderDetector::detect(bin_otsu)
         } else {
@@ -564,6 +614,7 @@ pub fn detect_with_pool(
                 width,
                 height,
                 &fallback_patterns,
+                deadline,
             );
         }
     }
