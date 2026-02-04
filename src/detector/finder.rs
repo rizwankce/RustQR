@@ -26,7 +26,7 @@ impl FinderDetector {
         let height = matrix.height();
         let mut candidates = Vec::new();
 
-        // Scan every row - edge detection provides the speedup
+        // Scan every row horizontally - detects 0° and 180° rotations
         let row_step = 1;
         for y in (0..height).step_by(row_step) {
             // Early termination 1: Skip rows with low variance (no edges)
@@ -38,22 +38,34 @@ impl FinderDetector {
             candidates.extend(row_candidates);
         }
 
+        // If we found enough patterns horizontally, skip vertical scan
+        if candidates.len() < 3 {
+            // Scan columns vertically - detects 90° and 270° rotations
+            for x in (0..width).step_by(row_step) {
+                if !Self::has_significant_edges_vertical(matrix, x, height) {
+                    continue;
+                }
+
+                let col_candidates = Self::scan_column(matrix, x, height);
+                candidates.extend(col_candidates);
+            }
+        }
+
         Self::merge_candidates(candidates)
     }
 
     /// Detect finder patterns using parallel processing
-    /// Processes rows in parallel for multi-core speedup
+    /// Processes rows and columns in parallel for multi-core speedup
     pub fn detect_parallel(matrix: &BitMatrix) -> Vec<FinderPattern> {
         use rayon::prelude::*;
 
         let width = matrix.width();
         let height = matrix.height();
 
-        // Collect candidates from all rows in parallel
-        let all_candidates: Vec<Vec<FinderPattern>> = (0..height)
+        // Collect candidates from all rows in parallel (horizontal scan)
+        let row_candidates: Vec<Vec<FinderPattern>> = (0..height)
             .into_par_iter()
             .filter_map(|y| {
-                // Early termination: Skip rows with low variance
                 if !Self::has_significant_edges(matrix, y, width) {
                     return None;
                 }
@@ -67,10 +79,33 @@ impl FinderDetector {
             })
             .collect();
 
-        // Flatten all candidates
         let mut candidates = Vec::new();
-        for row_candidates in all_candidates {
-            candidates.extend(row_candidates);
+        for row_cands in row_candidates {
+            candidates.extend(row_cands);
+        }
+
+        // If we found enough patterns horizontally, skip vertical scan
+        if candidates.len() < 3 {
+            // Collect candidates from all columns in parallel (vertical scan for rotated QRs)
+            let col_candidates: Vec<Vec<FinderPattern>> = (0..width)
+                .into_par_iter()
+                .filter_map(|x| {
+                    if !Self::has_significant_edges_vertical(matrix, x, height) {
+                        return None;
+                    }
+
+                    let col_cands = Self::scan_column(matrix, x, height);
+                    if col_cands.is_empty() {
+                        None
+                    } else {
+                        Some(col_cands)
+                    }
+                })
+                .collect();
+
+            for col_cands in col_candidates {
+                candidates.extend(col_cands);
+            }
         }
 
         Self::merge_candidates(candidates)
@@ -180,6 +215,27 @@ impl FinderDetector {
         transitions >= 2
     }
 
+    /// Check if column has enough edge transitions to potentially contain patterns (for rotated QR codes)
+    fn has_significant_edges_vertical(matrix: &BitMatrix, x: usize, height: usize) -> bool {
+        let mut transitions = 0;
+        let sample_step = 4;
+        let mut prev_color = matrix.get(x, 0);
+
+        for y in (sample_step..height).step_by(sample_step) {
+            let color = matrix.get(x, y);
+            if color != prev_color {
+                transitions += 1;
+                prev_color = color;
+
+                if transitions >= 3 {
+                    return true;
+                }
+            }
+        }
+
+        transitions >= 2
+    }
+
     fn scan_row(matrix: &BitMatrix, y: usize, width: usize) -> Vec<FinderPattern> {
         let mut candidates = Vec::new();
         let mut run_lengths: Vec<usize> = Vec::new();
@@ -244,6 +300,109 @@ impl FinderDetector {
         }
 
         candidates
+    }
+
+    /// Scan a column vertically for finder patterns (for 90°/270° rotated QR codes)
+    fn scan_column(matrix: &BitMatrix, x: usize, height: usize) -> Vec<FinderPattern> {
+        let mut candidates = Vec::new();
+        let mut run_lengths: Vec<usize> = Vec::new();
+        let mut run_colors: Vec<bool> = Vec::new();
+        let mut run_start = 0usize;
+        let mut current_color = matrix.get(x, 0);
+
+        const MAX_PATTERNS_PER_COL: usize = 5;
+
+        for y in 1..height {
+            let color = matrix.get(x, y);
+
+            if color != current_color {
+                let run_len = y - run_start;
+                run_lengths.push(run_len);
+                run_colors.push(current_color);
+
+                run_start = y;
+                current_color = color;
+
+                if run_colors.len() >= 5 {
+                    let end_idx = run_colors.len();
+                    let colors = &run_colors[end_idx - 5..end_idx];
+                    let lengths = &run_lengths[end_idx - 5..end_idx];
+
+                    // Pattern should be: black-white-black-white-black
+                    if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
+                        if Self::quick_ratio_check(lengths) {
+                            if let Some((center_y, _unit, total)) =
+                                Self::check_pattern_vertical(lengths, y)
+                            {
+                                // Cross-check horizontally first (since we scanned vertically)
+                                if let Some((center_x, unit_h)) =
+                                    Self::cross_check_horizontal(matrix, x as f32, center_y, total)
+                                {
+                                    // Then cross-check vertically to refine
+                                    if let Some((refined_y, unit_v)) = Self::cross_check_vertical(
+                                        matrix,
+                                        center_x,
+                                        center_y.round() as usize,
+                                        total,
+                                    ) {
+                                        let module_size = (unit_h + unit_v) / 2.0;
+                                        candidates.push(FinderPattern::new(
+                                            center_x,
+                                            refined_y,
+                                            module_size,
+                                        ));
+                                    } else {
+                                        candidates
+                                            .push(FinderPattern::new(center_x, center_y, unit_h));
+                                    }
+                                }
+
+                                if candidates.len() >= MAX_PATTERNS_PER_COL {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        candidates
+    }
+
+    /// Check vertical pattern and return center_y, unit size, and total length
+    fn check_pattern_vertical(lengths: &[usize], end_y: usize) -> Option<(f32, f32, usize)> {
+        let b1 = lengths[0];
+        let w1 = lengths[1];
+        let b2 = lengths[2];
+        let w2 = lengths[3];
+        let b3 = lengths[4];
+
+        let total = b1 + w1 + b2 + w2 + b3;
+        if total < 7 {
+            return None;
+        }
+
+        let unit = total as f32 / 7.0;
+
+        let r1 = b1 as f32 / unit;
+        let r2 = w1 as f32 / unit;
+        let r3 = b2 as f32 / unit;
+        let r4 = w2 as f32 / unit;
+        let r5 = b3 as f32 / unit;
+
+        const TOL: f32 = 0.5;
+        if (r1 - 1.0).abs() <= TOL
+            && (r2 - 1.0).abs() <= TOL
+            && (r3 - 3.0).abs() <= TOL
+            && (r4 - 1.0).abs() <= TOL
+            && (r5 - 1.0).abs() <= TOL
+        {
+            let center_y = (end_y as f32) - (b3 as f32) - (w2 as f32) - (b2 as f32 / 2.0);
+            return Some((center_y, unit, total));
+        }
+
+        None
     }
 
     fn scan_row_in_range(
