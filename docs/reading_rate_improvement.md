@@ -464,14 +464,23 @@ Public comparison baseline:
 
 **Execution order for Phase 6:** `6.1 -> 6.2 -> 6.7 -> 6.5 -> 6.4 -> 6.3 -> 6.6`
 
-**Status:** Planned
-- [ ] 6.1 Add A/B Read-Rate Regression Harness (baseline vs candidate)
-- [ ] 6.2 Add Candidate Scoring + Top-K Decode Gating
-- [ ] 6.7 Single-QR First, Multi-QR Expansion Second
-- [ ] 6.5 Subpixel Sampling (Bilinear) + Adaptive Sampling Kernel
-- [ ] 6.4 Robust Homography Fit with Timing/Alignment Constraints
-- [ ] 6.3 Add Contour-Based Detection as a Second Detector Family
-- [ ] 6.6 Offline Threshold Auto-Tuning
+**Status:** Completed (2026-02-06)
+- [x] 6.1 Add A/B Read-Rate Regression Harness (baseline vs candidate)
+- [x] 6.2 Add Candidate Scoring + Top-K Decode Gating
+- [x] 6.7 Single-QR First, Multi-QR Expansion Second
+- [x] 6.5 Subpixel Sampling (Bilinear) + Adaptive Sampling Kernel
+- [x] 6.4 Robust Homography Fit with Timing/Alignment Constraints
+- [x] 6.3 Add Contour-Based Detection as a Second Detector Family
+- [x] 6.6 Offline Threshold Auto-Tuning
+
+**Implementation notes (Phase 6):**
+- `6.1` implemented via `qrtool reading-rate --artifact-json`, structured JSON artifacts, dataset fingerprinting, A/B compare script (`scripts/compare_reading_rate_artifacts.py`), and CI regression gate wiring in `.github/workflows/benchmark.yml`.
+- `6.2` implemented in `src/pipeline.rs` with deterministic candidate ranking, geometry confidence scoring, and `QR_DECODE_TOP_K` decode gating.
+- `6.7` implemented in `src/pipeline.rs` with single-candidate-first decoding and controlled multi-candidate expansion only when confidence signals require it.
+- `6.5` implemented in `src/decoder/qr_decoder/geometry.rs` with bilinear grayscale sampling plus module-size-aware adaptive sampling kernel.
+- `6.4` implemented in `src/decoder/qr_decoder/geometry.rs` with timing/alignment-constrained transform refinement and quality-based transform selection.
+- `6.3` implemented by adding contour fallback detector family (`src/detector/contour.rs`) and wiring it into the detection fallback flow in `src/lib.rs`.
+- `6.6` implemented with offline sweep script (`scripts/tune_phase6_thresholds.py`) and checked-in profile (`docs/phase6_tuned_profile.env`).
 
 #### 6.1 Add A/B Read-Rate Regression Harness
 - **Files**: `src/bin/qrtool.rs`, `src/tools/mod.rs`, `.github/workflows/benchmark.yml`, `scripts/*` (new)

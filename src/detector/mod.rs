@@ -12,6 +12,8 @@
 pub mod alignment;
 /// Connected components labeling for efficient pattern detection
 pub mod connected_components;
+/// Contour/square-region proposals as a secondary detector family
+pub mod contour;
 /// Finder pattern detection using 1:1:3:1:1 ratio scanning
 pub mod finder;
 /// Image pyramid for multi-scale finder detection

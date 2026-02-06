@@ -1,7 +1,27 @@
 use crate::DetectionTelemetry;
 use crate::decoder::qr_decoder::QrDecoder;
 use crate::detector::finder::FinderPattern;
-use crate::models::{BitMatrix, Point, QRCode};
+use crate::models::{BitMatrix, ECLevel, Point, QRCode};
+use std::cmp::Ordering;
+use std::env;
+
+const MAX_GROUP_CANDIDATES: usize = 40;
+const DEFAULT_DECODE_TOP_K: usize = 6;
+const MAX_DECODE_TOP_K: usize = 64;
+const HIGH_GROUP_CONFIDENCE: f32 = 0.80;
+const LOW_TOP_GROUP_CONFIDENCE: f32 = 0.62;
+const SINGLE_QR_CONFIDENCE_FLOOR: f32 = 0.78;
+
+#[derive(Clone, Copy)]
+struct RankedGroupCandidate {
+    group: [usize; 3],
+    tl: Point,
+    tr: Point,
+    bl: Point,
+    module_size: f32,
+    raw_score: f32,
+    geometry_confidence: f32,
+}
 
 fn order_finder_patterns(
     a: &FinderPattern,
@@ -87,7 +107,7 @@ fn estimate_dimension_from_distance(distance: f32, module_size: f32) -> Option<u
     Some(17 + 4 * version as usize)
 }
 
-/// Simplified finder pattern grouping with relaxed constraints
+/// Simplified finder pattern grouping with relaxed constraints.
 pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
     if patterns.len() < 3 {
         return Vec::new();
@@ -98,7 +118,7 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
         .enumerate()
         .map(|(i, p)| (i, p.module_size))
         .collect();
-    indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
 
     let mut bins: Vec<Vec<usize>> = Vec::new();
     let mut current: Vec<usize> = Vec::new();
@@ -139,10 +159,7 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
         if indices.len() < 3 {
             continue;
         }
-        let groups = build_groups(patterns, &indices);
-        if !groups.is_empty() {
-            all_groups.extend(groups);
-        }
+        all_groups.extend(build_groups(patterns, &indices));
     }
 
     all_groups
@@ -164,7 +181,6 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let min_size = sizes.iter().fold(f32::INFINITY, |a, &b| a.min(b));
                 let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
                 let size_ratio = max_size / min_size;
-
                 if size_ratio > 2.0 {
                     continue;
                 }
@@ -178,10 +194,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
 
                 let avg_module = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
-                if min_d < avg_module * 2.5 {
-                    continue;
-                }
-                if max_d > 3000.0 {
+                if min_d < avg_module * 2.5 || max_d > 3000.0 {
                     continue;
                 }
                 let distortion_ratio = max_d / min_d;
@@ -209,24 +222,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
     groups
 }
 
-fn score_and_trim_groups(
-    groups: &mut Vec<Vec<usize>>,
-    patterns: &[FinderPattern],
-    max_groups: usize,
-) {
-    if groups.len() <= max_groups {
-        return;
-    }
-
-    groups.sort_by(|a, b| {
-        let sa = group_score(patterns, a);
-        let sb = group_score(patterns, b);
-        sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
-    });
-    groups.truncate(max_groups);
-}
-
-fn group_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
+fn group_raw_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
     if group.len() < 3 {
         return f32::INFINITY;
     }
@@ -247,7 +243,6 @@ fn group_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
     let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
     let distortion = max_d / min_d;
 
-    // Prefer near-right angle (small cosine) and size consistency
     let a2 = d01 * d01;
     let b2 = d02 * d02;
     let c2 = d12 * d12;
@@ -259,6 +254,272 @@ fn group_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
     size_ratio * 2.0 + distortion + best_cos
 }
 
+fn geometry_confidence(patterns: &[FinderPattern], group: &[usize]) -> f32 {
+    if group.len() < 3 {
+        return 0.0;
+    }
+
+    let p0 = &patterns[group[0]];
+    let p1 = &patterns[group[1]];
+    let p2 = &patterns[group[2]];
+
+    let sizes = [p0.module_size, p1.module_size, p2.module_size];
+    let min_size = sizes.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
+    if min_size <= 0.0 {
+        return 0.0;
+    }
+    let size_ratio = max_size / min_size;
+    let size_consistency = (1.0 - (size_ratio - 1.0)).clamp(0.0, 1.0);
+
+    let d01 = p0.center.distance(&p1.center);
+    let d02 = p0.center.distance(&p2.center);
+    let d12 = p1.center.distance(&p2.center);
+    let distances = [d01, d02, d12];
+    let min_d = distances.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
+    if min_d <= 0.0 {
+        return 0.0;
+    }
+    let distortion = max_d / min_d;
+    let distortion_consistency = (1.0 - ((distortion - 1.0) / 4.0)).clamp(0.0, 1.0);
+
+    let a2 = d01 * d01;
+    let b2 = d02 * d02;
+    let c2 = d12 * d12;
+    let cos_i = ((a2 + b2 - c2) / (2.0 * d01 * d02)).abs();
+    let cos_j = ((a2 + c2 - b2) / (2.0 * d01 * d12)).abs();
+    let cos_k = ((b2 + c2 - a2) / (2.0 * d02 * d12)).abs();
+    let best_cos = cos_i.min(cos_j).min(cos_k);
+    let right_angle_consistency = (1.0 - best_cos).clamp(0.0, 1.0);
+
+    let (tl, tr, bl, _) = match order_finder_patterns(p0, p1, p2) {
+        Some(v) => v,
+        None => return 0.0,
+    };
+    let arm_a = tl.distance(&tr);
+    let arm_b = tl.distance(&bl);
+    let arm_balance = if arm_a > 0.0 || arm_b > 0.0 {
+        let max_arm = arm_a.max(arm_b);
+        (1.0 - (arm_a - arm_b).abs() / max_arm).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    (0.35 * right_angle_consistency
+        + 0.25 * size_consistency
+        + 0.20 * distortion_consistency
+        + 0.20 * arm_balance)
+        .clamp(0.0, 1.0)
+}
+
+fn rank_groups(
+    patterns: &[FinderPattern],
+    raw_groups: Vec<Vec<usize>>,
+) -> Vec<RankedGroupCandidate> {
+    let mut ranked = Vec::with_capacity(raw_groups.len());
+
+    for group in raw_groups {
+        if group.len() < 3 {
+            continue;
+        }
+        let gi = [group[0], group[1], group[2]];
+        if let Some((tl, tr, bl, module_size)) =
+            order_finder_patterns(&patterns[gi[0]], &patterns[gi[1]], &patterns[gi[2]])
+        {
+            ranked.push(RankedGroupCandidate {
+                group: gi,
+                tl,
+                tr,
+                bl,
+                module_size,
+                raw_score: group_raw_score(patterns, &gi),
+                geometry_confidence: geometry_confidence(patterns, &gi),
+            });
+        }
+    }
+
+    ranked.sort_by(|a, b| {
+        let conf_order = b
+            .geometry_confidence
+            .partial_cmp(&a.geometry_confidence)
+            .unwrap_or(Ordering::Equal);
+        if conf_order != Ordering::Equal {
+            return conf_order;
+        }
+        let raw_order = a
+            .raw_score
+            .partial_cmp(&b.raw_score)
+            .unwrap_or(Ordering::Equal);
+        if raw_order != Ordering::Equal {
+            return raw_order;
+        }
+        a.group.cmp(&b.group)
+    });
+    ranked
+}
+
+fn decode_top_k_limit(total_candidates: usize) -> usize {
+    if total_candidates == 0 {
+        return 0;
+    }
+    let parsed = env::var("QR_DECODE_TOP_K")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|&v| v > 0)
+        .unwrap_or(DEFAULT_DECODE_TOP_K)
+        .clamp(1, MAX_DECODE_TOP_K);
+    parsed.min(total_candidates)
+}
+
+fn decode_f32_env(key: &str, default: f32, min: f32, max: f32) -> f32 {
+    env::var(key)
+        .ok()
+        .and_then(|v| v.trim().parse::<f32>().ok())
+        .map(|v| v.clamp(min, max))
+        .unwrap_or(default)
+}
+
+fn high_group_confidence() -> f32 {
+    decode_f32_env("QR_GROUP_HIGH_CONF", HIGH_GROUP_CONFIDENCE, 0.3, 0.99)
+}
+
+fn low_top_group_confidence() -> f32 {
+    decode_f32_env("QR_GROUP_LOW_TOP_CONF", LOW_TOP_GROUP_CONFIDENCE, 0.2, 0.95)
+}
+
+fn single_qr_confidence_floor() -> f32 {
+    decode_f32_env(
+        "QR_SINGLE_QR_CONF_FLOOR",
+        SINGLE_QR_CONFIDENCE_FLOOR,
+        0.2,
+        0.99,
+    )
+}
+
+fn decode_proxy_confidence(qr: &QRCode) -> f32 {
+    let bytes_component = (qr.data.len().min(64) as f32 / 64.0).clamp(0.0, 1.0);
+    let content_len = qr.content.chars().count();
+    let content_component = (content_len.min(64) as f32 / 64.0).clamp(0.0, 1.0);
+    let ec_component = match qr.error_correction {
+        ECLevel::L => 0.70,
+        ECLevel::M => 0.80,
+        ECLevel::Q => 0.90,
+        ECLevel::H => 1.00,
+    };
+    (0.45 * bytes_component + 0.35 * content_component + 0.20 * ec_component).clamp(0.0, 1.0)
+}
+
+fn decode_candidate(
+    candidate: &RankedGroupCandidate,
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+) -> Option<QRCode> {
+    let mut qr = QrDecoder::decode_with_gray(
+        binary,
+        gray,
+        width,
+        height,
+        &candidate.tl,
+        &candidate.tr,
+        &candidate.bl,
+        candidate.module_size,
+    )?;
+    let proxy = decode_proxy_confidence(&qr);
+    qr.confidence = (0.75 * candidate.geometry_confidence + 0.25 * proxy).clamp(0.0, 1.0);
+    Some(qr)
+}
+
+fn decode_ranked_groups(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    finder_patterns: &[FinderPattern],
+    mut telemetry: Option<&mut DetectionTelemetry>,
+) -> Vec<QRCode> {
+    let raw_groups = group_finder_patterns(finder_patterns);
+    let ranked = rank_groups(finder_patterns, raw_groups);
+    let consider = ranked.len().min(MAX_GROUP_CANDIDATES);
+    let candidates = &ranked[..consider];
+
+    if let Some(tel) = telemetry.as_mut() {
+        tel.groups_found = candidates.len();
+        tel.candidate_groups_scored = ranked.len();
+        tel.decode_attempts = 0;
+        for candidate in &ranked {
+            tel.add_candidate_score(candidate.raw_score);
+        }
+    }
+
+    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+        eprintln!(
+            "DEBUG: Found {} finder patterns, ranked {} groups",
+            finder_patterns.len(),
+            candidates.len()
+        );
+    }
+
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+
+    let top_k = decode_top_k_limit(candidates.len());
+    let high_group_conf = high_group_confidence();
+    let low_top_group_conf = low_top_group_confidence();
+    let single_qr_floor = single_qr_confidence_floor();
+    let top = candidates[0];
+    let mut should_expand = candidates
+        .iter()
+        .filter(|c| c.geometry_confidence >= high_group_conf)
+        .take(2)
+        .count()
+        >= 2
+        || top.geometry_confidence < low_top_group_conf;
+
+    if let Some(tel) = telemetry.as_mut() {
+        tel.transforms_built += 1;
+        tel.decode_attempts += 1;
+    }
+
+    let mut results = Vec::new();
+    if let Some(qr) = decode_candidate(&top, binary, gray, width, height) {
+        if let Some(tel) = telemetry.as_mut() {
+            tel.rs_decode_ok += 1;
+            tel.payload_decoded += 1;
+        }
+        if qr.confidence < single_qr_floor {
+            should_expand = true;
+        }
+        results.push(qr);
+        if !should_expand {
+            return results;
+        }
+    } else {
+        should_expand = true;
+    }
+
+    if should_expand {
+        for candidate in candidates.iter().take(top_k).skip(1) {
+            if let Some(tel) = telemetry.as_mut() {
+                tel.transforms_built += 1;
+                tel.decode_attempts += 1;
+            }
+            if let Some(qr) = decode_candidate(candidate, binary, gray, width, height) {
+                if let Some(tel) = telemetry.as_mut() {
+                    tel.rs_decode_ok += 1;
+                    tel.payload_decoded += 1;
+                }
+                results.push(qr);
+            }
+        }
+    }
+
+    results
+}
+
 pub(crate) fn decode_groups(
     binary: &BitMatrix,
     gray: &[u8],
@@ -266,48 +527,7 @@ pub(crate) fn decode_groups(
     height: usize,
     finder_patterns: &[FinderPattern],
 ) -> Vec<QRCode> {
-    let mut results = Vec::new();
-    let mut groups = group_finder_patterns(finder_patterns);
-    score_and_trim_groups(&mut groups, finder_patterns, 40);
-
-    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
-        eprintln!(
-            "DEBUG: Found {} finder patterns, formed {} groups",
-            finder_patterns.len(),
-            groups.len()
-        );
-    }
-
-    for (group_idx, group) in groups.iter().enumerate() {
-        if group.len() < 3 {
-            continue;
-        }
-        if cfg!(debug_assertions) && crate::debug::debug_enabled() {
-            eprintln!(
-                "DEBUG: Trying group {} with patterns {:?}",
-                group_idx, group
-            );
-        }
-
-        if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
-            &finder_patterns[group[0]],
-            &finder_patterns[group[1]],
-            &finder_patterns[group[2]],
-        ) {
-            if let Some(qr) =
-                QrDecoder::decode_with_gray(binary, gray, width, height, &tl, &tr, &bl, module_size)
-            {
-                if cfg!(debug_assertions) && crate::debug::debug_enabled() {
-                    eprintln!("DEBUG: Group {} decoded successfully!", group_idx);
-                }
-                results.push(qr);
-            } else if cfg!(debug_assertions) && crate::debug::debug_enabled() {
-                eprintln!("DEBUG: Group {} failed to decode", group_idx);
-            }
-        }
-    }
-
-    results
+    decode_ranked_groups(binary, gray, width, height, finder_patterns, None)
 }
 
 /// Like `decode_groups` but also collects stage-level telemetry counters.
@@ -319,31 +539,7 @@ pub(crate) fn decode_groups_with_telemetry(
     finder_patterns: &[FinderPattern],
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     let mut tel = DetectionTelemetry::default();
-    let mut results = Vec::new();
-    let mut groups = group_finder_patterns(finder_patterns);
-    score_and_trim_groups(&mut groups, finder_patterns, 40);
-    tel.groups_found = groups.len();
-
-    for group in &groups {
-        if group.len() < 3 {
-            continue;
-        }
-
-        if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
-            &finder_patterns[group[0]],
-            &finder_patterns[group[1]],
-            &finder_patterns[group[2]],
-        ) {
-            tel.transforms_built += 1;
-            if let Some(qr) =
-                QrDecoder::decode_with_gray(binary, gray, width, height, &tl, &tr, &bl, module_size)
-            {
-                tel.rs_decode_ok += 1;
-                tel.payload_decoded += 1;
-                results.push(qr);
-            }
-        }
-    }
-
+    let results =
+        decode_ranked_groups(binary, gray, width, height, finder_patterns, Some(&mut tel));
     (results, tel)
 }

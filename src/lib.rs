@@ -43,10 +43,46 @@ pub struct DetectionTelemetry {
     pub rs_decode_ok: usize,
     /// Number of QR codes whose payload parsed into valid content.
     pub payload_decoded: usize,
+    /// Number of decoder attempts made (one per transform/group decode try).
+    pub decode_attempts: usize,
+    /// Total candidate groups scored before trimming.
+    pub candidate_groups_scored: usize,
+    /// Histogram of candidate group scores:
+    /// [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]
+    pub candidate_score_buckets: [usize; 4],
     /// The final detection result count.
     pub qr_codes_found: usize,
 }
 
+impl DetectionTelemetry {
+    pub(crate) fn add_candidate_score(&mut self, score: f32) {
+        let idx = if score < 2.0 {
+            0
+        } else if score < 3.0 {
+            1
+        } else if score < 5.0 {
+            2
+        } else {
+            3
+        };
+        self.candidate_score_buckets[idx] += 1;
+    }
+
+    fn merge_high_water_from(&mut self, other: &Self) {
+        self.groups_found = self.groups_found.max(other.groups_found);
+        self.transforms_built = self.transforms_built.max(other.transforms_built);
+        self.format_extracted = self.format_extracted.max(other.format_extracted);
+        self.rs_decode_ok = self.rs_decode_ok.max(other.rs_decode_ok);
+        self.payload_decoded = self.payload_decoded.max(other.payload_decoded);
+        self.decode_attempts += other.decode_attempts;
+        self.candidate_groups_scored += other.candidate_groups_scored;
+        for i in 0..self.candidate_score_buckets.len() {
+            self.candidate_score_buckets[i] += other.candidate_score_buckets[i];
+        }
+    }
+}
+
+use detector::contour::ContourDetector;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
     adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into, sauvola_binarize,
@@ -131,14 +167,26 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
     let mut results = Vec::new();
     for binary in variants {
         let finder_patterns = detect_finder_patterns(&binary, width, height);
-        if finder_patterns.len() < 3 {
-            continue;
-        }
-        let decoded =
-            decode_groups_with_module_aware_retry(&binary, gray, width, height, &finder_patterns);
+        let decoded = if finder_patterns.len() >= 3 {
+            decode_groups_with_module_aware_retry(&binary, gray, width, height, &finder_patterns)
+        } else {
+            Vec::new()
+        };
         for qr in decoded {
             if !results.iter().any(|r: &QRCode| r.content == qr.content) {
                 results.push(qr);
+            }
+        }
+        if results.is_empty() {
+            let contour_patterns = ContourDetector::detect(&binary);
+            if contour_patterns.len() >= 3 {
+                let contour_decoded =
+                    pipeline::decode_groups(&binary, gray, width, height, &contour_patterns);
+                for qr in contour_decoded {
+                    if !results.iter().any(|r: &QRCode| r.content == qr.content) {
+                        results.push(qr);
+                    }
+                }
             }
         }
         if !results.is_empty() {
@@ -294,11 +342,7 @@ pub fn detect_with_telemetry(
 
     let (mut results, decode_tel) =
         pipeline::decode_groups_with_telemetry(&binary, &gray, width, height, &finder_patterns);
-    tel.groups_found = tel.groups_found.max(decode_tel.groups_found);
-    tel.transforms_built = tel.transforms_built.max(decode_tel.transforms_built);
-    tel.format_extracted = tel.format_extracted.max(decode_tel.format_extracted);
-    tel.rs_decode_ok = tel.rs_decode_ok.max(decode_tel.rs_decode_ok);
-    tel.payload_decoded = tel.payload_decoded.max(decode_tel.payload_decoded);
+    tel.merge_high_water_from(&decode_tel);
 
     // Sauvola fallback: adapts to local contrast (handles shadows/glare)
     if results.is_empty() {
@@ -317,11 +361,7 @@ pub fn detect_with_telemetry(
                 height,
                 &sauvola_patterns,
             );
-            tel.groups_found = tel.groups_found.max(sv_tel.groups_found);
-            tel.transforms_built = tel.transforms_built.max(sv_tel.transforms_built);
-            tel.format_extracted = tel.format_extracted.max(sv_tel.format_extracted);
-            tel.rs_decode_ok = tel.rs_decode_ok.max(sv_tel.rs_decode_ok);
-            tel.payload_decoded = tel.payload_decoded.max(sv_tel.payload_decoded);
+            tel.merge_high_water_from(&sv_tel);
             results = sv_results;
         }
     }
@@ -347,11 +387,7 @@ pub fn detect_with_telemetry(
                 height,
                 &fallback_patterns,
             );
-            tel.groups_found = tel.groups_found.max(fb_tel.groups_found);
-            tel.transforms_built = tel.transforms_built.max(fb_tel.transforms_built);
-            tel.format_extracted = tel.format_extracted.max(fb_tel.format_extracted);
-            tel.rs_decode_ok = tel.rs_decode_ok.max(fb_tel.rs_decode_ok);
-            tel.payload_decoded = tel.payload_decoded.max(fb_tel.payload_decoded);
+            tel.merge_high_water_from(&fb_tel);
             results = fb_results;
         }
     }

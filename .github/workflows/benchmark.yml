@@ -18,6 +18,21 @@ on:
         required: false
         default: true
         type: boolean
+      baseline_artifact:
+        description: 'Optional baseline artifact JSON path for regression gates'
+        required: false
+        default: ''
+        type: string
+      max_rate_drop_pp:
+        description: 'Max allowed weighted-global drop (percentage points)'
+        required: false
+        default: '1.0'
+        type: string
+      max_median_runtime_regression_pct:
+        description: 'Max allowed median runtime regression (%)'
+        required: false
+        default: '15.0'
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -64,8 +79,13 @@ jobs:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
         run: |
           echo "## Reading Rate Results - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "Command: \`cargo run --features tools --bin qrtool --release -- reading-rate --non-interactive --artifact-json reading_rate_${{ matrix.platform }}.json\`" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo run --features tools --bin qrtool --release -- reading-rate 2>&1 | tee reading_rate_${{ matrix.platform }}.txt
+          cargo run --features tools --bin qrtool --release -- \
+            reading-rate \
+            --non-interactive \
+            --artifact-json "reading_rate_${{ matrix.platform }}.json" \
+            2>&1 | tee "reading_rate_${{ matrix.platform }}.txt"
           cat reading_rate_${{ matrix.platform }}.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
@@ -100,9 +120,20 @@ jobs:
           name: benchmark-results-${{ matrix.platform }}
           path: |
             reading_rate_*.txt
+            reading_rate_*.json
             criterion_*.txt
             target/criterion/
           retention-days: 30
+
+      - name: Regression gate (macOS reading-rate)
+        if: ${{ inputs.run_reading_rate && matrix.platform == 'macos' && inputs.baseline_artifact != '' }}
+        run: |
+          python3 scripts/compare_reading_rate_artifacts.py \
+            --baseline "${{ inputs.baseline_artifact }}" \
+            --candidate "reading_rate_${{ matrix.platform }}.json" \
+            --max-rate-drop-pp "${{ inputs.max_rate_drop_pp }}" \
+            --max-median-runtime-regression-pct "${{ inputs.max_median_runtime_regression_pct }}"
+        shell: bash
 
   summary:
     name: Aggregate Results
@@ -129,3 +160,9 @@ jobs:
               echo '```' >> $GITHUB_STEP_SUMMARY
             fi
           done
+
+          if [ -f "results/benchmark-results-linux/reading_rate_linux.json" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Artifact Compare Command" >> $GITHUB_STEP_SUMMARY
+            echo "\`python3 scripts/compare_reading_rate_artifacts.py --baseline <baseline.json> --candidate results/benchmark-results-linux/reading_rate_linux.json\`" >> $GITHUB_STEP_SUMMARY
+          fi

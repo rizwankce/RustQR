@@ -142,47 +142,38 @@ pub(super) fn extract_qr_region_gray_with_transform(
     transform: &PerspectiveTransform,
     dimension: usize,
 ) -> BitMatrix {
-    let mut samples: Vec<u8> = Vec::with_capacity(dimension * dimension);
+    let mut samples: Vec<f32> = vec![255.0; dimension * dimension];
     for y in 0..dimension {
         for x in 0..dimension {
             let module_center = Point::new(x as f32 + 0.5, y as f32 + 0.5);
             let img_point = transform.transform(&module_center);
-            let img_x = img_point.x.round() as isize;
-            let img_y = img_point.y.round() as isize;
+            let module_px = estimate_local_module_pixels(transform, x, y);
+            let radius = adaptive_kernel_radius(module_px);
 
-            let mut sum = 0u32;
-            let mut count = 0u32;
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    let sx = img_x + dx;
-                    let sy = img_y + dy;
-                    if sx >= 0 && sy >= 0 && (sx as usize) < width && (sy as usize) < height {
-                        let idx = sy as usize * width + sx as usize;
-                        sum += gray[idx] as u32;
+            let mut sum = 0.0f32;
+            let mut count = 0usize;
+            for oy in -(radius as isize)..=(radius as isize) {
+                for ox in -(radius as isize)..=(radius as isize) {
+                    let sx = img_point.x + ox as f32 * 0.35;
+                    let sy = img_point.y + oy as f32 * 0.35;
+                    if let Some(v) = bilinear_sample(gray, width, height, sx, sy) {
+                        sum += v;
                         count += 1;
                     }
                 }
             }
-            let avg = if count > 0 {
-                (sum / count) as u8
-            } else {
-                255u8
-            };
-            samples.push(avg);
+
+            let avg = if count > 0 { sum / count as f32 } else { 255.0 };
+            samples[y * dimension + x] = avg;
         }
     }
 
     let mut result = BitMatrix::new(dimension, dimension);
     for y in 0..dimension {
-        let row_start = y * dimension;
-        let row_end = row_start + dimension;
-        let mut row_sorted: Vec<u8> = samples[row_start..row_end].to_vec();
-        row_sorted.sort_unstable();
-        let row_threshold = row_sorted[row_sorted.len() / 2];
-
         for x in 0..dimension {
             let idx = y * dimension + x;
-            result.set(x, y, samples[idx] < row_threshold);
+            let local_t = local_threshold(&samples, dimension, x, y);
+            result.set(x, y, samples[idx] < local_t);
         }
     }
 
@@ -209,15 +200,25 @@ pub(super) fn refine_transform_with_alignment(
     let align_src = Point::new(*ax as f32 + 0.5, *ay as f32 + 0.5);
     let predicted = transform.transform(&align_src);
     let found = find_alignment_center(binary, predicted, module_size)?;
-
-    let src = [
-        Point::new(3.5, 3.5),
-        Point::new(dimension as f32 - 3.5, 3.5),
-        Point::new(3.5, dimension as f32 - 3.5),
+    let best = best_refined_transform(
+        binary,
+        dimension,
+        version_num,
+        top_left,
+        top_right,
+        bottom_left,
         align_src,
-    ];
-    let dst = [*top_left, *top_right, *bottom_left, found];
-    PerspectiveTransform::from_points(&src, &dst)
+        found,
+        module_size,
+    )?;
+
+    let base_score = transform_quality(binary, &best, dimension, version_num, module_size);
+    let original_score = transform_quality(binary, transform, dimension, version_num, module_size);
+    if original_score > base_score {
+        return None;
+    }
+
+    Some(best)
 }
 
 fn alignment_centers(version: u8, dimension: usize) -> Vec<(usize, usize)> {
@@ -305,4 +306,184 @@ fn alignment_pattern_mismatch(
     }
 
     Some(mismatches)
+}
+
+fn bilinear_sample(gray: &[u8], width: usize, height: usize, x: f32, y: f32) -> Option<f32> {
+    if x < 0.0 || y < 0.0 {
+        return None;
+    }
+    if x > (width as f32 - 1.0) || y > (height as f32 - 1.0) {
+        return None;
+    }
+
+    let x0 = x.floor() as usize;
+    let y0 = y.floor() as usize;
+    let x1 = (x0 + 1).min(width - 1);
+    let y1 = (y0 + 1).min(height - 1);
+
+    let fx = x - x0 as f32;
+    let fy = y - y0 as f32;
+    let w00 = (1.0 - fx) * (1.0 - fy);
+    let w10 = fx * (1.0 - fy);
+    let w01 = (1.0 - fx) * fy;
+    let w11 = fx * fy;
+
+    let p00 = gray[y0 * width + x0] as f32;
+    let p10 = gray[y0 * width + x1] as f32;
+    let p01 = gray[y1 * width + x0] as f32;
+    let p11 = gray[y1 * width + x1] as f32;
+
+    Some(p00 * w00 + p10 * w10 + p01 * w01 + p11 * w11)
+}
+
+fn estimate_local_module_pixels(transform: &PerspectiveTransform, x: usize, y: usize) -> f32 {
+    let p = transform.transform(&Point::new(x as f32 + 0.5, y as f32 + 0.5));
+    let px = transform.transform(&Point::new(x as f32 + 1.5, y as f32 + 0.5));
+    let py = transform.transform(&Point::new(x as f32 + 0.5, y as f32 + 1.5));
+    let sx = p.distance(&px);
+    let sy = p.distance(&py);
+    ((sx + sy) * 0.5).clamp(0.5, 8.0)
+}
+
+fn adaptive_kernel_radius(module_px: f32) -> usize {
+    if module_px < 1.5 {
+        0
+    } else if module_px < 2.5 {
+        1
+    } else if module_px < 4.0 {
+        2
+    } else {
+        3
+    }
+}
+
+fn local_threshold(samples: &[f32], dimension: usize, x: usize, y: usize) -> f32 {
+    let radius = 2usize;
+    let min_x = x.saturating_sub(radius);
+    let max_x = (x + radius).min(dimension - 1);
+    let min_y = y.saturating_sub(radius);
+    let max_y = (y + radius).min(dimension - 1);
+
+    let mut sum = 0.0f32;
+    let mut count = 0usize;
+    for yy in min_y..=max_y {
+        for xx in min_x..=max_x {
+            sum += samples[yy * dimension + xx];
+            count += 1;
+        }
+    }
+    let mean = if count > 0 { sum / count as f32 } else { 127.0 };
+    mean - 3.0
+}
+
+fn transform_quality(
+    binary: &BitMatrix,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+    version_num: u8,
+    module_size: f32,
+) -> f32 {
+    let mut score = 0.0f32;
+    score += timing_quality(binary, transform, dimension) * 0.75;
+
+    if version_num >= 2 {
+        let centers = alignment_centers(version_num, dimension);
+        if let Some((ax, ay)) = centers.iter().max_by_key(|(x, y)| x + y) {
+            let p = transform.transform(&Point::new(*ax as f32 + 0.5, *ay as f32 + 0.5));
+            if let Some(mm) = alignment_pattern_mismatch(binary, &p, module_size.max(1.0)) {
+                let align = 1.0 - (mm as f32 / 25.0).clamp(0.0, 1.0);
+                score += align * 0.25;
+            }
+        }
+    } else {
+        score += 0.25;
+    }
+
+    score
+}
+
+fn timing_quality(binary: &BitMatrix, transform: &PerspectiveTransform, dimension: usize) -> f32 {
+    let mut h_bits = Vec::new();
+    for m in 8..=(dimension.saturating_sub(9)) {
+        let p = transform.transform(&Point::new(m as f32 + 0.5, 6.5));
+        let ix = p.x.round() as isize;
+        let iy = p.y.round() as isize;
+        if ix < 0 || iy < 0 || ix as usize >= binary.width() || iy as usize >= binary.height() {
+            continue;
+        }
+        h_bits.push(binary.get(ix as usize, iy as usize));
+    }
+
+    let mut v_bits = Vec::new();
+    for m in 8..=(dimension.saturating_sub(9)) {
+        let p = transform.transform(&Point::new(6.5, m as f32 + 0.5));
+        let ix = p.x.round() as isize;
+        let iy = p.y.round() as isize;
+        if ix < 0 || iy < 0 || ix as usize >= binary.width() || iy as usize >= binary.height() {
+            continue;
+        }
+        v_bits.push(binary.get(ix as usize, iy as usize));
+    }
+
+    let h = alternation_ratio(&h_bits);
+    let v = alternation_ratio(&v_bits);
+    (h + v) * 0.5
+}
+
+fn alternation_ratio(bits: &[bool]) -> f32 {
+    if bits.len() < 2 {
+        return 0.0;
+    }
+
+    let mut transitions = 0usize;
+    for i in 1..bits.len() {
+        if bits[i] != bits[i - 1] {
+            transitions += 1;
+        }
+    }
+
+    transitions as f32 / (bits.len() - 1) as f32
+}
+
+#[allow(clippy::too_many_arguments)]
+fn best_refined_transform(
+    binary: &BitMatrix,
+    dimension: usize,
+    version_num: u8,
+    top_left: &Point,
+    top_right: &Point,
+    bottom_left: &Point,
+    align_src: Point,
+    align_dst: Point,
+    module_size: f32,
+) -> Option<PerspectiveTransform> {
+    let src = [
+        Point::new(3.5, 3.5),
+        Point::new(dimension as f32 - 3.5, 3.5),
+        Point::new(3.5, dimension as f32 - 3.5),
+        align_src,
+    ];
+
+    let mut best: Option<(PerspectiveTransform, f32)> = None;
+    let step = module_size.max(1.0) * 0.35;
+    for oy in [-1.0f32, 0.0, 1.0] {
+        for ox in [-1.0f32, 0.0, 1.0] {
+            let dst = [
+                *top_left,
+                *top_right,
+                *bottom_left,
+                Point::new(align_dst.x + ox * step, align_dst.y + oy * step),
+            ];
+            let Some(t) = PerspectiveTransform::from_points(&src, &dst) else {
+                continue;
+            };
+            let s = transform_quality(binary, &t, dimension, version_num, module_size);
+            match &best {
+                Some((_, bs)) if s <= *bs => {}
+                _ => best = Some((t, s)),
+            }
+        }
+    }
+
+    best.map(|(t, _)| t)
 }

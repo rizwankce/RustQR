@@ -7,6 +7,7 @@ use crate::{QRCode, detect};
 use image::GenericImageView;
 use std::env;
 use std::fs;
+use std::hash::Hasher;
 use std::path::{Path, PathBuf};
 
 fn max_dim_from_env() -> Option<u32> {
@@ -133,6 +134,88 @@ pub fn dataset_root_from_env() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("benches/images/boofcv"))
 }
 
+/// Deterministic fingerprint of dataset contents for benchmark provenance.
+///
+/// The fingerprint includes every file path and file bytes under `root`.
+/// It is intended for change detection and traceability, not cryptographic use.
+pub fn dataset_fingerprint<P: AsRef<Path>>(root: P) -> String {
+    struct Fnv1a64(u64);
+
+    impl Fnv1a64 {
+        const OFFSET: u64 = 0xcbf29ce484222325;
+        const PRIME: u64 = 0x100000001b3;
+    }
+
+    impl Default for Fnv1a64 {
+        fn default() -> Self {
+            Self(Self::OFFSET)
+        }
+    }
+
+    impl Hasher for Fnv1a64 {
+        fn write(&mut self, bytes: &[u8]) {
+            for b in bytes {
+                self.0 ^= u64::from(*b);
+                self.0 = self.0.wrapping_mul(Self::PRIME);
+            }
+        }
+
+        fn finish(&self) -> u64 {
+            self.0
+        }
+    }
+
+    fn collect_files(root: &Path) -> Vec<PathBuf> {
+        let mut stack = vec![root.to_path_buf()];
+        let mut files = Vec::new();
+
+        while let Some(dir) = stack.pop() {
+            let entries = match fs::read_dir(&dir) {
+                Ok(entries) => entries,
+                Err(_) => continue,
+            };
+
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.is_file() {
+                    files.push(path);
+                }
+            }
+        }
+
+        files.sort();
+        files
+    }
+
+    let root = root.as_ref();
+    if !root.exists() {
+        return "missing".to_string();
+    }
+
+    let mut hasher = Fnv1a64::default();
+    for path in collect_files(root) {
+        let rel = path
+            .strip_prefix(root)
+            .ok()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_else(|| path.to_string_lossy().replace('\\', "/"));
+        hasher.write(rel.as_bytes());
+        hasher.write(&[0]);
+
+        if let Ok(meta) = fs::metadata(&path) {
+            hasher.write(&meta.len().to_le_bytes());
+        }
+        if let Ok(bytes) = fs::read(&path) {
+            hasher.write(&bytes);
+        }
+        hasher.write(&[0xff]);
+    }
+
+    format!("{:016x}", hasher.finish())
+}
+
 /// Default bench limit from environment variables.
 ///
 /// Returns `None` (full dataset) when `QR_BENCH_LIMIT` is unset or set to `0`.
@@ -215,8 +298,8 @@ pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_expected_qr_count;
-    use std::fs;
+    use super::{dataset_fingerprint, parse_expected_qr_count};
+    use std::fs::{self, create_dir_all};
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -269,6 +352,25 @@ mod tests {
         let path = write_temp_file("foo bar baz\n# comment only\n");
         assert_eq!(parse_expected_qr_count(&path), 0);
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn dataset_fingerprint_changes_when_dataset_changes() {
+        let mut root = std::env::temp_dir();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock before UNIX epoch")
+            .as_nanos();
+        root.push(format!("rustqr_dataset_fingerprint_{nanos}"));
+        create_dir_all(root.join("nominal")).expect("failed to create temp dataset");
+        fs::write(root.join("nominal").join("a.png"), b"abc").expect("failed to write file");
+
+        let before = dataset_fingerprint(&root);
+        fs::write(root.join("nominal").join("b.txt"), b"label").expect("failed to write file");
+        let after = dataset_fingerprint(&root);
+
+        assert_ne!(before, after);
+        let _ = fs::remove_dir_all(root);
     }
 }
 

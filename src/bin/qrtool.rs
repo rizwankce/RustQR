@@ -3,10 +3,13 @@ use rust_qr::decoder::format::FormatInfo;
 use rust_qr::detector::finder::FinderDetector;
 use rust_qr::models::{BitMatrix, Point};
 use rust_qr::tools::{
-    bench_limit_from_env, binarize, binary_stats, dataset_iter, dataset_root_from_env, detect_qr,
-    grayscale_stats, load_rgb, parse_expected_qr_count, smoke_from_env, to_grayscale,
+    bench_limit_from_env, binarize, binary_stats, dataset_fingerprint, dataset_iter,
+    dataset_root_from_env, detect_qr, grayscale_stats, load_rgb, parse_expected_qr_count,
+    smoke_from_env, to_grayscale,
 };
 use rust_qr::utils::geometry::PerspectiveTransform;
+use std::fmt::Write as _;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -38,12 +41,21 @@ enum Command {
     },
     /// Compute reading rate on a dataset
     ReadingRate {
+        /// Dataset root (default: QR_DATASET_ROOT or benches/images/boofcv)
         #[arg(long)]
         root: Option<PathBuf>,
+        /// Max images per category (default: QR_BENCH_LIMIT; 0 means all)
         #[arg(long)]
         limit: Option<usize>,
+        /// Use smoke subset (default also enabled by QR_SMOKE)
         #[arg(long)]
         smoke: bool,
+        /// Write machine-readable benchmark JSON artifact.
+        #[arg(long, value_name = "PATH")]
+        artifact_json: Option<PathBuf>,
+        /// Suppress per-image logs for non-interactive runs (CI/scripts).
+        #[arg(long)]
+        non_interactive: bool,
     },
     /// Iterate a dataset and run detection once per image
     DatasetBench {
@@ -63,7 +75,13 @@ fn main() {
         Command::Detect { image } => detect_cmd(&image),
         Command::DebugDetect { image } => debug_detect_cmd(&image),
         Command::DebugDecode { image, points } => debug_decode_cmd(&image, points.as_deref()),
-        Command::ReadingRate { root, limit, smoke } => reading_rate_cmd(root, limit, smoke),
+        Command::ReadingRate {
+            root,
+            limit,
+            smoke,
+            artifact_json,
+            non_interactive,
+        } => reading_rate_cmd(root, limit, smoke, artifact_json, non_interactive),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
     }
 }
@@ -266,7 +284,13 @@ fn decode_from_points(binary: &BitMatrix, points: &[Point]) {
     }
 }
 
-fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
+fn reading_rate_cmd(
+    root: Option<PathBuf>,
+    limit: Option<usize>,
+    smoke: bool,
+    artifact_json: Option<PathBuf>,
+    non_interactive: bool,
+) {
     let root = root.unwrap_or_else(dataset_root_from_env);
     let limit = limit.or_else(bench_limit_from_env);
     let smoke = smoke || smoke_from_env();
@@ -276,12 +300,12 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         return;
     }
 
-    let limited_images: Option<Vec<PathBuf>> = if smoke || limit.is_some() {
-        Some(dataset_iter(&root, limit, smoke).collect())
+    let smoke_images: Option<Vec<PathBuf>> = if smoke {
+        Some(dataset_iter(&root, None, true).collect())
     } else {
         None
     };
-    if let Some(images) = &limited_images {
+    if let Some(images) = &smoke_images {
         if images.is_empty() {
             println!("No images found under {}", root.display());
             return;
@@ -308,26 +332,16 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
     ];
 
     // Run metadata header
-    let datetime = std::process::Command::new("date")
-        .arg("+%Y-%m-%d %H:%M:%S")
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "unknown".to_string());
-    let commit_sha = std::process::Command::new("git")
-        .args(["rev-parse", "--short", "HEAD"])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "unknown".to_string());
+    let datetime = utc_timestamp();
+    let commit_sha = commit_sha();
+    let data_fingerprint = dataset_fingerprint(&root);
 
     println!("RustQR QR Code Reading Rate Benchmark");
     println!("=====================================");
     println!("Date:    {}", datetime);
     println!("Commit:  {}", commit_sha);
     println!("Dataset: {}", root.display());
+    println!("Data FP: {}", data_fingerprint);
     if let Some(l) = limit {
         println!("Limit:   {} images per category", l);
     } else {
@@ -336,11 +350,17 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
     if smoke {
         println!("Mode:    smoke test");
     }
+    if non_interactive {
+        println!("Output:  non-interactive");
+    }
     println!("=====================================\n");
 
     let mut global_hits = 0usize;
     let mut global_expected = 0usize;
-    let mut category_results: Vec<(&str, usize, usize, usize, StageTelemetry)> = Vec::new();
+    let mut global_images_with_labels = 0usize;
+    let mut global_runtime_samples_ms: Vec<f64> = Vec::new();
+    let mut global_stage_telemetry = StageTelemetry::default();
+    let mut category_results: Vec<CategoryResult> = Vec::new();
     let mut categories_found = 0usize;
 
     for (dir, description) in categories {
@@ -350,8 +370,8 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         }
         categories_found += 1;
         println!("Testing: {} - {}", dir, description);
-        let images: Vec<PathBuf> = if let Some(images) = &limited_images {
-            images
+        let images: Vec<PathBuf> = if let Some(images) = &smoke_images {
+            let mut filtered: Vec<PathBuf> = images
                 .iter()
                 .filter(|path| {
                     path.strip_prefix(&root)
@@ -361,15 +381,19 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
                         .unwrap_or(false)
                 })
                 .cloned()
-                .collect()
+                .collect();
+            if let Some(limit) = limit {
+                filtered.truncate(limit);
+            }
+            filtered
         } else {
-            dataset_iter(&category_root, None, false).collect()
+            dataset_iter(&category_root, limit, false).collect()
         };
         if images.is_empty() {
             println!("  {}: no images found\n", dir);
             continue;
         }
-        let stats = reading_rate_for_images(images.into_iter());
+        let stats = reading_rate_for_images(images.into_iter(), non_interactive);
         if stats.total_expected == 0 {
             println!("  {}: no labeled images found\n", dir);
             continue;
@@ -381,17 +405,23 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         );
         global_hits += stats.hits;
         global_expected += stats.total_expected;
-        category_results.push((
-            dir,
-            stats.hits,
-            stats.total_expected,
-            stats.images_with_labels,
-            stats.stage_telemetry,
-        ));
+        global_images_with_labels += stats.images_with_labels;
+        global_runtime_samples_ms.extend(stats.runtime_samples_ms.iter().copied());
+        global_stage_telemetry.accumulate(stats.stage_telemetry);
+        category_results.push(CategoryResult {
+            name: dir,
+            description,
+            hits: stats.hits,
+            total_expected: stats.total_expected,
+            images_with_labels: stats.images_with_labels,
+            stage_telemetry: stats.stage_telemetry,
+            runtime: RuntimeSummary::from_samples(&stats.runtime_samples_ms),
+        });
     }
 
     if categories_found > 0 && global_expected > 0 {
         let global_rate = (global_hits as f64 / global_expected as f64) * 100.0;
+        let global_runtime = RuntimeSummary::from_samples(&global_runtime_samples_ms);
 
         println!("=====================================");
         println!("Reading Rate Summary");
@@ -401,18 +431,27 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
             "Category", "Hits", "Total", "Rate"
         );
         println!("{}", "-".repeat(40));
-        for (dir, hits, expected, _, _) in &category_results {
-            let rate = if *expected > 0 {
-                (*hits as f64 / *expected as f64) * 100.0
+        for category in &category_results {
+            let rate = if category.total_expected > 0 {
+                (category.hits as f64 / category.total_expected as f64) * 100.0
             } else {
                 0.0
             };
-            println!("{:<16} {:>6} {:>6} {:>7.2}%", dir, hits, expected, rate);
+            println!(
+                "{:<16} {:>6} {:>6} {:>7.2}%",
+                category.name, category.hits, category.total_expected, rate
+            );
         }
         println!("{}", "-".repeat(40));
         println!(
             "{:<16} {:>6} {:>6} {:>7.2}%",
             "TOTAL", global_hits, global_expected, global_rate,
+        );
+        println!(
+            "Runtime median: {:.2} ms/image (mean {:.2} ms, n={})",
+            global_runtime.median_per_image_ms,
+            global_runtime.mean_per_image_ms,
+            global_runtime.samples
         );
         println!("=====================================\n");
 
@@ -420,50 +459,98 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         println!("Pipeline Stage Telemetry (images passing each stage)");
         println!("=====================================");
         println!(
-            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}",
-            "Category", "Imgs", "Binarize", "Finders", "Groups", "Xform", "Decode"
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9}",
+            "Category", "Imgs", "Binarize", "Finders", "Groups", "Xform", "Decode", "AvgTry"
         );
-        println!("{}", "-".repeat(74));
-        let mut g_total = 0usize;
-        let mut g_bin = 0usize;
-        let mut g_find = 0usize;
-        let mut g_grp = 0usize;
-        let mut g_xfm = 0usize;
-        let mut g_dec = 0usize;
-        for (dir, _, _, _, tel) in &category_results {
+        println!("{}", "-".repeat(84));
+        let mut g_decode_attempts = 0usize;
+        let mut g_score_buckets = [0usize; 4];
+        for category in &category_results {
+            let tel = category.stage_telemetry;
+            let avg_attempts = if tel.total > 0 {
+                tel.total_decode_attempts as f64 / tel.total as f64
+            } else {
+                0.0
+            };
             println!(
-                "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}",
-                dir,
+                "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2}",
+                category.name,
                 tel.total,
                 tel.binarize_ok,
                 tel.finder_ok,
                 tel.groups_ok,
                 tel.transform_ok,
                 tel.decode_ok,
+                avg_attempts,
             );
-            g_total += tel.total;
-            g_bin += tel.binarize_ok;
-            g_find += tel.finder_ok;
-            g_grp += tel.groups_ok;
-            g_xfm += tel.transform_ok;
-            g_dec += tel.decode_ok;
+            g_decode_attempts += tel.total_decode_attempts;
+            for (i, bucket) in g_score_buckets.iter_mut().enumerate() {
+                *bucket += tel.candidate_score_buckets[i];
+            }
         }
-        println!("{}", "-".repeat(74));
+        println!("{}", "-".repeat(84));
+        let g_avg_attempts = if global_stage_telemetry.total > 0 {
+            g_decode_attempts as f64 / global_stage_telemetry.total as f64
+        } else {
+            0.0
+        };
         println!(
-            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}",
-            "TOTAL", g_total, g_bin, g_find, g_grp, g_xfm, g_dec,
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2}",
+            "TOTAL",
+            global_stage_telemetry.total,
+            global_stage_telemetry.binarize_ok,
+            global_stage_telemetry.finder_ok,
+            global_stage_telemetry.groups_ok,
+            global_stage_telemetry.transform_ok,
+            global_stage_telemetry.decode_ok,
+            g_avg_attempts,
+        );
+        println!(
+            "Candidate score buckets [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]: [{}, {}, {}, {}]",
+            g_score_buckets[0], g_score_buckets[1], g_score_buckets[2], g_score_buckets[3]
         );
         println!("=====================================");
+
+        if let Some(path) = artifact_json {
+            let artifact = ReadingRateArtifact {
+                dataset_root: root.display().to_string(),
+                dataset_fingerprint: data_fingerprint,
+                commit_sha,
+                timestamp_utc: datetime,
+                limit_per_category: limit,
+                smoke,
+                non_interactive,
+                weighted_global_rate_percent: global_rate,
+                total_hits: global_hits,
+                total_expected: global_expected,
+                total_images_with_labels: global_images_with_labels,
+                global_runtime,
+                categories: category_results,
+            };
+            write_reading_rate_artifact(&path, &artifact);
+            println!("Artifact: {}", path.display());
+            println!(
+                "A/B compare: python3 scripts/compare_reading_rate_artifacts.py --baseline <baseline.json> --candidate {}",
+                path.display()
+            );
+        }
         return;
     }
 
-    let images: Vec<PathBuf> =
-        limited_images.unwrap_or_else(|| dataset_iter(&root, None, false).collect());
+    let images: Vec<PathBuf> = if let Some(images) = smoke_images {
+        if let Some(limit) = limit {
+            images.into_iter().take(limit).collect()
+        } else {
+            images
+        }
+    } else {
+        dataset_iter(&root, limit, false).collect()
+    };
     if images.is_empty() {
         println!("No images found under {}", root.display());
         return;
     }
-    let stats = reading_rate_for_images(images.into_iter());
+    let stats = reading_rate_for_images(images.into_iter(), non_interactive);
     if stats.total_expected == 0 {
         println!("No labeled images found under {}", root.display());
         return;
@@ -473,6 +560,26 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         "Reading rate: {}/{} = {:.2}%",
         stats.hits, stats.total_expected, rate
     );
+
+    if let Some(path) = artifact_json {
+        let artifact = ReadingRateArtifact {
+            dataset_root: root.display().to_string(),
+            dataset_fingerprint: data_fingerprint,
+            commit_sha,
+            timestamp_utc: datetime,
+            limit_per_category: limit,
+            smoke,
+            non_interactive,
+            weighted_global_rate_percent: rate,
+            total_hits: stats.hits,
+            total_expected: stats.total_expected,
+            total_images_with_labels: stats.images_with_labels,
+            global_runtime: RuntimeSummary::from_samples(&stats.runtime_samples_ms),
+            categories: Vec::new(),
+        };
+        write_reading_rate_artifact(&path, &artifact);
+        println!("Artifact: {}", path.display());
+    }
 }
 
 /// Per-QR-code scoring results for a set of images.
@@ -485,10 +592,12 @@ struct ReadingRateStats {
     images_with_labels: usize,
     /// Aggregated per-stage telemetry across all images.
     stage_telemetry: StageTelemetry,
+    /// Runtime samples for successfully loaded images.
+    runtime_samples_ms: Vec<f64>,
 }
 
 /// Aggregated pipeline-stage failure counts across a set of images.
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 struct StageTelemetry {
     /// Images where binarization succeeded.
     binarize_ok: usize,
@@ -500,11 +609,101 @@ struct StageTelemetry {
     transform_ok: usize,
     /// Images where >= 1 QR code was decoded.
     decode_ok: usize,
+    /// Sum of decode attempts across images.
+    total_decode_attempts: usize,
+    /// Histogram of candidate group scores:
+    /// [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]
+    candidate_score_buckets: [usize; 4],
     /// Total images processed.
     total: usize,
 }
 
-fn reading_rate_for_images<I>(images: I) -> ReadingRateStats
+impl StageTelemetry {
+    fn accumulate(&mut self, other: StageTelemetry) {
+        self.binarize_ok += other.binarize_ok;
+        self.finder_ok += other.finder_ok;
+        self.groups_ok += other.groups_ok;
+        self.transform_ok += other.transform_ok;
+        self.decode_ok += other.decode_ok;
+        self.total_decode_attempts += other.total_decode_attempts;
+        for i in 0..self.candidate_score_buckets.len() {
+            self.candidate_score_buckets[i] += other.candidate_score_buckets[i];
+        }
+        self.total += other.total;
+    }
+}
+
+#[derive(Clone, Copy)]
+struct RuntimeSummary {
+    samples: usize,
+    total_ms: f64,
+    mean_per_image_ms: f64,
+    median_per_image_ms: f64,
+    min_per_image_ms: f64,
+    max_per_image_ms: f64,
+}
+
+impl RuntimeSummary {
+    fn from_samples(samples: &[f64]) -> Self {
+        if samples.is_empty() {
+            return Self {
+                samples: 0,
+                total_ms: 0.0,
+                mean_per_image_ms: 0.0,
+                median_per_image_ms: 0.0,
+                min_per_image_ms: 0.0,
+                max_per_image_ms: 0.0,
+            };
+        }
+
+        let mut sorted = samples.to_vec();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let total_ms: f64 = sorted.iter().sum();
+        let mean_per_image_ms = total_ms / sorted.len() as f64;
+        let median_per_image_ms = if sorted.len() % 2 == 0 {
+            let mid = sorted.len() / 2;
+            (sorted[mid - 1] + sorted[mid]) / 2.0
+        } else {
+            sorted[sorted.len() / 2]
+        };
+        Self {
+            samples: sorted.len(),
+            total_ms,
+            mean_per_image_ms,
+            median_per_image_ms,
+            min_per_image_ms: *sorted.first().unwrap_or(&0.0),
+            max_per_image_ms: *sorted.last().unwrap_or(&0.0),
+        }
+    }
+}
+
+struct CategoryResult {
+    name: &'static str,
+    description: &'static str,
+    hits: usize,
+    total_expected: usize,
+    images_with_labels: usize,
+    stage_telemetry: StageTelemetry,
+    runtime: RuntimeSummary,
+}
+
+struct ReadingRateArtifact {
+    dataset_root: String,
+    dataset_fingerprint: String,
+    commit_sha: String,
+    timestamp_utc: String,
+    limit_per_category: Option<usize>,
+    smoke: bool,
+    non_interactive: bool,
+    weighted_global_rate_percent: f64,
+    total_hits: usize,
+    total_expected: usize,
+    total_images_with_labels: usize,
+    global_runtime: RuntimeSummary,
+    categories: Vec<CategoryResult>,
+}
+
+fn reading_rate_for_images<I>(images: I, non_interactive: bool) -> ReadingRateStats
 where
     I: Iterator<Item = PathBuf>,
 {
@@ -513,6 +712,7 @@ where
         total_expected: 0,
         images_with_labels: 0,
         stage_telemetry: StageTelemetry::default(),
+        runtime_samples_ms: Vec::new(),
     };
 
     for path in images {
@@ -532,9 +732,11 @@ where
             let start = Instant::now();
             let (results, tel) = rust_qr::detect_with_telemetry(&pixels, width, height);
             let elapsed = start.elapsed();
+            let elapsed_ms = elapsed.as_secs_f64() * 1_000.0;
             let decoded = results.len();
             let image_hits = decoded.min(expected);
             stats.hits += image_hits;
+            stats.runtime_samples_ms.push(elapsed_ms);
 
             // Accumulate stage telemetry
             if tel.binarize_ok {
@@ -552,19 +754,26 @@ where
             if decoded >= 1 {
                 stats.stage_telemetry.decode_ok += 1;
             }
+            stats.stage_telemetry.total_decode_attempts += tel.decode_attempts;
+            for i in 0..stats.stage_telemetry.candidate_score_buckets.len() {
+                stats.stage_telemetry.candidate_score_buckets[i] += tel.candidate_score_buckets[i];
+            }
 
-            println!(
-                "  [{}] {} -> {}/{} ({:.2?}) [finders={} groups={} transforms={}]",
-                stats.images_with_labels,
-                path.display(),
-                decoded,
-                expected,
-                elapsed,
-                tel.finder_patterns_found,
-                tel.groups_found,
-                tel.transforms_built,
-            );
-        } else {
+            if !non_interactive {
+                println!(
+                    "  [{}] {} -> {}/{} ({:.2?}) [finders={} groups={} transforms={} attempts={}]",
+                    stats.images_with_labels,
+                    path.display(),
+                    decoded,
+                    expected,
+                    elapsed,
+                    tel.finder_patterns_found,
+                    tel.groups_found,
+                    tel.transforms_built,
+                    tel.decode_attempts,
+                );
+            }
+        } else if !non_interactive {
             println!(
                 "  [{}] {} -> load_failed (expected {})",
                 stats.images_with_labels,
@@ -575,6 +784,238 @@ where
     }
 
     stats
+}
+
+fn utc_timestamp() -> String {
+    std::process::Command::new("date")
+        .args(["-u", "+%Y-%m-%dT%H:%M:%SZ"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn commit_sha() -> String {
+    if let Ok(value) = std::env::var("GITHUB_SHA") {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+
+    std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn json_escape(input: &str) -> String {
+    let mut out = String::with_capacity(input.len() + 8);
+    for ch in input.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => {
+                let _ = write!(&mut out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"schema_version\": \"rustqr.reading_rate.v1\",\n");
+    json.push_str("  \"metadata\": {\n");
+    let _ = writeln!(
+        &mut json,
+        "    \"dataset_root\": \"{}\",",
+        json_escape(&artifact.dataset_root)
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"dataset_fingerprint\": \"{}\",",
+        json_escape(&artifact.dataset_fingerprint)
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"commit_sha\": \"{}\",",
+        json_escape(&artifact.commit_sha)
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"timestamp_utc\": \"{}\",",
+        json_escape(&artifact.timestamp_utc)
+    );
+    match artifact.limit_per_category {
+        Some(limit) => {
+            let _ = writeln!(&mut json, "    \"limit_per_category\": {limit},");
+        }
+        None => json.push_str("    \"limit_per_category\": null,\n"),
+    }
+    let _ = writeln!(&mut json, "    \"smoke\": {},", artifact.smoke);
+    let _ = writeln!(
+        &mut json,
+        "    \"non_interactive\": {}",
+        artifact.non_interactive
+    );
+    json.push_str("  },\n");
+    json.push_str("  \"summary\": {\n");
+    let _ = writeln!(
+        &mut json,
+        "    \"weighted_global_rate_percent\": {:.4},",
+        artifact.weighted_global_rate_percent
+    );
+    let _ = writeln!(&mut json, "    \"total_hits\": {},", artifact.total_hits);
+    let _ = writeln!(
+        &mut json,
+        "    \"total_expected\": {},",
+        artifact.total_expected
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"total_images_with_labels\": {},",
+        artifact.total_images_with_labels
+    );
+    write_runtime_json(&mut json, "runtime", artifact.global_runtime, 4);
+    json.push_str("  },\n");
+    json.push_str("  \"categories\": [\n");
+    for (idx, category) in artifact.categories.iter().enumerate() {
+        json.push_str("    {\n");
+        let _ = writeln!(
+            &mut json,
+            "      \"name\": \"{}\",",
+            json_escape(category.name)
+        );
+        let _ = writeln!(
+            &mut json,
+            "      \"description\": \"{}\",",
+            json_escape(category.description)
+        );
+        let _ = writeln!(&mut json, "      \"hits\": {},", category.hits);
+        let _ = writeln!(
+            &mut json,
+            "      \"total_expected\": {},",
+            category.total_expected
+        );
+        let _ = writeln!(
+            &mut json,
+            "      \"images_with_labels\": {},",
+            category.images_with_labels
+        );
+        let rate = if category.total_expected == 0 {
+            0.0
+        } else {
+            (category.hits as f64 / category.total_expected as f64) * 100.0
+        };
+        let _ = writeln!(&mut json, "      \"rate_percent\": {:.4},", rate);
+        json.push_str("      \"stage_telemetry\": {\n");
+        let _ = writeln!(
+            &mut json,
+            "        \"total\": {},",
+            category.stage_telemetry.total
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"binarize_ok\": {},",
+            category.stage_telemetry.binarize_ok
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"finder_ok\": {},",
+            category.stage_telemetry.finder_ok
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"groups_ok\": {},",
+            category.stage_telemetry.groups_ok
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"transform_ok\": {},",
+            category.stage_telemetry.transform_ok
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"decode_ok\": {},",
+            category.stage_telemetry.decode_ok
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"total_decode_attempts\": {},",
+            category.stage_telemetry.total_decode_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"candidate_score_buckets\": [{}, {}, {}, {}]",
+            category.stage_telemetry.candidate_score_buckets[0],
+            category.stage_telemetry.candidate_score_buckets[1],
+            category.stage_telemetry.candidate_score_buckets[2],
+            category.stage_telemetry.candidate_score_buckets[3],
+        );
+        json.push_str("      },\n");
+        write_runtime_json(&mut json, "runtime", category.runtime, 6);
+        json.push_str("    }");
+        if idx + 1 != artifact.categories.len() {
+            json.push(',');
+        }
+        json.push('\n');
+    }
+    json.push_str("  ]\n");
+    json.push_str("}\n");
+
+    if let Some(parent) = path.parent() {
+        if let Err(err) = fs::create_dir_all(parent) {
+            eprintln!(
+                "Failed to create artifact parent directory {}: {err}",
+                parent.display()
+            );
+            return;
+        }
+    }
+    if let Err(err) = fs::write(path, json) {
+        eprintln!("Failed to write artifact {}: {err}", path.display());
+    }
+}
+
+fn write_runtime_json(json: &mut String, key: &str, runtime: RuntimeSummary, indent: usize) {
+    let pad = " ".repeat(indent);
+    let child = " ".repeat(indent + 2);
+    let _ = writeln!(json, "{pad}\"{key}\": {{");
+    let _ = writeln!(json, "{child}\"samples\": {},", runtime.samples);
+    let _ = writeln!(json, "{child}\"total_ms\": {:.4},", runtime.total_ms);
+    let _ = writeln!(
+        json,
+        "{child}\"mean_per_image_ms\": {:.4},",
+        runtime.mean_per_image_ms
+    );
+    let _ = writeln!(
+        json,
+        "{child}\"median_per_image_ms\": {:.4},",
+        runtime.median_per_image_ms
+    );
+    let _ = writeln!(
+        json,
+        "{child}\"min_per_image_ms\": {:.4},",
+        runtime.min_per_image_ms
+    );
+    let _ = writeln!(
+        json,
+        "{child}\"max_per_image_ms\": {:.4}",
+        runtime.max_per_image_ms
+    );
+    let _ = writeln!(json, "{pad}}}");
 }
 
 fn dataset_bench_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
