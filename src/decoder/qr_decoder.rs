@@ -1,5 +1,6 @@
 /// Main QR code decoder - wires everything together
 use crate::models::{BitMatrix, Point, QRCode};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 mod geometry;
 mod matrix_decode;
@@ -8,6 +9,35 @@ mod payload;
 
 /// Main QR decoder that processes a detected QR region
 pub struct QrDecoder;
+
+#[derive(Clone, Copy, Default)]
+pub(crate) struct DecodeCounters {
+    pub deskew_attempts: usize,
+    pub deskew_successes: usize,
+    pub high_version_precision_attempts: usize,
+    pub recovery_mode_attempts: usize,
+}
+
+static DESKEW_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+static DESKEW_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
+static HIGH_VERSION_PRECISION_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+static RECOVERY_MODE_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+
+pub(crate) fn reset_decode_counters() {
+    DESKEW_ATTEMPTS.store(0, Ordering::Relaxed);
+    DESKEW_SUCCESSES.store(0, Ordering::Relaxed);
+    HIGH_VERSION_PRECISION_ATTEMPTS.store(0, Ordering::Relaxed);
+    RECOVERY_MODE_ATTEMPTS.store(0, Ordering::Relaxed);
+}
+
+pub(crate) fn take_decode_counters() -> DecodeCounters {
+    DecodeCounters {
+        deskew_attempts: DESKEW_ATTEMPTS.swap(0, Ordering::Relaxed),
+        deskew_successes: DESKEW_SUCCESSES.swap(0, Ordering::Relaxed),
+        high_version_precision_attempts: HIGH_VERSION_PRECISION_ATTEMPTS.swap(0, Ordering::Relaxed),
+        recovery_mode_attempts: RECOVERY_MODE_ATTEMPTS.swap(0, Ordering::Relaxed),
+    }
+}
 
 impl QrDecoder {
     /// Decode a QR code from a binary matrix and finder pattern locations
@@ -53,6 +83,9 @@ impl QrDecoder {
         }
 
         for version_num in candidates {
+            if version_num >= 7 {
+                HIGH_VERSION_PRECISION_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+            }
             let dimension = 17 + 4 * version_num as usize;
             for br in &br_candidates {
                 let transform =
@@ -167,6 +200,25 @@ impl QrDecoder {
                     return Some(qr);
                 }
 
+                // Rotation-specialized deskew fallback: apply a bounded mesh warp variant
+                // only after strict decode misses.
+                if version_num >= 2 {
+                    DESKEW_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                    let (deskew_matrix, deskew_conf) = Self::extract_qr_region_gray_with_mesh_warp(
+                        gray, width, height, &transform, dimension,
+                    );
+                    if orientation::validate_timing_patterns(&deskew_matrix) {
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                            &deskew_matrix,
+                            version_num,
+                            &deskew_conf,
+                        ) {
+                            DESKEW_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                            return Some(qr);
+                        }
+                    }
+                }
+
                 let (mesh_matrix, mesh_conf) = Self::extract_qr_region_gray_with_mesh_warp(
                     gray, width, height, &transform, dimension,
                 );
@@ -201,6 +253,7 @@ impl QrDecoder {
                 if !orientation::validate_timing_patterns(&qr_matrix) {
                     continue;
                 }
+                RECOVERY_MODE_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
                 if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
                     return Some(qr);
                 }

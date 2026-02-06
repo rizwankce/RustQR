@@ -1,0 +1,54 @@
+Phase 8.6 Work Packet: Acceptance Calibration (False-Positive Control)
+
+Objective
+- Calibrate decode acceptance criteria to maintain precision while enabling aggressive fallback recovery.
+
+Primary Files
+- src/decoder/qr_decoder/*.rs
+- src/tools/* (for calibration report extraction)
+- scripts/* (optional calibration helper)
+
+Implementation Scope
+1. Define acceptance score components:
+   - RS correction quality
+   - format/version consistency
+   - mode/content plausibility
+   - structural confidence.
+2. Add configurable acceptance threshold.
+3. Calibrate threshold using benchmark artifacts:
+   - maximize weighted-global
+   - constrain false-positive proxy metrics.
+4. Add per-attempt acceptance diagnostics in debug/telemetry mode.
+
+Constraints
+- Keep default strict threshold for fast path.
+- Relaxed paths require stronger acceptance confidence.
+
+Tests
+- cargo test --lib
+- A/B benchmark compare with/without calibrated threshold.
+
+Acceptance Criteria
+- Net weighted-global gain or no-regression with lower FP risk.
+- Threshold and rationale documented.
+
+Deliverables
+- Code + calibration notes + artifact summary.
+
+Status
+- Completed on 2026-02-06
+
+Implementation Notes
+- Added acceptance score in `src/pipeline.rs` combining:
+  - decode confidence proxy (RS/structural),
+  - geometry confidence,
+  - format/version consistency proxy,
+  - payload plausibility.
+- Added configurable thresholds:
+  - `QR_ACCEPTANCE_MIN`
+  - `QR_ACCEPTANCE_RELAXED_MIN`
+- Added rejection telemetry (`acceptance_rejected`) surfaced in `DetectionTelemetry` and reading-rate summaries/artifacts.
+
+Validation
+- `cargo test --lib` passed.
+- End-to-end reading-rate reporting reflects acceptance diagnostics in `src/bin/qrtool.rs`.

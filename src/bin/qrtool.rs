@@ -57,6 +57,9 @@ enum Command {
         /// Suppress per-image logs for non-interactive runs (CI/scripts).
         #[arg(long)]
         non_interactive: bool,
+        /// Optional category to run (e.g. lots, rotations, high_version).
+        #[arg(long)]
+        category: Option<String>,
     },
     /// Iterate a dataset and run detection once per image
     DatasetBench {
@@ -82,7 +85,8 @@ fn main() {
             smoke,
             artifact_json,
             non_interactive,
-        } => reading_rate_cmd(root, limit, smoke, artifact_json, non_interactive),
+            category,
+        } => reading_rate_cmd(root, limit, smoke, artifact_json, non_interactive, category),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
     }
 }
@@ -291,6 +295,7 @@ fn reading_rate_cmd(
     smoke: bool,
     artifact_json: Option<PathBuf>,
     non_interactive: bool,
+    category: Option<String>,
 ) {
     let root = root.unwrap_or_else(dataset_root_from_env);
     let limit = limit.or_else(bench_limit_from_env);
@@ -354,6 +359,9 @@ fn reading_rate_cmd(
     if non_interactive {
         println!("Output:  non-interactive");
     }
+    if let Some(c) = &category {
+        println!("Category filter: {}", c);
+    }
     println!("=====================================\n");
 
     let mut global_hits = 0usize;
@@ -365,7 +373,13 @@ fn reading_rate_cmd(
     let mut category_results: Vec<CategoryResult> = Vec::new();
     let mut categories_found = 0usize;
 
+    let category_filter = category.as_deref();
     for (dir, description) in categories {
+        if let Some(filter) = category_filter {
+            if dir != filter {
+                continue;
+            }
+        }
         let category_root = root.join(dir);
         if !category_root.exists() {
             continue;
@@ -477,7 +491,7 @@ fn reading_rate_cmd(
         println!("Pipeline Stage Telemetry (images passing each stage)");
         println!("=====================================");
         println!(
-            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9} {:>8}",
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9} {:>8} {:>8} {:>8}",
             "Category",
             "Imgs",
             "Binarize",
@@ -486,9 +500,11 @@ fn reading_rate_cmd(
             "Xform",
             "Decode",
             "AvgTry",
-            "Budget"
+            "Budget",
+            "Region",
+            "AcceptRj"
         );
-        println!("{}", "-".repeat(84));
+        println!("{}", "-".repeat(104));
         let mut g_decode_attempts = 0usize;
         let mut g_score_buckets = [0usize; 4];
         for category in &category_results {
@@ -499,7 +515,7 @@ fn reading_rate_cmd(
                 0.0
             };
             println!(
-                "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2} {:>8}",
+                "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2} {:>8} {:>8} {:>8}",
                 category.name,
                 tel.total,
                 tel.binarize_ok,
@@ -509,20 +525,22 @@ fn reading_rate_cmd(
                 tel.decode_ok,
                 avg_attempts,
                 tel.over_budget_skip,
+                tel.router_multi_region,
+                tel.acceptance_rejected,
             );
             g_decode_attempts += tel.total_decode_attempts;
             for (i, bucket) in g_score_buckets.iter_mut().enumerate() {
                 *bucket += tel.candidate_score_buckets[i];
             }
         }
-        println!("{}", "-".repeat(84));
+        println!("{}", "-".repeat(104));
         let g_avg_attempts = if global_stage_telemetry.total > 0 {
             g_decode_attempts as f64 / global_stage_telemetry.total as f64
         } else {
             0.0
         };
         println!(
-            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2} {:>8}",
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2} {:>8} {:>8} {:>8}",
             "TOTAL",
             global_stage_telemetry.total,
             global_stage_telemetry.binarize_ok,
@@ -532,6 +550,15 @@ fn reading_rate_cmd(
             global_stage_telemetry.decode_ok,
             g_avg_attempts,
             global_stage_telemetry.over_budget_skip,
+            global_stage_telemetry.router_multi_region,
+            global_stage_telemetry.acceptance_rejected,
+        );
+        println!(
+            "Deskew attempts/successes: {}/{} | High-version precision attempts: {} | Recovery mode attempts: {}",
+            global_stage_telemetry.deskew_attempts,
+            global_stage_telemetry.deskew_successes,
+            global_stage_telemetry.high_version_precision_attempts,
+            global_stage_telemetry.recovery_mode_attempts
         );
         println!(
             "Candidate score buckets [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]: [{}, {}, {}, {}]",
@@ -684,6 +711,18 @@ struct StageTelemetry {
     over_budget_skip: usize,
     /// Images where 2-finder fallback was used.
     two_finder_used: usize,
+    /// Images where router selected multi-region path.
+    router_multi_region: usize,
+    /// Total acceptance-based rejections.
+    acceptance_rejected: usize,
+    /// Total deskew attempts.
+    deskew_attempts: usize,
+    /// Total deskew successes.
+    deskew_successes: usize,
+    /// Total high-version precision attempts.
+    high_version_precision_attempts: usize,
+    /// Total recovery-mode attempts.
+    recovery_mode_attempts: usize,
     /// Total images processed.
     total: usize,
 }
@@ -701,6 +740,12 @@ impl StageTelemetry {
         }
         self.over_budget_skip += other.over_budget_skip;
         self.two_finder_used += other.two_finder_used;
+        self.router_multi_region += other.router_multi_region;
+        self.acceptance_rejected += other.acceptance_rejected;
+        self.deskew_attempts += other.deskew_attempts;
+        self.deskew_successes += other.deskew_successes;
+        self.high_version_precision_attempts += other.high_version_precision_attempts;
+        self.recovery_mode_attempts += other.recovery_mode_attempts;
         self.total += other.total;
     }
 }
@@ -852,6 +897,15 @@ where
             if tel.two_finder_successes > 0 || tel.two_finder_attempts > 0 {
                 stats.stage_telemetry.two_finder_used += 1;
             }
+            if tel.router_multi_region {
+                stats.stage_telemetry.router_multi_region += 1;
+            }
+            stats.stage_telemetry.acceptance_rejected += tel.acceptance_rejected;
+            stats.stage_telemetry.deskew_attempts += tel.deskew_attempts;
+            stats.stage_telemetry.deskew_successes += tel.deskew_successes;
+            stats.stage_telemetry.high_version_precision_attempts +=
+                tel.high_version_precision_attempts;
+            stats.stage_telemetry.recovery_mode_attempts += tel.recovery_mode_attempts;
 
             if image_hits == 0 {
                 let signature = classify_failure_signature(&tel);
@@ -1101,6 +1155,36 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             &mut json,
             "        \"two_finder_used\": {},",
             category.stage_telemetry.two_finder_used
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"router_multi_region\": {},",
+            category.stage_telemetry.router_multi_region
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"acceptance_rejected\": {},",
+            category.stage_telemetry.acceptance_rejected
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"deskew_attempts\": {},",
+            category.stage_telemetry.deskew_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"deskew_successes\": {},",
+            category.stage_telemetry.deskew_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"high_version_precision_attempts\": {},",
+            category.stage_telemetry.high_version_precision_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"recovery_mode_attempts\": {},",
+            category.stage_telemetry.recovery_mode_attempts
         );
         let _ = writeln!(
             &mut json,

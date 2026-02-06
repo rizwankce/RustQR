@@ -58,6 +58,24 @@ pub struct DetectionTelemetry {
     pub two_finder_attempts: usize,
     /// Number of successful decodes from 2-finder fallback path.
     pub two_finder_successes: usize,
+    /// Strategy profile selected by category-aware router.
+    pub strategy_profile: String,
+    /// Number of spatial regions considered for region-first multi-QR decode.
+    pub regions_considered: usize,
+    /// Whether router enabled multi-region decode for this image.
+    pub router_multi_region: bool,
+    /// Number of successful decodes from region-routed candidates.
+    pub router_region_decodes: usize,
+    /// Number of decodes rejected by acceptance calibration threshold.
+    pub acceptance_rejected: usize,
+    /// Number of deskew decode attempts.
+    pub deskew_attempts: usize,
+    /// Number of successful deskew decode recoveries.
+    pub deskew_successes: usize,
+    /// Number of high-version precision mode decode attempts.
+    pub high_version_precision_attempts: usize,
+    /// Number of recovery-mode decode attempts.
+    pub recovery_mode_attempts: usize,
 }
 
 impl DetectionTelemetry {
@@ -85,12 +103,24 @@ impl DetectionTelemetry {
         self.budget_skips += other.budget_skips;
         self.two_finder_attempts += other.two_finder_attempts;
         self.two_finder_successes += other.two_finder_successes;
+        self.regions_considered = self.regions_considered.max(other.regions_considered);
+        self.router_multi_region = self.router_multi_region || other.router_multi_region;
+        self.router_region_decodes += other.router_region_decodes;
+        self.acceptance_rejected += other.acceptance_rejected;
+        self.deskew_attempts += other.deskew_attempts;
+        self.deskew_successes += other.deskew_successes;
+        self.high_version_precision_attempts += other.high_version_precision_attempts;
+        self.recovery_mode_attempts += other.recovery_mode_attempts;
+        if self.strategy_profile.is_empty() && !other.strategy_profile.is_empty() {
+            self.strategy_profile = other.strategy_profile.clone();
+        }
         for i in 0..self.candidate_score_buckets.len() {
             self.candidate_score_buckets[i] += other.candidate_score_buckets[i];
         }
     }
 }
 
+use decoder::qr_decoder::{reset_decode_counters, take_decode_counters};
 use detector::contour::ContourDetector;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
@@ -372,6 +402,7 @@ pub fn detect_with_telemetry(
     height: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     let mut tel = DetectionTelemetry::default();
+    reset_decode_counters();
 
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
@@ -487,6 +518,11 @@ pub fn detect_with_telemetry(
     }
 
     tel.qr_codes_found = results.len();
+    let counters = take_decode_counters();
+    tel.deskew_attempts = counters.deskew_attempts;
+    tel.deskew_successes = counters.deskew_successes;
+    tel.high_version_precision_attempts = counters.high_version_precision_attempts;
+    tel.recovery_mode_attempts = counters.recovery_mode_attempts;
     (results, tel)
 }
 

@@ -3,6 +3,7 @@ use crate::decoder::qr_decoder::QrDecoder;
 use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::env;
 
 const MAX_GROUP_CANDIDATES: usize = 40;
@@ -13,6 +14,8 @@ const LOW_TOP_GROUP_CONFIDENCE: f32 = 0.62;
 const SINGLE_QR_CONFIDENCE_FLOOR: f32 = 0.78;
 const DEFAULT_MAX_TRANSFORMS: usize = 24;
 const DEFAULT_MAX_DECODE_ATTEMPTS: usize = 48;
+const DEFAULT_MAX_REGIONS: usize = 8;
+const DEFAULT_PER_REGION_TOP_K: usize = 4;
 
 #[derive(Clone, Copy)]
 struct RankedGroupCandidate {
@@ -23,6 +26,33 @@ struct RankedGroupCandidate {
     module_size: f32,
     raw_score: f32,
     geometry_confidence: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum StrategyProfile {
+    FastSingle,
+    MultiQrHeavy,
+    RotationHeavy,
+    HighVersionPrecision,
+    LowContrastRecovery,
+}
+
+impl StrategyProfile {
+    fn as_str(self) -> &'static str {
+        match self {
+            StrategyProfile::FastSingle => "fast_single",
+            StrategyProfile::MultiQrHeavy => "multi_qr_heavy",
+            StrategyProfile::RotationHeavy => "rotation_heavy",
+            StrategyProfile::HighVersionPrecision => "high_version_precision",
+            StrategyProfile::LowContrastRecovery => "low_contrast_recovery",
+        }
+    }
+}
+
+#[derive(Clone)]
+struct RegionCluster {
+    indices: Vec<usize>,
+    center: Point,
 }
 
 fn order_finder_patterns(
@@ -442,6 +472,168 @@ fn decode_candidate(
     Some(qr)
 }
 
+fn candidate_center(c: &RankedGroupCandidate) -> Point {
+    let br = Point::new(c.tr.x + c.bl.x - c.tl.x, c.tr.y + c.bl.y - c.tl.y);
+    Point::new(
+        (c.tl.x + c.tr.x + c.bl.x + br.x) * 0.25,
+        (c.tl.y + c.tr.y + c.bl.y + br.y) * 0.25,
+    )
+}
+
+fn candidate_bbox(c: &RankedGroupCandidate) -> (f32, f32, f32, f32) {
+    let br = Point::new(c.tr.x + c.bl.x - c.tl.x, c.tr.y + c.bl.y - c.tl.y);
+    let min_x = c.tl.x.min(c.tr.x).min(c.bl.x).min(br.x);
+    let max_x = c.tl.x.max(c.tr.x).max(c.bl.x).max(br.x);
+    let min_y = c.tl.y.min(c.tr.y).min(c.bl.y).min(br.y);
+    let max_y = c.tl.y.max(c.tr.y).max(c.bl.y).max(br.y);
+    (min_x, min_y, max_x, max_y)
+}
+
+fn bbox_iou(a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)) -> f32 {
+    let ix0 = a.0.max(b.0);
+    let iy0 = a.1.max(b.1);
+    let ix1 = a.2.min(b.2);
+    let iy1 = a.3.min(b.3);
+    let iw = (ix1 - ix0).max(0.0);
+    let ih = (iy1 - iy0).max(0.0);
+    let inter = iw * ih;
+    if inter <= 0.0 {
+        return 0.0;
+    }
+    let area_a = (a.2 - a.0).max(0.0) * (a.3 - a.1).max(0.0);
+    let area_b = (b.2 - b.0).max(0.0) * (b.3 - b.1).max(0.0);
+    let denom = (area_a + area_b - inter).max(1e-6);
+    inter / denom
+}
+
+fn decode_acceptance_floor() -> f32 {
+    decode_f32_env("QR_ACCEPTANCE_MIN", 0.56, 0.2, 0.98)
+}
+
+fn decode_relaxed_acceptance_floor() -> f32 {
+    decode_f32_env("QR_ACCEPTANCE_RELAXED_MIN", 0.64, 0.2, 0.99)
+}
+
+fn payload_plausibility(content: &str) -> f32 {
+    if content.is_empty() {
+        return 0.0;
+    }
+    let len = content.chars().count();
+    let printable = content
+        .chars()
+        .filter(|c| c.is_ascii_graphic() || *c == ' ' || *c == '\n' || *c == '\r' || *c == '\t')
+        .count();
+    let ascii = content.chars().filter(|c| c.is_ascii()).count();
+    let printable_ratio = printable as f32 / len as f32;
+    let ascii_ratio = ascii as f32 / len as f32;
+    let length_bonus = (len.min(128) as f32 / 128.0).clamp(0.0, 1.0);
+    (0.5 * printable_ratio + 0.3 * ascii_ratio + 0.2 * length_bonus).clamp(0.0, 1.0)
+}
+
+fn acceptance_score(qr: &QRCode, geometry_conf: f32) -> f32 {
+    let rs_quality = qr.confidence.clamp(0.0, 1.0);
+    let format_version_consistency = match qr.version {
+        crate::models::Version::Model2(v) if v >= 7 => 0.95,
+        _ => 0.85,
+    };
+    let ec_strength = match qr.error_correction {
+        ECLevel::H => 1.0,
+        ECLevel::Q => 0.92,
+        ECLevel::M => 0.84,
+        ECLevel::L => 0.76,
+    };
+    let plausibility = payload_plausibility(&qr.content);
+    (0.30 * rs_quality
+        + 0.20 * geometry_conf
+        + 0.20 * format_version_consistency
+        + 0.15 * ec_strength
+        + 0.15 * plausibility)
+        .clamp(0.0, 1.0)
+}
+
+fn dedupe_results(
+    results: &mut Vec<QRCode>,
+    accepted_geometries: &mut Vec<(f32, f32, f32, f32)>,
+    candidate: &RankedGroupCandidate,
+    qr: QRCode,
+) -> bool {
+    if results.iter().any(|r| r.content == qr.content) {
+        return false;
+    }
+    let geom = candidate_bbox(candidate);
+    if accepted_geometries
+        .iter()
+        .any(|&existing| bbox_iou(existing, geom) >= 0.72)
+    {
+        return false;
+    }
+    accepted_geometries.push(geom);
+    results.push(qr);
+    true
+}
+
+fn cluster_regions(candidates: &[RankedGroupCandidate], max_regions: usize) -> Vec<RegionCluster> {
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+    let mut regions: Vec<RegionCluster> = Vec::new();
+    for (idx, c) in candidates.iter().enumerate() {
+        let center = candidate_center(c);
+        let scale = ((c.tl.distance(&c.tr) + c.tl.distance(&c.bl)) * 0.5).max(20.0);
+        let attach = regions.iter().position(|r| {
+            let d = center.distance(&r.center);
+            d <= scale * 1.2
+        });
+        if let Some(region_idx) = attach {
+            let r = &mut regions[region_idx];
+            r.indices.push(idx);
+            let n = r.indices.len() as f32;
+            r.center = Point::new(
+                (r.center.x * (n - 1.0) + center.x) / n,
+                (r.center.y * (n - 1.0) + center.y) / n,
+            );
+        } else if regions.len() < max_regions {
+            regions.push(RegionCluster {
+                indices: vec![idx],
+                center,
+            });
+        }
+    }
+    regions.sort_by(|a, b| b.indices.len().cmp(&a.indices.len()));
+    regions
+}
+
+fn select_strategy(candidates: &[RankedGroupCandidate]) -> StrategyProfile {
+    if candidates.is_empty() {
+        return StrategyProfile::FastSingle;
+    }
+    let high_conf = candidates
+        .iter()
+        .filter(|c| c.geometry_confidence >= 0.76)
+        .count();
+    let top_conf = candidates[0].geometry_confidence;
+    let top_module = candidates[0].module_size;
+    let spread = if candidates.len() >= 3 {
+        (candidates[0].geometry_confidence - candidates[2].geometry_confidence).abs()
+    } else {
+        0.0
+    };
+
+    if high_conf >= 3 {
+        return StrategyProfile::MultiQrHeavy;
+    }
+    if top_module <= 2.0 {
+        return StrategyProfile::HighVersionPrecision;
+    }
+    if top_conf < 0.55 {
+        return StrategyProfile::LowContrastRecovery;
+    }
+    if spread > 0.28 {
+        return StrategyProfile::RotationHeavy;
+    }
+    StrategyProfile::FastSingle
+}
+
 fn decode_ranked_groups(
     binary: &BitMatrix,
     gray: &[u8],
@@ -488,6 +680,10 @@ fn decode_ranked_groups(
     let low_top_group_conf = low_top_group_confidence();
     let single_qr_floor = single_qr_confidence_floor();
     let top = candidates[0];
+    let strategy = select_strategy(candidates);
+    if let Some(tel) = telemetry.as_mut() {
+        tel.strategy_profile = strategy.as_str().to_string();
+    }
     let mut should_expand = candidates
         .iter()
         .filter(|c| c.geometry_confidence >= high_group_conf)
@@ -498,8 +694,11 @@ fn decode_ranked_groups(
 
     let mut used_transforms = 0usize;
     let mut used_attempts = 0usize;
-
     let mut results = Vec::new();
+    let mut accepted_payloads: HashSet<String> = HashSet::new();
+    let mut accepted_geometries: Vec<(f32, f32, f32, f32)> = Vec::new();
+
+    let first = top;
     if used_transforms < max_transforms && used_attempts < max_decode_attempts {
         if let Some(tel) = telemetry.as_mut() {
             tel.transforms_built += 1;
@@ -507,6 +706,27 @@ fn decode_ranked_groups(
         }
         used_transforms += 1;
         used_attempts += 1;
+        if let Some(qr) = decode_candidate(&first, binary, gray, width, height) {
+            let acceptance = acceptance_score(&qr, first.geometry_confidence);
+            let floor = decode_acceptance_floor();
+            if acceptance >= floor {
+                if let Some(tel) = telemetry.as_mut() {
+                    tel.rs_decode_ok += 1;
+                    tel.payload_decoded += 1;
+                }
+                if qr.confidence < single_qr_floor {
+                    should_expand = true;
+                }
+                accepted_payloads.insert(qr.content.clone());
+                accepted_geometries.push(candidate_bbox(&first));
+                results.push(qr);
+                if !should_expand {
+                    return results;
+                }
+            } else if let Some(tel) = telemetry.as_mut() {
+                tel.acceptance_rejected += 1;
+            }
+        }
     } else {
         if let Some(tel) = telemetry.as_mut() {
             tel.budget_skips += 1;
@@ -514,42 +734,84 @@ fn decode_ranked_groups(
         return results;
     }
 
-    if let Some(qr) = decode_candidate(&top, binary, gray, width, height) {
-        if let Some(tel) = telemetry.as_mut() {
-            tel.rs_decode_ok += 1;
-            tel.payload_decoded += 1;
-        }
-        if qr.confidence < single_qr_floor {
-            should_expand = true;
-        }
-        results.push(qr);
-        if !should_expand {
-            return results;
-        }
-    } else {
-        should_expand = true;
+    if !should_expand {
+        return results;
     }
 
-    if should_expand {
-        for candidate in candidates.iter().take(top_k).skip(1) {
+    let max_regions = decode_usize_env("QR_MAX_REGIONS", DEFAULT_MAX_REGIONS, 1, 64);
+    let mut per_region_top_k = decode_usize_env(
+        "QR_PER_REGION_TOP_K",
+        DEFAULT_PER_REGION_TOP_K,
+        1,
+        MAX_DECODE_TOP_K,
+    );
+    let mut per_region_attempt_cap = decode_usize_env("QR_PER_REGION_ATTEMPTS", 3, 1, 24);
+    match strategy {
+        StrategyProfile::MultiQrHeavy => {
+            per_region_top_k = per_region_top_k.max(5);
+            per_region_attempt_cap = per_region_attempt_cap.max(4);
+        }
+        StrategyProfile::HighVersionPrecision => {
+            per_region_attempt_cap = per_region_attempt_cap.min(2);
+        }
+        StrategyProfile::LowContrastRecovery => {
+            per_region_top_k = per_region_top_k.min(3);
+        }
+        StrategyProfile::RotationHeavy | StrategyProfile::FastSingle => {}
+    }
+    per_region_top_k = per_region_top_k.min(top_k);
+
+    let regions = cluster_regions(candidates, max_regions);
+    let multi_region = regions.len() > 1;
+    if let Some(tel) = telemetry.as_mut() {
+        tel.router_multi_region = multi_region;
+        tel.regions_considered = regions.len();
+    }
+
+    let relaxed_floor = decode_relaxed_acceptance_floor();
+    for region in regions {
+        for (region_attempts, &idx) in region.indices.iter().take(per_region_top_k).enumerate() {
             if used_transforms >= max_transforms || used_attempts >= max_decode_attempts {
                 if let Some(tel) = telemetry.as_mut() {
                     tel.budget_skips += 1;
                 }
                 break;
             }
+            if region_attempts >= per_region_attempt_cap {
+                break;
+            }
+            let candidate = &candidates[idx];
             if let Some(tel) = telemetry.as_mut() {
                 tel.transforms_built += 1;
                 tel.decode_attempts += 1;
             }
             used_transforms += 1;
             used_attempts += 1;
+
             if let Some(qr) = decode_candidate(candidate, binary, gray, width, height) {
-                if let Some(tel) = telemetry.as_mut() {
-                    tel.rs_decode_ok += 1;
-                    tel.payload_decoded += 1;
+                if accepted_payloads.contains(&qr.content) {
+                    continue;
                 }
-                results.push(qr);
+                let acceptance = acceptance_score(&qr, candidate.geometry_confidence);
+                if acceptance < relaxed_floor {
+                    if let Some(tel) = telemetry.as_mut() {
+                        tel.acceptance_rejected += 1;
+                    }
+                    continue;
+                }
+                if dedupe_results(
+                    &mut results,
+                    &mut accepted_geometries,
+                    candidate,
+                    qr.clone(),
+                ) {
+                    accepted_payloads.insert(qr.content);
+                    if let Some(tel) = telemetry.as_mut() {
+                        tel.rs_decode_ok += 1;
+                        tel.payload_decoded += 1;
+                        tel.router_region_decodes += 1;
+                    }
+                }
             }
         }
     }

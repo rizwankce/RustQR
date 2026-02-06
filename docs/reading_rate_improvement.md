@@ -651,3 +651,112 @@ Each sub-point has a dedicated work packet for sub-agent execution under `docs/w
 - `7.6` implemented with k1 radial compensation sampling fallback and activation guard from geometry distortion signal (`src/decoder/qr_decoder/geometry.rs`, `src/decoder/qr_decoder.rs`).
 - `7.7` implemented with confidence-budgeted decode limits and explicit budget-skip telemetry (`src/pipeline.rs`, `src/lib.rs`).
 - `7.8` implemented with failure-signature artifact enrichment and offline triage clustering script (`src/bin/qrtool.rs`, `scripts/triage_failure_clusters.py`).
+
+---
+
+## Phase 8: Weighted-Leverage Category Push
+
+Phase 8 prioritizes categories that can move weighted global reading rate fastest, while preserving runtime guardrails from Phase 6/7.
+
+**Status:** Completed (initial Phase 8 baseline on 2026-02-06)
+- [x] 8.1 Region-First Multi-QR Pipeline for `lots`
+- [x] 8.2 Rotation-Specialized Deskew Decode Path
+- [x] 8.3 High-Version Precision Mode (v7+)
+- [x] 8.4 Noncompliant/Pathological Constrained Recovery Mode
+- [x] 8.5 Category-Aware Strategy Router from Telemetry
+- [x] 8.6 Acceptance Calibration (False-Positive Control)
+- [x] 8.7 Weighted KPI Gates and Per-Category Budgets
+
+### Why these priorities
+
+From current run artifacts, weighted global is dominated by a few high-volume categories:
+- `lots`: 420 QR labels (largest leverage)
+- `rotations`: 133
+- `bright_spots`: 97
+- `brightness`: 85
+- `nominal`: 78
+- `high_version`: high strategic value (currently zero/near-zero in many runs)
+
+Each additional decoded QR contributes approximately `0.081` points to global weighted rate (`100 / 1232`).
+
+### 8.1 Region-First Multi-QR Pipeline for `lots`
+- **Files**: `src/lib.rs`, `src/pipeline.rs`, `src/detector/*`
+- **What**:
+  - spatially cluster finder/group candidates into independent regions
+  - decode top-ranked candidates per region with strict dedupe (geometry + payload)
+  - enforce per-region decode budget
+- **Success criteria**:
+  - significant lift in `lots` without exploding false positives in single-QR categories
+
+### 8.2 Rotation-Specialized Deskew Decode Path
+- **Files**: `src/decoder/qr_decoder/*.rs`, `src/lib.rs`
+- **What**:
+  - estimate dominant orientation from finder/timing geometry
+  - deskew candidate patch before full decode
+  - run only when timing confidence passes threshold
+- **Success criteria**:
+  - material lift in `rotations` with bounded runtime increase
+
+### 8.3 High-Version Precision Mode (v7+)
+- **Files**: `src/decoder/qr_decoder/*.rs`
+- **What**:
+  - v7+ dedicated path with stricter version/alignment consistency
+  - denser subpixel sampling and alignment-weighted transform refinement
+  - stronger rejection of inconsistent format/version combos
+- **Success criteria**:
+  - measurable gain in `high_version` without regressions in `nominal`
+
+### 8.4 Noncompliant/Pathological Constrained Recovery Mode
+- **Files**: `src/lib.rs`, `src/decoder/qr_decoder/*.rs`
+- **What**:
+  - activate only after strict path failure
+  - apply relaxed quiet-zone + 2-finder + confidence-gated acceptance
+  - hard cap attempts to avoid budget drain
+- **Success criteria**:
+  - gain in `noncompliant` and `pathological` with controlled FP rate
+
+### 8.5 Category-Aware Strategy Router from Telemetry
+- **Files**: `src/pipeline.rs`, `src/bin/qrtool.rs`
+- **What**:
+  - route images to specialized fallback stacks using telemetry signals:
+    finder density, timing score, transform residual, confidence spread
+  - avoid running all expensive paths on every image
+- **Success criteria**:
+  - higher weighted global with runtime guardrail maintained
+
+### 8.6 Acceptance Calibration (False-Positive Control)
+- **Files**: `src/decoder/qr_decoder/*.rs`, `src/tools/*`
+- **What**:
+  - add decode acceptance score combining:
+    RS quality, format/version consistency, mode plausibility, content sanity
+  - calibrate threshold from artifacts to reduce false positives from relaxed paths
+- **Success criteria**:
+  - improved precision with no net weighted-global loss
+
+### 8.7 Weighted KPI Gates and Per-Category Budgets
+- **Files**: `.github/workflows/benchmark.yml`, `scripts/*`, `src/bin/qrtool.rs`
+- **What**:
+  - add CI gates on weighted global and selected high-leverage categories
+  - enforce per-category decode budget policy checks
+  - report per-category contribution to global delta
+- **Success criteria**:
+  - deterministic pass/fail for Phase 8 work with clear attribution
+
+### Recommended Phase 8 Order
+
+1. `8.1` Region-first multi-QR (`lots`)
+2. `8.2` Rotation-specialized deskew
+3. `8.3` High-version precision mode
+4. `8.4` Noncompliant/pathological constrained recovery
+5. `8.5` Category-aware router
+6. `8.6` Acceptance calibration
+7. `8.7` KPI gates and contribution reporting
+
+**Implementation notes (Phase 8 baseline):**
+- `8.1` implemented via region clustering of ranked finder groups, per-region top-K decode caps, and payload/geometry dedupe in `src/pipeline.rs`.
+- `8.2` implemented via bounded deskew fallback attempt path with telemetry counters (`deskew_attempts`, `deskew_successes`) in `src/decoder/qr_decoder.rs`.
+- `8.3` implemented via high-version precision mode activation/counters for v7+ attempts in `src/decoder/qr_decoder.rs`.
+- `8.4` implemented as fallback-only recovery attempts with explicit telemetry accounting and acceptance gating in `src/decoder/qr_decoder.rs` and `src/pipeline.rs`.
+- `8.5` implemented via deterministic strategy router profiles (`fast_single`, `multi_qr_heavy`, `rotation_heavy`, `high_version_precision`, `low_contrast_recovery`) and profile telemetry in `src/pipeline.rs`.
+- `8.6` implemented via acceptance scoring (RS/geometry/format-version/plausibility factors) and strict relaxed-path thresholds in `src/pipeline.rs`.
+- `8.7` implemented via enhanced artifact comparison with category gates and weighted contribution reports in `scripts/compare_reading_rate_artifacts.py`, plus CI workflow wiring in `.github/workflows/benchmark.yml`.

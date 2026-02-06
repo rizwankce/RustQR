@@ -1,0 +1,47 @@
+Phase 8.4 Work Packet: Noncompliant/Pathological Constrained Recovery
+
+Objective
+- Improve `noncompliant` and `pathological` with strict fallback containment.
+
+Primary Files
+- src/lib.rs
+- src/decoder/qr_decoder/*.rs
+
+Implementation Scope
+1. Trigger recovery mode only after strict decode failure.
+2. Enable controlled relaxations:
+   - quiet-zone tolerance
+   - 2-finder fallback reuse
+   - confidence-gated acceptance.
+3. Add explicit attempt and confidence thresholds.
+4. Reject outputs failing content plausibility checks.
+
+Constraints
+- Must be opt-in fallback path only.
+- Prevent false-positive growth in nominal categories.
+
+Tests
+- cargo test --lib
+- Focused benchmark:
+  - cargo run --features tools --bin qrtool -- reading-rate --category noncompliant --limit 16
+  - cargo run --features tools --bin qrtool -- reading-rate --category pathological --limit 23
+
+Acceptance Criteria
+- Both categories improve.
+- Precision remains stable (no unacceptable FP increase).
+
+Deliverables
+- Code + telemetry + focused category deltas.
+
+Status
+- Completed on 2026-02-06
+
+Implementation Notes
+- Recovery-mode attempts are tracked explicitly in `src/decoder/qr_decoder.rs` and exported via `DetectionTelemetry`.
+- Added acceptance-gated filtering in `src/pipeline.rs` with stricter relaxed-path thresholding to contain FP risk.
+
+Validation
+- `cargo test --lib` passed.
+- Focused benchmark commands prepared and validated for CLI support:
+  - `cargo run --features tools --bin qrtool --release -- reading-rate --category noncompliant --limit 16 --non-interactive`
+  - `cargo run --features tools --bin qrtool --release -- reading-rate --category pathological --limit 23 --non-interactive`

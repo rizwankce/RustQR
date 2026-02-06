@@ -33,6 +33,11 @@ on:
         required: false
         default: '15.0'
         type: string
+      category_gates:
+        description: 'Per-category max drops (comma-separated NAME=PP)'
+        required: false
+        default: 'lots=2.0,rotations=2.0,nominal=1.5,high_version=1.5'
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -121,6 +126,7 @@ jobs:
           path: |
             reading_rate_*.txt
             reading_rate_*.json
+            reading_rate_contribution_*.json
             criterion_*.txt
             target/criterion/
           retention-days: 30
@@ -128,11 +134,21 @@ jobs:
       - name: Regression gate (macOS reading-rate)
         if: ${{ inputs.run_reading_rate && matrix.platform == 'macos' && inputs.baseline_artifact != '' }}
         run: |
+          IFS=',' read -ra CATEGORY_GATES <<< "${{ inputs.category_gates }}"
+          CATEGORY_ARGS=()
+          for gate in "${CATEGORY_GATES[@]}"; do
+            gate_trimmed="$(echo "$gate" | xargs)"
+            if [ -n "$gate_trimmed" ]; then
+              CATEGORY_ARGS+=("--category-max-drop-pp" "$gate_trimmed")
+            fi
+          done
           python3 scripts/compare_reading_rate_artifacts.py \
             --baseline "${{ inputs.baseline_artifact }}" \
             --candidate "reading_rate_${{ matrix.platform }}.json" \
             --max-rate-drop-pp "${{ inputs.max_rate_drop_pp }}" \
-            --max-median-runtime-regression-pct "${{ inputs.max_median_runtime_regression_pct }}"
+            --max-median-runtime-regression-pct "${{ inputs.max_median_runtime_regression_pct }}" \
+            --contribution-report "reading_rate_contribution_${{ matrix.platform }}.json" \
+            "${CATEGORY_ARGS[@]}"
         shell: bash
 
   summary:

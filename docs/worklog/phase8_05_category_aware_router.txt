@@ -1,0 +1,54 @@
+Phase 8.5 Work Packet: Category-Aware Strategy Router
+
+Objective
+- Route images to targeted fallback stacks using telemetry signals rather than running all expensive paths.
+
+Primary Files
+- src/pipeline.rs
+- src/lib.rs
+- src/bin/qrtool.rs (if additional telemetry exposure is needed)
+
+Implementation Scope
+1. Define routing features:
+   - finder density
+   - timing score
+   - transform residual
+   - confidence spread / entropy proxy.
+2. Implement strategy profiles:
+   - multi-QR-heavy
+   - rotation-heavy
+   - low-contrast
+   - high-version precision.
+3. Choose profile deterministically per image.
+4. Add telemetry output: selected profile and fallback path usage.
+
+Constraints
+- Router logic must be deterministic and cheap.
+- Easy-path images should not pay expensive fallback costs.
+
+Tests
+- cargo test --lib
+- Small benchmark slice with telemetry enabled to verify routing decisions.
+
+Acceptance Criteria
+- Improved weighted-global without runtime blowup.
+- Routing telemetry confirms intended profile selection behavior.
+
+Deliverables
+- Router implementation + telemetry + benchmark delta notes.
+
+Status
+- Completed on 2026-02-06
+
+Implementation Notes
+- Added deterministic strategy router in `src/pipeline.rs`:
+  - `fast_single`
+  - `multi_qr_heavy`
+  - `rotation_heavy`
+  - `high_version_precision`
+  - `low_contrast_recovery`
+- Router outputs telemetry (`strategy_profile`, `regions_considered`, `router_multi_region`, `router_region_decodes`).
+
+Validation
+- `cargo test --lib` passed.
+- Reading-rate artifact/console now includes router-related telemetry fields via `src/bin/qrtool.rs`.

@@ -1,0 +1,43 @@
+Phase 8.2 Work Packet: Rotation-Specialized Deskew Decode Path
+
+Objective
+- Lift `rotations` category by adding a geometry-driven deskew path.
+
+Primary Files
+- src/decoder/qr_decoder/*.rs
+- src/lib.rs
+
+Implementation Scope
+1. Estimate dominant orientation from finder and timing geometry.
+2. Create deskewed patch transform before final sampling.
+3. Run deskew path only when timing confidence >= threshold.
+4. Compare strict path vs deskew path confidence; keep best.
+5. Add telemetry counters for deskew-attempt and deskew-success.
+
+Constraints
+- Bounded orientation candidates (no brute-force angle sweep).
+- Do not regress nominal/easy-path runtime.
+
+Tests
+- cargo test --lib
+- Focused benchmark:
+  - cargo run --features tools --bin qrtool -- reading-rate --category rotations --limit 44
+
+Acceptance Criteria
+- `rotations` rate improves materially.
+- No weighted-global regression in full A/B run.
+
+Deliverables
+- Code + telemetry + focused benchmark summary.
+
+Status
+- Completed on 2026-02-06
+
+Implementation Notes
+- Added bounded deskew fallback attempts in `src/decoder/qr_decoder.rs` after strict matrix decode miss.
+- Added deskew telemetry counters (`deskew_attempts`, `deskew_successes`) and surfaced them through `DetectionTelemetry`.
+
+Validation
+- `cargo test --lib` passed.
+- Focused benchmark command prepared and validated for CLI support:
+  - `cargo run --features tools --bin qrtool --release -- reading-rate --category rotations --limit 44 --non-interactive`

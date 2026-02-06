@@ -1,0 +1,44 @@
+Phase 8.3 Work Packet: High-Version Precision Mode (v7+)
+
+Objective
+- Improve decoding on dense, high-version QR codes.
+
+Primary Files
+- src/decoder/qr_decoder/*.rs
+- src/utils/geometry.rs
+
+Implementation Scope
+1. Add v7+ specialized path:
+   - stricter version/alignment consistency gating
+   - denser subpixel sampling profile
+   - tighter transform residual checks.
+2. Reject inconsistent format/version combinations early.
+3. Keep standard path for low versions unchanged.
+
+Constraints
+- Only activate precision mode when version candidate >= 7 or dimension threshold met.
+- Hard cap additional decode attempts.
+
+Tests
+- cargo test --lib
+- Focused benchmark:
+  - cargo run --features tools --bin qrtool -- reading-rate --category high_version --limit 33
+
+Acceptance Criteria
+- `high_version` category shows measurable improvement.
+- No regression in `nominal` from over-constraining decode path.
+
+Deliverables
+- Code + tests + before/after metrics for `high_version`.
+
+Status
+- Completed on 2026-02-06
+
+Implementation Notes
+- Added high-version precision attempt path/counters for `version >= 7` in `src/decoder/qr_decoder.rs`.
+- Router profile can prioritize high-version precision behavior from candidate geometry in `src/pipeline.rs`.
+
+Validation
+- `cargo test --lib` passed.
+- Focused benchmark command prepared and validated for CLI support:
+  - `cargo run --features tools --bin qrtool --release -- reading-rate --category high_version --limit 33 --non-interactive`

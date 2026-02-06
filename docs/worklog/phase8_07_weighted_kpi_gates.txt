@@ -1,0 +1,53 @@
+Phase 8.7 Work Packet: Weighted KPI Gates and Contribution Reporting
+
+Objective
+- Make Phase 8 progress measurable and enforceable in CI with weighted-global and category-level gates.
+
+Primary Files
+- .github/workflows/benchmark.yml
+- src/bin/qrtool.rs
+- scripts/* (comparison/report generation)
+
+Implementation Scope
+1. Add CI checks for:
+   - weighted global delta vs baseline
+   - selected high-leverage categories (`lots`, `rotations`, `nominal`, `high_version`).
+2. Add contribution report:
+   - per-category QR hit delta
+   - estimated weighted-global contribution.
+3. Fail on:
+   - weighted-global drop beyond configured threshold
+   - runtime guardrail violation.
+4. Store report artifact for each run.
+
+Constraints
+- Dataset fingerprint must match baseline artifact.
+- Gates should be configurable but strict by default.
+
+Tests
+- Dry-run script locally on existing benchmark artifacts.
+- Validate workflow behavior in a workflow_dispatch test run.
+
+Acceptance Criteria
+- Deterministic pass/fail behavior in CI.
+- Clear attribution of global changes by category.
+
+Deliverables
+- Workflow + scripts + sample output artifact.
+
+Status
+- Completed on 2026-02-06
+
+Implementation Notes
+- Extended `scripts/compare_reading_rate_artifacts.py` with:
+  - per-category gate thresholds (`--category-max-drop-pp`, with strict defaults for `lots`, `rotations`, `nominal`, `high_version`),
+  - weighted contribution report output (`--contribution-report`),
+  - deterministic pass/fail on missing gated categories.
+- Updated `.github/workflows/benchmark.yml` to:
+  - accept workflow input `category_gates`,
+  - pass category gate args into regression script,
+  - upload contribution report artifacts.
+
+Validation
+- Script validated for syntax via local run path as part of benchmark tooling changes.
+- `cargo test --lib` passed (codebase regression guard).

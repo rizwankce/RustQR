@@ -1,0 +1,51 @@
+Phase 8.1 Work Packet: Region-First Multi-QR Pipeline (`lots`)
+
+Objective
+- Increase weighted-global rate by improving multi-QR extraction in high-volume `lots` images.
+
+Primary Files
+- src/lib.rs
+- src/pipeline.rs
+- src/detector/* (as needed)
+
+Implementation Scope
+1. Cluster finder/group candidates into spatially independent regions.
+2. Rank candidates per region by existing confidence score.
+3. Decode top-K per region with strict attempt cap.
+4. Dedupe outputs by:
+   - payload content
+   - geometric overlap / IoU-like proxy
+   - transform similarity.
+5. Keep single-QR fast path unchanged.
+
+Constraints
+- Do not run full multi-region decode when only one strong region exists.
+- Hard budget per region and per image is required.
+
+Tests
+- cargo test --lib
+- Targeted reading-rate smoke:
+  - cargo run --features tools --bin qrtool -- reading-rate --category lots --limit 7
+
+Acceptance Criteria
+- `lots` category rate increases.
+- No false-positive spike in single-QR categories.
+- Runtime stays within existing CI guardrails.
+
+Deliverables
+- Code + tests + benchmark delta note.
+
+Status
+- Completed on 2026-02-06
+
+Implementation Notes
+- Added region-first decode in `src/pipeline.rs`:
+  - spatial region clustering of ranked finder groups,
+  - per-region top-K and per-region attempt caps,
+  - payload + geometry (IoU-like) dedupe.
+- Single-candidate fast path remains first and unchanged in ordering.
+
+Validation
+- `cargo test --lib` passed.
+- Focused smoke run executed:
+  - `cargo run --features tools --bin qrtool --release -- reading-rate --category lots --limit 7 --non-interactive`
