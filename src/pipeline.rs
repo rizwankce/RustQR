@@ -11,6 +11,8 @@ const MAX_DECODE_TOP_K: usize = 64;
 const HIGH_GROUP_CONFIDENCE: f32 = 0.80;
 const LOW_TOP_GROUP_CONFIDENCE: f32 = 0.62;
 const SINGLE_QR_CONFIDENCE_FLOOR: f32 = 0.78;
+const DEFAULT_MAX_TRANSFORMS: usize = 24;
+const DEFAULT_MAX_DECODE_ATTEMPTS: usize = 48;
 
 #[derive(Clone, Copy)]
 struct RankedGroupCandidate {
@@ -380,6 +382,14 @@ fn decode_f32_env(key: &str, default: f32, min: f32, max: f32) -> f32 {
         .unwrap_or(default)
 }
 
+fn decode_usize_env(key: &str, default: usize, min: usize, max: usize) -> usize {
+    env::var(key)
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .map(|v| v.clamp(min, max))
+        .unwrap_or(default)
+}
+
 fn high_group_confidence() -> f32 {
     decode_f32_env("QR_GROUP_HIGH_CONF", HIGH_GROUP_CONFIDENCE, 0.3, 0.99)
 }
@@ -467,6 +477,13 @@ fn decode_ranked_groups(
     }
 
     let top_k = decode_top_k_limit(candidates.len());
+    let max_transforms = decode_usize_env("QR_MAX_TRANSFORMS", DEFAULT_MAX_TRANSFORMS, 1, 512);
+    let max_decode_attempts = decode_usize_env(
+        "QR_MAX_DECODE_ATTEMPTS",
+        DEFAULT_MAX_DECODE_ATTEMPTS,
+        1,
+        1024,
+    );
     let high_group_conf = high_group_confidence();
     let low_top_group_conf = low_top_group_confidence();
     let single_qr_floor = single_qr_confidence_floor();
@@ -479,12 +496,24 @@ fn decode_ranked_groups(
         >= 2
         || top.geometry_confidence < low_top_group_conf;
 
-    if let Some(tel) = telemetry.as_mut() {
-        tel.transforms_built += 1;
-        tel.decode_attempts += 1;
-    }
+    let mut used_transforms = 0usize;
+    let mut used_attempts = 0usize;
 
     let mut results = Vec::new();
+    if used_transforms < max_transforms && used_attempts < max_decode_attempts {
+        if let Some(tel) = telemetry.as_mut() {
+            tel.transforms_built += 1;
+            tel.decode_attempts += 1;
+        }
+        used_transforms += 1;
+        used_attempts += 1;
+    } else {
+        if let Some(tel) = telemetry.as_mut() {
+            tel.budget_skips += 1;
+        }
+        return results;
+    }
+
     if let Some(qr) = decode_candidate(&top, binary, gray, width, height) {
         if let Some(tel) = telemetry.as_mut() {
             tel.rs_decode_ok += 1;
@@ -503,10 +532,18 @@ fn decode_ranked_groups(
 
     if should_expand {
         for candidate in candidates.iter().take(top_k).skip(1) {
+            if used_transforms >= max_transforms || used_attempts >= max_decode_attempts {
+                if let Some(tel) = telemetry.as_mut() {
+                    tel.budget_skips += 1;
+                }
+                break;
+            }
             if let Some(tel) = telemetry.as_mut() {
                 tel.transforms_built += 1;
                 tel.decode_attempts += 1;
             }
+            used_transforms += 1;
+            used_attempts += 1;
             if let Some(qr) = decode_candidate(candidate, binary, gray, width, height) {
                 if let Some(tel) = telemetry.as_mut() {
                     tel.rs_decode_ok += 1;

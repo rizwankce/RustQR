@@ -1,0 +1,44 @@
+Phase 7.2 Work Packet: Uncertain-Module Beam Repair
+
+Objective
+- Implement a bounded beam repair pass that flips only the highest-uncertainty modules after a failed decode attempt.
+
+Primary Files
+- src/decoder/qr_decoder.rs
+- src/lib.rs (if control knobs are exposed at pipeline level)
+
+Implementation Scope
+1. Reuse per-module confidence from Phase 7.1 (or add minimal confidence ranking).
+2. Select top-N uncertain module positions (configurable, small default).
+3. Run beam search over limited flip combinations:
+   - Keep beam width and depth small.
+   - Stop on first valid payload decode.
+4. Gate this pass behind:
+   - transform quality threshold
+   - hard attempt budget
+   - no activation on easy successful paths.
+
+Constraints
+- Must not explode decode runtime.
+- Must honor per-image decode attempt budget.
+
+Tests
+- cargo test --lib
+- Add tests for:
+  - beam search bound enforcement
+  - deterministic ordering of candidate flips
+  - success case on synthetic near-miss matrix
+
+Acceptance Criteria
+- Runtime remains bounded by explicit budget.
+- Beam pass is skipped for confident/easy decodes.
+- Demonstrated hit recovery on at least one curated hard case.
+
+Deliverables
+- Code + tests.
+- Config defaults documented in code comments or docstring.
+
+
+
+Status
+- Completed on 2026-02-06

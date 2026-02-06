@@ -1,0 +1,39 @@
+Phase 7.5 Work Packet: Piecewise Mesh Warp for Curved/Perspective
+
+Objective
+- Replace single homography fallback with a small mesh warp for curved surfaces.
+
+Primary Files
+- src/decoder/qr_decoder.rs
+- src/utils/geometry.rs
+
+Implementation Scope
+1. Introduce mesh grid over QR module space (e.g., 3x3 or 4x4 control points).
+2. Initialize mesh from current homography.
+3. Refine control points using timing/alignment residual minimization.
+4. Sample modules through local cell interpolation.
+5. Compare decode confidence against homography path and keep best.
+
+Constraints
+- Mesh path is fallback only (after homography failure or low confidence).
+- Keep control grid small to limit runtime cost.
+
+Tests
+- cargo test --lib
+- Add tests for:
+  - mesh interpolation consistency
+  - curved synthetic distortion recovery
+
+Acceptance Criteria
+- No regression for nominal flat cases.
+- Demonstrable gains on curved/perspective subset in targeted run.
+- Runtime increase bounded by fallback-only activation.
+
+Deliverables
+- Code + tests.
+- Telemetry counters for mesh attempts and mesh successes.
+
+
+
+Status
+- Completed on 2026-02-06

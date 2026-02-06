@@ -601,3 +601,53 @@ From the public README baseline (**8.04%**), the weighted global gap to ZBar is 
 7. **Phase 6.6** - Offline threshold tuning and profile freeze
 
 This order prioritizes stability first, then decode-budget efficiency, then geometric/sampling robustness, then detector diversification and final parameter tuning.
+
+---
+
+## Phase 7: Recovery-First Decode & Hard-Case Specialization
+
+Phase 7 focuses on recovering near-miss decodes (where structure is mostly right but a small number of modules/geometry assumptions are wrong), and on adding dedicated fallbacks for categories that remain hard after Phase 6.
+
+**Status:** Completed (2026-02-06)
+- [x] 7.1 Soft-Decision Sampling + Erasure-Aware Reed-Solomon
+- [x] 7.2 Uncertain-Module Beam Repair After Decode Failure
+- [x] 7.3 Two-Finder + Timing Geometry Fallback
+- [x] 7.4 Quiet-Zone Reconstruction for Noncompliant Inputs
+- [x] 7.5 Piecewise Mesh Warp for Curved/Perspective Codes
+- [x] 7.6 Local Radial Distortion Compensation
+- [x] 7.7 Confidence-Budgeted Decode Manager
+- [x] 7.8 Failure-Cluster Triage Loop (Data-Driven Tuning)
+
+### Phase 7 Worklog Packets
+
+Each sub-point has a dedicated work packet for sub-agent execution under `docs/worklog/`:
+
+1. `7.1` -> `docs/worklog/phase7_01_soft_decision_rs.txt`
+2. `7.2` -> `docs/worklog/phase7_02_uncertain_module_beam_repair.txt`
+3. `7.3` -> `docs/worklog/phase7_03_two_finder_timing_fallback.txt`
+4. `7.4` -> `docs/worklog/phase7_04_quiet_zone_reconstruction.txt`
+5. `7.5` -> `docs/worklog/phase7_05_piecewise_mesh_warp.txt`
+6. `7.6` -> `docs/worklog/phase7_06_radial_distortion_compensation.txt`
+7. `7.7` -> `docs/worklog/phase7_07_confidence_budget_manager.txt`
+8. `7.8` -> `docs/worklog/phase7_08_failure_cluster_triage.txt`
+
+### Recommended Phase 7 Order
+
+1. `7.1` Soft-decision + erasure RS
+2. `7.4` Quiet-zone reconstruction
+3. `7.3` Two-finder fallback
+4. `7.7` Confidence-budgeted decode manager
+5. `7.2` Uncertain-module beam repair
+6. `7.5` Piecewise mesh warp
+7. `7.6` Radial distortion compensation
+8. `7.8` Failure-cluster triage automation
+
+**Implementation notes (Phase 7):**
+- `7.1` implemented with per-module grayscale confidence extraction, bit/codeword confidence propagation, low-confidence erasure mapping, and RS erasure fallback (`src/decoder/qr_decoder/geometry.rs`, `src/decoder/qr_decoder/payload.rs`, `src/decoder/reed_solomon.rs`).
+- `7.2` implemented with bounded uncertain-module beam repair after decode failure (`src/decoder/qr_decoder/matrix_decode.rs`).
+- `7.3` implemented with a strict 2-finder synthetic-third-anchor fallback path that runs only after 3-finder decode miss (`src/lib.rs`).
+- `7.4` implemented with relaxed-orientation quiet-zone fallback only after strict orientation filtering fails (`src/decoder/qr_decoder/orientation.rs`, `src/decoder/qr_decoder/matrix_decode.rs`).
+- `7.5` implemented with mesh-warp grayscale sampling fallback (`src/decoder/qr_decoder/geometry.rs`, `src/decoder/qr_decoder.rs`).
+- `7.6` implemented with k1 radial compensation sampling fallback and activation guard from geometry distortion signal (`src/decoder/qr_decoder/geometry.rs`, `src/decoder/qr_decoder.rs`).
+- `7.7` implemented with confidence-budgeted decode limits and explicit budget-skip telemetry (`src/pipeline.rs`, `src/lib.rs`).
+- `7.8` implemented with failure-signature artifact enrichment and offline triage clustering script (`src/bin/qrtool.rs`, `scripts/triage_failure_clusters.py`).

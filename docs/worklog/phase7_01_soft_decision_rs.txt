@@ -1,0 +1,46 @@
+Phase 7.1 Work Packet: Soft-Decision Sampling + Erasure-Aware RS
+
+Objective
+- Add soft-confidence sampling and erasure-aware Reed-Solomon fallback to recover near-miss decodes.
+
+Primary Files
+- src/decoder/qr_decoder.rs
+- src/decoder/reed_solomon.rs
+- src/models/* (if a confidence container type is needed)
+
+Implementation Scope
+1. During grayscale sampling, compute per-module confidence:
+   - Distance from local threshold.
+   - Optional local variance penalty.
+2. Convert sampled modules to bits plus confidence metadata.
+3. In codeword extraction, mark low-confidence bytes as erasures.
+4. Add RS decode path that accepts erasure positions.
+5. Try normal RS first, then erasure-aware RS as fallback.
+
+Constraints
+- Keep default fast-path behavior unchanged when confidence metadata is absent.
+- Avoid adding heavy allocations in inner loops.
+
+Tests
+- cargo test --lib
+- Add targeted unit tests for:
+  - confidence-to-erasure mapping
+  - RS erasure correction on synthetic damaged codewords
+  - no regression for existing golden decode tests
+
+Acceptance Criteria
+- Existing lib tests remain green.
+- New tests cover erasure decode success/failure boundaries.
+- Benchmark telemetry shows some previously-failing transforms now reaching payload parse.
+
+Deliverables
+- Code changes.
+- Short note in PR summary listing:
+  - erasure threshold logic
+  - fallback ordering
+  - measured decode-hit deltas on a small hard-image subset.
+
+
+
+Status
+- Completed on 2026-02-06

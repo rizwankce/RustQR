@@ -8,6 +8,7 @@ use rust_qr::tools::{
     smoke_from_env, to_grayscale,
 };
 use rust_qr::utils::geometry::PerspectiveTransform;
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -360,6 +361,7 @@ fn reading_rate_cmd(
     let mut global_images_with_labels = 0usize;
     let mut global_runtime_samples_ms: Vec<f64> = Vec::new();
     let mut global_stage_telemetry = StageTelemetry::default();
+    let mut global_failure_clusters: BTreeMap<String, FailureCluster> = BTreeMap::new();
     let mut category_results: Vec<CategoryResult> = Vec::new();
     let mut categories_found = 0usize;
 
@@ -408,6 +410,22 @@ fn reading_rate_cmd(
         global_images_with_labels += stats.images_with_labels;
         global_runtime_samples_ms.extend(stats.runtime_samples_ms.iter().copied());
         global_stage_telemetry.accumulate(stats.stage_telemetry);
+        for (sig, cluster) in stats.failure_clusters {
+            let entry = global_failure_clusters
+                .entry(sig)
+                .or_insert(FailureCluster {
+                    count: 0,
+                    qr_weight: 0,
+                    examples: Vec::new(),
+                });
+            entry.count += cluster.count;
+            entry.qr_weight += cluster.qr_weight;
+            for ex in cluster.examples {
+                if entry.examples.len() < 3 && !entry.examples.iter().any(|e| e == &ex) {
+                    entry.examples.push(ex);
+                }
+            }
+        }
         category_results.push(CategoryResult {
             name: dir,
             description,
@@ -459,8 +477,16 @@ fn reading_rate_cmd(
         println!("Pipeline Stage Telemetry (images passing each stage)");
         println!("=====================================");
         println!(
-            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9}",
-            "Category", "Imgs", "Binarize", "Finders", "Groups", "Xform", "Decode", "AvgTry"
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9} {:>8}",
+            "Category",
+            "Imgs",
+            "Binarize",
+            "Finders",
+            "Groups",
+            "Xform",
+            "Decode",
+            "AvgTry",
+            "Budget"
         );
         println!("{}", "-".repeat(84));
         let mut g_decode_attempts = 0usize;
@@ -473,7 +499,7 @@ fn reading_rate_cmd(
                 0.0
             };
             println!(
-                "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2}",
+                "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2} {:>8}",
                 category.name,
                 tel.total,
                 tel.binarize_ok,
@@ -482,6 +508,7 @@ fn reading_rate_cmd(
                 tel.transform_ok,
                 tel.decode_ok,
                 avg_attempts,
+                tel.over_budget_skip,
             );
             g_decode_attempts += tel.total_decode_attempts;
             for (i, bucket) in g_score_buckets.iter_mut().enumerate() {
@@ -495,7 +522,7 @@ fn reading_rate_cmd(
             0.0
         };
         println!(
-            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2}",
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>9.2} {:>8}",
             "TOTAL",
             global_stage_telemetry.total,
             global_stage_telemetry.binarize_ok,
@@ -504,14 +531,49 @@ fn reading_rate_cmd(
             global_stage_telemetry.transform_ok,
             global_stage_telemetry.decode_ok,
             g_avg_attempts,
+            global_stage_telemetry.over_budget_skip,
         );
         println!(
             "Candidate score buckets [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]: [{}, {}, {}, {}]",
             g_score_buckets[0], g_score_buckets[1], g_score_buckets[2], g_score_buckets[3]
         );
+        if !global_failure_clusters.is_empty() {
+            println!("Top failure signatures:");
+            let mut ranked: Vec<_> = global_failure_clusters.iter().collect();
+            ranked.sort_by(|a, b| {
+                b.1.qr_weight
+                    .cmp(&a.1.qr_weight)
+                    .then_with(|| b.1.count.cmp(&a.1.count))
+                    .then_with(|| a.0.cmp(b.0))
+            });
+            for (sig, cluster) in ranked.into_iter().take(6) {
+                println!(
+                    "  - {:<16} count={} qr_weight={} example={}",
+                    sig,
+                    cluster.count,
+                    cluster.qr_weight,
+                    cluster.examples.first().map_or("-", String::as_str)
+                );
+            }
+        }
         println!("=====================================");
 
         if let Some(path) = artifact_json {
+            let mut failure_rows: Vec<FailureClusterRow> = global_failure_clusters
+                .into_iter()
+                .map(|(signature, v)| FailureClusterRow {
+                    signature,
+                    count: v.count,
+                    qr_weight: v.qr_weight,
+                    examples: v.examples,
+                })
+                .collect();
+            failure_rows.sort_by(|a, b| {
+                b.qr_weight
+                    .cmp(&a.qr_weight)
+                    .then_with(|| b.count.cmp(&a.count))
+                    .then_with(|| a.signature.cmp(&b.signature))
+            });
             let artifact = ReadingRateArtifact {
                 dataset_root: root.display().to_string(),
                 dataset_fingerprint: data_fingerprint,
@@ -526,6 +588,7 @@ fn reading_rate_cmd(
                 total_images_with_labels: global_images_with_labels,
                 global_runtime,
                 categories: category_results,
+                failure_clusters: failure_rows,
             };
             write_reading_rate_artifact(&path, &artifact);
             println!("Artifact: {}", path.display());
@@ -576,6 +639,7 @@ fn reading_rate_cmd(
             total_images_with_labels: stats.images_with_labels,
             global_runtime: RuntimeSummary::from_samples(&stats.runtime_samples_ms),
             categories: Vec::new(),
+            failure_clusters: Vec::new(),
         };
         write_reading_rate_artifact(&path, &artifact);
         println!("Artifact: {}", path.display());
@@ -594,6 +658,8 @@ struct ReadingRateStats {
     stage_telemetry: StageTelemetry,
     /// Runtime samples for successfully loaded images.
     runtime_samples_ms: Vec<f64>,
+    /// Clustered failure signatures for missed images.
+    failure_clusters: BTreeMap<String, FailureCluster>,
 }
 
 /// Aggregated pipeline-stage failure counts across a set of images.
@@ -614,6 +680,10 @@ struct StageTelemetry {
     /// Histogram of candidate group scores:
     /// [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]
     candidate_score_buckets: [usize; 4],
+    /// Images where decoding was skipped by budget constraints.
+    over_budget_skip: usize,
+    /// Images where 2-finder fallback was used.
+    two_finder_used: usize,
     /// Total images processed.
     total: usize,
 }
@@ -629,8 +699,17 @@ impl StageTelemetry {
         for i in 0..self.candidate_score_buckets.len() {
             self.candidate_score_buckets[i] += other.candidate_score_buckets[i];
         }
+        self.over_budget_skip += other.over_budget_skip;
+        self.two_finder_used += other.two_finder_used;
         self.total += other.total;
     }
+}
+
+#[derive(Clone)]
+struct FailureCluster {
+    count: usize,
+    qr_weight: usize,
+    examples: Vec<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -701,6 +780,14 @@ struct ReadingRateArtifact {
     total_images_with_labels: usize,
     global_runtime: RuntimeSummary,
     categories: Vec<CategoryResult>,
+    failure_clusters: Vec<FailureClusterRow>,
+}
+
+struct FailureClusterRow {
+    signature: String,
+    count: usize,
+    qr_weight: usize,
+    examples: Vec<String>,
 }
 
 fn reading_rate_for_images<I>(images: I, non_interactive: bool) -> ReadingRateStats
@@ -713,6 +800,7 @@ where
         images_with_labels: 0,
         stage_telemetry: StageTelemetry::default(),
         runtime_samples_ms: Vec::new(),
+        failure_clusters: BTreeMap::new(),
     };
 
     for path in images {
@@ -758,6 +846,29 @@ where
             for i in 0..stats.stage_telemetry.candidate_score_buckets.len() {
                 stats.stage_telemetry.candidate_score_buckets[i] += tel.candidate_score_buckets[i];
             }
+            if tel.budget_skips > 0 {
+                stats.stage_telemetry.over_budget_skip += 1;
+            }
+            if tel.two_finder_successes > 0 || tel.two_finder_attempts > 0 {
+                stats.stage_telemetry.two_finder_used += 1;
+            }
+
+            if image_hits == 0 {
+                let signature = classify_failure_signature(&tel);
+                let row = stats
+                    .failure_clusters
+                    .entry(signature.to_string())
+                    .or_insert(FailureCluster {
+                        count: 0,
+                        qr_weight: 0,
+                        examples: Vec::new(),
+                    });
+                row.count += 1;
+                row.qr_weight += expected;
+                if row.examples.len() < 3 {
+                    row.examples.push(path.display().to_string());
+                }
+            }
 
             if !non_interactive {
                 println!(
@@ -784,6 +895,31 @@ where
     }
 
     stats
+}
+
+fn classify_failure_signature(tel: &rust_qr::DetectionTelemetry) -> &'static str {
+    if tel.budget_skips > 0 && tel.payload_decoded == 0 {
+        return "over-budget-skip";
+    }
+    if tel.finder_patterns_found == 0 {
+        return "no-finders";
+    }
+    if tel.groups_found == 0 {
+        return "no-groups";
+    }
+    if tel.transforms_built == 0 {
+        return "transform-fail";
+    }
+    if tel.format_extracted == 0 {
+        return "format-fail";
+    }
+    if tel.rs_decode_ok == 0 {
+        return "rs-fail";
+    }
+    if tel.payload_decoded == 0 {
+        return "payload-fail";
+    }
+    "unknown-fail"
 }
 
 fn utc_timestamp() -> String {
@@ -958,6 +1094,16 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
         );
         let _ = writeln!(
             &mut json,
+            "        \"over_budget_skip\": {},",
+            category.stage_telemetry.over_budget_skip
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"two_finder_used\": {},",
+            category.stage_telemetry.two_finder_used
+        );
+        let _ = writeln!(
+            &mut json,
             "        \"candidate_score_buckets\": [{}, {}, {}, {}]",
             category.stage_telemetry.candidate_score_buckets[0],
             category.stage_telemetry.candidate_score_buckets[1],
@@ -968,6 +1114,31 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
         write_runtime_json(&mut json, "runtime", category.runtime, 6);
         json.push_str("    }");
         if idx + 1 != artifact.categories.len() {
+            json.push(',');
+        }
+        json.push('\n');
+    }
+    json.push_str("  ],\n");
+    json.push_str("  \"failure_clusters\": [\n");
+    for (idx, cluster) in artifact.failure_clusters.iter().enumerate() {
+        json.push_str("    {\n");
+        let _ = writeln!(
+            &mut json,
+            "      \"signature\": \"{}\",",
+            json_escape(&cluster.signature)
+        );
+        let _ = writeln!(&mut json, "      \"count\": {},", cluster.count);
+        let _ = writeln!(&mut json, "      \"qr_weight\": {},", cluster.qr_weight);
+        json.push_str("      \"examples\": [");
+        for (ei, ex) in cluster.examples.iter().enumerate() {
+            if ei > 0 {
+                json.push_str(", ");
+            }
+            let _ = write!(&mut json, "\"{}\"", json_escape(ex));
+        }
+        json.push_str("]\n");
+        json.push_str("    }");
+        if idx + 1 != artifact.failure_clusters.len() {
             json.push(',');
         }
         json.push('\n');

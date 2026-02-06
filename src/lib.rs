@@ -52,6 +52,12 @@ pub struct DetectionTelemetry {
     pub candidate_score_buckets: [usize; 4],
     /// The final detection result count.
     pub qr_codes_found: usize,
+    /// Number of candidate decodes skipped due to decode budget limits.
+    pub budget_skips: usize,
+    /// Number of times 2-finder fallback path was attempted.
+    pub two_finder_attempts: usize,
+    /// Number of successful decodes from 2-finder fallback path.
+    pub two_finder_successes: usize,
 }
 
 impl DetectionTelemetry {
@@ -76,6 +82,9 @@ impl DetectionTelemetry {
         self.payload_decoded = self.payload_decoded.max(other.payload_decoded);
         self.decode_attempts += other.decode_attempts;
         self.candidate_groups_scored += other.candidate_groups_scored;
+        self.budget_skips += other.budget_skips;
+        self.two_finder_attempts += other.two_finder_attempts;
+        self.two_finder_successes += other.two_finder_successes;
         for i in 0..self.candidate_score_buckets.len() {
             self.candidate_score_buckets[i] += other.candidate_score_buckets[i];
         }
@@ -167,7 +176,7 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
     let mut results = Vec::new();
     for binary in variants {
         let finder_patterns = detect_finder_patterns(&binary, width, height);
-        let decoded = if finder_patterns.len() >= 3 {
+        let decoded = if finder_patterns.len() >= 2 {
             decode_groups_with_module_aware_retry(&binary, gray, width, height, &finder_patterns)
         } else {
             Vec::new()
@@ -179,7 +188,7 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
         }
         if results.is_empty() {
             let contour_patterns = ContourDetector::detect(&binary);
-            if contour_patterns.len() >= 3 {
+            if contour_patterns.len() >= 2 {
                 let contour_decoded =
                     pipeline::decode_groups(&binary, gray, width, height, &contour_patterns);
                 for qr in contour_decoded {
@@ -223,7 +232,14 @@ fn decode_groups_with_module_aware_retry(
     finder_patterns: &[FinderPattern],
 ) -> Vec<QRCode> {
     let mut results = pipeline::decode_groups(binary, gray, width, height, finder_patterns);
-    if !results.is_empty() || finder_patterns.len() < 3 {
+    if !results.is_empty() {
+        return results;
+    }
+
+    if finder_patterns.len() == 2 {
+        return decode_two_finder_fallback(binary, gray, width, height, finder_patterns);
+    }
+    if finder_patterns.len() < 3 {
         return results;
     }
 
@@ -242,11 +258,66 @@ fn decode_groups_with_module_aware_retry(
     results
 }
 
+fn decode_two_finder_fallback(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    finder_patterns: &[FinderPattern],
+) -> Vec<QRCode> {
+    if finder_patterns.len() < 2 {
+        return Vec::new();
+    }
+    let a = &finder_patterns[0];
+    let b = &finder_patterns[1];
+    let vx = b.center.x - a.center.x;
+    let vy = b.center.y - a.center.y;
+    let len = (vx * vx + vy * vy).sqrt();
+    if len < 6.0 {
+        return Vec::new();
+    }
+    let nx = -vy / len;
+    let ny = vx / len;
+    let span = len;
+    let module = ((a.module_size + b.module_size) * 0.5).max(1.0);
+
+    let candidates = [
+        Point::new(a.center.x + nx * span, a.center.y + ny * span),
+        Point::new(b.center.x + nx * span, b.center.y + ny * span),
+        Point::new(a.center.x - nx * span, a.center.y - ny * span),
+        Point::new(b.center.x - nx * span, b.center.y - ny * span),
+    ];
+
+    for c in candidates {
+        if c.x < 0.0 || c.y < 0.0 || c.x >= width as f32 || c.y >= height as f32 {
+            continue;
+        }
+        let synthetic = FinderPattern {
+            center: c,
+            module_size: module,
+        };
+        let trial = vec![&finder_patterns[0], &finder_patterns[1], &synthetic];
+        let mut fused = Vec::with_capacity(3);
+        for p in trial {
+            fused.push(FinderPattern {
+                center: p.center,
+                module_size: p.module_size,
+            });
+        }
+        let decoded = pipeline::decode_groups(binary, gray, width, height, &fused);
+        if !decoded.is_empty() {
+            return decoded;
+        }
+    }
+
+    Vec::new()
+}
+
 fn run_fast_path(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     // Fast path: one cheap global threshold pass only.
     let binary = otsu_binarize(gray, width, height);
     let finder_patterns = detect_finder_patterns(&binary, width, height);
-    if finder_patterns.len() < 3 {
+    if finder_patterns.len() < 2 {
         return Vec::new();
     }
     pipeline::decode_groups(&binary, gray, width, height, &finder_patterns)
@@ -334,15 +405,25 @@ pub fn detect_with_telemetry(
             FinderDetector::detect(&fallback)
         };
         tel.finder_patterns_found = tel.finder_patterns_found.max(fallback_patterns.len());
-        if fallback_patterns.len() >= 3 {
+        if fallback_patterns.len() >= 2 {
             binary = fallback;
             finder_patterns = fallback_patterns;
         }
     }
 
-    let (mut results, decode_tel) =
-        pipeline::decode_groups_with_telemetry(&binary, &gray, width, height, &finder_patterns);
-    tel.merge_high_water_from(&decode_tel);
+    let mut results = Vec::new();
+    if finder_patterns.len() >= 3 {
+        let (decoded, decode_tel) =
+            pipeline::decode_groups_with_telemetry(&binary, &gray, width, height, &finder_patterns);
+        tel.merge_high_water_from(&decode_tel);
+        results = decoded;
+    } else if finder_patterns.len() == 2 {
+        tel.two_finder_attempts += 1;
+        results = decode_two_finder_fallback(&binary, &gray, width, height, &finder_patterns);
+        if !results.is_empty() {
+            tel.two_finder_successes += 1;
+        }
+    }
 
     // Sauvola fallback: adapts to local contrast (handles shadows/glare)
     if results.is_empty() {
@@ -354,7 +435,7 @@ pub fn detect_with_telemetry(
         };
         tel.finder_patterns_found = tel.finder_patterns_found.max(sauvola_patterns.len());
         if sauvola_patterns.len() >= 3 {
-            let (sv_results, sv_tel) = pipeline::decode_groups_with_telemetry(
+            let (decoded, sv_tel) = pipeline::decode_groups_with_telemetry(
                 &sauvola,
                 &gray,
                 width,
@@ -362,7 +443,13 @@ pub fn detect_with_telemetry(
                 &sauvola_patterns,
             );
             tel.merge_high_water_from(&sv_tel);
-            results = sv_results;
+            results = decoded;
+        } else if sauvola_patterns.len() == 2 {
+            tel.two_finder_attempts += 1;
+            results = decode_two_finder_fallback(&sauvola, &gray, width, height, &sauvola_patterns);
+            if !results.is_empty() {
+                tel.two_finder_successes += 1;
+            }
         }
     }
 
@@ -380,7 +467,7 @@ pub fn detect_with_telemetry(
         };
         tel.finder_patterns_found = tel.finder_patterns_found.max(fallback_patterns.len());
         if fallback_patterns.len() >= 3 {
-            let (fb_results, fb_tel) = pipeline::decode_groups_with_telemetry(
+            let (decoded, fb_tel) = pipeline::decode_groups_with_telemetry(
                 &fallback,
                 &gray,
                 width,
@@ -388,7 +475,14 @@ pub fn detect_with_telemetry(
                 &fallback_patterns,
             );
             tel.merge_high_water_from(&fb_tel);
-            results = fb_results;
+            results = decoded;
+        } else if fallback_patterns.len() == 2 {
+            tel.two_finder_attempts += 1;
+            results =
+                decode_two_finder_fallback(&fallback, &gray, width, height, &fallback_patterns);
+            if !results.is_empty() {
+                tel.two_finder_successes += 1;
+            }
         }
     }
 
@@ -470,7 +564,7 @@ pub fn detect_with_pool(
         } else {
             detect_finder_patterns(bin_adaptive, width, height)
         };
-        if fallback_patterns.len() >= 3 {
+        if fallback_patterns.len() >= 2 {
             finder_patterns = fallback_patterns;
             binary = if width >= 800 || height >= 800 {
                 bin_otsu
@@ -488,7 +582,7 @@ pub fn detect_with_pool(
     if results.is_empty() {
         let sauvola = sauvola_binarize(gray_buffer, width, height, 31, 0.2);
         let sauvola_patterns = detect_finder_patterns(&sauvola, width, height);
-        if sauvola_patterns.len() >= 3 {
+        if sauvola_patterns.len() >= 2 {
             results = decode_groups_with_module_aware_retry(
                 &sauvola,
                 gray_buffer,
@@ -505,7 +599,7 @@ pub fn detect_with_pool(
         } else {
             detect_finder_patterns(bin_adaptive, width, height)
         };
-        if fallback_patterns.len() >= 3 {
+        if fallback_patterns.len() >= 2 {
             let fallback_binary: &BitMatrix = if width >= 800 || height >= 800 {
                 bin_otsu
             } else {

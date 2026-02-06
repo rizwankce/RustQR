@@ -1,0 +1,40 @@
+Phase 7.7 Work Packet: Confidence-Budgeted Decode Manager
+
+Objective
+- Control fallback cost and improve quality by spending decode budget on high-confidence candidates first.
+
+Primary Files
+- src/lib.rs
+- src/decoder/qr_decoder.rs
+
+Implementation Scope
+1. Define per-image budget:
+   - max transforms
+   - max decode attempts
+   - max expensive fallback invocations.
+2. Rank candidates by confidence score.
+3. Consume budget in priority order.
+4. Stop when confidence/quality floor is reached.
+5. Emit telemetry for budget usage and skip reasons.
+
+Constraints
+- Budget defaults should preserve current behavior on easy images.
+- All expensive fallbacks must check remaining budget.
+
+Tests
+- cargo test --lib
+- Add tests for deterministic budget exhaustion behavior.
+
+Acceptance Criteria
+- Fewer low-value decode attempts on hard images.
+- No regression on baseline functional tests.
+- Budget metrics visible in debug/telemetry output.
+
+Deliverables
+- Code + tests.
+- Configurable constants/env flags documented inline.
+
+
+
+Status
+- Completed on 2026-02-06

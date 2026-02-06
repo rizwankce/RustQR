@@ -1,0 +1,37 @@
+Phase 7.6 Work Packet: Local Radial Distortion Compensation
+
+Objective
+- Compensate lens/display distortion before final grid sampling.
+
+Primary Files
+- src/decoder/qr_decoder.rs
+- src/utils/geometry.rs
+
+Implementation Scope
+1. Estimate simple radial distortion parameter(s) from finder/alignment layout residuals.
+2. Add forward/inverse correction mapping for sampling coordinates.
+3. Evaluate corrected vs uncorrected sampling on same candidate transform.
+4. Keep corrected path only when structural confidence improves.
+
+Constraints
+- Use low-parameter model first (k1 only).
+- Run only when distortion indicators exceed threshold.
+
+Tests
+- cargo test --lib
+- Add unit tests for mapping stability and monotonicity.
+- Add one synthetic distorted fixture test if feasible.
+
+Acceptance Criteria
+- No regressions in existing golden tests.
+- Corrected path activates only when warranted.
+- Targeted gain on monitor/perspective hard cases.
+
+Deliverables
+- Code + tests.
+- Lightweight diagnostics for distortion estimate usage.
+
+
+
+Status
+- Completed on 2026-02-06

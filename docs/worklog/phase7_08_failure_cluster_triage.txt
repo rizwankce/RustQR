@@ -1,0 +1,44 @@
+Phase 7.8 Work Packet: Failure-Cluster Triage Loop
+
+Objective
+- Build a repeatable loop to cluster misses by failure signature and prioritize fixes by impact.
+
+Primary Files
+- src/bin/qrtool.rs
+- src/tools/*
+- scripts/* (new)
+- docs/* (summary output)
+
+Implementation Scope
+1. Extend benchmark artifact with richer failure signatures:
+   - no-finders
+   - no-groups
+   - transform-fail
+   - format-fail
+   - rs-fail
+   - payload-fail
+   - over-budget skip.
+2. Add script to cluster and rank failure signatures by frequency and QR-count weight.
+3. Output top clusters with representative image paths.
+4. Generate a short action report linking clusters to likely pipeline stages.
+
+Constraints
+- Script must run offline from saved artifact.
+- Keep report deterministic and machine-readable.
+
+Tests
+- Run script on existing benchmark artifacts.
+- Verify stable output ordering and counts across repeated runs.
+
+Acceptance Criteria
+- Produces ranked top-N failure clusters with actionable stage mapping.
+- Enables phase planning based on data instead of anecdotal misses.
+
+Deliverables
+- Script + docs note on usage.
+- Sample report artifact committed under docs/ or temp output path.
+
+
+
+Status
+- Completed on 2026-02-06

@@ -142,20 +142,58 @@ impl QrDecoder {
                 )
                 .unwrap_or(transform);
 
-                let qr_matrix = Self::extract_qr_region_gray_with_transform(
-                    gray, width, height, &transform, dimension,
-                );
+                let (qr_matrix, module_confidence) =
+                    Self::extract_qr_region_gray_with_transform_and_confidence(
+                        gray, width, height, &transform, dimension,
+                    );
                 if !orientation::validate_timing_patterns(&qr_matrix) {
                     continue;
                 }
 
-                if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
+                if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                    &qr_matrix,
+                    version_num,
+                    &module_confidence,
+                ) {
                     return Some(qr);
                 }
 
                 let inverted = orientation::invert_matrix(&qr_matrix);
-                if let Some(qr) = Self::decode_from_matrix(&inverted, version_num) {
+                if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                    &inverted,
+                    version_num,
+                    &module_confidence,
+                ) {
                     return Some(qr);
+                }
+
+                let (mesh_matrix, mesh_conf) = Self::extract_qr_region_gray_with_mesh_warp(
+                    gray, width, height, &transform, dimension,
+                );
+                if orientation::validate_timing_patterns(&mesh_matrix) {
+                    if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                        &mesh_matrix,
+                        version_num,
+                        &mesh_conf,
+                    ) {
+                        return Some(qr);
+                    }
+                }
+
+                if let Some((radial_matrix, radial_conf)) =
+                    Self::extract_qr_region_gray_with_radial_compensation(
+                        gray, width, height, &transform, dimension,
+                    )
+                {
+                    if orientation::validate_timing_patterns(&radial_matrix) {
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                            &radial_matrix,
+                            version_num,
+                            &radial_conf,
+                        ) {
+                            return Some(qr);
+                        }
+                    }
                 }
 
                 let qr_matrix =
@@ -256,6 +294,40 @@ impl QrDecoder {
         geometry::extract_qr_region_gray_with_transform(gray, width, height, transform, dimension)
     }
 
+    fn extract_qr_region_gray_with_transform_and_confidence(
+        gray: &[u8],
+        width: usize,
+        height: usize,
+        transform: &crate::utils::geometry::PerspectiveTransform,
+        dimension: usize,
+    ) -> (BitMatrix, Vec<u8>) {
+        geometry::extract_qr_region_gray_with_transform_and_confidence(
+            gray, width, height, transform, dimension,
+        )
+    }
+
+    fn extract_qr_region_gray_with_mesh_warp(
+        gray: &[u8],
+        width: usize,
+        height: usize,
+        transform: &crate::utils::geometry::PerspectiveTransform,
+        dimension: usize,
+    ) -> (BitMatrix, Vec<u8>) {
+        geometry::extract_qr_region_gray_with_mesh_warp(gray, width, height, transform, dimension)
+    }
+
+    fn extract_qr_region_gray_with_radial_compensation(
+        gray: &[u8],
+        width: usize,
+        height: usize,
+        transform: &crate::utils::geometry::PerspectiveTransform,
+        dimension: usize,
+    ) -> Option<(BitMatrix, Vec<u8>)> {
+        geometry::extract_qr_region_gray_with_radial_compensation(
+            gray, width, height, transform, dimension,
+        )
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn refine_transform_with_alignment(
         binary: &BitMatrix,
@@ -281,6 +353,14 @@ impl QrDecoder {
 
     pub(crate) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
         matrix_decode::decode_from_matrix(qr_matrix, version_num)
+    }
+
+    pub(crate) fn decode_from_matrix_with_confidence(
+        qr_matrix: &BitMatrix,
+        version_num: u8,
+        module_confidence: &[u8],
+    ) -> Option<QRCode> {
+        matrix_decode::decode_from_matrix_with_confidence(qr_matrix, version_num, module_confidence)
     }
 }
 

@@ -142,15 +142,86 @@ pub(super) fn extract_qr_region_gray_with_transform(
     transform: &PerspectiveTransform,
     dimension: usize,
 ) -> BitMatrix {
+    let (matrix, _) = extract_qr_region_gray_with_transform_and_confidence(
+        gray, width, height, transform, dimension,
+    );
+    matrix
+}
+
+pub(super) fn extract_qr_region_gray_with_transform_and_confidence(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+) -> (BitMatrix, Vec<u8>) {
+    extract_qr_region_gray_with_variant(gray, width, height, transform, dimension, 0.0, 0.0)
+}
+
+pub(super) fn extract_qr_region_gray_with_radial_compensation(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+) -> Option<(BitMatrix, Vec<u8>)> {
+    let k1 = estimate_radial_k1(transform, dimension)?;
+    Some(extract_qr_region_gray_with_variant(
+        gray, width, height, transform, dimension, k1, 0.0,
+    ))
+}
+
+pub(super) fn extract_qr_region_gray_with_mesh_warp(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+) -> (BitMatrix, Vec<u8>) {
+    extract_qr_region_gray_with_variant(gray, width, height, transform, dimension, 0.0, 0.9)
+}
+
+fn extract_qr_region_gray_with_variant(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+    radial_k1: f32,
+    mesh_strength: f32,
+) -> (BitMatrix, Vec<u8>) {
     let mut samples: Vec<f32> = vec![255.0; dimension * dimension];
+    let mut local_std_dev: Vec<f32> = vec![0.0; dimension * dimension];
+    let center_module = Point::new(
+        (dimension as f32 - 1.0) * 0.5,
+        (dimension as f32 - 1.0) * 0.5,
+    );
+    let center_image = transform.transform(&center_module);
     for y in 0..dimension {
         for x in 0..dimension {
             let module_center = Point::new(x as f32 + 0.5, y as f32 + 0.5);
-            let img_point = transform.transform(&module_center);
+            let mut img_point = transform.transform(&module_center);
+            if radial_k1 != 0.0 {
+                let ux = ((x as f32 + 0.5) / dimension as f32) - 0.5;
+                let uy = ((y as f32 + 0.5) / dimension as f32) - 0.5;
+                let r2 = ux * ux + uy * uy;
+                let scale = 1.0 + radial_k1 * r2;
+                img_point.x = center_image.x + (img_point.x - center_image.x) * scale;
+                img_point.y = center_image.y + (img_point.y - center_image.y) * scale;
+            }
+            if mesh_strength != 0.0 {
+                let ux = ((x as f32 + 0.5) / dimension as f32) - 0.5;
+                let uy = ((y as f32 + 0.5) / dimension as f32) - 0.5;
+                let dx = mesh_strength * ux * uy * 2.0;
+                let dy = mesh_strength * (ux * ux - uy * uy) * 0.8;
+                img_point.x += dx;
+                img_point.y += dy;
+            }
             let module_px = estimate_local_module_pixels(transform, x, y);
             let radius = adaptive_kernel_radius(module_px);
 
             let mut sum = 0.0f32;
+            let mut sum_sq = 0.0f32;
             let mut count = 0usize;
             for oy in -(radius as isize)..=(radius as isize) {
                 for ox in -(radius as isize)..=(radius as isize) {
@@ -158,26 +229,66 @@ pub(super) fn extract_qr_region_gray_with_transform(
                     let sy = img_point.y + oy as f32 * 0.35;
                     if let Some(v) = bilinear_sample(gray, width, height, sx, sy) {
                         sum += v;
+                        sum_sq += v * v;
                         count += 1;
                     }
                 }
             }
 
+            let idx = y * dimension + x;
             let avg = if count > 0 { sum / count as f32 } else { 255.0 };
-            samples[y * dimension + x] = avg;
+            let variance = if count > 1 {
+                let c = count as f32;
+                (sum_sq / c) - avg * avg
+            } else {
+                0.0
+            };
+            samples[idx] = avg;
+            local_std_dev[idx] = variance.max(0.0).sqrt();
         }
     }
 
     let mut result = BitMatrix::new(dimension, dimension);
+    let mut confidence = vec![0u8; dimension * dimension];
     for y in 0..dimension {
         for x in 0..dimension {
             let idx = y * dimension + x;
             let local_t = local_threshold(&samples, dimension, x, y);
-            result.set(x, y, samples[idx] < local_t);
+            let s = samples[idx];
+            result.set(x, y, s < local_t);
+
+            let margin = (s - local_t).abs();
+            let var_penalty = (local_std_dev[idx] / 96.0).clamp(0.0, 1.0);
+            let conf = ((margin / 64.0) * (1.0 - 0.45 * var_penalty)).clamp(0.0, 1.0);
+            confidence[idx] = (conf * 255.0).round() as u8;
         }
     }
 
-    result
+    (result, confidence)
+}
+
+fn estimate_radial_k1(transform: &PerspectiveTransform, dimension: usize) -> Option<f32> {
+    if dimension < 21 {
+        return None;
+    }
+    let c = estimate_local_module_pixels(transform, dimension / 2, dimension / 2);
+    if c <= 0.0 {
+        return None;
+    }
+    let c00 = estimate_local_module_pixels(transform, 1, 1);
+    let c10 = estimate_local_module_pixels(transform, dimension.saturating_sub(2), 1);
+    let c01 = estimate_local_module_pixels(transform, 1, dimension.saturating_sub(2));
+    let c11 = estimate_local_module_pixels(
+        transform,
+        dimension.saturating_sub(2),
+        dimension.saturating_sub(2),
+    );
+    let corner_avg = (c00 + c10 + c01 + c11) * 0.25;
+    let ratio = (corner_avg - c) / c;
+    if ratio.abs() < 0.12 {
+        return None;
+    }
+    Some((ratio * 0.35).clamp(-0.18, 0.18))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -486,4 +597,46 @@ fn best_refined_transform(
     }
 
     best.map(|(t, _)| t)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn radial_estimate_is_none_for_uniform_scale() {
+        let src = [
+            Point::new(0.0, 0.0),
+            Point::new(20.0, 0.0),
+            Point::new(0.0, 20.0),
+            Point::new(20.0, 20.0),
+        ];
+        let dst = src;
+        let transform = PerspectiveTransform::from_points(&src, &dst).unwrap();
+        assert!(estimate_radial_k1(&transform, 21).is_none());
+    }
+
+    #[test]
+    fn confidence_extraction_returns_expected_shape() {
+        let dim = 21usize;
+        let gray = vec![128u8; 64 * 64];
+        let src = [
+            Point::new(3.5, 3.5),
+            Point::new(dim as f32 - 3.5, 3.5),
+            Point::new(3.5, dim as f32 - 3.5),
+            Point::new(dim as f32 - 3.5, dim as f32 - 3.5),
+        ];
+        let dst = [
+            Point::new(10.0, 10.0),
+            Point::new(54.0, 10.0),
+            Point::new(10.0, 54.0),
+            Point::new(54.0, 54.0),
+        ];
+        let transform = PerspectiveTransform::from_points(&src, &dst).unwrap();
+        let (matrix, conf) =
+            extract_qr_region_gray_with_transform_and_confidence(&gray, 64, 64, &transform, dim);
+        assert_eq!(matrix.width(), dim);
+        assert_eq!(matrix.height(), dim);
+        assert_eq!(conf.len(), dim * dim);
+    }
 }

@@ -1,0 +1,28 @@
+{
+  "schema_version": "rustqr.failure_clusters.v1",
+  "artifact": "sample://synthetic",
+  "top_n": 3,
+  "clusters": [
+    {
+      "signature": "rs-fail",
+      "count": 12,
+      "qr_weight": 18,
+      "examples": ["boofcv/noncompliant/image012.jpg"],
+      "stage_hint": "Reed-Solomon correction / bitstream quality"
+    },
+    {
+      "signature": "no-finders",
+      "count": 7,
+      "qr_weight": 7,
+      "examples": ["boofcv/shadows/image004.jpg"],
+      "stage_hint": "binarization/finder detection"
+    },
+    {
+      "signature": "over-budget-skip",
+      "count": 4,
+      "qr_weight": 6,
+      "examples": ["boofcv/lots/image003.jpg"],
+      "stage_hint": "decode budget manager thresholds"
+    }
+  ]
+}

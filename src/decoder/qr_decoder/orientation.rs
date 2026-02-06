@@ -196,6 +196,44 @@ pub(super) fn candidate_orientations(matrix: &BitMatrix) -> Vec<BitMatrix> {
     candidates
 }
 
+pub(super) fn candidate_orientations_relaxed(
+    matrix: &BitMatrix,
+    max_mismatches: usize,
+) -> Vec<BitMatrix> {
+    let mut candidates = Vec::new();
+    let r0 = matrix.clone();
+    if has_finders_with_tolerance(&r0, max_mismatches) {
+        candidates.push(r0);
+    }
+
+    let r90 = rotate90(matrix);
+    if has_finders_with_tolerance(&r90, max_mismatches) {
+        candidates.push(r90);
+    }
+
+    let r180 = rotate180(matrix);
+    if has_finders_with_tolerance(&r180, max_mismatches) {
+        candidates.push(r180);
+    }
+
+    let r270 = rotate270(matrix);
+    if has_finders_with_tolerance(&r270, max_mismatches) {
+        candidates.push(r270);
+    }
+
+    let fh = flip_horizontal(matrix);
+    if has_finders_with_tolerance(&fh, max_mismatches) {
+        candidates.push(fh);
+    }
+
+    let fv = flip_vertical(matrix);
+    if has_finders_with_tolerance(&fv, max_mismatches) {
+        candidates.push(fv);
+    }
+
+    candidates
+}
+
 pub(super) fn has_finders_with_tolerance(matrix: &BitMatrix, max_mismatches: usize) -> bool {
     let dim = matrix.width();
     if dim < 21 || matrix.height() < 21 {

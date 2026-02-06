@@ -127,6 +127,54 @@ impl ReedSolomonDecoder {
         Ok(())
     }
 
+    /// Decode with known erasure positions (byte indexes in `received`).
+    ///
+    /// Strategy:
+    /// 1. Estimate erased byte values from the leading syndrome equations.
+    /// 2. Run standard RS decode to correct any remaining unknown errors.
+    pub fn decode_with_erasures(
+        &self,
+        received: &mut [u8],
+        erasures: &[usize],
+    ) -> Result<(), &'static str> {
+        if erasures.is_empty() {
+            return self.decode(received);
+        }
+        if erasures.len() > self.num_ecc_codewords {
+            return Err("Too many erasures");
+        }
+        if erasures.iter().any(|&p| p >= received.len()) {
+            return Err("Erasure out of bounds");
+        }
+
+        let mut unique = erasures.to_vec();
+        unique.sort_unstable();
+        unique.dedup();
+        if unique.len() > self.num_ecc_codewords {
+            return Err("Too many unique erasures");
+        }
+
+        // Build A*x=b over GF(256) from the first `e` syndrome equations.
+        let syndrome = self.calculate_syndrome(received);
+        let e = unique.len();
+        let mut a = vec![vec![0u8; e]; e];
+        let mut b = vec![0u8; e];
+        let n = received.len();
+        for row in 0..e {
+            b[row] = syndrome[row];
+            for (col, &pos) in unique.iter().enumerate() {
+                a[row][col] = Gf256::pow_usize(2, row * (n - 1 - pos));
+            }
+        }
+
+        let values = solve_gf256_linear(&a, &b).ok_or("Erasure solve failed")?;
+        for (i, &pos) in unique.iter().enumerate() {
+            received[pos] = values[i];
+        }
+
+        self.decode(received)
+    }
+
     fn calculate_syndrome(&self, received: &[u8]) -> Vec<u8> {
         let n = received.len();
         let mut syndrome = vec![0u8; self.num_ecc_codewords];
@@ -299,6 +347,53 @@ impl ReedSolomonDecoder {
     }
 }
 
+fn solve_gf256_linear(a: &[Vec<u8>], b: &[u8]) -> Option<Vec<u8>> {
+    let n = a.len();
+    if n == 0 || b.len() != n || a.iter().any(|row| row.len() != n) {
+        return None;
+    }
+
+    let mut aug = vec![vec![0u8; n + 1]; n];
+    for i in 0..n {
+        for j in 0..n {
+            aug[i][j] = a[i][j];
+        }
+        aug[i][n] = b[i];
+    }
+
+    for col in 0..n {
+        let pivot = (col..n).find(|&r| aug[r][col] != 0)?;
+        if pivot != col {
+            aug.swap(pivot, col);
+        }
+
+        let inv_pivot = Gf256::div(1, aug[col][col]);
+        for j in col..=n {
+            aug[col][j] = Gf256::mul(aug[col][j], inv_pivot);
+        }
+
+        for r in 0..n {
+            if r == col {
+                continue;
+            }
+            let factor = aug[r][col];
+            if factor == 0 {
+                continue;
+            }
+            for c in col..=n {
+                let term = Gf256::mul(factor, aug[col][c]);
+                aug[r][c] ^= term;
+            }
+        }
+    }
+
+    let mut x = vec![0u8; n];
+    for i in 0..n {
+        x[i] = aug[i][n];
+    }
+    Some(x)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -454,5 +549,33 @@ mod tests {
         let decoder = ReedSolomonDecoder::new(num_ecc);
         assert!(decoder.decode(&mut codeword).is_ok());
         assert_eq!(&codeword[..data.len()], &data);
+    }
+
+    #[test]
+    fn test_rs_decode_with_erasures() {
+        let data = vec![0x21, 0x32, 0x43, 0x54, 0x65, 0x76];
+        let num_ecc = 10;
+        let mut codeword = rs_encode(&data, num_ecc);
+
+        // Three erased bytes (known locations).
+        let erasures = vec![0usize, 3usize, 7usize];
+        for &i in &erasures {
+            codeword[i] ^= 0xA5;
+        }
+
+        let decoder = ReedSolomonDecoder::new(num_ecc);
+        assert!(
+            decoder
+                .decode_with_erasures(&mut codeword, &erasures)
+                .is_ok()
+        );
+        assert_eq!(&codeword[..data.len()], &data);
+    }
+
+    #[test]
+    fn test_rs_decode_with_erasures_rejects_bad_index() {
+        let mut data = vec![0u8; 16];
+        let decoder = ReedSolomonDecoder::new(10);
+        assert!(decoder.decode_with_erasures(&mut data, &[99]).is_err());
     }
 }

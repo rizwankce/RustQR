@@ -1,0 +1,40 @@
+Phase 7.3 Work Packet: Two-Finder + Timing Geometry Fallback
+
+Objective
+- Recover detections when only two reliable finder patterns are available.
+
+Primary Files
+- src/lib.rs
+- src/detector/finder.rs
+- src/decoder/qr_decoder.rs
+
+Implementation Scope
+1. Add a fallback grouping mode for 2 finder patterns.
+2. Infer the third anchor using:
+   - timing-line direction and spacing
+   - plausible QR dimension constraints.
+3. Build candidate transforms from inferred corner set.
+4. Validate candidates via timing alternation and format extraction plausibility.
+5. Decode only top-scored fallback candidates.
+
+Constraints
+- Two-finder path must run only when 3-finder grouping fails.
+- Keep strict candidate cap to prevent explosion.
+
+Tests
+- cargo test --lib
+- Add synthetic tests where one finder is missing but timing remains clear.
+
+Acceptance Criteria
+- No regressions on standard 3-finder cases.
+- Two-finder fallback triggers only in failure path.
+- At least one noncompliant/damaged scenario recovered in targeted test set.
+
+Deliverables
+- Code + tests.
+- Brief telemetry fields indicating when 2-finder fallback was used.
+
+
+
+Status
+- Completed on 2026-02-06

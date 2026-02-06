@@ -1,0 +1,38 @@
+Phase 7.4 Work Packet: Quiet-Zone Reconstruction
+
+Objective
+- Improve decode success for noncompliant inputs with missing/violated quiet zones.
+
+Primary Files
+- src/lib.rs
+- src/decoder/qr_decoder.rs
+- src/detector/* (optional helper)
+
+Implementation Scope
+1. Detect likely QR boundary from finder geometry + edge density.
+2. Estimate where quiet zone should exist around candidate grid.
+3. Synthesize/virtually enforce quiet-zone margin in validation stage.
+4. Relax quiet-zone checks only for this fallback mode.
+5. Guard with confidence checks to avoid false positives.
+
+Constraints
+- Do not relax global validation for normal path.
+- Quiet-zone reconstruction should be optional and bounded.
+
+Tests
+- cargo test --lib
+- Add tests with artificially cropped/no-quiet-zone matrices.
+
+Acceptance Criteria
+- Standard compliant decode path unchanged.
+- Reconstructed quiet-zone path recovers specific noncompliant fixtures.
+- No major false-positive increase on clean subset.
+
+Deliverables
+- Code + tests.
+- Notes on fallback trigger conditions.
+
+
+
+Status
+- Completed on 2026-02-06
