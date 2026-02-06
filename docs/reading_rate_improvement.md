@@ -1,10 +1,12 @@
 # Reading Rate Improvement Plan
 
-Goal: Raise RustQR's overall reading rate from **~15%** toward **60%+** (beating ZBar's 38.95%) while maintaining world-class speed (<5ms for 1MP images).
+Goal: Raise RustQR's overall reading rate from the public README baseline (**8.04%**) toward **38.95%+** (beat ZBar), then toward **60%+** (BoofCV range), while maintaining world-class speed (<5ms for 1MP images).
 
 ---
 
-## Current State (CI Run #21647289490, 2026-02-03)
+## Historical Snapshot for RCA (CI Run #21647289490, 2026-02-03)
+
+This table is kept as root-cause context from the pre-Phase-1/2 optimization period. For Phase 6 gating and comparison, use the README baseline run metadata and full-dataset A/B harness.
 
 | Category | Images | Dynamsoft | BoofCV | ZBar | **RustQR** | Gap to ZBar |
 |----------|--------|-----------|--------|------|------------|-------------|
@@ -439,38 +441,154 @@ Decode speed directly affects reading rate — slow decoding means CI timeouts a
 - **Impact**: Speed improvement for failed decode attempts
 - **Effort**: Small
 
+### Phase 6: Accuracy Stabilization & Detector Diversification (README-aligned)
+
+Goal of this phase: move weighted global reading rate from the public README baseline (**8.04%**) to **>=25% reproducible** on the full 536-image run, then continue toward ZBar (**38.95%**).
+
+Public comparison baseline:
+- README benchmark note: GitHub Actions run `21745898128` on commit `ba3cedd` (`macos-latest`).
+- Full dataset only (`--limit 0` / no sampling), no smoke flags.
+- Runtime guardrail: do not regress median per-image time by >15%.
+
+#### Priority Gaps vs ZBar (from README)
+
+| Category | RustQR | ZBar | Gap |
+|----------|--------|------|-----|
+| shadows | 5.00% | 90.00% | -85.00% |
+| pathological | 0.00% | 65.22% | -65.22% |
+| noncompliant | 0.00% | 50.00% | -50.00% |
+| brightness | 2.35% | 50.59% | -48.24% |
+| nominal | 32.05% | 66.67% | -34.62% |
+| rotations | 14.29% | 48.87% | -34.58% |
+| high_version | 0.00% | 27.03% | -27.03% |
+
+**Execution order for Phase 6:** `6.1 -> 6.2 -> 6.7 -> 6.5 -> 6.4 -> 6.3 -> 6.6`
+
+**Status:** Planned
+- [ ] 6.1 Add A/B Read-Rate Regression Harness (baseline vs candidate)
+- [ ] 6.2 Add Candidate Scoring + Top-K Decode Gating
+- [ ] 6.7 Single-QR First, Multi-QR Expansion Second
+- [ ] 6.5 Subpixel Sampling (Bilinear) + Adaptive Sampling Kernel
+- [ ] 6.4 Robust Homography Fit with Timing/Alignment Constraints
+- [ ] 6.3 Add Contour-Based Detection as a Second Detector Family
+- [ ] 6.6 Offline Threshold Auto-Tuning
+
+#### 6.1 Add A/B Read-Rate Regression Harness
+- **Files**: `src/bin/qrtool.rs`, `src/tools/mod.rs`, `.github/workflows/benchmark.yml`, `scripts/*` (new)
+- **Deliverables**:
+  - machine-readable output artifact (JSON or CSV) with run metadata and metrics
+  - baseline vs candidate delta report: weighted global, per-category, runtime
+  - CI regression gates (fail build on configured drop)
+- **Why**: Current output is human-readable but not strict enough for regression prevention and reproducible tuning.
+- **Success criteria**:
+  - same dataset fingerprint required for A/B comparison
+  - CI fails when weighted global drops by >1.0 percentage point
+  - CI fails when median runtime regresses by >15%
+- **Impact**: High (stability + faster iteration)
+- **Effort**: Medium
+
+#### 6.2 Add Candidate Scoring + Top-K Decode Gating
+- **Files**: `src/lib.rs`, `src/decoder/qr_decoder.rs`
+- **Deliverables**:
+  - candidate score composed from geometry consistency, timing quality, alignment confidence, quiet-zone evidence
+  - decode only top-K candidates per strategy (configurable)
+  - telemetry: average decode attempts per image, score distributions
+- **Why**: Candidate explosion still burns decode budget on weak proposals.
+- **Success criteria**:
+  - reduce average decode attempts/image by >=50%
+  - no weighted-global regression on full-dataset run
+- **Impact**: High (accuracy + speed)
+- **Effort**: Medium
+
+#### 6.7 Single-QR First, Multi-QR Expansion Second
+- **Files**: `src/lib.rs`
+- **Deliverables**:
+  - decode strongest single candidate first
+  - run multi-QR expansion only when confidence is low or multiple high-confidence groups exist
+- **Why**: Most images are single-target; full multi decode by default adds noise and cost.
+- **Success criteria**:
+  - no drop in weighted global rate
+  - median runtime within +5% vs pre-change baseline
+- **Impact**: Medium
+- **Effort**: Small-Medium
+
+#### 6.5 Subpixel Sampling (Bilinear) + Adaptive Sampling Kernel
+- **Files**: `src/decoder/qr_decoder.rs`
+- **Deliverables**:
+  - bilinear interpolation sampling path
+  - kernel size derived from estimated module size (avoid fixed 3x3)
+- **Why**: Rounding and fixed neighborhood cause module bleeding, especially in dense/high-version codes.
+- **Success criteria**:
+  - combined gain of >=5 percentage points across `high_version` + `nominal`
+  - runtime regression <=10%
+- **Impact**: Medium-High
+- **Effort**: Medium
+
+#### 6.4 Robust Homography Fit with Timing/Alignment Constraints
+- **Files**: `src/decoder/qr_decoder.rs`, `src/utils/geometry.rs`
+- **Deliverables**:
+  - transform refinement using finder anchors + timing samples + alignment points
+  - outlier rejection and residual score logging
+- **Why**: Current transform is still brittle under perspective/curvature and drives decode failures.
+- **Success criteria**:
+  - combined gain of >=8 percentage points across `perspective` + `curved`
+  - reduced transform-rejected attempts in telemetry
+- **Impact**: High
+- **Effort**: Large
+
+#### 6.3 Add Contour-Based Detection as a Second Detector Family
+- **Files**: `src/detector/contour.rs` (new), `src/detector/mod.rs`, `src/lib.rs`
+- **Deliverables**:
+  - contour/quadrilateral proposal path as fallback detector family
+  - strict compute budget and fallback trigger rules
+- **Why**: Run-length finder scanning misses some noncompliant/pathological/curved cases.
+- **Success criteria**:
+  - combined gain of >=5 percentage points across `noncompliant` + `pathological` + `lots`
+  - median runtime regression <=15%
+- **Impact**: High
+- **Effort**: Large
+
+#### 6.6 Offline Threshold Auto-Tuning
+- **Files**: `scripts/*` (new), `src/lib.rs`, `src/detector/finder.rs`
+- **Deliverables**:
+  - script to sweep key thresholds under runtime constraints
+  - checked-in tuned profile + benchmark artifact from tuning run
+- **Why**: Manual threshold tuning is brittle and overfits.
+- **Success criteria**:
+  - reproducible tuned config from script + seed
+  - >=2 percentage point weighted-global gain without breaking runtime guardrail
+- **Impact**: Medium-High
+- **Effort**: Medium
+
 ---
 
 ## Estimated Impact Summary
 
-| Phase | Reading Rate | Key Unlocks | Speed Impact |
-|-------|-------------|-------------|--------------|
-| Current | ~18.7% | — | — |
-| Phase 0 (completed) | ~18.7% (more accurate) | Reliable measurement + diagnostics | Neutral |
-| Phase 1 (completed) | ~35% (projected; re-benchmark pending) | high_version, brightness, shadows, rotations (partial) | Neutral |
-| Phase 2 | ~45% | Faster decoding enables more retry strategies | 10-30x decode speedup |
-| Phase 3 | ~55% | lots, better perspective/curved/glare | Managed by early-exit |
-| Phase 4 | ~65%+ | rotations (full), noncompliant, curved | Tiered approach |
-| Phase 5 | ~65%+ (faster) | No new categories | <5ms fast path maintained |
+| Milestone | Reading Rate Target | Key Unlocks | Runtime Guardrail |
+|-----------|---------------------|-------------|-------------------|
+| Public baseline (README run `21745898128`) | 8.04% | Known starting point for comparison vs ZBar/BoofCV | Reference only |
+| Phase 6.1 complete | 8.04%+ (stable) | Reproducible A/B, CI regression protection | Fail on >15% median time regression |
+| Phase 6.2 + 6.7 complete | 12-18% | Better decode budget use, less candidate explosion | No weighted-global regression |
+| Phase 6.5 + 6.4 complete | 18-25% | Better sampling + transform robustness (nominal/high_version/perspective/curved) | <=10% to <=15% median time regression |
+| Phase 6.3 + 6.6 complete | 25%+ reliable trend | Detector diversity + tuned thresholds for difficult categories | Same guardrail enforced in CI |
+| Next objective after Phase 6 | 38.95%+ | Beat ZBar on full weighted global rate | Keep fast path under 5ms target for 1MP |
 
 ## Target: Beat ZBar (38.95%) While Staying Fastest
 
-ZBar's 38.95% is achievable with Phase 1 + Phase 2 alone. Phase 3+ aims to approach BoofCV's 60.69%.
+From the public README baseline (**8.04%**), the weighted global gap to ZBar is **30.91 percentage points**. Phase 6 is focused on closing this gap with reproducible gains before additional heuristics.
 
 **Speed constraint**: Every improvement must be evaluated against the <5ms target for 1MP images. Use tiered detection (fast path first, fallback to expensive methods) to maintain speed for common cases while handling edge cases.
 
 ---
 
-## Recommended Implementation Order
+## Recommended Implementation Order (Phase 6)
 
-1. **Phase 2.1** - Eliminate brute-force format search (2-4 hrs, massive speedup)
-2. **Phase 2.3** - Limit version candidates (30 min, major speedup)
-3. **Phase 2.2** - Add timing pattern validation (1-2 hrs)
-4. **Phase 1.2** - Sauvola binarization (4-6 hrs, unlocks brightness/shadows)
-5. **Phase 1.3** - Vertical column scanning (3-4 hrs, partially unlocks rotations)
-6. **Phase 1.4** - Remove/relax module_size < 2.0 filter (quick win)
-7. **Phase 3.3** - Local grid thresholding (2-3 hrs)
-8. **Phase 3.1** - Multi-threshold strategy (2-3 hrs)
-9. **Phase 3.4** - Relax grouping constraints (30 min)
+1. **Phase 6.1** - A/B regression harness + CI gates (foundation for safe iteration)
+2. **Phase 6.2** - Candidate scoring + top-K decode gating
+3. **Phase 6.7** - Single-QR-first decode strategy
+4. **Phase 6.5** - Subpixel sampling + adaptive kernel
+5. **Phase 6.4** - Robust homography fitting
+6. **Phase 6.3** - Contour-based detector fallback
+7. **Phase 6.6** - Offline threshold tuning and profile freeze
 
-With Phase 0 complete, this order now prioritizes: speed → robustness, while preserving the measurement correctness baseline for reproducible tuning.
+This order prioritizes stability first, then decode-budget efficiency, then geometric/sampling robustness, then detector diversification and final parameter tuning.
