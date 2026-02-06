@@ -130,15 +130,12 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
 
     let mut results = Vec::new();
     for binary in variants {
-        let finder_patterns = if width >= 1600 && height >= 1600 {
-            FinderDetector::detect_with_pyramid(&binary)
-        } else {
-            FinderDetector::detect(&binary)
-        };
+        let finder_patterns = detect_finder_patterns(&binary, width, height);
         if finder_patterns.len() < 3 {
             continue;
         }
-        let decoded = decode_groups(&binary, gray, width, height, &finder_patterns);
+        let decoded =
+            decode_groups_with_module_aware_retry(&binary, gray, width, height, &finder_patterns);
         for qr in decoded {
             if !results.iter().any(|r: &QRCode| r.content == qr.content) {
                 results.push(qr);
@@ -150,6 +147,61 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
     }
 
     results
+}
+
+fn detect_finder_patterns(binary: &BitMatrix, width: usize, height: usize) -> Vec<FinderPattern> {
+    if width >= 1600 && height >= 1600 {
+        FinderDetector::detect_with_pyramid(binary)
+    } else {
+        FinderDetector::detect(binary)
+    }
+}
+
+fn adaptive_window_from_module_size(module_size: f32) -> usize {
+    let base = (module_size * 7.0).round() as usize;
+    let clamped = base.clamp(31, 151);
+    if clamped % 2 == 0 {
+        clamped + 1
+    } else {
+        clamped
+    }
+}
+
+fn decode_groups_with_module_aware_retry(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    finder_patterns: &[FinderPattern],
+) -> Vec<QRCode> {
+    let mut results = decode_groups(binary, gray, width, height, finder_patterns);
+    if !results.is_empty() || finder_patterns.len() < 3 {
+        return results;
+    }
+
+    let mut module_sizes: Vec<f32> = finder_patterns.iter().map(|p| p.module_size).collect();
+    module_sizes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let median_module = module_sizes[module_sizes.len() / 2];
+    let window = adaptive_window_from_module_size(median_module);
+
+    let retry_binary = adaptive_binarize(gray, width, height, window);
+    let retry_patterns = detect_finder_patterns(&retry_binary, width, height);
+    if retry_patterns.len() < 3 {
+        return results;
+    }
+
+    results = decode_groups(&retry_binary, gray, width, height, &retry_patterns);
+    results
+}
+
+fn run_fast_path(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    // Fast path: one cheap global threshold pass only.
+    let binary = otsu_binarize(gray, width, height);
+    let finder_patterns = detect_finder_patterns(&binary, width, height);
+    if finder_patterns.len() < 3 {
+        return Vec::new();
+    }
+    decode_groups(&binary, gray, width, height, &finder_patterns)
 }
 
 fn run_detection_with_phase4_fallbacks(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
@@ -182,6 +234,11 @@ fn run_detection_with_phase4_fallbacks(gray: &[u8], width: usize, height: usize)
 pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
+    let fast = run_fast_path(&gray, width, height);
+    if !fast.is_empty() {
+        return fast;
+    }
+
     run_detection_with_phase4_fallbacks(&gray, width, height)
 }
 
@@ -648,6 +705,11 @@ fn decode_groups_with_telemetry(
 /// # Returns
 /// Vector of detected QR codes
 pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    let fast = run_fast_path(image, width, height);
+    if !fast.is_empty() {
+        return fast;
+    }
+
     run_detection_with_phase4_fallbacks(image, width, height)
 }
 
@@ -676,15 +738,22 @@ pub fn detect_with_pool(
     // Step 1: Convert to grayscale using pre-allocated buffer
     rgb_to_grayscale_with_buffer(image, width, height, gray_buffer);
 
+    // Fast path: one Otsu pass and decode.
+    let fast = run_fast_path(gray_buffer, width, height);
+    if !fast.is_empty() {
+        return fast;
+    }
+
+    // Slow path: additional strategies.
     // Step 2: Binarize into pooled BitMatrix buffers
     adaptive_binarize_into(gray_buffer, width, height, 31, bin_adaptive, integral);
     otsu_binarize_into(gray_buffer, width, height, bin_otsu);
 
     // Step 3: Detect finder patterns
     let mut finder_patterns = if width >= 800 || height >= 800 {
-        FinderDetector::detect(bin_adaptive)
+        detect_finder_patterns(bin_adaptive, width, height)
     } else {
-        FinderDetector::detect(bin_otsu)
+        detect_finder_patterns(bin_otsu, width, height)
     };
 
     // Select which binary image to use for decoding (no clone needed — just a reference)
@@ -696,9 +765,9 @@ pub fn detect_with_pool(
 
     if finder_patterns.len() < 3 {
         let fallback_patterns = if width >= 800 || height >= 800 {
-            FinderDetector::detect(bin_otsu)
+            detect_finder_patterns(bin_otsu, width, height)
         } else {
-            FinderDetector::detect(bin_adaptive)
+            detect_finder_patterns(bin_adaptive, width, height)
         };
         if fallback_patterns.len() >= 3 {
             finder_patterns = fallback_patterns;
@@ -711,22 +780,29 @@ pub fn detect_with_pool(
     }
 
     // Step 4: Group and decode
-    let mut results = decode_groups(binary, gray_buffer, width, height, &finder_patterns);
+    let mut results =
+        decode_groups_with_module_aware_retry(binary, gray_buffer, width, height, &finder_patterns);
 
     // Sauvola fallback: adapts to local contrast (handles shadows/glare)
     if results.is_empty() {
         let sauvola = sauvola_binarize(gray_buffer, width, height, 31, 0.2);
-        let sauvola_patterns = FinderDetector::detect(&sauvola);
+        let sauvola_patterns = detect_finder_patterns(&sauvola, width, height);
         if sauvola_patterns.len() >= 3 {
-            results = decode_groups(&sauvola, gray_buffer, width, height, &sauvola_patterns);
+            results = decode_groups_with_module_aware_retry(
+                &sauvola,
+                gray_buffer,
+                width,
+                height,
+                &sauvola_patterns,
+            );
         }
     }
 
     if results.is_empty() {
         let fallback_patterns = if width >= 800 || height >= 800 {
-            FinderDetector::detect(bin_otsu)
+            detect_finder_patterns(bin_otsu, width, height)
         } else {
-            FinderDetector::detect(bin_adaptive)
+            detect_finder_patterns(bin_adaptive, width, height)
         };
         if fallback_patterns.len() >= 3 {
             let fallback_binary: &BitMatrix = if width >= 800 || height >= 800 {
@@ -734,7 +810,7 @@ pub fn detect_with_pool(
             } else {
                 bin_adaptive
             };
-            results = decode_groups(
+            results = decode_groups_with_module_aware_retry(
                 fallback_binary,
                 gray_buffer,
                 width,

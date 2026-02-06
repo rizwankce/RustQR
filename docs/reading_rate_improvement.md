@@ -414,6 +414,11 @@ Decode speed directly affects reading rate — slow decoding means CI timeouts a
 
 ### Phase 5: Speed-Aware Optimizations (Maintain <5ms target)
 
+**Status:** Completed (2026-02-06)
+- [x] 5.1 Tiered Detection Strategy
+- [x] 5.2 Module-Size-Aware Window Sizing
+- [x] 5.3 Early Termination Improvements
+
 #### 5.1 Tiered Detection Strategy
 - **What**: Implement a "fast path" and "slow path":
   - Fast path: Otsu → detect → decode (single attempt, <5ms)
