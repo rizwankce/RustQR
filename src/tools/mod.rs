@@ -1,7 +1,7 @@
 use crate::models::BitMatrix;
 use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
 use crate::utils::grayscale::rgb_to_grayscale;
-use crate::{QRCode, detect};
+use crate::{detect, QRCode};
 use image::GenericImageView;
 use std::env;
 use std::fs;
@@ -148,9 +148,9 @@ pub fn bench_limit_from_env() -> Option<usize> {
 
 /// Count the number of expected QR codes from a BoofCV-format label file.
 ///
-/// The `.txt` files contain hand-selected corner coordinates: one line with
-/// `# list of hand selected 2D points`, a `SETS` marker, then one line per
-/// expected QR code with 8 floating-point values (4 corner points × x,y).
+/// Supports both label layouts found in this dataset:
+/// - Modern layout: header + `SETS`, then one line per QR with 8 floats.
+/// - Legacy layout: no `SETS`, one corner point per line (2 floats), 4 lines per QR.
 ///
 /// Returns `0` if the file cannot be read or parsed.
 pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
@@ -158,29 +158,120 @@ pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
         Ok(c) => c,
         Err(_) => return 0,
     };
-    let mut count = 0usize;
-    let mut past_header = false;
+
+    fn parse_numeric_token_count(line: &str) -> Option<usize> {
+        let mut count = 0usize;
+        for token in line.split_whitespace() {
+            token.parse::<f64>().ok()?;
+            count += 1;
+        }
+        if count == 0 {
+            None
+        } else {
+            Some(count)
+        }
+    }
+
+    let mut saw_sets = false;
+    let mut post_sets_qr_lines = 0usize;
+    let mut pre_sets_qr_lines = 0usize;
+    let mut pre_sets_corner_lines = 0usize;
+
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        if trimmed == "SETS" {
-            past_header = true;
+
+        if trimmed.eq_ignore_ascii_case("SETS") {
+            saw_sets = true;
             continue;
         }
-        if past_header {
-            // Each data line should have 8 floats (4 corner points)
-            let nums: Vec<f64> = trimmed
-                .split_whitespace()
-                .filter_map(|t| t.parse::<f64>().ok())
-                .collect();
-            if nums.len() >= 8 {
-                count += 1;
+
+        let Some(token_count) = parse_numeric_token_count(trimmed) else {
+            continue;
+        };
+
+        if saw_sets {
+            if token_count >= 8 {
+                post_sets_qr_lines += 1;
             }
+        } else if token_count >= 8 {
+            pre_sets_qr_lines += 1;
+        } else if token_count == 2 {
+            pre_sets_corner_lines += 1;
         }
     }
-    count
+
+    if saw_sets {
+        post_sets_qr_lines
+    } else {
+        let legacy_qrs = pre_sets_corner_lines / 4;
+        if pre_sets_qr_lines > 0 {
+            pre_sets_qr_lines
+        } else {
+            legacy_qrs
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_expected_qr_count;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn write_temp_file(contents: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock before UNIX epoch")
+            .as_nanos();
+        let sequence = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        path.push(format!("rustqr_expected_qr_count_{nanos}_{sequence}.txt"));
+        fs::write(&path, contents).expect("failed to write temp label file");
+        path
+    }
+
+    #[test]
+    fn parse_expected_qr_count_supports_sets_layout() {
+        let path = write_temp_file(
+            "# list of hand selected 2D points\n\
+             SETS\n\
+             1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0\n\
+             9.0 10.0 11.0 12.0 13.0 14.0 15.0 16.0\n",
+        );
+        assert_eq!(parse_expected_qr_count(&path), 2);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn parse_expected_qr_count_supports_legacy_corner_layout() {
+        let path = write_temp_file(
+            "# list of hand selected 2D points\n\
+             10.0 20.0\n\
+             30.0 40.0\n\
+             50.0 60.0\n\
+             70.0 80.0\n\
+             11.0 21.0\n\
+             31.0 41.0\n\
+             51.0 61.0\n\
+             71.0 81.0\n",
+        );
+        assert_eq!(parse_expected_qr_count(&path), 2);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn parse_expected_qr_count_returns_zero_for_invalid_content() {
+        let path = write_temp_file("foo bar baz\n# comment only\n");
+        assert_eq!(parse_expected_qr_count(&path), 0);
+        let _ = fs::remove_file(path);
+    }
 }
 
 /// Smoke test flag from environment variables.
@@ -230,7 +321,11 @@ fn load_smoke_list(root: &Path) -> Option<Vec<PathBuf>> {
             paths.push(path);
         }
     }
-    if paths.is_empty() { None } else { Some(paths) }
+    if paths.is_empty() {
+        None
+    } else {
+        Some(paths)
+    }
 }
 
 fn collect_images(root: &Path) -> Vec<PathBuf> {
