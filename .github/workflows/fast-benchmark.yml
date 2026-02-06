@@ -38,21 +38,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  benchmark:
-    name: Fast Benchmark on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    if: ${{ inputs.platform == 'all' || inputs.platform == matrix.platform }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux
-          - os: macos-latest
-            platform: macos
-          - os: windows-latest
-            platform: windows
-
+  benchmark-linux:
+    name: Fast Benchmark on linux
+    runs-on: ubuntu-latest
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'linux' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +74,7 @@ jobs:
             CATEGORY_ARGS+=(--category "$CATEGORY_FILTER")
           fi
 
-          echo "## Fast Reading Rate - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Fast Reading Rate - linux" >> $GITHUB_STEP_SUMMARY
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -n "$CATEGORY_FILTER" ]; then
             echo "Category: \`$CATEGORY_FILTER\`" >> $GITHUB_STEP_SUMMARY
@@ -97,9 +86,9 @@ jobs:
             reading-rate \
             --non-interactive \
             "${CATEGORY_ARGS[@]}" \
-            --artifact-json "reading_rate_${{ matrix.platform }}.json" \
-            2>&1 | tee "reading_rate_${{ matrix.platform }}.txt"
-          cat "reading_rate_${{ matrix.platform }}.txt" >> $GITHUB_STEP_SUMMARY
+            --artifact-json "reading_rate_linux.json" \
+            2>&1 | tee "reading_rate_linux.txt"
+          cat "reading_rate_linux.txt" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
@@ -108,17 +97,169 @@ jobs:
         env:
           QR_SMOKE: "1"
         run: |
-          echo "## Criterion Smoke - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Criterion Smoke - linux" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo bench --features tools --bench real_qr_images 2>&1 | tee "criterion_smoke_${{ matrix.platform }}.txt"
-          cat "criterion_smoke_${{ matrix.platform }}.txt" >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee "criterion_smoke_linux.txt"
+          cat "criterion_smoke_linux.txt" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
       - name: Upload fast benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: fast-benchmark-results-${{ matrix.platform }}
+          name: fast-benchmark-results-linux
+          path: |
+            reading_rate_*.txt
+            reading_rate_*.json
+            criterion_smoke_*.txt
+          retention-days: 14
+
+  benchmark-macos:
+    name: Fast Benchmark on macos
+    runs-on: macos-latest
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'macos' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-fast-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-fast-bench-
+            ${{ runner.os }}-cargo-bench-
+            ${{ runner.os }}-cargo-
+
+      - name: Build release (with tools)
+        run: cargo build --release --features tools
+
+      - name: Run reading rate benchmark (fast)
+        if: ${{ inputs.run_reading_rate }}
+        env:
+          QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
+          CATEGORY_FILTER: ${{ inputs.category }}
+        run: |
+          CATEGORY_ARGS=()
+          if [ -n "$CATEGORY_FILTER" ]; then
+            CATEGORY_ARGS+=(--category "$CATEGORY_FILTER")
+          fi
+
+          echo "## Fast Reading Rate - macos" >> $GITHUB_STEP_SUMMARY
+          echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$CATEGORY_FILTER" ]; then
+            echo "Category: \`$CATEGORY_FILTER\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Category: all" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo run --features tools --bin qrtool --release -- \
+            reading-rate \
+            --non-interactive \
+            "${CATEGORY_ARGS[@]}" \
+            --artifact-json "reading_rate_macos.json" \
+            2>&1 | tee "reading_rate_macos.txt"
+          cat "reading_rate_macos.txt" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Run Criterion smoke benchmark
+        if: ${{ inputs.run_criterion_smoke }}
+        env:
+          QR_SMOKE: "1"
+        run: |
+          echo "## Criterion Smoke - macos" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee "criterion_smoke_macos.txt"
+          cat "criterion_smoke_macos.txt" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Upload fast benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-benchmark-results-macos
+          path: |
+            reading_rate_*.txt
+            reading_rate_*.json
+            criterion_smoke_*.txt
+          retention-days: 14
+
+  benchmark-windows:
+    name: Fast Benchmark on windows
+    runs-on: windows-latest
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-fast-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-fast-bench-
+            ${{ runner.os }}-cargo-bench-
+            ${{ runner.os }}-cargo-
+
+      - name: Build release (with tools)
+        run: cargo build --release --features tools
+
+      - name: Run reading rate benchmark (fast)
+        if: ${{ inputs.run_reading_rate }}
+        env:
+          QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
+          CATEGORY_FILTER: ${{ inputs.category }}
+        run: |
+          CATEGORY_ARGS=()
+          if [ -n "$CATEGORY_FILTER" ]; then
+            CATEGORY_ARGS+=(--category "$CATEGORY_FILTER")
+          fi
+
+          echo "## Fast Reading Rate - windows" >> $GITHUB_STEP_SUMMARY
+          echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$CATEGORY_FILTER" ]; then
+            echo "Category: \`$CATEGORY_FILTER\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Category: all" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo run --features tools --bin qrtool --release -- \
+            reading-rate \
+            --non-interactive \
+            "${CATEGORY_ARGS[@]}" \
+            --artifact-json "reading_rate_windows.json" \
+            2>&1 | tee "reading_rate_windows.txt"
+          cat "reading_rate_windows.txt" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Run Criterion smoke benchmark
+        if: ${{ inputs.run_criterion_smoke }}
+        env:
+          QR_SMOKE: "1"
+        run: |
+          echo "## Criterion Smoke - windows" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee "criterion_smoke_windows.txt"
+          cat "criterion_smoke_windows.txt" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Upload fast benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-benchmark-results-windows
           path: |
             reading_rate_*.txt
             reading_rate_*.json
