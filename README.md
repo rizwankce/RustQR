@@ -133,25 +133,25 @@ Reading rate comparison across different QR code image categories (based on [Dyn
 
 | Category | Images | Dynamsoft | BoofCV | ZBar | **RustQR** |
 |----------|--------|-----------|--------|------|------------|
-| blurred | 45 | 66.15% | 38.46% | 35.38% | **35.56%** |
-| brightness | 28 | 81.18% | 78.82% | 50.59% | **0.00%** |
-| bright_spots | 32 | 43.30% | 27.84% | 19.59% | **0.00%** |
-| close | 40 | 95.00% | 100.00% | 12.50% | **20.00%** |
-| curved | 45 | 70.00% | 56.67% | 35.00% | **17.78%** |
-| damaged | 37 | 51.16% | 16.28% | 25.58% | **13.51%** |
-| glare | 50 | 84.91% | 32.08% | 35.85% | **14.00%** |
+| blurred | 45 | 66.15% | 38.46% | 35.38% | **9.23%** |
+| brightness | 28 | 81.18% | 78.82% | 50.59% | **2.35%** |
+| bright_spots | 32 | 43.30% | 27.84% | 19.59% | **2.06%** |
+| close | 40 | 95.00% | 100.00% | 12.50% | **25.00%** |
+| curved | 50 | 70.00% | 56.67% | 35.00% | **18.33%** |
+| damaged | 37 | 51.16% | 16.28% | 25.58% | **6.98%** |
+| glare | 50 | 84.91% | 32.08% | 35.85% | **18.87%** |
 | high_version | 33 | 97.30% | 40.54% | 27.03% | **0.00%** |
 | lots | 7 | 100.00% | 99.76% | 18.10% | **0.00%** |
-| monitor | 17 | 100.00% | 82.35% | 0.00% | **64.71%** |
-| nominal | 65 | 93.59% | 89.74% | 66.67% | **46.15%** |
+| monitor | 17 | 100.00% | 82.35% | 0.00% | **11.76%** |
+| nominal | 65 | 93.59% | 89.74% | 66.67% | **32.05%** |
 | noncompliant | 16 | 92.31% | 3.85% | 50.00% | **0.00%** |
-| pathological | 10 | 95.65% | 43.48% | 65.22% | **0.00%** |
-| perspective | 35 | 62.86% | 80.00% | 42.86% | **20.00%** |
-| rotations | 44 | 99.25% | 96.24% | 48.87% | **0.00%** |
-| shadows | 14 | 100.00% | 85.00% | 90.00% | **7.14%** |
-| **total** | **508** | **83.29%** | **60.69%** | **38.95%** | **14.93%** |
+| pathological | 23 | 95.65% | 43.48% | 65.22% | **0.00%** |
+| perspective | 35 | 62.86% | 80.00% | 42.86% | **22.86%** |
+| rotations | 44 | 99.25% | 96.24% | 48.87% | **14.29%** |
+| shadows | 14 | 100.00% | 85.00% | 90.00% | **5.00%** |
+| **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **8.04%** |
 
-> **Note:** All 16 categories (508 images total) have been tested. The RustQR decoder is currently in development and detection capabilities are being implemented.
+> **Note:** RustQR values above are from GitHub Actions run `21745898128` (`macos-latest`) on commit `ba3cedd` over all 16 categories (536 images, 1232 QR codes).
 >
 > Run the benchmark:
 > ```bash
