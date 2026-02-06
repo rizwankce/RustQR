@@ -5,7 +5,7 @@
 /// - 16 bits fractional part
 /// - Range: approximately ±32767.9999
 /// - Precision: 1/65536 ≈ 0.000015
-
+///
 /// Fixed-point type (16.16 format)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Fixed(i32);

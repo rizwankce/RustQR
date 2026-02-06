@@ -38,8 +38,8 @@ pub fn adaptive_binarize(
     use crate::models::BitMatrix;
 
     let mut binary = BitMatrix::new(width, height);
-    let mut integral = build_integral_image(gray, width, height);
-    adaptive_binarize_core(gray, width, height, window_size, &mut binary, &mut integral);
+    let integral = build_integral_image(gray, width, height);
+    adaptive_binarize_core(gray, width, height, window_size, &mut binary, &integral);
     binary
 }
 
@@ -238,8 +238,8 @@ pub fn sauvola_binarize(
     use crate::models::BitMatrix;
 
     let mut binary = BitMatrix::new(width, height);
-    let mut integral = build_integral_image(gray, width, height);
-    let mut integral_sq = build_integral_sq_image(gray, width, height);
+    let integral = build_integral_image(gray, width, height);
+    let integral_sq = build_integral_sq_image(gray, width, height);
     sauvola_binarize_core(
         gray,
         width,
@@ -247,13 +247,14 @@ pub fn sauvola_binarize(
         window_size,
         k,
         &mut binary,
-        &mut integral,
-        &mut integral_sq,
+        &integral,
+        &integral_sq,
     );
     binary
 }
 
 /// Sauvola binarization writing into existing buffers (avoids allocation)
+#[allow(clippy::too_many_arguments)]
 pub fn sauvola_binarize_into(
     gray: &[u8],
     width: usize,
@@ -267,10 +268,20 @@ pub fn sauvola_binarize_into(
     output.reset(width, height);
     build_integral_image_into(gray, width, height, integral);
     build_integral_sq_image_into(gray, width, height, integral_sq);
-    sauvola_binarize_core(gray, width, height, window_size, k, output, integral, integral_sq);
+    sauvola_binarize_core(
+        gray,
+        width,
+        height,
+        window_size,
+        k,
+        output,
+        integral,
+        integral_sq,
+    );
 }
 
 /// Core Sauvola binarization logic
+#[allow(clippy::too_many_arguments)]
 fn sauvola_binarize_core(
     gray: &[u8],
     width: usize,

@@ -35,7 +35,7 @@ fn bench_real_qr_images(c: &mut Criterion) {
         // Benchmark this image
         group.bench_with_input(
             BenchmarkId::new("detect", &img_name),
-            &(&raw_pixels, width as usize, height as usize),
+            &(&raw_pixels, width, height),
             |b, (pixels, w, h)| {
                 b.iter(|| rust_qr::detect(black_box(pixels), black_box(*w), black_box(*h)));
             },

@@ -200,7 +200,7 @@ fn decode_from_points(binary: &BitMatrix, points: &[Point]) {
     pts.sort_by(|a, b| (a.x + a.y).partial_cmp(&(b.x + b.y)).unwrap());
     let top_left = pts[0];
     let bottom_right = pts[3];
-    let others = vec![pts[1], pts[2]];
+    let others = [pts[1], pts[2]];
     let top_right = if others[0].x > others[1].x {
         others[0]
     } else {
@@ -433,7 +433,13 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         for (dir, _, _, _, tel) in &category_results {
             println!(
                 "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}",
-                dir, tel.total, tel.binarize_ok, tel.finder_ok, tel.groups_ok, tel.transform_ok, tel.decode_ok,
+                dir,
+                tel.total,
+                tel.binarize_ok,
+                tel.finder_ok,
+                tel.groups_ok,
+                tel.transform_ok,
+                tel.decode_ok,
             );
             g_total += tel.total;
             g_bin += tel.binarize_ok;
@@ -524,8 +530,7 @@ where
 
         if let Ok((pixels, width, height)) = load_rgb(&path) {
             let start = Instant::now();
-            let (results, tel) =
-                rust_qr::detect_with_telemetry(&pixels, width, height);
+            let (results, tel) = rust_qr::detect_with_telemetry(&pixels, width, height);
             let elapsed = start.elapsed();
             let decoded = results.len();
             let image_hits = decoded.min(expected);

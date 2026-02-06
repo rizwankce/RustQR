@@ -34,7 +34,7 @@ impl ImagePyramid {
         };
 
         let level2 = if width >= 800 && height >= 800 {
-            level1.as_ref().map(|l1| Self::downscale_by_2(l1))
+            level1.as_ref().map(Self::downscale_by_2)
         } else {
             None
         };

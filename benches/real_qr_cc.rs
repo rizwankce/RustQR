@@ -34,8 +34,8 @@ fn bench_real_qr_connected_components(c: &mut Criterion) {
         };
 
         // Preprocess: convert to grayscale and binarize
-        let gray = to_grayscale(&raw_pixels, width as usize, height as usize);
-        let binary = binarize_otsu(&gray, width as usize, height as usize);
+        let gray = to_grayscale(&raw_pixels, width, height);
+        let binary = binarize_otsu(&gray, width, height);
 
         // Benchmark regular detection
         group.bench_with_input(

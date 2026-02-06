@@ -62,7 +62,7 @@ fn draw_finder_pattern(matrix: &mut BitMatrix, x: usize, y: usize) {
             let is_black = if dx == 0 || dx == 6 || dy == 0 || dy == 6 {
                 // Outer border - black
                 true
-            } else if dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4 {
+            } else if (2..=4).contains(&dx) && (2..=4).contains(&dy) {
                 // Center 3x3 - black
                 true
             } else {

@@ -39,10 +39,10 @@ fn main() {
     println!("Found {} finder patterns\n", patterns.len());
 
     // Show first 10 patterns
-    for i in 0..patterns.len().min(10) {
+    for (i, pattern) in patterns.iter().enumerate().take(patterns.len().min(10)) {
         println!(
             "Pattern {}: ({:.1}, {:.1}) size={:.2}",
-            i, patterns[i].center.x, patterns[i].center.y, patterns[i].module_size
+            i, pattern.center.x, pattern.center.y, pattern.module_size
         );
     }
 
@@ -63,7 +63,7 @@ fn main() {
                 }
             }
             if vals.len() >= 8 {
-                let mut pts = vec![
+                let mut pts = [
                     Point::new(vals[0], vals[1]),
                     Point::new(vals[2], vals[3]),
                     Point::new(vals[4], vals[5]),
@@ -72,7 +72,7 @@ fn main() {
                 pts.sort_by(|a, b| (a.x + a.y).partial_cmp(&(b.x + b.y)).unwrap());
                 let top_left = pts[0];
                 let bottom_right = pts[3];
-                let others = vec![pts[1], pts[2]];
+                let others = [pts[1], pts[2]];
                 let top_right = if others[0].x > others[1].x {
                     others[0]
                 } else {

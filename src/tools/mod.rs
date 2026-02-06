@@ -1,7 +1,9 @@
+#![allow(clippy::items_after_test_module)]
+
 use crate::models::BitMatrix;
 use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
 use crate::utils::grayscale::rgb_to_grayscale;
-use crate::{detect, QRCode};
+use crate::{QRCode, detect};
 use image::GenericImageView;
 use std::env;
 use std::fs;
@@ -165,11 +167,7 @@ pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
             token.parse::<f64>().ok()?;
             count += 1;
         }
-        if count == 0 {
-            None
-        } else {
-            Some(count)
-        }
+        if count == 0 { None } else { Some(count) }
     }
 
     let mut saw_sets = false;
@@ -321,11 +319,7 @@ fn load_smoke_list(root: &Path) -> Option<Vec<PathBuf>> {
             paths.push(path);
         }
     }
-    if paths.is_empty() {
-        None
-    } else {
-        Some(paths)
-    }
+    if paths.is_empty() { None } else { Some(paths) }
 }
 
 fn collect_images(root: &Path) -> Vec<PathBuf> {

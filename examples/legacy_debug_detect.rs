@@ -79,11 +79,7 @@ fn main() {
                 let size_ratio_ij = finder_patterns[i].module_size / finder_patterns[j].module_size;
                 let size_ratio_ik = finder_patterns[i].module_size / finder_patterns[k].module_size;
 
-                if size_ratio_ij >= 0.7
-                    && size_ratio_ij <= 1.4
-                    && size_ratio_ik >= 0.7
-                    && size_ratio_ik <= 1.4
-                {
+                if (0.7..=1.4).contains(&size_ratio_ij) && (0.7..=1.4).contains(&size_ratio_ik) {
                     // Check distances
                     let d_ij = finder_patterns[i]
                         .center

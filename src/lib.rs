@@ -49,8 +49,7 @@ pub struct DetectionTelemetry {
 use decoder::qr_decoder::QrDecoder;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
-    adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into,
-    sauvola_binarize,
+    adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into, sauvola_binarize,
 };
 use utils::grayscale::{rgb_to_grayscale, rgb_to_grayscale_with_buffer};
 use utils::memory_pool::BufferPool;
@@ -404,8 +403,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
             if used[j] {
                 continue;
             }
-            for idx_k in (idx_j + 1)..indices.len() {
-                let k = indices[idx_k];
+            for &k in indices.iter().skip(idx_j + 1) {
                 if used[k] {
                     continue;
                 }
@@ -552,27 +550,15 @@ fn decode_groups(
             &finder_patterns[group[1]],
             &finder_patterns[group[2]],
         ) {
-            match QrDecoder::decode_with_gray(
-                binary,
-                gray,
-                width,
-                height,
-                &tl,
-                &tr,
-                &bl,
-                module_size,
-            ) {
-                Some(qr) => {
-                    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
-                        eprintln!("DEBUG: Group {} decoded successfully!", group_idx);
-                    }
-                    results.push(qr);
+            if let Some(qr) =
+                QrDecoder::decode_with_gray(binary, gray, width, height, &tl, &tr, &bl, module_size)
+            {
+                if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                    eprintln!("DEBUG: Group {} decoded successfully!", group_idx);
                 }
-                None => {
-                    if cfg!(debug_assertions) && crate::debug::debug_enabled() {
-                        eprintln!("DEBUG: Group {} failed to decode", group_idx);
-                    }
-                }
+                results.push(qr);
+            } else if cfg!(debug_assertions) && crate::debug::debug_enabled() {
+                eprintln!("DEBUG: Group {} failed to decode", group_idx);
             }
         }
     }
@@ -605,15 +591,12 @@ fn decode_groups_with_telemetry(
             &finder_patterns[group[2]],
         ) {
             tel.transforms_built += 1;
-            match QrDecoder::decode_with_gray(
-                binary, gray, width, height, &tl, &tr, &bl, module_size,
-            ) {
-                Some(qr) => {
-                    tel.rs_decode_ok += 1;
-                    tel.payload_decoded += 1;
-                    results.push(qr);
-                }
-                None => {}
+            if let Some(qr) =
+                QrDecoder::decode_with_gray(binary, gray, width, height, &tl, &tr, &bl, module_size)
+            {
+                tel.rs_decode_ok += 1;
+                tel.payload_decoded += 1;
+                results.push(qr);
             }
         }
     }

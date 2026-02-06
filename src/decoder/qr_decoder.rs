@@ -96,6 +96,7 @@ impl QrDecoder {
     }
 
     /// Decode using grayscale sampling to build the QR matrix (more robust for real photos).
+    #[allow(clippy::too_many_arguments)]
     pub fn decode_with_gray(
         binary: &BitMatrix,
         gray: &[u8],
@@ -265,6 +266,7 @@ impl QrDecoder {
     }
 
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     fn extract_qr_region_gray(
         gray: &[u8],
         width: usize,
@@ -393,6 +395,7 @@ impl QrDecoder {
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn refine_transform_with_alignment(
         binary: &BitMatrix,
         transform: &PerspectiveTransform,
@@ -520,7 +523,7 @@ impl QrDecoder {
 
         // Early exit: if no orientation has valid finder patterns, the matrix
         // is not a recognizable QR code — skip all decode attempts.
-        let has_any_finders = orientations.iter().any(|m| Self::has_finders_correct(m));
+        let has_any_finders = orientations.iter().any(Self::has_finders_correct);
         if !has_any_finders {
             return None;
         }
@@ -618,7 +621,7 @@ impl QrDecoder {
         if digits * 2 >= total {
             score += 50;
         }
-        score as i32
+        score
     }
 
     fn orientations(matrix: &BitMatrix) -> Vec<BitMatrix> {
@@ -899,7 +902,7 @@ impl QrDecoder {
 
         let mut idx = 0;
         for i in 0..long_len {
-            for b in 0..info.num_blocks {
+            for (b, block) in blocks.iter_mut().enumerate().take(info.num_blocks) {
                 let block_len = if b < num_short_blocks {
                     short_len
                 } else {
@@ -909,18 +912,18 @@ impl QrDecoder {
                     if idx >= total {
                         return None;
                     }
-                    blocks[b].push(codewords[idx]);
+                    block.push(codewords[idx]);
                     idx += 1;
                 }
             }
         }
 
         for _ in 0..info.ecc_per_block {
-            for b in 0..info.num_blocks {
+            for block in blocks.iter_mut().take(info.num_blocks) {
                 if idx >= total {
                     return None;
                 }
-                blocks[b].push(codewords[idx]);
+                block.push(codewords[idx]);
                 idx += 1;
             }
         }
@@ -999,7 +1002,7 @@ impl QrDecoder {
                 }
                 7 => {
                     // ECI: parse and ignore for now (assume UTF-8)
-                    let mut eci = reader.read_bits(8)? as u32;
+                    let mut eci = reader.read_bits(8)?;
                     if (eci & 0x80) != 0 {
                         eci = ((eci & 0x7F) << 8) | reader.read_bits(8)?;
                         if (eci & 0x4000) != 0 {
@@ -1084,6 +1087,7 @@ fn char_count_bits(mode: u8, version: u8) -> usize {
 }
 
 #[cfg(test)]
+#[allow(clippy::needless_range_loop)]
 mod tests {
     use super::*;
 

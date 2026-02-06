@@ -175,7 +175,7 @@ impl FinderDetector {
 
                 for candidate in row_candidates {
                     let size_ratio = candidate.module_size / expected_module;
-                    if size_ratio >= 0.5 && size_ratio <= 2.0 {
+                    if (0.5..=2.0).contains(&size_ratio) {
                         refined_candidates.push(candidate);
                     }
                 }
@@ -187,12 +187,11 @@ impl FinderDetector {
                     continue;
                 }
 
-                let col_candidates =
-                    Self::scan_column_in_range(matrix, x, height, min_y, max_y);
+                let col_candidates = Self::scan_column_in_range(matrix, x, height, min_y, max_y);
 
                 for candidate in col_candidates {
                     let size_ratio = candidate.module_size / expected_module;
-                    if size_ratio >= 0.5 && size_ratio <= 2.0 {
+                    if (0.5..=2.0).contains(&size_ratio) {
                         refined_candidates.push(candidate);
                     }
                 }
@@ -723,39 +722,38 @@ impl FinderDetector {
                     let lengths = &run_lengths[end_idx - 5..end_idx];
 
                     // Pattern should be: black-white-black-white-black
-                    if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
-                        if Self::quick_ratio_check(lengths) {
-                            if let Some((center_y, _unit, total)) = Self::check_pattern(lengths, y)
+                    if colors[0]
+                        && !colors[1]
+                        && colors[2]
+                        && !colors[3]
+                        && colors[4]
+                        && Self::quick_ratio_check(lengths)
+                    {
+                        if let Some((center_y, _unit, total)) = Self::check_pattern(lengths, y) {
+                            // Cross-check horizontally first (primary axis is vertical)
+                            if let Some((center_x, unit_h)) =
+                                Self::cross_check_horizontal(matrix, x as f32, center_y, total)
                             {
-                                // Cross-check horizontally first (primary axis is vertical)
-                                if let Some((center_x, unit_h)) =
-                                    Self::cross_check_horizontal(matrix, x as f32, center_y, total)
-                                {
-                                    // Then refine vertically
-                                    if let Some((refined_y, unit_v)) =
-                                        Self::cross_check_vertical(
-                                            matrix,
-                                            center_x,
-                                            center_y.round() as usize,
-                                            total,
-                                        )
-                                    {
-                                        let module_size = (unit_h + unit_v) / 2.0;
-                                        candidates.push(FinderPattern::new(
-                                            center_x,
-                                            refined_y,
-                                            module_size,
-                                        ));
-                                    } else {
-                                        candidates.push(FinderPattern::new(
-                                            center_x, center_y, unit_h,
-                                        ));
-                                    }
+                                // Then refine vertically
+                                if let Some((refined_y, unit_v)) = Self::cross_check_vertical(
+                                    matrix,
+                                    center_x,
+                                    center_y.round() as usize,
+                                    total,
+                                ) {
+                                    let module_size = (unit_h + unit_v) / 2.0;
+                                    candidates.push(FinderPattern::new(
+                                        center_x,
+                                        refined_y,
+                                        module_size,
+                                    ));
+                                } else {
+                                    candidates.push(FinderPattern::new(center_x, center_y, unit_h));
                                 }
+                            }
 
-                                if candidates.len() >= MAX_PATTERNS_PER_COL {
-                                    break;
-                                }
+                            if candidates.len() >= MAX_PATTERNS_PER_COL {
+                                break;
                             }
                         }
                     }
@@ -809,37 +807,36 @@ impl FinderDetector {
                     let colors = &run_colors[end_idx - 5..end_idx];
                     let lengths = &run_lengths[end_idx - 5..end_idx];
 
-                    if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
-                        if Self::quick_ratio_check(lengths) {
-                            if let Some((center_y, _unit, total)) = Self::check_pattern(lengths, y)
+                    if colors[0]
+                        && !colors[1]
+                        && colors[2]
+                        && !colors[3]
+                        && colors[4]
+                        && Self::quick_ratio_check(lengths)
+                    {
+                        if let Some((center_y, _unit, total)) = Self::check_pattern(lengths, y) {
+                            if let Some((center_x, unit_h)) =
+                                Self::cross_check_horizontal(matrix, x as f32, center_y, total)
                             {
-                                if let Some((center_x, unit_h)) =
-                                    Self::cross_check_horizontal(matrix, x as f32, center_y, total)
-                                {
-                                    if let Some((refined_y, unit_v)) =
-                                        Self::cross_check_vertical(
-                                            matrix,
-                                            center_x,
-                                            center_y.round() as usize,
-                                            total,
-                                        )
-                                    {
-                                        let module_size = (unit_h + unit_v) / 2.0;
-                                        candidates.push(FinderPattern::new(
-                                            center_x,
-                                            refined_y,
-                                            module_size,
-                                        ));
-                                    } else {
-                                        candidates.push(FinderPattern::new(
-                                            center_x, center_y, unit_h,
-                                        ));
-                                    }
+                                if let Some((refined_y, unit_v)) = Self::cross_check_vertical(
+                                    matrix,
+                                    center_x,
+                                    center_y.round() as usize,
+                                    total,
+                                ) {
+                                    let module_size = (unit_h + unit_v) / 2.0;
+                                    candidates.push(FinderPattern::new(
+                                        center_x,
+                                        refined_y,
+                                        module_size,
+                                    ));
+                                } else {
+                                    candidates.push(FinderPattern::new(center_x, center_y, unit_h));
                                 }
+                            }
 
-                                if candidates.len() >= MAX_PATTERNS_PER_COL {
-                                    break;
-                                }
+                            if candidates.len() >= MAX_PATTERNS_PER_COL {
+                                break;
                             }
                         }
                     }
@@ -906,7 +903,7 @@ impl FinderDetector {
 
             // Check aspect ratio (finder patterns are roughly square)
             let aspect_ratio = region_width as f32 / region_height as f32;
-            if aspect_ratio < 0.5 || aspect_ratio > 2.0 {
+            if !(0.5..=2.0).contains(&aspect_ratio) {
                 continue;
             }
 

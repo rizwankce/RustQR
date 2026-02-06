@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_test_module)]
+
 /// Convert RGB image to grayscale using SIMD acceleration
 /// Y = 0.299*R + 0.587*G + 0.114*B
 /// Uses fast integer arithmetic: Y = (76*R + 150*G + 29*B) >> 8
@@ -22,25 +24,22 @@ const COEF_B: i32 = 29;
 /// Convert RGB image to grayscale with automatic SIMD selection
 pub fn rgb_to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
     let pixel_count = width * height;
-    let mut gray = Vec::with_capacity(pixel_count);
-    unsafe {
-        gray.set_len(pixel_count);
-    }
+    let mut gray = vec![0u8; pixel_count];
 
     #[cfg(target_arch = "x86_64")]
     {
         unsafe {
             rgb_to_grayscale_sse2(rgb, &mut gray, pixel_count);
-            return gray;
         }
+        gray
     }
 
     #[cfg(target_arch = "aarch64")]
     {
         unsafe {
             rgb_to_grayscale_neon(rgb, &mut gray, pixel_count);
-            return gray;
         }
+        gray
     }
 
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
@@ -53,25 +52,22 @@ pub fn rgb_to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
 /// Convert RGBA image to grayscale (ignores alpha channel)
 pub fn rgba_to_grayscale(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
     let pixel_count = width * height;
-    let mut gray = Vec::with_capacity(pixel_count);
-    unsafe {
-        gray.set_len(pixel_count);
-    }
+    let mut gray = vec![0u8; pixel_count];
 
     #[cfg(target_arch = "x86_64")]
     {
         unsafe {
             rgba_to_grayscale_sse2(rgba, &mut gray, pixel_count);
-            return gray;
         }
+        gray
     }
 
     #[cfg(target_arch = "aarch64")]
     {
         unsafe {
             rgba_to_grayscale_neon(rgba, &mut gray, pixel_count);
-            return gray;
         }
+        gray
     }
 
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
@@ -325,13 +321,13 @@ pub fn rgb_to_grayscale_parallel(rgb: &[u8], width: usize, height: usize) -> Vec
     // Process rows in parallel
     gray.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
         let row_start = y * width * 3;
-        for x in 0..width {
+        for (x, px) in row.iter_mut().enumerate().take(width) {
             let idx = row_start + x * 3;
             let r = rgb[idx] as i32;
             let g = rgb[idx + 1] as i32;
             let b = rgb[idx + 2] as i32;
             let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-            row[x] = lum.min(255) as u8;
+            *px = lum.min(255) as u8;
         }
     });
 
@@ -346,13 +342,13 @@ pub fn rgba_to_grayscale_parallel(rgba: &[u8], width: usize, height: usize) -> V
     // Process rows in parallel
     gray.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
         let row_start = y * width * 4;
-        for x in 0..width {
+        for (x, px) in row.iter_mut().enumerate().take(width) {
             let idx = row_start + x * 4;
             let r = rgba[idx] as i32;
             let g = rgba[idx + 1] as i32;
             let b = rgba[idx + 2] as i32;
             let lum = (COEF_R * r + COEF_G * g + COEF_B * b) >> 8;
-            row[x] = lum.min(255) as u8;
+            *px = lum.min(255) as u8;
         }
     });
 
