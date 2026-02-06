@@ -219,9 +219,15 @@ Before algorithm work, ensure benchmark numbers are trustworthy and comparable a
 
 ---
 
-### Phase 1: Critical Fixes (Expected: 15% → 35%)
+### Phase 1: Critical Fixes (Completed on 2026-02-06)
 
 These are bugs and missing fundamentals that cause entire categories to fail.
+
+**Status:** Completed
+- [x] 1.1 Fix/Remove Unused Alignment Helper in Detector Module
+- [x] 1.2 Add Sauvola Binarization
+- [x] 1.3 Add Vertical Column Scanning for Finder Patterns
+- [x] 1.4 Remove `module_size < 2.0` Hard Rejection
 
 #### 1.1 Fix/Remove Unused Alignment Helper in Detector Module
 - **File**: `src/detector/alignment.rs`
@@ -256,9 +262,21 @@ These are bugs and missing fundamentals that cause entire categories to fail.
 - **Effort**: Tiny (one line change)
 - **Speed impact**: None
 
+**Implementation notes:**
+- Alignment helper now uses `alignment_pattern_positions(version)` from `function_mask.rs`.
+- Sauvola binarization is implemented with integral + squared-integral images.
+- Finder detection includes vertical column scanning (including pyramid and bounded scan paths).
+- Module-size floor in grouping/order logic is now `1.0` (from `2.0`).
+
 ### Phase 2: Decode Pipeline Speedup (Expected: 35% → 45%)
 
 Decode speed directly affects reading rate — slow decoding means CI timeouts and prevents trying more binarization/detection strategies.
+
+**Status:** Completed (2026-02-06)
+- [x] 2.1 Eliminate Brute-Force Format/Mask Search
+- [x] 2.2 Add Timing Pattern Validation
+- [x] 2.3 Limit Version Candidate Search
+- [x] 2.4 Reduce Orientation Attempts
 
 #### 2.1 Eliminate Brute-Force Format/Mask Search
 - **File**: `src/decoder/qr_decoder.rs`
@@ -292,6 +310,12 @@ Decode speed directly affects reading rate — slow decoding means CI timeouts a
 - **Speed impact**: Moderate
 
 ### Phase 3: Detection Robustness (Expected: 45% → 55%)
+
+**Status:** Completed (2026-02-06)
+- [x] 3.1 Multi-Threshold Binarization Strategy
+- [x] 3.2 Adaptive Merge Distance for Finder Patterns
+- [x] 3.3 Improve Grid Sampling with Local Thresholding
+- [x] 3.4 Relax Grouping Constraints for Perspective
 
 #### 3.1 Multi-Threshold Binarization Strategy
 - **File**: `src/lib.rs`
@@ -331,6 +355,14 @@ Decode speed directly affects reading rate — slow decoding means CI timeouts a
 - **Speed impact**: Slightly more groups to try (bounded by trim to 40)
 
 ### Phase 4: Advanced Detection (Expected: 55% → 65%+)
+
+**Status:** Completed (2026-02-06)
+- [x] 4.1 Image Rotation Attempts for Non-Axis Rotations
+- [x] 4.2 Better Bottom-Right Corner Estimation
+- [x] 4.3 Multi-QR Support
+- [x] 4.4 Contrast Enhancement Preprocessing
+- [x] 4.5 Noncompliant QR Support
+- [x] 4.6 Add Kanji Mode Support
 
 #### 4.1 Image Rotation Attempts for Non-Axis Rotations
 - **What**: If no QR found at original orientation, try detecting at 45-degree rotation. Can use fast rotation (swap x,y and mirror) or pre-rotate grayscale image
@@ -410,7 +442,7 @@ Decode speed directly affects reading rate — slow decoding means CI timeouts a
 |-------|-------------|-------------|--------------|
 | Current | ~18.7% | — | — |
 | Phase 0 (completed) | ~18.7% (more accurate) | Reliable measurement + diagnostics | Neutral |
-| Phase 1 | ~35% | high_version, brightness, shadows, rotations (partial) | Neutral |
+| Phase 1 (completed) | ~35% (projected; re-benchmark pending) | high_version, brightness, shadows, rotations (partial) | Neutral |
 | Phase 2 | ~45% | Faster decoding enables more retry strategies | 10-30x decode speedup |
 | Phase 3 | ~55% | lots, better perspective/curved/glare | Managed by early-exit |
 | Phase 4 | ~65%+ | rotations (full), noncompliant, curved | Tiered approach |

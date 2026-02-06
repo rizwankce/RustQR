@@ -849,9 +849,6 @@ impl FinderDetector {
 
     fn merge_candidates(candidates: Vec<FinderPattern>) -> Vec<FinderPattern> {
         let mut merged: Vec<FinderPattern> = Vec::new();
-        // Increased from 5.0 to 50.0 to properly merge duplicate detections
-        // of the same finder pattern at slightly different positions
-        const MERGE_DIST: f32 = 50.0;
 
         for candidate in candidates {
             let mut found = false;
@@ -859,8 +856,10 @@ impl FinderDetector {
                 let dx = candidate.center.x - existing.center.x;
                 let dy = candidate.center.y - existing.center.y;
                 let dist_sq = dx * dx + dy * dy;
+                let merge_dist = (existing.module_size + candidate.module_size) * 2.5;
+                let merge_dist_sq = merge_dist * merge_dist;
 
-                if dist_sq < MERGE_DIST * MERGE_DIST {
+                if dist_sq < merge_dist_sq {
                     let new_x = (existing.center.x + candidate.center.x) / 2.0;
                     let new_y = (existing.center.y + candidate.center.y) / 2.0;
                     let new_module = (existing.module_size + candidate.module_size) / 2.0;

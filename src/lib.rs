@@ -50,9 +50,123 @@ use decoder::qr_decoder::QrDecoder;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
     adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into, sauvola_binarize,
+    threshold_binarize,
 };
 use utils::grayscale::{rgb_to_grayscale, rgb_to_grayscale_with_buffer};
 use utils::memory_pool::BufferPool;
+
+fn auto_window(width: usize, height: usize) -> usize {
+    let base = (width.min(height) / 24).max(31);
+    if base % 2 == 0 { base + 1 } else { base }
+}
+
+fn contrast_stretch(gray: &[u8]) -> Vec<u8> {
+    if gray.is_empty() {
+        return Vec::new();
+    }
+
+    let mut min_v = u8::MAX;
+    let mut max_v = u8::MIN;
+    for &v in gray {
+        min_v = min_v.min(v);
+        max_v = max_v.max(v);
+    }
+
+    if max_v <= min_v + 8 {
+        return gray.to_vec();
+    }
+
+    let range = (max_v - min_v) as f32;
+    gray.iter()
+        .map(|&v| (((v.saturating_sub(min_v)) as f32 / range) * 255.0).round() as u8)
+        .collect()
+}
+
+fn rotate_gray_45(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let mut out = vec![255u8; width * height];
+    let cx = (width as f32 - 1.0) * 0.5;
+    let cy = (height as f32 - 1.0) * 0.5;
+    let theta = 45.0f32.to_radians();
+    let cos_t = theta.cos();
+    let sin_t = theta.sin();
+
+    for y in 0..height {
+        for x in 0..width {
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let src_x = cos_t * dx + sin_t * dy + cx;
+            let src_y = -sin_t * dx + cos_t * dy + cy;
+            let sx = src_x.round() as isize;
+            let sy = src_y.round() as isize;
+            if sx >= 0 && sy >= 0 && (sx as usize) < width && (sy as usize) < height {
+                out[y * width + x] = gray[sy as usize * width + sx as usize];
+            }
+        }
+    }
+
+    out
+}
+
+fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    let window = auto_window(width, height);
+    let otsu = otsu_binarize(gray, width, height);
+    let adaptive = adaptive_binarize(gray, width, height, window);
+    let sauvola_k02 = sauvola_binarize(gray, width, height, window, 0.2);
+    let sauvola_k01 = sauvola_binarize(gray, width, height, window, 0.1);
+    let sauvola_k03 = sauvola_binarize(gray, width, height, window, 0.3);
+
+    let mut variants = vec![sauvola_k02, adaptive, otsu];
+
+    let mut sorted = gray.to_vec();
+    sorted.sort_unstable();
+    let median = sorted[sorted.len() / 2] as i16;
+    let t_dark = (median - 26).clamp(0, 255) as u8;
+    let t_light = (median + 26).clamp(0, 255) as u8;
+    variants.push(threshold_binarize(gray, width, height, t_dark));
+    variants.push(threshold_binarize(gray, width, height, t_light));
+
+    variants.push(sauvola_k01);
+    variants.push(sauvola_k03);
+
+    let mut results = Vec::new();
+    for binary in variants {
+        let finder_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&binary)
+        } else {
+            FinderDetector::detect(&binary)
+        };
+        if finder_patterns.len() < 3 {
+            continue;
+        }
+        let decoded = decode_groups(&binary, gray, width, height, &finder_patterns);
+        for qr in decoded {
+            if !results.iter().any(|r: &QRCode| r.content == qr.content) {
+                results.push(qr);
+            }
+        }
+        if !results.is_empty() {
+            return results;
+        }
+    }
+
+    results
+}
+
+fn run_detection_with_phase4_fallbacks(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    let mut results = run_detection_strategies(gray, width, height);
+    if !results.is_empty() {
+        return results;
+    }
+
+    let enhanced = contrast_stretch(gray);
+    results = run_detection_strategies(&enhanced, width, height);
+    if !results.is_empty() {
+        return results;
+    }
+
+    let rotated = rotate_gray_45(gray, width, height);
+    run_detection_strategies(&rotated, width, height)
+}
 
 /// Detect QR codes in an RGB image
 ///
@@ -68,73 +182,7 @@ use utils::memory_pool::BufferPool;
 pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
-
-    // Step 2: Binarize (adaptive first on large images, Otsu on small)
-    let mut binary = if width >= 800 || height >= 800 {
-        adaptive_binarize(&gray, width, height, 31)
-    } else {
-        otsu_binarize(&gray, width, height)
-    };
-
-    // Step 3: Detect finder patterns
-    // Use pyramid detection for very large images (1600px+) for better performance
-    let mut finder_patterns = if width >= 1600 && height >= 1600 {
-        FinderDetector::detect_with_pyramid(&binary)
-    } else {
-        FinderDetector::detect(&binary)
-    };
-
-    // Fallback: if adaptive yields too few patterns, try Otsu (or vice-versa)
-    if finder_patterns.len() < 3 {
-        let fallback = if width >= 800 || height >= 800 {
-            otsu_binarize(&gray, width, height)
-        } else {
-            adaptive_binarize(&gray, width, height, 31)
-        };
-        let fallback_patterns = if width >= 1600 && height >= 1600 {
-            FinderDetector::detect_with_pyramid(&fallback)
-        } else {
-            FinderDetector::detect(&fallback)
-        };
-        if fallback_patterns.len() >= 3 {
-            binary = fallback;
-            finder_patterns = fallback_patterns;
-        }
-    }
-
-    let mut results = decode_groups(&binary, &gray, width, height, &finder_patterns);
-
-    // Sauvola fallback: adapts to local contrast (handles shadows/glare)
-    if results.is_empty() {
-        let sauvola = sauvola_binarize(&gray, width, height, 31, 0.2);
-        let sauvola_patterns = if width >= 1600 && height >= 1600 {
-            FinderDetector::detect_with_pyramid(&sauvola)
-        } else {
-            FinderDetector::detect(&sauvola)
-        };
-        if sauvola_patterns.len() >= 3 {
-            results = decode_groups(&sauvola, &gray, width, height, &sauvola_patterns);
-        }
-    }
-
-    // Final fallback: if no decode, try the other binarizer end-to-end
-    if results.is_empty() {
-        let fallback = if width >= 800 || height >= 800 {
-            otsu_binarize(&gray, width, height)
-        } else {
-            adaptive_binarize(&gray, width, height, 31)
-        };
-        let fallback_patterns = if width >= 1600 && height >= 1600 {
-            FinderDetector::detect_with_pyramid(&fallback)
-        } else {
-            FinderDetector::detect(&fallback)
-        };
-        if fallback_patterns.len() >= 3 {
-            results = decode_groups(&fallback, &gray, width, height, &fallback_patterns);
-        }
-    }
-
-    results
+    run_detection_with_phase4_fallbacks(&gray, width, height)
 }
 
 /// Detect QR codes in an RGB image, returning telemetry about which pipeline
@@ -307,7 +355,7 @@ fn order_finder_patterns(
 
     let module_size = (d_tr + d_bl) / 2.0 / (dim as f32 - 7.0);
     let module_ratio = module_size / avg_module;
-    if !(0.8..=1.2).contains(&module_ratio) {
+    if !(0.7..=1.3).contains(&module_ratio) {
         return None;
     }
 
@@ -371,7 +419,8 @@ fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
         eprintln!("GROUP: Binned into {} size buckets", bins.len());
     }
 
-    // Try each bin and its neighbor to allow slight size mismatch
+    // Try each bin and its neighbor to allow slight size mismatch.
+    let mut all_groups = Vec::new();
     for i in 0..bins.len() {
         let mut indices = bins[i].clone();
         if i + 1 < bins.len() {
@@ -382,32 +431,21 @@ fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
         }
         let groups = build_groups(patterns, &indices);
         if !groups.is_empty() {
-            return groups;
+            all_groups.extend(groups);
         }
     }
 
-    Vec::new()
+    all_groups
 }
 
 fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
     let mut groups = Vec::new();
-    let mut used = vec![false; patterns.len()];
 
     for idx_i in 0..indices.len() {
         let i = indices[idx_i];
-        if used[i] {
-            continue;
-        }
         for idx_j in (idx_i + 1)..indices.len() {
             let j = indices[idx_j];
-            if used[j] {
-                continue;
-            }
             for &k in indices.iter().skip(idx_j + 1) {
-                if used[k] {
-                    continue;
-                }
-
                 let pi = &patterns[i];
                 let pj = &patterns[j];
                 let pk = &patterns[k];
@@ -417,7 +455,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
                 let size_ratio = max_size / min_size;
 
-                if size_ratio > 1.5 {
+                if size_ratio > 2.0 {
                     continue;
                 }
 
@@ -430,7 +468,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
 
                 let avg_module = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
-                if min_d < avg_module * 3.0 {
+                if min_d < avg_module * 2.5 {
                     continue;
                 }
                 if max_d > 3000.0 {
@@ -448,16 +486,12 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let cos_i = (a2 + b2 - c2) / (2.0 * d_ij * d_ik);
                 let cos_j = (a2 + c2 - b2) / (2.0 * d_ij * d_jk);
                 let cos_k = (b2 + c2 - a2) / (2.0 * d_ik * d_jk);
-                let has_right_angle = cos_i.abs() < 0.3 || cos_j.abs() < 0.3 || cos_k.abs() < 0.3;
+                let has_right_angle = cos_i.abs() < 0.4 || cos_j.abs() < 0.4 || cos_k.abs() < 0.4;
                 if !has_right_angle {
                     continue;
                 }
 
                 groups.push(vec![i, j, k]);
-                used[i] = true;
-                used[j] = true;
-                used[k] = true;
-                break;
             }
         }
     }
@@ -614,53 +648,7 @@ fn decode_groups_with_telemetry(
 /// # Returns
 /// Vector of detected QR codes
 pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    // Step 1: Binarize
-    let mut binary = if width >= 800 || height >= 800 {
-        adaptive_binarize(image, width, height, 31)
-    } else {
-        otsu_binarize(image, width, height)
-    };
-
-    // Step 2: Detect finder patterns
-    let mut finder_patterns = FinderDetector::detect(&binary);
-    if finder_patterns.len() < 3 {
-        let fallback = if width >= 800 || height >= 800 {
-            otsu_binarize(image, width, height)
-        } else {
-            adaptive_binarize(image, width, height, 31)
-        };
-        let fallback_patterns = FinderDetector::detect(&fallback);
-        if fallback_patterns.len() >= 3 {
-            binary = fallback;
-            finder_patterns = fallback_patterns;
-        }
-    }
-
-    // Step 3: Group finder patterns and decode QR codes
-    let mut results = decode_groups(&binary, image, width, height, &finder_patterns);
-
-    // Sauvola fallback: adapts to local contrast (handles shadows/glare)
-    if results.is_empty() {
-        let sauvola = sauvola_binarize(image, width, height, 31, 0.2);
-        let sauvola_patterns = FinderDetector::detect(&sauvola);
-        if sauvola_patterns.len() >= 3 {
-            results = decode_groups(&sauvola, image, width, height, &sauvola_patterns);
-        }
-    }
-
-    if results.is_empty() {
-        let fallback = if width >= 800 || height >= 800 {
-            otsu_binarize(image, width, height)
-        } else {
-            adaptive_binarize(image, width, height, 31)
-        };
-        let fallback_patterns = FinderDetector::detect(&fallback);
-        if fallback_patterns.len() >= 3 {
-            results = decode_groups(&fallback, image, width, height, &fallback_patterns);
-        }
-    }
-
-    results
+    run_detection_with_phase4_fallbacks(image, width, height)
 }
 
 /// Detect QR codes using a reusable buffer pool (faster for batch processing)

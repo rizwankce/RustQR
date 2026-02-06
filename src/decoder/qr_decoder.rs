@@ -6,6 +6,7 @@ use crate::decoder::reed_solomon::ReedSolomonDecoder;
 use crate::decoder::tables::ec_block_info;
 use crate::decoder::unmask::unmask;
 use crate::decoder::version::VersionInfo;
+use crate::detector::timing::read_timing_pattern;
 /// Main QR code decoder - wires everything together
 use crate::models::{BitMatrix, ECLevel, Point, QRCode, Version};
 use crate::utils::geometry::PerspectiveTransform;
@@ -43,52 +44,54 @@ impl QrDecoder {
         }
 
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
-        let mut candidates = Vec::new();
-        for delta in -2..=2 {
-            let v = estimated_version + delta;
-            if (1..=40).contains(&v) {
-                candidates.push(v as u8);
-            }
-        }
-        for v in 1..=40u8 {
-            if !candidates.contains(&v) {
-                candidates.push(v);
+        let candidates = Self::version_candidates(estimated_version);
+
+        let mut br_candidates = Vec::new();
+        let step = module_size.max(1.0) * 2.0;
+        for dy in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
+            for dx in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
+                br_candidates.push(Point::new(
+                    bottom_right.x + dx * step,
+                    bottom_right.y + dy * step,
+                ));
             }
         }
 
         for version_num in candidates {
             let dimension = 17 + 4 * version_num as usize;
-            let transform = match Self::build_transform(
-                top_left,
-                top_right,
-                bottom_left,
-                &bottom_right,
-                dimension,
-            ) {
-                Some(t) => t,
-                None => continue,
-            };
-            let transform = Self::refine_transform_with_alignment(
-                matrix,
-                &transform,
-                version_num,
-                dimension,
-                module_size,
-                top_left,
-                top_right,
-                bottom_left,
-            )
-            .unwrap_or(transform);
-            let qr_matrix = Self::extract_qr_region_with_transform(matrix, &transform, dimension);
+            for br in &br_candidates {
+                let transform =
+                    match Self::build_transform(top_left, top_right, bottom_left, br, dimension) {
+                        Some(t) => t,
+                        None => continue,
+                    };
+                let transform = Self::refine_transform_with_alignment(
+                    matrix,
+                    &transform,
+                    version_num,
+                    dimension,
+                    module_size,
+                    top_left,
+                    top_right,
+                    bottom_left,
+                )
+                .unwrap_or(transform);
+                let qr_matrix =
+                    Self::extract_qr_region_with_transform(matrix, &transform, dimension);
 
-            if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
-                return Some(qr);
-            }
+                if !Self::validate_timing_patterns(&qr_matrix) {
+                    continue;
+                }
 
-            // Try inverted grid (binarization might be flipped)
-            let inverted = Self::invert_matrix(&qr_matrix);
-            if let Some(qr) = Self::decode_from_matrix(&inverted, version_num) {
-                return Some(qr);
+                if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
+                    return Some(qr);
+                }
+
+                // Try inverted grid (binarization might be flipped)
+                let inverted = Self::invert_matrix(&qr_matrix);
+                if let Some(qr) = Self::decode_from_matrix(&inverted, version_num) {
+                    return Some(qr);
+                }
             }
         }
 
@@ -110,8 +113,8 @@ impl QrDecoder {
         let bottom_right = Self::calculate_bottom_right(top_left, top_right, bottom_left)?;
         let mut br_candidates = Vec::new();
         let step = module_size.max(1.0) * 2.0;
-        for dy in [-2.0f32, 0.0, 2.0] {
-            for dx in [-2.0f32, 0.0, 2.0] {
+        for dy in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
+            for dx in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
                 br_candidates.push(Point::new(
                     bottom_right.x + dx * step,
                     bottom_right.y + dy * step,
@@ -122,18 +125,7 @@ impl QrDecoder {
             Self::estimate_dimension(top_left, top_right, &bottom_right, module_size)?;
 
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
-        let mut candidates = Vec::new();
-        for delta in -2..=2 {
-            let v = estimated_version + delta;
-            if (1..=40).contains(&v) {
-                candidates.push(v as u8);
-            }
-        }
-        for v in 1..=40u8 {
-            if !candidates.contains(&v) {
-                candidates.push(v);
-            }
-        }
+        let candidates = Self::version_candidates(estimated_version);
 
         for version_num in candidates {
             let dimension = 17 + 4 * version_num as usize;
@@ -158,6 +150,10 @@ impl QrDecoder {
                 let qr_matrix = Self::extract_qr_region_gray_with_transform(
                     gray, width, height, &transform, dimension,
                 );
+                if !Self::validate_timing_patterns(&qr_matrix) {
+                    continue;
+                }
+
                 if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
                     return Some(qr);
                 }
@@ -169,6 +165,9 @@ impl QrDecoder {
 
                 let qr_matrix =
                     Self::extract_qr_region_with_transform(binary, &transform, dimension);
+                if !Self::validate_timing_patterns(&qr_matrix) {
+                    continue;
+                }
                 if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
                     return Some(qr);
                 }
@@ -247,6 +246,17 @@ impl QrDecoder {
             }
             None
         }
+    }
+
+    fn version_candidates(estimated_version: i32) -> Vec<u8> {
+        let mut candidates = Vec::new();
+        for delta in -2..=2 {
+            let v = estimated_version + delta;
+            if (1..=40).contains(&v) {
+                candidates.push(v as u8);
+            }
+        }
+        candidates
     }
 
     #[allow(dead_code)]
@@ -380,15 +390,17 @@ impl QrDecoder {
             }
         }
 
-        let mut sorted = samples.clone();
-        sorted.sort_unstable();
-        let threshold = sorted[sorted.len() / 2];
-
         let mut result = BitMatrix::new(dimension, dimension);
         for y in 0..dimension {
+            let row_start = y * dimension;
+            let row_end = row_start + dimension;
+            let mut row_sorted: Vec<u8> = samples[row_start..row_end].to_vec();
+            row_sorted.sort_unstable();
+            let row_threshold = row_sorted[row_sorted.len() / 2];
+
             for x in 0..dimension {
                 let idx = y * dimension + x;
-                result.set(x, y, samples[idx] < threshold);
+                result.set(x, y, samples[idx] < row_threshold);
             }
         }
 
@@ -519,20 +531,16 @@ impl QrDecoder {
     }
 
     pub(crate) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
-        let orientations = Self::prioritized_orientations(qr_matrix);
-
-        // Early exit: if no orientation has valid finder patterns, the matrix
-        // is not a recognizable QR code — skip all decode attempts.
-        let has_any_finders = orientations.iter().any(Self::has_finders_correct);
-        if !has_any_finders {
+        let orientations = Self::candidate_orientations(qr_matrix);
+        if orientations.is_empty() {
             return None;
         }
 
         let traversal_opts = [(true, false), (true, true), (false, false), (false, true)];
 
-        // Pass 1: try only extracted format info (1 combo per orientation)
+        // Fast path: if format BCH extraction succeeds, use only that format.
         for oriented in &orientations {
-            if !Self::has_finders_correct(oriented) {
+            if !Self::version_matches_candidate(oriented, version_num) {
                 continue;
             }
             if let Some(format_info) = FormatInfo::extract(oriented) {
@@ -552,14 +560,13 @@ impl QrDecoder {
             }
         }
 
-        // Pass 2: extracted format failed — try all 32 EC/mask combos
+        // Last-resort fallback: limited EC/mask subset (not full 32-combo brute force).
         for oriented in &orientations {
-            if !Self::has_finders_correct(oriented) {
+            if !Self::version_matches_candidate(oriented, version_num) {
                 continue;
             }
-
-            let all_ec = [ECLevel::L, ECLevel::M, ECLevel::Q, ECLevel::H];
-            for &ec in &all_ec {
+            let fallback_ec = [ECLevel::L, ECLevel::M];
+            for &ec in &fallback_ec {
                 for mask in 0..8u8 {
                     if let Some(mask_pattern) = crate::models::MaskPattern::from_bits(mask) {
                         let info = FormatInfo {
@@ -622,29 +629,6 @@ impl QrDecoder {
             score += 50;
         }
         score
-    }
-
-    fn orientations(matrix: &BitMatrix) -> Vec<BitMatrix> {
-        let mut out = Vec::new();
-        let r0 = matrix.clone();
-        let r90 = Self::rotate90(&r0);
-        let r180 = Self::rotate180(&r0);
-        let r270 = Self::rotate270(&r0);
-        let fh = Self::flip_horizontal(&r0);
-        let fv = Self::flip_vertical(&r0);
-        let fhr90 = Self::rotate90(&fh);
-        let fvr90 = Self::rotate90(&fv);
-
-        out.push(r0);
-        out.push(r90);
-        out.push(r180);
-        out.push(r270);
-        out.push(fh);
-        out.push(fv);
-        out.push(fhr90);
-        out.push(fvr90);
-
-        out
     }
 
     fn rotate90(matrix: &BitMatrix) -> BitMatrix {
@@ -716,6 +700,7 @@ impl QrDecoder {
     /// for a properly oriented QR code: top-left (0,0), top-right (dim-7,0),
     /// bottom-left (0,dim-7). Checks a small set of diagnostic cells at each
     /// finder position (corners and center) to quickly determine orientation.
+    #[cfg(test)]
     fn has_finders_correct(matrix: &BitMatrix) -> bool {
         let dim = matrix.width();
         if dim < 21 || matrix.height() < 21 {
@@ -757,29 +742,139 @@ impl QrDecoder {
             }
         }
 
-        // Allow a small tolerance for noise (up to 3 out of 21 diagnostic cells)
+        // Allow a small tolerance for noise.
         mismatches <= 3
     }
 
-    /// Return orientations with the most likely correct orientation first.
-    /// If `has_finders_correct` passes for a specific orientation, it is
-    /// placed at the front of the list. Otherwise all 8 are returned in
-    /// the default order.
-    fn prioritized_orientations(matrix: &BitMatrix) -> Vec<BitMatrix> {
-        let all = Self::orientations(matrix);
-        let mut prioritized = Vec::with_capacity(all.len());
-        let mut rest = Vec::new();
+    fn candidate_orientations(matrix: &BitMatrix) -> Vec<BitMatrix> {
+        let strict_tolerance = 3usize;
+        let relaxed_tolerance = 7usize;
+        let mut candidates = Vec::new();
 
-        for m in all {
-            if Self::has_finders_correct(&m) {
-                prioritized.push(m);
-            } else {
-                rest.push(m);
+        let r0 = matrix.clone();
+        if Self::has_finders_with_tolerance(&r0, strict_tolerance) {
+            candidates.push(r0);
+        }
+
+        let r90 = Self::rotate90(matrix);
+        if Self::has_finders_with_tolerance(&r90, strict_tolerance) {
+            candidates.push(r90);
+        }
+
+        let r180 = Self::rotate180(matrix);
+        if Self::has_finders_with_tolerance(&r180, strict_tolerance) {
+            candidates.push(r180);
+        }
+
+        let r270 = Self::rotate270(matrix);
+        if Self::has_finders_with_tolerance(&r270, strict_tolerance) {
+            candidates.push(r270);
+        }
+
+        if !candidates.is_empty() {
+            return candidates;
+        }
+
+        let fh = Self::flip_horizontal(matrix);
+        if Self::has_finders_with_tolerance(&fh, relaxed_tolerance) {
+            candidates.push(fh);
+        }
+
+        let fv = Self::flip_vertical(matrix);
+        if Self::has_finders_with_tolerance(&fv, relaxed_tolerance) {
+            candidates.push(fv);
+        }
+
+        let fhr90 = Self::rotate90(&Self::flip_horizontal(matrix));
+        if Self::has_finders_with_tolerance(&fhr90, relaxed_tolerance) {
+            candidates.push(fhr90);
+        }
+
+        let fvr90 = Self::rotate90(&Self::flip_vertical(matrix));
+        if Self::has_finders_with_tolerance(&fvr90, relaxed_tolerance) {
+            candidates.push(fvr90);
+        }
+
+        candidates
+    }
+
+    fn has_finders_with_tolerance(matrix: &BitMatrix, max_mismatches: usize) -> bool {
+        let dim = matrix.width();
+        if dim < 21 || matrix.height() < 21 {
+            return false;
+        }
+
+        let finder_checks: [(usize, usize, bool); 7] = [
+            (0, 0, true),
+            (6, 0, true),
+            (0, 6, true),
+            (6, 6, true),
+            (3, 3, true),
+            (1, 1, false),
+            (2, 2, true),
+        ];
+
+        let origins = [(0, 0), (dim - 7, 0), (0, dim - 7)];
+
+        let mut mismatches = 0usize;
+        for &(ox, oy) in &origins {
+            for &(dx, dy, expected) in &finder_checks {
+                let x = ox + dx;
+                let y = oy + dy;
+                if x >= dim || y >= matrix.height() {
+                    return false;
+                }
+                if matrix.get(x, y) != expected {
+                    mismatches += 1;
+                }
             }
         }
 
-        prioritized.extend(rest);
-        prioritized
+        mismatches <= max_mismatches
+    }
+
+    fn validate_timing_patterns(matrix: &BitMatrix) -> bool {
+        let dim = matrix.width();
+        if dim < 21 || matrix.height() != dim {
+            return false;
+        }
+
+        let horizontal = read_timing_pattern(
+            matrix,
+            &Point::new(8.0, 6.0),
+            &Point::new((dim - 9) as f32, 6.0),
+        );
+        let vertical = read_timing_pattern(
+            matrix,
+            &Point::new(6.0, 8.0),
+            &Point::new(6.0, (dim - 9) as f32),
+        );
+
+        let (Some(h_bits), Some(v_bits)) = (horizontal, vertical) else {
+            return false;
+        };
+
+        Self::alternation_ratio(&h_bits) >= 0.60 && Self::alternation_ratio(&v_bits) >= 0.60
+    }
+
+    fn version_matches_candidate(matrix: &BitMatrix, version_num: u8) -> bool {
+        if matrix.width() < 45 {
+            return true;
+        }
+
+        match VersionInfo::extract(matrix) {
+            Some(exact_version) => exact_version == version_num,
+            None => true,
+        }
+    }
+
+    fn alternation_ratio(bits: &[bool]) -> f32 {
+        if bits.len() < 2 {
+            return 0.0;
+        }
+
+        let transitions = bits.windows(2).filter(|w| w[0] != w[1]).count();
+        transitions as f32 / (bits.len() - 1) as f32
     }
 
     /// Attempt a single decode of an already-oriented matrix with specific
@@ -1010,6 +1105,26 @@ impl QrDecoder {
                         }
                     }
                     let _ = eci;
+                }
+                8 => {
+                    // Kanji mode: decode Shift-JIS code units from 13-bit values.
+                    // We preserve bytes in `data` and append a lossy textual representation.
+                    let count_bits = char_count_bits(mode, version);
+                    let count = reader.read_bits(count_bits)? as usize;
+                    let mut sjis_bytes = Vec::with_capacity(count * 2);
+                    for _ in 0..count {
+                        let val = reader.read_bits(13)? as u16;
+                        let mut intermediate = ((val / 0xC0) << 8) | (val % 0xC0);
+                        if intermediate < 0x1F00 {
+                            intermediate += 0x8140;
+                        } else {
+                            intermediate += 0xC140;
+                        }
+                        sjis_bytes.push((intermediate >> 8) as u8);
+                        sjis_bytes.push((intermediate & 0xFF) as u8);
+                    }
+                    data.extend_from_slice(&sjis_bytes);
+                    content.push_str(&String::from_utf8_lossy(&sjis_bytes));
                 }
                 _ => return None,
             }
