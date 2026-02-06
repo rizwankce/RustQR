@@ -1,4 +1,4 @@
-name: Benchmark
+name: Full Benchmark
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       bench_limit:
         description: 'Number of images to benchmark (0 = all 536)'
         required: false
-        default: '50'
+        default: '0'
         type: string
       run_reading_rate:
         description: 'Run reading rate benchmark'
