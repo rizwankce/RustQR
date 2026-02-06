@@ -4,7 +4,7 @@ use rust_qr::detector::finder::FinderDetector;
 use rust_qr::models::{BitMatrix, Point};
 use rust_qr::tools::{
     bench_limit_from_env, binarize, binary_stats, dataset_iter, dataset_root_from_env, detect_qr,
-    grayscale_stats, load_rgb, smoke_from_env, to_grayscale,
+    grayscale_stats, load_rgb, parse_expected_qr_count, smoke_from_env, to_grayscale,
 };
 use rust_qr::utils::geometry::PerspectiveTransform;
 use std::path::{Path, PathBuf};
@@ -307,18 +307,46 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         ("shadows", "Shadows on QR codes"),
     ];
 
-    let mut total_rate = 0.0;
-    let mut count = 0usize;
+    // Run metadata header
+    let datetime = std::process::Command::new("date")
+        .arg("+%Y-%m-%d %H:%M:%S")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    let commit_sha = std::process::Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    println!("RustQR QR Code Reading Rate Benchmark");
+    println!("=====================================");
+    println!("Date:    {}", datetime);
+    println!("Commit:  {}", commit_sha);
+    println!("Dataset: {}", root.display());
+    if let Some(l) = limit {
+        println!("Limit:   {} images per category", l);
+    } else {
+        println!("Limit:   full dataset");
+    }
+    if smoke {
+        println!("Mode:    smoke test");
+    }
+    println!("=====================================\n");
+
+    let mut global_hits = 0usize;
+    let mut global_expected = 0usize;
+    let mut category_results: Vec<(&str, usize, usize, usize, StageTelemetry)> = Vec::new();
     let mut categories_found = 0usize;
 
     for (dir, description) in categories {
         let category_root = root.join(dir);
         if !category_root.exists() {
             continue;
-        }
-        if categories_found == 0 {
-            println!("RustQR QR Code Reading Rate Benchmark");
-            println!("=====================================\n");
         }
         categories_found += 1;
         println!("Testing: {} - {}", dir, description);
@@ -338,24 +366,87 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
             dataset_iter(&category_root, None, false).collect()
         };
         if images.is_empty() {
-            println!("  {}: no images found", dir);
+            println!("  {}: no images found\n", dir);
             continue;
         }
-        let (successful, total) = reading_rate_for_images(images.into_iter());
-        if total == 0 {
-            println!("  {}: no labeled images found", dir);
+        let stats = reading_rate_for_images(images.into_iter());
+        if stats.total_expected == 0 {
+            println!("  {}: no labeled images found\n", dir);
             continue;
         }
-        let rate = (successful as f64 / total as f64) * 100.0;
-        println!("  {}: {}/{} = {:.2}%", dir, successful, total, rate);
-        total_rate += rate;
-        count += 1;
+        let rate = (stats.hits as f64 / stats.total_expected as f64) * 100.0;
+        println!(
+            "  {}: {}/{} QR codes detected across {} images = {:.2}%\n",
+            dir, stats.hits, stats.total_expected, stats.images_with_labels, rate,
+        );
+        global_hits += stats.hits;
+        global_expected += stats.total_expected;
+        category_results.push((
+            dir,
+            stats.hits,
+            stats.total_expected,
+            stats.images_with_labels,
+            stats.stage_telemetry,
+        ));
     }
 
-    if count > 0 {
-        let average = total_rate / count as f64;
-        println!("\n=====================================");
-        println!("Average Reading Rate: {:.2}%", average);
+    if categories_found > 0 && global_expected > 0 {
+        let global_rate = (global_hits as f64 / global_expected as f64) * 100.0;
+
+        println!("=====================================");
+        println!("Reading Rate Summary");
+        println!("=====================================");
+        println!(
+            "{:<16} {:>6} {:>6} {:>8}",
+            "Category", "Hits", "Total", "Rate"
+        );
+        println!("{}", "-".repeat(40));
+        for (dir, hits, expected, _, _) in &category_results {
+            let rate = if *expected > 0 {
+                (*hits as f64 / *expected as f64) * 100.0
+            } else {
+                0.0
+            };
+            println!("{:<16} {:>6} {:>6} {:>7.2}%", dir, hits, expected, rate);
+        }
+        println!("{}", "-".repeat(40));
+        println!(
+            "{:<16} {:>6} {:>6} {:>7.2}%",
+            "TOTAL", global_hits, global_expected, global_rate,
+        );
+        println!("=====================================\n");
+
+        // Stage telemetry table
+        println!("Pipeline Stage Telemetry (images passing each stage)");
+        println!("=====================================");
+        println!(
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}",
+            "Category", "Imgs", "Binarize", "Finders", "Groups", "Xform", "Decode"
+        );
+        println!("{}", "-".repeat(74));
+        let mut g_total = 0usize;
+        let mut g_bin = 0usize;
+        let mut g_find = 0usize;
+        let mut g_grp = 0usize;
+        let mut g_xfm = 0usize;
+        let mut g_dec = 0usize;
+        for (dir, _, _, _, tel) in &category_results {
+            println!(
+                "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}",
+                dir, tel.total, tel.binarize_ok, tel.finder_ok, tel.groups_ok, tel.transform_ok, tel.decode_ok,
+            );
+            g_total += tel.total;
+            g_bin += tel.binarize_ok;
+            g_find += tel.finder_ok;
+            g_grp += tel.groups_ok;
+            g_xfm += tel.transform_ok;
+            g_dec += tel.decode_ok;
+        }
+        println!("{}", "-".repeat(74));
+        println!(
+            "{:<16} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}",
+            "TOTAL", g_total, g_bin, g_find, g_grp, g_xfm, g_dec,
+        );
         println!("=====================================");
         return;
     }
@@ -366,50 +457,119 @@ fn reading_rate_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
         println!("No images found under {}", root.display());
         return;
     }
-    let (successful, total) = reading_rate_for_images(images.into_iter());
-    if total == 0 {
+    let stats = reading_rate_for_images(images.into_iter());
+    if stats.total_expected == 0 {
         println!("No labeled images found under {}", root.display());
         return;
     }
-    let rate = (successful as f64 / total as f64) * 100.0;
-    println!("Reading rate: {}/{} = {:.2}%", successful, total, rate);
+    let rate = (stats.hits as f64 / stats.total_expected as f64) * 100.0;
+    println!(
+        "Reading rate: {}/{} = {:.2}%",
+        stats.hits, stats.total_expected, rate
+    );
 }
 
-fn reading_rate_for_images<I>(images: I) -> (usize, usize)
+/// Per-QR-code scoring results for a set of images.
+struct ReadingRateStats {
+    /// Number of QR codes successfully decoded (capped at expected per image).
+    hits: usize,
+    /// Total expected QR codes from label files.
+    total_expected: usize,
+    /// Number of images that had a label file.
+    images_with_labels: usize,
+    /// Aggregated per-stage telemetry across all images.
+    stage_telemetry: StageTelemetry,
+}
+
+/// Aggregated pipeline-stage failure counts across a set of images.
+#[derive(Default)]
+struct StageTelemetry {
+    /// Images where binarization succeeded.
+    binarize_ok: usize,
+    /// Images where >= 3 finder patterns were found.
+    finder_ok: usize,
+    /// Images where >= 1 valid group was formed.
+    groups_ok: usize,
+    /// Images where >= 1 perspective transform was built.
+    transform_ok: usize,
+    /// Images where >= 1 QR code was decoded.
+    decode_ok: usize,
+    /// Total images processed.
+    total: usize,
+}
+
+fn reading_rate_for_images<I>(images: I) -> ReadingRateStats
 where
     I: Iterator<Item = PathBuf>,
 {
-    let mut total = 0usize;
-    let mut successful = 0usize;
+    let mut stats = ReadingRateStats {
+        hits: 0,
+        total_expected: 0,
+        images_with_labels: 0,
+        stage_telemetry: StageTelemetry::default(),
+    };
 
     for path in images {
         let txt_file = path.with_extension("txt");
         if !txt_file.exists() {
             continue;
         }
-        total += 1;
+        let expected = parse_expected_qr_count(&txt_file);
+        if expected == 0 {
+            continue;
+        }
+        stats.images_with_labels += 1;
+        stats.total_expected += expected;
+        stats.stage_telemetry.total += 1;
 
         if let Ok((pixels, width, height)) = load_rgb(&path) {
             let start = Instant::now();
-            let results = detect_qr(&pixels, width, height);
+            let (results, tel) =
+                rust_qr::detect_with_telemetry(&pixels, width, height);
             let elapsed = start.elapsed();
-            let hit = !results.is_empty();
-            if hit {
-                successful += 1;
+            let decoded = results.len();
+            let image_hits = decoded.min(expected);
+            stats.hits += image_hits;
+
+            // Accumulate stage telemetry
+            if tel.binarize_ok {
+                stats.stage_telemetry.binarize_ok += 1;
             }
+            if tel.finder_patterns_found >= 3 {
+                stats.stage_telemetry.finder_ok += 1;
+            }
+            if tel.groups_found >= 1 {
+                stats.stage_telemetry.groups_ok += 1;
+            }
+            if tel.transforms_built >= 1 {
+                stats.stage_telemetry.transform_ok += 1;
+            }
+            if decoded >= 1 {
+                stats.stage_telemetry.decode_ok += 1;
+            }
+
             println!(
-                "  [{}] {} -> {} ({:.2?})",
-                total,
+                "  [{}] {} -> {}/{} ({:.2?}) [finders={} groups={} transforms={}]",
+                stats.images_with_labels,
                 path.display(),
-                if hit { "hit" } else { "miss" },
-                elapsed
+                decoded,
+                expected,
+                elapsed,
+                tel.finder_patterns_found,
+                tel.groups_found,
+                tel.transforms_built,
             );
         } else {
-            println!("  [{}] {} -> load_failed", total, path.display());
+            println!(
+                "  [{}] {} -> load_failed (expected {})",
+                stats.images_with_labels,
+                path.display(),
+                expected,
+            );
         }
     }
 
-    (successful, total)
+    stats
 }
 
 fn dataset_bench_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
