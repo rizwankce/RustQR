@@ -561,6 +561,85 @@ fn reading_rate_cmd(
             global_stage_telemetry.recovery_mode_attempts
         );
         println!(
+            "Scale retries attempts/successes/skipped: {}/{}/{}",
+            global_stage_telemetry.scale_retry_attempts,
+            global_stage_telemetry.scale_retry_successes,
+            global_stage_telemetry.scale_retry_skipped_by_budget
+        );
+        println!(
+            "High-version subpixel/refine attempts/successes: {}/{}/{}",
+            global_stage_telemetry.hv_subpixel_attempts,
+            global_stage_telemetry.hv_refine_attempts,
+            global_stage_telemetry.hv_refine_successes
+        );
+        println!(
+            "RS erasure attempts/successes: {}/{} | hist[1,2-3,4-6,7+]=[{},{},{},{}]",
+            global_stage_telemetry.rs_erasure_attempts,
+            global_stage_telemetry.rs_erasure_successes,
+            global_stage_telemetry.rs_erasure_count_hist[0],
+            global_stage_telemetry.rs_erasure_count_hist[1],
+            global_stage_telemetry.rs_erasure_count_hist[2],
+            global_stage_telemetry.rs_erasure_count_hist[3]
+        );
+        let router_div = global_stage_telemetry.total.max(1) as f64;
+        println!(
+            "Router fast signals avg blur/sat/skew/density: {:.2}/{:.3}/{:.2}/{:.2}",
+            global_stage_telemetry.router_blur_metric_sum / router_div,
+            global_stage_telemetry.router_saturation_ratio_sum / router_div,
+            global_stage_telemetry.router_skew_estimate_deg_sum / router_div,
+            global_stage_telemetry.router_region_density_proxy_sum / router_div
+        );
+        println!(
+            "Budget lanes H/M/L attempts: {}/{}/{} | Fallback transitions O->A31: {} A31->A21: {} | Fallback successes: {}",
+            global_stage_telemetry.budget_lane_high,
+            global_stage_telemetry.budget_lane_medium,
+            global_stage_telemetry.budget_lane_low,
+            global_stage_telemetry.bin_fallback_otsu_to_adaptive31,
+            global_stage_telemetry.bin_fallback_adaptive31_to_adaptive21,
+            global_stage_telemetry.bin_fallback_successes
+        );
+        let rerank_top1_rate = if global_stage_telemetry.rerank_top1_attempts > 0 {
+            (global_stage_telemetry.rerank_top1_successes as f64
+                / global_stage_telemetry.rerank_top1_attempts as f64)
+                * 100.0
+        } else {
+            0.0
+        };
+        println!(
+            "Rerank enabled(images): {} | Top1 success: {}/{} ({:.2}%) | Transform rejects: {}",
+            global_stage_telemetry.rerank_enabled,
+            global_stage_telemetry.rerank_top1_successes,
+            global_stage_telemetry.rerank_top1_attempts,
+            rerank_top1_rate,
+            global_stage_telemetry.rerank_transform_reject_count
+        );
+        let saturation_coverage_avg = if global_stage_telemetry.total > 0 {
+            global_stage_telemetry.saturation_mask_coverage_sum
+                / global_stage_telemetry.total as f64
+        } else {
+            0.0
+        };
+        println!(
+            "Saturation mask enabled(images): {} | Avg coverage: {:.3} | Decode successes: {}",
+            global_stage_telemetry.saturation_mask_enabled,
+            saturation_coverage_avg,
+            global_stage_telemetry.saturation_mask_decode_successes
+        );
+        println!(
+            "ROI norm attempts/successes/skipped: {}/{}/{}",
+            global_stage_telemetry.roi_norm_attempts,
+            global_stage_telemetry.roi_norm_successes,
+            global_stage_telemetry.roi_norm_skipped
+        );
+        println!(
+            "Attempts/image histogram [0, 1, 2-3, 4-7, 8+]: [{}, {}, {}, {}, {}]",
+            global_stage_telemetry.attempts_used_histogram[0],
+            global_stage_telemetry.attempts_used_histogram[1],
+            global_stage_telemetry.attempts_used_histogram[2],
+            global_stage_telemetry.attempts_used_histogram[3],
+            global_stage_telemetry.attempts_used_histogram[4]
+        );
+        println!(
             "Candidate score buckets [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]: [{}, {}, {}, {}]",
             g_score_buckets[0], g_score_buckets[1], g_score_buckets[2], g_score_buckets[3]
         );
@@ -709,10 +788,50 @@ struct StageTelemetry {
     candidate_score_buckets: [usize; 4],
     /// Images where decoding was skipped by budget constraints.
     over_budget_skip: usize,
+    /// Decode attempts routed through high-confidence lane.
+    budget_lane_high: usize,
+    /// Decode attempts routed through medium-confidence lane.
+    budget_lane_medium: usize,
+    /// Decode attempts routed through low-confidence lane.
+    budget_lane_low: usize,
+    /// Binarization fallback transition count: Otsu -> adaptive(31).
+    bin_fallback_otsu_to_adaptive31: usize,
+    /// Binarization fallback transition count: adaptive(31) -> adaptive(21).
+    bin_fallback_adaptive31_to_adaptive21: usize,
+    /// Successful decodes achieved on fallback binarization path.
+    bin_fallback_successes: usize,
+    /// Images where reranking was enabled.
+    rerank_enabled: usize,
+    /// Number of top-1 rerank attempts.
+    rerank_top1_attempts: usize,
+    /// Number of successful top-1 rerank decodes.
+    rerank_top1_successes: usize,
+    /// Number of rerank candidate transform rejects.
+    rerank_transform_reject_count: usize,
+    /// Images where saturation-aware scoring was enabled.
+    saturation_mask_enabled: usize,
+    /// Sum of image-level saturation coverage ratios.
+    saturation_mask_coverage_sum: f64,
+    /// Successful decodes influenced by saturation-aware scoring.
+    saturation_mask_decode_successes: usize,
+    /// ROI-local normalization attempts.
+    roi_norm_attempts: usize,
+    /// Successful decodes from ROI-local normalization.
+    roi_norm_successes: usize,
+    /// ROI-local normalization skips.
+    roi_norm_skipped: usize,
     /// Images where 2-finder fallback was used.
     two_finder_used: usize,
     /// Images where router selected multi-region path.
     router_multi_region: usize,
+    /// Sum of router blur metrics.
+    router_blur_metric_sum: f64,
+    /// Sum of router saturation ratios.
+    router_saturation_ratio_sum: f64,
+    /// Sum of router skew estimates.
+    router_skew_estimate_deg_sum: f64,
+    /// Sum of router region density proxies.
+    router_region_density_proxy_sum: f64,
     /// Total acceptance-based rejections.
     acceptance_rejected: usize,
     /// Total deskew attempts.
@@ -723,6 +842,27 @@ struct StageTelemetry {
     high_version_precision_attempts: usize,
     /// Total recovery-mode attempts.
     recovery_mode_attempts: usize,
+    /// Total multi-scale retry attempts.
+    scale_retry_attempts: usize,
+    /// Total successful multi-scale retries.
+    scale_retry_successes: usize,
+    /// Total multi-scale retries skipped by budget/guardrails.
+    scale_retry_skipped_by_budget: usize,
+    /// Total high-version subpixel attempts.
+    hv_subpixel_attempts: usize,
+    /// Total high-version refine attempts.
+    hv_refine_attempts: usize,
+    /// Total high-version refine successes.
+    hv_refine_successes: usize,
+    /// Total RS erasure attempts.
+    rs_erasure_attempts: usize,
+    /// Total RS erasure successes.
+    rs_erasure_successes: usize,
+    /// RS erasure histogram buckets [1, 2-3, 4-6, 7+].
+    rs_erasure_count_hist: [usize; 4],
+    /// Per-image decode-attempt histogram:
+    /// [0, 1, 2-3, 4-7, 8+]
+    attempts_used_histogram: [usize; 5],
     /// Total images processed.
     total: usize,
 }
@@ -739,14 +879,62 @@ impl StageTelemetry {
             self.candidate_score_buckets[i] += other.candidate_score_buckets[i];
         }
         self.over_budget_skip += other.over_budget_skip;
+        self.budget_lane_high += other.budget_lane_high;
+        self.budget_lane_medium += other.budget_lane_medium;
+        self.budget_lane_low += other.budget_lane_low;
+        self.bin_fallback_otsu_to_adaptive31 += other.bin_fallback_otsu_to_adaptive31;
+        self.bin_fallback_adaptive31_to_adaptive21 += other.bin_fallback_adaptive31_to_adaptive21;
+        self.bin_fallback_successes += other.bin_fallback_successes;
+        self.rerank_enabled += other.rerank_enabled;
+        self.rerank_top1_attempts += other.rerank_top1_attempts;
+        self.rerank_top1_successes += other.rerank_top1_successes;
+        self.rerank_transform_reject_count += other.rerank_transform_reject_count;
+        self.saturation_mask_enabled += other.saturation_mask_enabled;
+        self.saturation_mask_coverage_sum += other.saturation_mask_coverage_sum;
+        self.saturation_mask_decode_successes += other.saturation_mask_decode_successes;
+        self.roi_norm_attempts += other.roi_norm_attempts;
+        self.roi_norm_successes += other.roi_norm_successes;
+        self.roi_norm_skipped += other.roi_norm_skipped;
         self.two_finder_used += other.two_finder_used;
         self.router_multi_region += other.router_multi_region;
+        self.router_blur_metric_sum += other.router_blur_metric_sum;
+        self.router_saturation_ratio_sum += other.router_saturation_ratio_sum;
+        self.router_skew_estimate_deg_sum += other.router_skew_estimate_deg_sum;
+        self.router_region_density_proxy_sum += other.router_region_density_proxy_sum;
         self.acceptance_rejected += other.acceptance_rejected;
         self.deskew_attempts += other.deskew_attempts;
         self.deskew_successes += other.deskew_successes;
         self.high_version_precision_attempts += other.high_version_precision_attempts;
         self.recovery_mode_attempts += other.recovery_mode_attempts;
+        self.scale_retry_attempts += other.scale_retry_attempts;
+        self.scale_retry_successes += other.scale_retry_successes;
+        self.scale_retry_skipped_by_budget += other.scale_retry_skipped_by_budget;
+        self.hv_subpixel_attempts += other.hv_subpixel_attempts;
+        self.hv_refine_attempts += other.hv_refine_attempts;
+        self.hv_refine_successes += other.hv_refine_successes;
+        self.rs_erasure_attempts += other.rs_erasure_attempts;
+        self.rs_erasure_successes += other.rs_erasure_successes;
+        for i in 0..self.rs_erasure_count_hist.len() {
+            self.rs_erasure_count_hist[i] += other.rs_erasure_count_hist[i];
+        }
+        for i in 0..self.attempts_used_histogram.len() {
+            self.attempts_used_histogram[i] += other.attempts_used_histogram[i];
+        }
         self.total += other.total;
+    }
+}
+
+fn attempts_hist_bucket(attempts: usize) -> usize {
+    if attempts == 0 {
+        0
+    } else if attempts == 1 {
+        1
+    } else if attempts <= 3 {
+        2
+    } else if attempts <= 7 {
+        3
+    } else {
+        4
     }
 }
 
@@ -888,24 +1076,69 @@ where
                 stats.stage_telemetry.decode_ok += 1;
             }
             stats.stage_telemetry.total_decode_attempts += tel.decode_attempts;
+            stats.stage_telemetry.attempts_used_histogram
+                [attempts_hist_bucket(tel.decode_attempts)] += 1;
             for i in 0..stats.stage_telemetry.candidate_score_buckets.len() {
                 stats.stage_telemetry.candidate_score_buckets[i] += tel.candidate_score_buckets[i];
             }
             if tel.budget_skips > 0 {
                 stats.stage_telemetry.over_budget_skip += 1;
             }
+            stats.stage_telemetry.budget_lane_high += tel.budget_lane_high;
+            stats.stage_telemetry.budget_lane_medium += tel.budget_lane_medium;
+            stats.stage_telemetry.budget_lane_low += tel.budget_lane_low;
+            stats.stage_telemetry.bin_fallback_otsu_to_adaptive31 +=
+                tel.bin_fallback_otsu_to_adaptive31;
+            stats.stage_telemetry.bin_fallback_adaptive31_to_adaptive21 +=
+                tel.bin_fallback_adaptive31_to_adaptive21;
+            stats.stage_telemetry.bin_fallback_successes += tel.bin_fallback_successes;
+            if tel.rerank_enabled {
+                stats.stage_telemetry.rerank_enabled += 1;
+            }
+            stats.stage_telemetry.rerank_top1_attempts += tel.rerank_top1_attempts;
+            stats.stage_telemetry.rerank_top1_successes += tel.rerank_top1_successes;
+            stats.stage_telemetry.rerank_transform_reject_count +=
+                tel.rerank_transform_reject_count;
+            if tel.saturation_mask_enabled {
+                stats.stage_telemetry.saturation_mask_enabled += 1;
+            }
+            stats.stage_telemetry.saturation_mask_coverage_sum +=
+                tel.saturation_mask_coverage as f64;
+            stats.stage_telemetry.saturation_mask_decode_successes +=
+                tel.saturation_mask_decode_successes;
+            stats.stage_telemetry.roi_norm_attempts += tel.roi_norm_attempts;
+            stats.stage_telemetry.roi_norm_successes += tel.roi_norm_successes;
+            stats.stage_telemetry.roi_norm_skipped += tel.roi_norm_skipped;
             if tel.two_finder_successes > 0 || tel.two_finder_attempts > 0 {
                 stats.stage_telemetry.two_finder_used += 1;
             }
             if tel.router_multi_region {
                 stats.stage_telemetry.router_multi_region += 1;
             }
+            stats.stage_telemetry.router_blur_metric_sum += tel.router_blur_metric as f64;
+            stats.stage_telemetry.router_saturation_ratio_sum += tel.router_saturation_ratio as f64;
+            stats.stage_telemetry.router_skew_estimate_deg_sum +=
+                tel.router_skew_estimate_deg as f64;
+            stats.stage_telemetry.router_region_density_proxy_sum +=
+                tel.router_region_density_proxy as f64;
             stats.stage_telemetry.acceptance_rejected += tel.acceptance_rejected;
             stats.stage_telemetry.deskew_attempts += tel.deskew_attempts;
             stats.stage_telemetry.deskew_successes += tel.deskew_successes;
             stats.stage_telemetry.high_version_precision_attempts +=
                 tel.high_version_precision_attempts;
             stats.stage_telemetry.recovery_mode_attempts += tel.recovery_mode_attempts;
+            stats.stage_telemetry.scale_retry_attempts += tel.scale_retry_attempts;
+            stats.stage_telemetry.scale_retry_successes += tel.scale_retry_successes;
+            stats.stage_telemetry.scale_retry_skipped_by_budget +=
+                tel.scale_retry_skipped_by_budget;
+            stats.stage_telemetry.hv_subpixel_attempts += tel.hv_subpixel_attempts;
+            stats.stage_telemetry.hv_refine_attempts += tel.hv_refine_attempts;
+            stats.stage_telemetry.hv_refine_successes += tel.hv_refine_successes;
+            stats.stage_telemetry.rs_erasure_attempts += tel.rs_erasure_attempts;
+            stats.stage_telemetry.rs_erasure_successes += tel.rs_erasure_successes;
+            for i in 0..stats.stage_telemetry.rs_erasure_count_hist.len() {
+                stats.stage_telemetry.rs_erasure_count_hist[i] += tel.rs_erasure_count_hist[i];
+            }
 
             if image_hits == 0 {
                 let signature = classify_failure_signature(&tel);
@@ -1153,6 +1386,88 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
         );
         let _ = writeln!(
             &mut json,
+            "        \"budget_lane_high\": {},",
+            category.stage_telemetry.budget_lane_high
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"budget_lane_medium\": {},",
+            category.stage_telemetry.budget_lane_medium
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"budget_lane_low\": {},",
+            category.stage_telemetry.budget_lane_low
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"bin_fallback_otsu_to_adaptive31\": {},",
+            category.stage_telemetry.bin_fallback_otsu_to_adaptive31
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"bin_fallback_adaptive31_to_adaptive21\": {},",
+            category
+                .stage_telemetry
+                .bin_fallback_adaptive31_to_adaptive21
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"bin_fallback_successes\": {},",
+            category.stage_telemetry.bin_fallback_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rerank_enabled\": {},",
+            category.stage_telemetry.rerank_enabled
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rerank_top1_attempts\": {},",
+            category.stage_telemetry.rerank_top1_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rerank_top1_successes\": {},",
+            category.stage_telemetry.rerank_top1_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rerank_transform_reject_count\": {},",
+            category.stage_telemetry.rerank_transform_reject_count
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"saturation_mask_enabled\": {},",
+            category.stage_telemetry.saturation_mask_enabled
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"saturation_mask_coverage_sum\": {:.6},",
+            category.stage_telemetry.saturation_mask_coverage_sum
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"saturation_mask_decode_successes\": {},",
+            category.stage_telemetry.saturation_mask_decode_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"roi_norm_attempts\": {},",
+            category.stage_telemetry.roi_norm_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"roi_norm_successes\": {},",
+            category.stage_telemetry.roi_norm_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"roi_norm_skipped\": {},",
+            category.stage_telemetry.roi_norm_skipped
+        );
+        let _ = writeln!(
+            &mut json,
             "        \"two_finder_used\": {},",
             category.stage_telemetry.two_finder_used
         );
@@ -1160,6 +1475,26 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             &mut json,
             "        \"router_multi_region\": {},",
             category.stage_telemetry.router_multi_region
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"router_blur_metric_sum\": {:.6},",
+            category.stage_telemetry.router_blur_metric_sum
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"router_saturation_ratio_sum\": {:.6},",
+            category.stage_telemetry.router_saturation_ratio_sum
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"router_skew_estimate_deg_sum\": {:.6},",
+            category.stage_telemetry.router_skew_estimate_deg_sum
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"router_region_density_proxy_sum\": {:.6},",
+            category.stage_telemetry.router_region_density_proxy_sum
         );
         let _ = writeln!(
             &mut json,
@@ -1188,11 +1523,68 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
         );
         let _ = writeln!(
             &mut json,
-            "        \"candidate_score_buckets\": [{}, {}, {}, {}]",
+            "        \"scale_retry_attempts\": {},",
+            category.stage_telemetry.scale_retry_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"scale_retry_successes\": {},",
+            category.stage_telemetry.scale_retry_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"scale_retry_skipped_by_budget\": {},",
+            category.stage_telemetry.scale_retry_skipped_by_budget
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"hv_subpixel_attempts\": {},",
+            category.stage_telemetry.hv_subpixel_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"hv_refine_attempts\": {},",
+            category.stage_telemetry.hv_refine_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"hv_refine_successes\": {},",
+            category.stage_telemetry.hv_refine_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rs_erasure_attempts\": {},",
+            category.stage_telemetry.rs_erasure_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rs_erasure_successes\": {},",
+            category.stage_telemetry.rs_erasure_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rs_erasure_count_hist\": [{}, {}, {}, {}],",
+            category.stage_telemetry.rs_erasure_count_hist[0],
+            category.stage_telemetry.rs_erasure_count_hist[1],
+            category.stage_telemetry.rs_erasure_count_hist[2],
+            category.stage_telemetry.rs_erasure_count_hist[3]
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"candidate_score_buckets\": [{}, {}, {}, {}],",
             category.stage_telemetry.candidate_score_buckets[0],
             category.stage_telemetry.candidate_score_buckets[1],
             category.stage_telemetry.candidate_score_buckets[2],
             category.stage_telemetry.candidate_score_buckets[3],
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"attempts_used_histogram\": [{}, {}, {}, {}, {}]",
+            category.stage_telemetry.attempts_used_histogram[0],
+            category.stage_telemetry.attempts_used_histogram[1],
+            category.stage_telemetry.attempts_used_histogram[2],
+            category.stage_telemetry.attempts_used_histogram[3],
+            category.stage_telemetry.attempts_used_histogram[4],
         );
         json.push_str("      },\n");
         write_runtime_json(&mut json, "runtime", category.runtime, 6);

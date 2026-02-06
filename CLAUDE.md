@@ -28,7 +28,11 @@ cargo test test_decode_monitor_image001 -- --nocapture  # Run specific test
 
 # Test tuning environment variables:
 QR_MAX_DIM=0 QR_DEBUG=1 cargo test test_decode_monitor_image001 -- --nocapture
-# - QR_MAX_DIM: Max image dimension (default: 1200, set to 0 to disable downscaling)
+# - QR_MAX_DIM: Max image dimension.
+#   - Recommended default for benchmark/CI: 1024
+#   - Fast local iteration: 800
+#   - Deep validation: 1200
+#   - Set to 0 to disable downscaling
 # - QR_DEBUG=1: Enable debug logging in detection/decoder paths
 ```
 
@@ -145,7 +149,7 @@ The `DetectionTelemetry` struct tracks pipeline stage success/failure:
 - Used by reading-rate benchmarks to diagnose failure modes
 
 ### Environment Variables
-- `QR_MAX_DIM`: Max image dimension for downscaling (default: 1200, 0=disabled)
+- `QR_MAX_DIM`: Max image dimension for downscaling (`1024` recommended for benchmark/CI, `800` for local fast runs, `1200` for deep validation, `0`=disabled)
 - `QR_DEBUG=1`: Enable debug logging in detection/decoder
 - `QR_BENCH_LIMIT`: Limit reading-rate dataset size (default: full dataset)
 

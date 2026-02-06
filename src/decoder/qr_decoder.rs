@@ -16,26 +16,59 @@ pub(crate) struct DecodeCounters {
     pub deskew_successes: usize,
     pub high_version_precision_attempts: usize,
     pub recovery_mode_attempts: usize,
+    pub scale_retry_attempts: usize,
+    pub scale_retry_successes: usize,
+    pub scale_retry_skipped_by_budget: usize,
+    pub hv_subpixel_attempts: usize,
+    pub hv_refine_attempts: usize,
+    pub hv_refine_successes: usize,
+    pub rs_erasure_attempts: usize,
+    pub rs_erasure_successes: usize,
+    pub rs_erasure_count_hist: [usize; 4],
 }
 
 static DESKEW_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
 static DESKEW_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
 static HIGH_VERSION_PRECISION_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
 static RECOVERY_MODE_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+static SCALE_RETRY_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+static SCALE_RETRY_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
+static SCALE_RETRY_SKIPPED_BY_BUDGET: AtomicUsize = AtomicUsize::new(0);
+static HV_SUBPIXEL_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+static HV_REFINE_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+static HV_REFINE_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
 
 pub(crate) fn reset_decode_counters() {
     DESKEW_ATTEMPTS.store(0, Ordering::Relaxed);
     DESKEW_SUCCESSES.store(0, Ordering::Relaxed);
     HIGH_VERSION_PRECISION_ATTEMPTS.store(0, Ordering::Relaxed);
     RECOVERY_MODE_ATTEMPTS.store(0, Ordering::Relaxed);
+    SCALE_RETRY_ATTEMPTS.store(0, Ordering::Relaxed);
+    SCALE_RETRY_SUCCESSES.store(0, Ordering::Relaxed);
+    SCALE_RETRY_SKIPPED_BY_BUDGET.store(0, Ordering::Relaxed);
+    HV_SUBPIXEL_ATTEMPTS.store(0, Ordering::Relaxed);
+    HV_REFINE_ATTEMPTS.store(0, Ordering::Relaxed);
+    HV_REFINE_SUCCESSES.store(0, Ordering::Relaxed);
+    payload::reset_erasure_counters();
 }
 
 pub(crate) fn take_decode_counters() -> DecodeCounters {
+    let (rs_erasure_attempts, rs_erasure_successes, rs_erasure_count_hist) =
+        payload::take_erasure_counters();
     DecodeCounters {
         deskew_attempts: DESKEW_ATTEMPTS.swap(0, Ordering::Relaxed),
         deskew_successes: DESKEW_SUCCESSES.swap(0, Ordering::Relaxed),
         high_version_precision_attempts: HIGH_VERSION_PRECISION_ATTEMPTS.swap(0, Ordering::Relaxed),
         recovery_mode_attempts: RECOVERY_MODE_ATTEMPTS.swap(0, Ordering::Relaxed),
+        scale_retry_attempts: SCALE_RETRY_ATTEMPTS.swap(0, Ordering::Relaxed),
+        scale_retry_successes: SCALE_RETRY_SUCCESSES.swap(0, Ordering::Relaxed),
+        scale_retry_skipped_by_budget: SCALE_RETRY_SKIPPED_BY_BUDGET.swap(0, Ordering::Relaxed),
+        hv_subpixel_attempts: HV_SUBPIXEL_ATTEMPTS.swap(0, Ordering::Relaxed),
+        hv_refine_attempts: HV_REFINE_ATTEMPTS.swap(0, Ordering::Relaxed),
+        hv_refine_successes: HV_REFINE_SUCCESSES.swap(0, Ordering::Relaxed),
+        rs_erasure_attempts,
+        rs_erasure_successes,
+        rs_erasure_count_hist,
     }
 }
 
@@ -179,6 +212,9 @@ impl QrDecoder {
                     Self::extract_qr_region_gray_with_transform_and_confidence(
                         gray, width, height, &transform, dimension,
                     );
+                if version_num >= 7 {
+                    HV_SUBPIXEL_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                }
                 if !orientation::validate_timing_patterns(&qr_matrix) {
                     continue;
                 }
@@ -198,6 +234,73 @@ impl QrDecoder {
                     &module_confidence,
                 ) {
                     return Some(qr);
+                }
+
+                let should_scale_retry = module_size <= 2.4 || version_num >= 7 || dimension >= 85;
+                if should_scale_retry {
+                    for &scale in &[1.25f32, 1.5f32] {
+                        SCALE_RETRY_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                        let (scaled_matrix, scaled_conf) =
+                            Self::extract_qr_region_gray_with_transform_and_confidence_scaled(
+                                gray, width, height, &transform, dimension, scale,
+                            );
+                        if !orientation::validate_timing_patterns(&scaled_matrix) {
+                            continue;
+                        }
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                            &scaled_matrix,
+                            version_num,
+                            &scaled_conf,
+                        ) {
+                            SCALE_RETRY_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                            return Some(qr);
+                        }
+                        let scaled_inverted = orientation::invert_matrix(&scaled_matrix);
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                            &scaled_inverted,
+                            version_num,
+                            &scaled_conf,
+                        ) {
+                            SCALE_RETRY_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                            return Some(qr);
+                        }
+                    }
+                } else {
+                    SCALE_RETRY_SKIPPED_BY_BUDGET.fetch_add(1, Ordering::Relaxed);
+                }
+
+                if version_num >= 7 {
+                    HV_REFINE_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                    if let Some(refined_hv_transform) = Self::refine_transform_with_alignment(
+                        binary,
+                        &transform,
+                        version_num,
+                        dimension,
+                        (module_size * 0.9).max(1.0),
+                        top_left,
+                        top_right,
+                        bottom_left,
+                    ) {
+                        let (hv_matrix, hv_conf) =
+                            Self::extract_qr_region_gray_with_transform_and_confidence_scaled(
+                                gray,
+                                width,
+                                height,
+                                &refined_hv_transform,
+                                dimension,
+                                1.35,
+                            );
+                        if orientation::validate_timing_patterns(&hv_matrix) {
+                            if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                                &hv_matrix,
+                                version_num,
+                                &hv_conf,
+                            ) {
+                                HV_REFINE_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                                return Some(qr);
+                            }
+                        }
+                    }
                 }
 
                 // Rotation-specialized deskew fallback: apply a bounded mesh warp variant
@@ -356,6 +459,24 @@ impl QrDecoder {
     ) -> (BitMatrix, Vec<u8>) {
         geometry::extract_qr_region_gray_with_transform_and_confidence(
             gray, width, height, transform, dimension,
+        )
+    }
+
+    fn extract_qr_region_gray_with_transform_and_confidence_scaled(
+        gray: &[u8],
+        width: usize,
+        height: usize,
+        transform: &crate::utils::geometry::PerspectiveTransform,
+        dimension: usize,
+        sample_scale: f32,
+    ) -> (BitMatrix, Vec<u8>) {
+        geometry::extract_qr_region_gray_with_transform_and_confidence_scaled(
+            gray,
+            width,
+            height,
+            transform,
+            dimension,
+            sample_scale,
         )
     }
 

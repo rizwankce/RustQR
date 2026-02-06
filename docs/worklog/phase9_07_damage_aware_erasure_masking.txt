@@ -1,0 +1,33 @@
+# Phase 9.7 - Damage-Aware Erasure Masking for RS Inputs
+
+## Goal
+Increase recovery on damaged symbols by marking highly uncertain symbols as erasures before RS decode.
+
+## Scope
+- Compute module/codeword uncertainty map near likely damage regions
+- Feed bounded erasure hints to RS decode
+
+## Files
+- src/decoder/qr_decoder/payload.rs
+- src/decoder/reed_solomon.rs
+- src/decoder/qr_decoder.rs
+
+## Implementation Tasks
+1. Add uncertainty score per sampled module/codeword.
+2. Build capped erasure set from worst-confidence codewords.
+3. Run RS decode with erasures after strict decode failure.
+4. Add telemetry:
+   - rs_erasure_attempts
+   - rs_erasure_successes
+   - rs_erasure_count_hist
+
+## Validation
+- Focused run:
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category damaged --limit 37 --non-interactive
+
+## Success Criteria
+- +3pp on damaged.
+- No significant precision drop.
+
+## Deliverables
+- Erasure-masking path + tests + telemetry summary.

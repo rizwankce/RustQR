@@ -1,0 +1,94 @@
+{
+  "schema_version": "rustqr.reading_rate.v1",
+  "metadata": {
+    "dataset_root": "benches/images/boofcv",
+    "dataset_fingerprint": "ba96d1300e9f787b",
+    "commit_sha": "19ee9252407aa9f43795871a98e2ce3fbd234788",
+    "timestamp_utc": "2026-02-06T17:24:13Z",
+    "limit_per_category": 2,
+    "smoke": false,
+    "non_interactive": true
+  },
+  "summary": {
+    "weighted_global_rate_percent": 100.0000,
+    "total_hits": 2,
+    "total_expected": 2,
+    "total_images_with_labels": 2,
+    "runtime": {
+      "samples": 2,
+      "total_ms": 3002.5210,
+      "mean_per_image_ms": 1501.2605,
+      "median_per_image_ms": 1501.2605,
+      "min_per_image_ms": 561.3276,
+      "max_per_image_ms": 2441.1934
+    }
+  },
+  "categories": [
+    {
+      "name": "blurred",
+      "description": "Blurred QR codes",
+      "hits": 2,
+      "total_expected": 2,
+      "images_with_labels": 2,
+      "rate_percent": 100.0000,
+      "stage_telemetry": {
+        "total": 2,
+        "binarize_ok": 2,
+        "finder_ok": 2,
+        "groups_ok": 2,
+        "transform_ok": 2,
+        "decode_ok": 2,
+        "total_decode_attempts": 8,
+        "over_budget_skip": 0,
+        "budget_lane_high": 6,
+        "budget_lane_medium": 2,
+        "budget_lane_low": 0,
+        "bin_fallback_otsu_to_adaptive31": 1,
+        "bin_fallback_adaptive31_to_adaptive21": 1,
+        "bin_fallback_successes": 1,
+        "rerank_enabled": 2,
+        "rerank_top1_attempts": 3,
+        "rerank_top1_successes": 1,
+        "rerank_transform_reject_count": 43,
+        "saturation_mask_enabled": 0,
+        "saturation_mask_coverage_sum": 0.000000,
+        "saturation_mask_decode_successes": 0,
+        "roi_norm_attempts": 0,
+        "roi_norm_successes": 0,
+        "roi_norm_skipped": 0,
+        "two_finder_used": 0,
+        "router_multi_region": 1,
+        "router_blur_metric_sum": 11.576902,
+        "router_saturation_ratio_sum": 0.000000,
+        "router_skew_estimate_deg_sum": 343.800308,
+        "router_region_density_proxy_sum": 19.007508,
+        "acceptance_rejected": 0,
+        "deskew_attempts": 39,
+        "deskew_successes": 0,
+        "high_version_precision_attempts": 0,
+        "recovery_mode_attempts": 40,
+        "scale_retry_attempts": 0,
+        "scale_retry_successes": 0,
+        "scale_retry_skipped_by_budget": 45,
+        "hv_subpixel_attempts": 300,
+        "hv_refine_attempts": 0,
+        "hv_refine_successes": 0,
+        "rs_erasure_attempts": 20508,
+        "rs_erasure_successes": 0,
+        "rs_erasure_count_hist": [0, 1584, 4032, 14892],
+        "candidate_score_buckets": [0, 0, 8, 1]
+        "attempts_used_histogram": [0, 0, 1, 1, 0]
+      },
+      "runtime": {
+        "samples": 2,
+        "total_ms": 3002.5210,
+        "mean_per_image_ms": 1501.2605,
+        "median_per_image_ms": 1501.2605,
+        "min_per_image_ms": 561.3276,
+        "max_per_image_ms": 2441.1934
+      }
+    }
+  ],
+  "failure_clusters": [
+  ]
+}

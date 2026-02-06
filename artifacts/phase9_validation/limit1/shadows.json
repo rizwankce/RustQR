@@ -1,0 +1,94 @@
+{
+  "schema_version": "rustqr.reading_rate.v1",
+  "metadata": {
+    "dataset_root": "benches/images/boofcv",
+    "dataset_fingerprint": "ba96d1300e9f787b",
+    "commit_sha": "19ee9252407aa9f43795871a98e2ce3fbd234788",
+    "timestamp_utc": "2026-02-06T17:30:00Z",
+    "limit_per_category": 1,
+    "smoke": false,
+    "non_interactive": true
+  },
+  "summary": {
+    "weighted_global_rate_percent": 33.3333,
+    "total_hits": 1,
+    "total_expected": 3,
+    "total_images_with_labels": 1,
+    "runtime": {
+      "samples": 1,
+      "total_ms": 32970.0662,
+      "mean_per_image_ms": 32970.0662,
+      "median_per_image_ms": 32970.0662,
+      "min_per_image_ms": 32970.0662,
+      "max_per_image_ms": 32970.0662
+    }
+  },
+  "categories": [
+    {
+      "name": "shadows",
+      "description": "Shadows on QR codes",
+      "hits": 1,
+      "total_expected": 3,
+      "images_with_labels": 1,
+      "rate_percent": 33.3333,
+      "stage_telemetry": {
+        "total": 1,
+        "binarize_ok": 1,
+        "finder_ok": 1,
+        "groups_ok": 1,
+        "transform_ok": 1,
+        "decode_ok": 1,
+        "total_decode_attempts": 20,
+        "over_budget_skip": 0,
+        "budget_lane_high": 20,
+        "budget_lane_medium": 0,
+        "budget_lane_low": 0,
+        "bin_fallback_otsu_to_adaptive31": 0,
+        "bin_fallback_adaptive31_to_adaptive21": 0,
+        "bin_fallback_successes": 1,
+        "rerank_enabled": 1,
+        "rerank_top1_attempts": 2,
+        "rerank_top1_successes": 1,
+        "rerank_transform_reject_count": 859,
+        "saturation_mask_enabled": 0,
+        "saturation_mask_coverage_sum": 0.000000,
+        "saturation_mask_decode_successes": 0,
+        "roi_norm_attempts": 0,
+        "roi_norm_successes": 0,
+        "roi_norm_skipped": 0,
+        "two_finder_used": 0,
+        "router_multi_region": 1,
+        "router_blur_metric_sum": 7.942789,
+        "router_saturation_ratio_sum": 0.002645,
+        "router_skew_estimate_deg_sum": 114.738571,
+        "router_region_density_proxy_sum": 50.862629,
+        "acceptance_rejected": 0,
+        "deskew_attempts": 226,
+        "deskew_successes": 0,
+        "high_version_precision_attempts": 0,
+        "recovery_mode_attempts": 230,
+        "scale_retry_attempts": 166,
+        "scale_retry_successes": 0,
+        "scale_retry_skipped_by_budget": 158,
+        "hv_subpixel_attempts": 1475,
+        "hv_refine_attempts": 83,
+        "hv_refine_successes": 0,
+        "rs_erasure_attempts": 144488,
+        "rs_erasure_successes": 0,
+        "rs_erasure_count_hist": [4320, 4690, 31200, 104278],
+        "candidate_score_buckets": [0, 0, 85, 20],
+        "attempts_used_histogram": [0, 0, 0, 0, 1]
+      },
+      "runtime": {
+        "samples": 1,
+        "total_ms": 32970.0662,
+        "mean_per_image_ms": 32970.0662,
+        "median_per_image_ms": 32970.0662,
+        "min_per_image_ms": 32970.0662,
+        "max_per_image_ms": 32970.0662
+      }
+    }
+  ],
+  "failure_clusters": [
+  ]
+}

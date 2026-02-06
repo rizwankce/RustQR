@@ -1,0 +1,64 @@
+phase9 validation start 2026-02-06T17:09:18Z
+== brightness limit=28 ==
+RustQR QR Code Reading Rate Benchmark
+=====================================
+Date:    2026-02-06T17:09:26Z
+Commit:  19ee9252407aa9f43795871a98e2ce3fbd234788
+Dataset: benches/images/boofcv
+Data FP: ba96d1300e9f787b
+Limit:   28 images per category
+Output:  non-interactive
+Category filter: brightness
+=====================================
+
+Testing: brightness - Various brightness levels
+  brightness: 19/85 QR codes detected across 28 images = 22.35%
+
+=====================================
+Reading Rate Summary
+=====================================
+Category           Hits  Total     Rate
+----------------------------------------
+brightness           19     85   22.35%
+----------------------------------------
+TOTAL                19     85   22.35%
+Runtime median: 10680.96 ms/image (mean 14610.90 ms, n=28)
+=====================================
+
+Pipeline Stage Telemetry (images passing each stage)
+=====================================
+Category           Imgs Binarize  Finders   Groups    Xform   Decode    AvgTry   Budget   Region AcceptRj
+--------------------------------------------------------------------------------------------------------
+brightness           28       28       28       26       26       17      8.96        0       20        0
+--------------------------------------------------------------------------------------------------------
+TOTAL                28       28       28       26       26       17      8.96        0       20        0
+Deskew attempts/successes: 2827/10 | High-version precision attempts: 0 | Recovery mode attempts: 2028
+Scale retries attempts/successes/skipped: 2764/0/1652
+High-version subpixel/refine attempts/successes: 12850/1138/0
+RS erasure attempts/successes: 1903857/1 | hist[1,2-3,4-6,7+]=[34668,71235,166135,1631819]
+Router fast signals avg blur/sat/skew/density: 3.60/0.006/67.90/33.85
+Budget lanes H/M/L attempts: 231/20/0 | Fallback transitions O->A31: 2 A31->A21: 2 | Fallback successes: 5
+Rerank enabled(images): 28 | Top1 success: 2/38 (5.26%) | Transform rejects: 5100
+Saturation mask enabled(images): 1 | Avg coverage: 0.006 | Decode successes: 1
+ROI norm attempts/successes/skipped: 0/0/11
+Attempts/image histogram [0, 1, 2-3, 4-7, 8+]: [2, 3, 1, 4, 18]
+Candidate score buckets [<2.0, 2.0-<3.0, 3.0-<5.0, >=5.0]: [0, 0, 789, 32]
+Top failure signatures:
+  - format-fail      count=9 qr_weight=27 example=benches/images/boofcv/brightness/image013.jpg
+  - no-groups        count=2 qr_weight=6 example=benches/images/boofcv/brightness/image018.jpg
+=====================================
+Artifact: artifacts/phase9_validation/brightness.json
+A/B compare: python3 scripts/compare_reading_rate_artifacts.py --baseline <baseline.json> --candidate artifacts/phase9_validation/brightness.json
+== shadows limit=30 ==
+RustQR QR Code Reading Rate Benchmark
+=====================================
+Date:    2026-02-06T17:16:19Z
+Commit:  19ee9252407aa9f43795871a98e2ce3fbd234788
+Dataset: benches/images/boofcv
+Data FP: ba96d1300e9f787b
+Limit:   30 images per category
+Output:  non-interactive
+Category filter: shadows
+=====================================
+
+Testing: shadows - Shadows on QR codes

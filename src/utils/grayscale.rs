@@ -77,6 +77,54 @@ pub fn rgba_to_grayscale(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
     }
 }
 
+/// Apply lightweight local contrast normalization to a rectangular ROI.
+///
+/// Pixels outside the ROI are copied unchanged. Inside the ROI, values are
+/// linearly stretched based on ROI min/max when sufficient dynamic range exists.
+pub fn normalize_roi_local_contrast(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    roi: (usize, usize, usize, usize),
+) -> Vec<u8> {
+    if gray.len() != width * height || width == 0 || height == 0 {
+        return gray.to_vec();
+    }
+    let (x0, y0, x1, y1) = roi;
+    if x0 >= x1 || y0 >= y1 || x0 >= width || y0 >= height {
+        return gray.to_vec();
+    }
+    let x1 = x1.min(width);
+    let y1 = y1.min(height);
+
+    let mut min_v = u8::MAX;
+    let mut max_v = u8::MIN;
+    for y in y0..y1 {
+        let row = y * width;
+        for x in x0..x1 {
+            let v = gray[row + x];
+            min_v = min_v.min(v);
+            max_v = max_v.max(v);
+        }
+    }
+
+    if max_v <= min_v + 12 {
+        return gray.to_vec();
+    }
+
+    let mut out = gray.to_vec();
+    let range = (max_v - min_v) as f32;
+    for y in y0..y1 {
+        let row = y * width;
+        for x in x0..x1 {
+            let idx = row + x;
+            let v = gray[idx].saturating_sub(min_v) as f32 / range;
+            out[idx] = (v * 255.0).round().clamp(0.0, 255.0) as u8;
+        }
+    }
+    out
+}
+
 // ============== x86_64 SSE2 Implementation ==============
 
 #[cfg(target_arch = "x86_64")]

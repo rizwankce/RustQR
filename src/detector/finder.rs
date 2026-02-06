@@ -3,7 +3,7 @@ use crate::detector::connected_components::find_black_regions;
 use crate::detector::pyramid::ImagePyramid;
 use crate::models::{BitMatrix, Point};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FinderPattern {
     pub center: Point,
     pub module_size: f32,

@@ -155,7 +155,27 @@ pub(super) fn extract_qr_region_gray_with_transform_and_confidence(
     transform: &PerspectiveTransform,
     dimension: usize,
 ) -> (BitMatrix, Vec<u8>) {
-    extract_qr_region_gray_with_variant(gray, width, height, transform, dimension, 0.0, 0.0)
+    extract_qr_region_gray_with_variant(gray, width, height, transform, dimension, 0.0, 0.0, 1.0)
+}
+
+pub(super) fn extract_qr_region_gray_with_transform_and_confidence_scaled(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+    sample_scale: f32,
+) -> (BitMatrix, Vec<u8>) {
+    extract_qr_region_gray_with_variant(
+        gray,
+        width,
+        height,
+        transform,
+        dimension,
+        0.0,
+        0.0,
+        sample_scale,
+    )
 }
 
 pub(super) fn extract_qr_region_gray_with_radial_compensation(
@@ -167,7 +187,7 @@ pub(super) fn extract_qr_region_gray_with_radial_compensation(
 ) -> Option<(BitMatrix, Vec<u8>)> {
     let k1 = estimate_radial_k1(transform, dimension)?;
     Some(extract_qr_region_gray_with_variant(
-        gray, width, height, transform, dimension, k1, 0.0,
+        gray, width, height, transform, dimension, k1, 0.0, 1.0,
     ))
 }
 
@@ -178,9 +198,10 @@ pub(super) fn extract_qr_region_gray_with_mesh_warp(
     transform: &PerspectiveTransform,
     dimension: usize,
 ) -> (BitMatrix, Vec<u8>) {
-    extract_qr_region_gray_with_variant(gray, width, height, transform, dimension, 0.0, 0.9)
+    extract_qr_region_gray_with_variant(gray, width, height, transform, dimension, 0.0, 0.9, 1.0)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn extract_qr_region_gray_with_variant(
     gray: &[u8],
     width: usize,
@@ -189,6 +210,7 @@ fn extract_qr_region_gray_with_variant(
     dimension: usize,
     radial_k1: f32,
     mesh_strength: f32,
+    sample_scale: f32,
 ) -> (BitMatrix, Vec<u8>) {
     let mut samples: Vec<f32> = vec![255.0; dimension * dimension];
     let mut local_std_dev: Vec<f32> = vec![0.0; dimension * dimension];
@@ -218,15 +240,18 @@ fn extract_qr_region_gray_with_variant(
                 img_point.y += dy;
             }
             let module_px = estimate_local_module_pixels(transform, x, y);
-            let radius = adaptive_kernel_radius(module_px);
+            let radius =
+                ((adaptive_kernel_radius(module_px) as f32) * sample_scale).round() as usize;
+            let radius = radius.clamp(1, 4);
+            let sample_step = (0.35 / sample_scale.max(0.8)).clamp(0.2, 0.45);
 
             let mut sum = 0.0f32;
             let mut sum_sq = 0.0f32;
             let mut count = 0usize;
             for oy in -(radius as isize)..=(radius as isize) {
                 for ox in -(radius as isize)..=(radius as isize) {
-                    let sx = img_point.x + ox as f32 * 0.35;
-                    let sy = img_point.y + oy as f32 * 0.35;
+                    let sx = img_point.x + ox as f32 * sample_step;
+                    let sy = img_point.y + oy as f32 * sample_step;
                     if let Some(v) = bilinear_sample(gray, width, height, sx, sy) {
                         sum += v;
                         sum_sq += v * v;

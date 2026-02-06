@@ -1,0 +1,41 @@
+# Phase 9.1 - Pre-binarization Ensemble (cheap-first fallback)
+
+## Goal
+Improve difficult low-contrast lighting categories by retrying binarization policy in a strict cheap-first order only after strict decode failure.
+
+## Scope
+- Add fallback binarization policy ordering: Otsu -> adaptive(31) -> adaptive(21)
+- Apply only on decode miss, not as default path
+- Add telemetry counters for each fallback activation and success
+
+## Files
+- src/tools/mod.rs
+- src/lib.rs
+- src/pipeline.rs
+- src/bin/qrtool.rs
+
+## Implementation Tasks
+1. Introduce a small binarization policy enum and helper that returns candidate binary matrices in policy order.
+2. Keep strict path unchanged (single initial binarization).
+3. On miss, run fallback binarizers with early-exit on first decode success.
+4. Ensure fallback attempts consume decode budget.
+5. Add telemetry:
+   - bin_fallback_otsu_to_adaptive31
+   - bin_fallback_adaptive31_to_adaptive21
+   - bin_fallback_successes
+6. Surface telemetry in reading-rate artifact and console summary.
+
+## Validation
+- Focused run:
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category brightness --limit 28 --non-interactive
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category shadows --limit 30 --non-interactive
+- Compare artifact vs baseline using compare_reading_rate_artifacts.py.
+
+## Success Criteria
+- Combined +3pp on brightness + shadows.
+- Median runtime regression <= 8%.
+- No weighted-global regression.
+
+## Deliverables
+- Code changes + telemetry wiring.
+- Artifact compare summary with before/after table.

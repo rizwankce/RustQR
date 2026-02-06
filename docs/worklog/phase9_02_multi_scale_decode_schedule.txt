@@ -1,0 +1,36 @@
+# Phase 9.2 - Multi-scale Decode Schedule
+
+## Goal
+Recover near-miss decodes caused by under-sampling small/blurred modules via bounded scale retries.
+
+## Scope
+- Add decode retries at scale factors 1.25 and 1.5
+- Trigger only on strict miss and only when confidence indicates under-sampling
+- Maintain per-image and per-candidate attempt budget
+
+## Files
+- src/decoder/qr_decoder/geometry.rs
+- src/decoder/qr_decoder.rs
+- src/pipeline.rs
+
+## Implementation Tasks
+1. Add scale-aware matrix sampling helper with deterministic ordering [1.0, 1.25, 1.5].
+2. Preserve current 1.0 strict pass behavior as first attempt.
+3. Gate scale retries on low module pitch / uncertainty signal.
+4. Add telemetry counters:
+   - scale_retry_attempts
+   - scale_retry_successes
+   - scale_retry_skipped_by_budget
+5. Ensure retries are disabled for obviously large, high-confidence candidates.
+
+## Validation
+- Focused run:
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category close --limit 40 --non-interactive
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category blurred --limit 45 --non-interactive
+
+## Success Criteria
+- Combined +3pp on close + blurred.
+- Runtime within configured budget guardrail.
+
+## Deliverables
+- Multi-scale retry path + telemetry + benchmark deltas.

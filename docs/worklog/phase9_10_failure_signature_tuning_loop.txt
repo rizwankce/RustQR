@@ -1,0 +1,31 @@
+# Phase 9.10 - Failure-Signature-Driven Tuning Loop
+
+## Goal
+Replace broad heuristic tuning with artifact-driven, signature-targeted tuning iterations.
+
+## Scope
+- Use failure cluster artifacts to select top weighted miss signatures
+- Tune only targeted knobs and validate each change against baseline
+
+## Files
+- scripts/triage_failure_clusters.py
+- scripts/compare_reading_rate_artifacts.py
+- scripts/* (new helper as needed)
+- src/bin/qrtool.rs
+
+## Implementation Tasks
+1. Add script step to extract top-N weighted failure signatures from candidate artifact.
+2. Produce actionable tuning queue (signature -> likely subsystem -> proposed knobs).
+3. Add a lightweight report generator for before/after per-signature outcomes.
+4. Document merge criteria based on signature improvements.
+
+## Validation
+- Run loop on latest baseline and one candidate run.
+- Confirm report shows attribution, not just global delta.
+
+## Success Criteria
+- Every merged tuning change includes signature-level gain evidence.
+- Reduced tuning churn and fewer regressions.
+
+## Deliverables
+- Scripts + report format + documented triage workflow.

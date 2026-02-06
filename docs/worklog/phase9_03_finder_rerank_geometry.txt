@@ -1,0 +1,37 @@
+# Phase 9.3 - Finder Triple Re-ranking via Geometry Consistency
+
+## Goal
+Increase quality of decode attempts by ranking finder triples with geometric consistency, reducing wrong transforms.
+
+## Scope
+- Extend triple scoring with timing-line agreement and module pitch consistency
+- Use new rank in candidate ordering before decode
+
+## Files
+- src/detector/grouping.rs
+- src/pipeline.rs
+- src/bin/qrtool.rs
+
+## Implementation Tasks
+1. Define geometric consistency metrics for candidate triples:
+   - timing stripe consistency score
+   - module-size agreement variance
+   - right-angle residual
+2. Add weighted composite rank score.
+3. Reorder candidate queue by composite rank.
+4. Add telemetry:
+   - rerank_enabled
+   - rerank_top1_decode_rate
+   - rerank_transform_reject_count
+
+## Validation
+- Focused run:
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category glare --limit 50 --non-interactive
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category bright_spots --limit 32 --non-interactive
+
+## Success Criteria
+- +2pp combined on glare + bright_spots.
+- Fewer failed transform/decode attempts per image.
+
+## Deliverables
+- Ranking update + telemetry + artifact comparison note.

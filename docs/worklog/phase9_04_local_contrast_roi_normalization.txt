@@ -1,0 +1,33 @@
+# Phase 9.4 - Local Contrast Normalization on Candidate ROI
+
+## Goal
+Recover low-contrast cases without paying full-image preprocessing cost.
+
+## Scope
+- Apply ROI-local normalization only in fallback path for selected candidates
+- Keep strict global path unchanged
+
+## Files
+- src/utils/grayscale.rs
+- src/decoder/qr_decoder/geometry.rs
+- src/pipeline.rs
+
+## Implementation Tasks
+1. Implement lightweight local normalization function for grayscale ROI.
+2. Apply only after strict decode miss and only for weak-contrast candidates.
+3. Re-binarize ROI and retry decode once.
+4. Add telemetry:
+   - roi_norm_attempts
+   - roi_norm_successes
+   - roi_norm_skipped
+
+## Validation
+- Focused run:
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category brightness --limit 28 --non-interactive
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category shadows --limit 30 --non-interactive
+
+## Success Criteria
+- +2pp on brightness/shadows without significant global runtime increase.
+
+## Deliverables
+- ROI normalization fallback + telemetry + benchmark deltas.

@@ -54,6 +54,38 @@ pub struct DetectionTelemetry {
     pub qr_codes_found: usize,
     /// Number of candidate decodes skipped due to decode budget limits.
     pub budget_skips: usize,
+    /// Decode attempts consumed in the high-confidence lane.
+    pub budget_lane_high: usize,
+    /// Decode attempts consumed in the medium-confidence lane.
+    pub budget_lane_medium: usize,
+    /// Decode attempts consumed in the low-confidence lane.
+    pub budget_lane_low: usize,
+    /// Fallback transition count from Otsu to adaptive(31).
+    pub bin_fallback_otsu_to_adaptive31: usize,
+    /// Fallback transition count from adaptive(31) to adaptive(21).
+    pub bin_fallback_adaptive31_to_adaptive21: usize,
+    /// Number of successful decodes that happened on fallback binarization.
+    pub bin_fallback_successes: usize,
+    /// Whether geometry rerank path was active for this image.
+    pub rerank_enabled: bool,
+    /// Number of top-1 reranked candidate decode attempts.
+    pub rerank_top1_attempts: usize,
+    /// Number of successful decodes from top-1 reranked candidate.
+    pub rerank_top1_successes: usize,
+    /// Candidate groups rejected during rerank due to transform/order failures.
+    pub rerank_transform_reject_count: usize,
+    /// Whether saturation-aware scoring was enabled for this image.
+    pub saturation_mask_enabled: bool,
+    /// Image-level saturation coverage ratio when mask path was enabled.
+    pub saturation_mask_coverage: f32,
+    /// Successful decodes influenced by saturation-aware scoring.
+    pub saturation_mask_decode_successes: usize,
+    /// Number of ROI normalization fallback attempts.
+    pub roi_norm_attempts: usize,
+    /// Number of successful decodes from ROI normalization fallback.
+    pub roi_norm_successes: usize,
+    /// Number of times ROI normalization fallback was skipped.
+    pub roi_norm_skipped: usize,
     /// Number of times 2-finder fallback path was attempted.
     pub two_finder_attempts: usize,
     /// Number of successful decodes from 2-finder fallback path.
@@ -66,6 +98,14 @@ pub struct DetectionTelemetry {
     pub router_multi_region: bool,
     /// Number of successful decodes from region-routed candidates.
     pub router_region_decodes: usize,
+    /// Fast-signal blur metric used by router v2.
+    pub router_blur_metric: f32,
+    /// Fast-signal saturation ratio used by router v2.
+    pub router_saturation_ratio: f32,
+    /// Fast-signal skew estimate in degrees used by router v2.
+    pub router_skew_estimate_deg: f32,
+    /// Fast-signal region density proxy used by router v2.
+    pub router_region_density_proxy: f32,
     /// Number of decodes rejected by acceptance calibration threshold.
     pub acceptance_rejected: usize,
     /// Number of deskew decode attempts.
@@ -76,6 +116,24 @@ pub struct DetectionTelemetry {
     pub high_version_precision_attempts: usize,
     /// Number of recovery-mode decode attempts.
     pub recovery_mode_attempts: usize,
+    /// Number of multi-scale retry decode attempts.
+    pub scale_retry_attempts: usize,
+    /// Number of successful multi-scale retries.
+    pub scale_retry_successes: usize,
+    /// Number of candidates skipped from multi-scale retry due to budget/guardrails.
+    pub scale_retry_skipped_by_budget: usize,
+    /// Number of high-version subpixel precision attempts.
+    pub hv_subpixel_attempts: usize,
+    /// Number of high-version refinement attempts.
+    pub hv_refine_attempts: usize,
+    /// Number of successful high-version refinement decodes.
+    pub hv_refine_successes: usize,
+    /// Number of RS erasure decode attempts.
+    pub rs_erasure_attempts: usize,
+    /// Number of successful RS erasure decodes.
+    pub rs_erasure_successes: usize,
+    /// RS erasure count histogram buckets: [1, 2-3, 4-6, 7+].
+    pub rs_erasure_count_hist: [usize; 4],
 }
 
 impl DetectionTelemetry {
@@ -101,16 +159,56 @@ impl DetectionTelemetry {
         self.decode_attempts += other.decode_attempts;
         self.candidate_groups_scored += other.candidate_groups_scored;
         self.budget_skips += other.budget_skips;
+        self.budget_lane_high += other.budget_lane_high;
+        self.budget_lane_medium += other.budget_lane_medium;
+        self.budget_lane_low += other.budget_lane_low;
+        self.bin_fallback_otsu_to_adaptive31 += other.bin_fallback_otsu_to_adaptive31;
+        self.bin_fallback_adaptive31_to_adaptive21 += other.bin_fallback_adaptive31_to_adaptive21;
+        self.bin_fallback_successes += other.bin_fallback_successes;
+        self.rerank_enabled = self.rerank_enabled || other.rerank_enabled;
+        self.rerank_top1_attempts += other.rerank_top1_attempts;
+        self.rerank_top1_successes += other.rerank_top1_successes;
+        self.rerank_transform_reject_count += other.rerank_transform_reject_count;
+        self.saturation_mask_enabled =
+            self.saturation_mask_enabled || other.saturation_mask_enabled;
+        self.saturation_mask_coverage = self
+            .saturation_mask_coverage
+            .max(other.saturation_mask_coverage);
+        self.saturation_mask_decode_successes += other.saturation_mask_decode_successes;
+        self.roi_norm_attempts += other.roi_norm_attempts;
+        self.roi_norm_successes += other.roi_norm_successes;
+        self.roi_norm_skipped += other.roi_norm_skipped;
         self.two_finder_attempts += other.two_finder_attempts;
         self.two_finder_successes += other.two_finder_successes;
         self.regions_considered = self.regions_considered.max(other.regions_considered);
         self.router_multi_region = self.router_multi_region || other.router_multi_region;
         self.router_region_decodes += other.router_region_decodes;
+        self.router_blur_metric = self.router_blur_metric.max(other.router_blur_metric);
+        self.router_saturation_ratio = self
+            .router_saturation_ratio
+            .max(other.router_saturation_ratio);
+        self.router_skew_estimate_deg = self
+            .router_skew_estimate_deg
+            .max(other.router_skew_estimate_deg);
+        self.router_region_density_proxy = self
+            .router_region_density_proxy
+            .max(other.router_region_density_proxy);
         self.acceptance_rejected += other.acceptance_rejected;
         self.deskew_attempts += other.deskew_attempts;
         self.deskew_successes += other.deskew_successes;
         self.high_version_precision_attempts += other.high_version_precision_attempts;
         self.recovery_mode_attempts += other.recovery_mode_attempts;
+        self.scale_retry_attempts += other.scale_retry_attempts;
+        self.scale_retry_successes += other.scale_retry_successes;
+        self.scale_retry_skipped_by_budget += other.scale_retry_skipped_by_budget;
+        self.hv_subpixel_attempts += other.hv_subpixel_attempts;
+        self.hv_refine_attempts += other.hv_refine_attempts;
+        self.hv_refine_successes += other.hv_refine_successes;
+        self.rs_erasure_attempts += other.rs_erasure_attempts;
+        self.rs_erasure_successes += other.rs_erasure_successes;
+        for i in 0..self.rs_erasure_count_hist.len() {
+            self.rs_erasure_count_hist[i] += other.rs_erasure_count_hist[i];
+        }
         if self.strategy_profile.is_empty() && !other.strategy_profile.is_empty() {
             self.strategy_profile = other.strategy_profile.clone();
         }
@@ -127,7 +225,9 @@ use utils::binarization::{
     adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into, sauvola_binarize,
     threshold_binarize,
 };
-use utils::grayscale::{rgb_to_grayscale, rgb_to_grayscale_with_buffer};
+use utils::grayscale::{
+    normalize_roi_local_contrast, rgb_to_grayscale, rgb_to_grayscale_with_buffer,
+};
 use utils::memory_pool::BufferPool;
 
 fn auto_window(width: usize, height: usize) -> usize {
@@ -254,6 +354,116 @@ fn adaptive_window_from_module_size(module_size: f32) -> usize {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BinarizationPolicy {
+    Otsu,
+    Adaptive31,
+    Adaptive21,
+}
+
+fn initial_policy(width: usize, height: usize) -> BinarizationPolicy {
+    if width >= 800 || height >= 800 {
+        BinarizationPolicy::Adaptive31
+    } else {
+        BinarizationPolicy::Otsu
+    }
+}
+
+fn phase9_binarization_sequence(width: usize, height: usize) -> Vec<BinarizationPolicy> {
+    let strict = initial_policy(width, height);
+    let mut sequence = vec![strict];
+    for policy in [
+        BinarizationPolicy::Otsu,
+        BinarizationPolicy::Adaptive31,
+        BinarizationPolicy::Adaptive21,
+    ] {
+        if !sequence.contains(&policy) {
+            sequence.push(policy);
+        }
+    }
+    sequence
+}
+
+fn binarize_with_policy(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    policy: BinarizationPolicy,
+) -> BitMatrix {
+    match policy {
+        BinarizationPolicy::Otsu => otsu_binarize(gray, width, height),
+        BinarizationPolicy::Adaptive31 => adaptive_binarize(gray, width, height, 31),
+        BinarizationPolicy::Adaptive21 => adaptive_binarize(gray, width, height, 21),
+    }
+}
+
+fn image_decode_attempt_budget() -> usize {
+    std::env::var("QR_MAX_IMAGE_DECODE_ATTEMPTS")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|&v| v > 0)
+        .unwrap_or(72)
+}
+
+fn record_binarization_transition(
+    tel: &mut DetectionTelemetry,
+    from: BinarizationPolicy,
+    to: BinarizationPolicy,
+) {
+    if from == BinarizationPolicy::Otsu && to == BinarizationPolicy::Adaptive31 {
+        tel.bin_fallback_otsu_to_adaptive31 += 1;
+    } else if from == BinarizationPolicy::Adaptive31 && to == BinarizationPolicy::Adaptive21 {
+        tel.bin_fallback_adaptive31_to_adaptive21 += 1;
+    }
+}
+
+fn grayscale_contrast_span(gray: &[u8]) -> u8 {
+    if gray.is_empty() {
+        return 0;
+    }
+    let mut min_v = u8::MAX;
+    let mut max_v = u8::MIN;
+    for &v in gray {
+        min_v = min_v.min(v);
+        max_v = max_v.max(v);
+    }
+    max_v.saturating_sub(min_v)
+}
+
+fn finder_roi_bounds(
+    finder_patterns: &[FinderPattern],
+    width: usize,
+    height: usize,
+) -> Option<(usize, usize, usize, usize)> {
+    if finder_patterns.len() < 3 {
+        return None;
+    }
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = 0.0f32;
+    let mut max_y = 0.0f32;
+    let mut avg_module = 0.0f32;
+
+    for p in finder_patterns.iter().take(6) {
+        min_x = min_x.min(p.center.x);
+        min_y = min_y.min(p.center.y);
+        max_x = max_x.max(p.center.x);
+        max_y = max_y.max(p.center.y);
+        avg_module += p.module_size.max(1.0);
+    }
+    avg_module /= finder_patterns.len().min(6) as f32;
+    let pad = (avg_module * 20.0).clamp(16.0, 220.0);
+    let x0 = (min_x - pad).floor().max(0.0) as usize;
+    let y0 = (min_y - pad).floor().max(0.0) as usize;
+    let x1 = (max_x + pad).ceil().min(width as f32) as usize;
+    let y1 = (max_y + pad).ceil().min(height as f32) as usize;
+    if x0 >= x1 || y0 >= y1 {
+        None
+    } else {
+        Some((x0, y0, x1, y1))
+    }
+}
+
 fn decode_groups_with_module_aware_retry(
     binary: &BitMatrix,
     gray: &[u8],
@@ -295,6 +505,18 @@ fn decode_two_finder_fallback(
     height: usize,
     finder_patterns: &[FinderPattern],
 ) -> Vec<QRCode> {
+    decode_two_finder_fallback_limited(binary, gray, width, height, finder_patterns, None, None)
+}
+
+fn decode_two_finder_fallback_limited(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    finder_patterns: &[FinderPattern],
+    mut remaining_attempts: Option<&mut usize>,
+    mut telemetry: Option<&mut DetectionTelemetry>,
+) -> Vec<QRCode> {
     if finder_patterns.len() < 2 {
         return Vec::new();
     }
@@ -322,6 +544,14 @@ fn decode_two_finder_fallback(
         if c.x < 0.0 || c.y < 0.0 || c.x >= width as f32 || c.y >= height as f32 {
             continue;
         }
+        if let Some(remaining) = remaining_attempts.as_deref_mut() {
+            if *remaining == 0 {
+                if let Some(tel) = telemetry.as_deref_mut() {
+                    tel.budget_skips += 1;
+                }
+                break;
+            }
+        }
         let synthetic = FinderPattern {
             center: c,
             module_size: module,
@@ -334,7 +564,18 @@ fn decode_two_finder_fallback(
                 module_size: p.module_size,
             });
         }
-        let decoded = pipeline::decode_groups(binary, gray, width, height, &fused);
+        let decoded = if let Some(remaining) = remaining_attempts.as_deref_mut() {
+            let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
+                binary, gray, width, height, &fused, *remaining,
+            );
+            *remaining = remaining.saturating_sub(decode_tel.decode_attempts);
+            if let Some(tel) = telemetry.as_deref_mut() {
+                tel.merge_high_water_from(&decode_tel);
+            }
+            decoded
+        } else {
+            pipeline::decode_groups(binary, gray, width, height, &fused)
+        };
         if !decoded.is_empty() {
             return decoded;
         }
@@ -407,113 +648,107 @@ pub fn detect_with_telemetry(
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
 
-    // Step 2: Binarize (adaptive first on large images, Otsu on small)
-    let mut binary = if width >= 800 || height >= 800 {
-        adaptive_binarize(&gray, width, height, 31)
-    } else {
-        otsu_binarize(&gray, width, height)
-    };
-    tel.binarize_ok = true;
-
-    // Step 3: Detect finder patterns
-    let mut finder_patterns = if width >= 1600 && height >= 1600 {
-        FinderDetector::detect_with_pyramid(&binary)
-    } else {
-        FinderDetector::detect(&binary)
-    };
-    tel.finder_patterns_found = finder_patterns.len();
-
-    // Fallback: if adaptive yields too few patterns, try Otsu (or vice-versa)
-    if finder_patterns.len() < 3 {
-        let fallback = if width >= 800 || height >= 800 {
-            otsu_binarize(&gray, width, height)
-        } else {
-            adaptive_binarize(&gray, width, height, 31)
-        };
-        let fallback_patterns = if width >= 1600 && height >= 1600 {
-            FinderDetector::detect_with_pyramid(&fallback)
-        } else {
-            FinderDetector::detect(&fallback)
-        };
-        tel.finder_patterns_found = tel.finder_patterns_found.max(fallback_patterns.len());
-        if fallback_patterns.len() >= 2 {
-            binary = fallback;
-            finder_patterns = fallback_patterns;
-        }
-    }
-
+    // Step 2+: strict path first, then bounded fallback binarization ensemble on miss.
+    let policies = phase9_binarization_sequence(width, height);
+    let mut remaining_attempts = image_decode_attempt_budget();
     let mut results = Vec::new();
-    if finder_patterns.len() >= 3 {
-        let (decoded, decode_tel) =
-            pipeline::decode_groups_with_telemetry(&binary, &gray, width, height, &finder_patterns);
-        tel.merge_high_water_from(&decode_tel);
-        results = decoded;
-    } else if finder_patterns.len() == 2 {
-        tel.two_finder_attempts += 1;
-        results = decode_two_finder_fallback(&binary, &gray, width, height, &finder_patterns);
-        if !results.is_empty() {
-            tel.two_finder_successes += 1;
+    let mut prev_policy = policies[0];
+    let mut best_finder_patterns: Vec<FinderPattern> = Vec::new();
+    tel.binarize_ok = true;
+    for (i, &policy) in policies.iter().enumerate() {
+        if i > 0 {
+            record_binarization_transition(&mut tel, prev_policy, policy);
+            prev_policy = policy;
         }
-    }
+        if remaining_attempts == 0 {
+            tel.budget_skips += 1;
+            break;
+        }
 
-    // Sauvola fallback: adapts to local contrast (handles shadows/glare)
-    if results.is_empty() {
-        let sauvola = sauvola_binarize(&gray, width, height, 31, 0.2);
-        let sauvola_patterns = if width >= 1600 && height >= 1600 {
-            FinderDetector::detect_with_pyramid(&sauvola)
+        let binary = binarize_with_policy(&gray, width, height, policy);
+        let finder_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&binary)
         } else {
-            FinderDetector::detect(&sauvola)
+            FinderDetector::detect(&binary)
         };
-        tel.finder_patterns_found = tel.finder_patterns_found.max(sauvola_patterns.len());
-        if sauvola_patterns.len() >= 3 {
-            let (decoded, sv_tel) = pipeline::decode_groups_with_telemetry(
-                &sauvola,
+        if finder_patterns.len() > best_finder_patterns.len() {
+            best_finder_patterns = finder_patterns.clone();
+        }
+        tel.finder_patterns_found = tel.finder_patterns_found.max(finder_patterns.len());
+
+        if finder_patterns.len() >= 3 {
+            let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
+                &binary,
                 &gray,
                 width,
                 height,
-                &sauvola_patterns,
+                &finder_patterns,
+                remaining_attempts,
             );
-            tel.merge_high_water_from(&sv_tel);
-            results = decoded;
-        } else if sauvola_patterns.len() == 2 {
+            remaining_attempts = remaining_attempts.saturating_sub(decode_tel.decode_attempts);
+            tel.merge_high_water_from(&decode_tel);
+            if !decoded.is_empty() {
+                if i > 0 {
+                    tel.bin_fallback_successes += 1;
+                }
+                results = decoded;
+                break;
+            }
+        } else if finder_patterns.len() == 2 {
             tel.two_finder_attempts += 1;
-            results = decode_two_finder_fallback(&sauvola, &gray, width, height, &sauvola_patterns);
-            if !results.is_empty() {
+            let decoded = decode_two_finder_fallback_limited(
+                &binary,
+                &gray,
+                width,
+                height,
+                &finder_patterns,
+                Some(&mut remaining_attempts),
+                Some(&mut tel),
+            );
+            if !decoded.is_empty() {
                 tel.two_finder_successes += 1;
+                if i > 0 {
+                    tel.bin_fallback_successes += 1;
+                }
+                results = decoded;
+                break;
             }
         }
     }
 
-    // Final fallback: if no decode, try the other binarizer end-to-end
     if results.is_empty() {
-        let fallback = if width >= 800 || height >= 800 {
-            otsu_binarize(&gray, width, height)
-        } else {
-            adaptive_binarize(&gray, width, height, 31)
-        };
-        let fallback_patterns = if width >= 1600 && height >= 1600 {
-            FinderDetector::detect_with_pyramid(&fallback)
-        } else {
-            FinderDetector::detect(&fallback)
-        };
-        tel.finder_patterns_found = tel.finder_patterns_found.max(fallback_patterns.len());
-        if fallback_patterns.len() >= 3 {
-            let (decoded, fb_tel) = pipeline::decode_groups_with_telemetry(
-                &fallback,
-                &gray,
-                width,
-                height,
-                &fallback_patterns,
-            );
-            tel.merge_high_water_from(&fb_tel);
-            results = decoded;
-        } else if fallback_patterns.len() == 2 {
-            tel.two_finder_attempts += 1;
-            results =
-                decode_two_finder_fallback(&fallback, &gray, width, height, &fallback_patterns);
-            if !results.is_empty() {
-                tel.two_finder_successes += 1;
+        let weak_contrast = grayscale_contrast_span(&gray) <= 90;
+        if remaining_attempts == 0 || !weak_contrast {
+            tel.roi_norm_skipped += 1;
+        } else if let Some(roi) = finder_roi_bounds(&best_finder_patterns, width, height) {
+            tel.roi_norm_attempts += 1;
+            let normalized_gray = normalize_roi_local_contrast(&gray, width, height, roi);
+            let norm_binary = adaptive_binarize(&normalized_gray, width, height, 31);
+            let norm_patterns = if width >= 1600 && height >= 1600 {
+                FinderDetector::detect_with_pyramid(&norm_binary)
+            } else {
+                FinderDetector::detect(&norm_binary)
+            };
+            tel.finder_patterns_found = tel.finder_patterns_found.max(norm_patterns.len());
+            if norm_patterns.len() >= 3 {
+                let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
+                    &norm_binary,
+                    &normalized_gray,
+                    width,
+                    height,
+                    &norm_patterns,
+                    remaining_attempts,
+                );
+                tel.merge_high_water_from(&decode_tel);
+                if !decoded.is_empty() {
+                    tel.roi_norm_successes += 1;
+                    results = decoded;
+                }
+            } else {
+                tel.roi_norm_skipped += 1;
             }
+        } else {
+            tel.roi_norm_skipped += 1;
         }
     }
 
@@ -523,6 +758,15 @@ pub fn detect_with_telemetry(
     tel.deskew_successes = counters.deskew_successes;
     tel.high_version_precision_attempts = counters.high_version_precision_attempts;
     tel.recovery_mode_attempts = counters.recovery_mode_attempts;
+    tel.scale_retry_attempts = counters.scale_retry_attempts;
+    tel.scale_retry_successes = counters.scale_retry_successes;
+    tel.scale_retry_skipped_by_budget = counters.scale_retry_skipped_by_budget;
+    tel.hv_subpixel_attempts = counters.hv_subpixel_attempts;
+    tel.hv_refine_attempts = counters.hv_refine_attempts;
+    tel.hv_refine_successes = counters.hv_refine_successes;
+    tel.rs_erasure_attempts = counters.rs_erasure_attempts;
+    tel.rs_erasure_successes = counters.rs_erasure_successes;
+    tel.rs_erasure_count_hist = counters.rs_erasure_count_hist;
     (results, tel)
 }
 

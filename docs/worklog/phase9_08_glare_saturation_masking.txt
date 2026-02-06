@@ -1,0 +1,34 @@
+# Phase 9.8 - Glare/Saturation Masking for Finder and Timing Scoring
+
+## Goal
+Reduce false finder/timing confidence caused by glare/saturated highlights.
+
+## Scope
+- Detect high-saturation regions and discount their influence in scoring
+- Trigger only when saturation ratio passes threshold
+
+## Files
+- src/detector/finder.rs
+- src/detector/timing.rs
+- src/pipeline.rs
+
+## Implementation Tasks
+1. Add saturation map/statistics from grayscale/RGB proxy.
+2. Downweight finder/timing runs intersecting saturated blobs.
+3. Keep strict path unchanged when saturation is low.
+4. Add telemetry:
+   - saturation_mask_enabled
+   - saturation_mask_coverage
+   - saturation_mask_decode_successes
+
+## Validation
+- Focused run:
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category glare --limit 50 --non-interactive
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category bright_spots --limit 32 --non-interactive
+
+## Success Criteria
+- +3pp combined on glare + bright_spots.
+- No regressions on monitor/nominal.
+
+## Deliverables
+- Saturation-aware scoring + telemetry + before/after artifacts.

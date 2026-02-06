@@ -1,0 +1,106 @@
+{
+  "schema_version": "rustqr.reading_rate.v1",
+  "metadata": {
+    "dataset_root": "benches/images/boofcv",
+    "dataset_fingerprint": "ba96d1300e9f787b",
+    "commit_sha": "19ee9252407aa9f43795871a98e2ce3fbd234788",
+    "timestamp_utc": "2026-02-06T17:09:26Z",
+    "limit_per_category": 28,
+    "smoke": false,
+    "non_interactive": true
+  },
+  "summary": {
+    "weighted_global_rate_percent": 22.3529,
+    "total_hits": 19,
+    "total_expected": 85,
+    "total_images_with_labels": 28,
+    "runtime": {
+      "samples": 28,
+      "total_ms": 409105.1845,
+      "mean_per_image_ms": 14610.8994,
+      "median_per_image_ms": 10680.9580,
+      "min_per_image_ms": 30.4702,
+      "max_per_image_ms": 42968.2947
+    }
+  },
+  "categories": [
+    {
+      "name": "brightness",
+      "description": "Various brightness levels",
+      "hits": 19,
+      "total_expected": 85,
+      "images_with_labels": 28,
+      "rate_percent": 22.3529,
+      "stage_telemetry": {
+        "total": 28,
+        "binarize_ok": 28,
+        "finder_ok": 28,
+        "groups_ok": 26,
+        "transform_ok": 26,
+        "decode_ok": 17,
+        "total_decode_attempts": 251,
+        "over_budget_skip": 0,
+        "budget_lane_high": 231,
+        "budget_lane_medium": 20,
+        "budget_lane_low": 0,
+        "bin_fallback_otsu_to_adaptive31": 2,
+        "bin_fallback_adaptive31_to_adaptive21": 2,
+        "bin_fallback_successes": 5,
+        "rerank_enabled": 28,
+        "rerank_top1_attempts": 38,
+        "rerank_top1_successes": 2,
+        "rerank_transform_reject_count": 5100,
+        "saturation_mask_enabled": 1,
+        "saturation_mask_coverage_sum": 0.154020,
+        "saturation_mask_decode_successes": 1,
+        "roi_norm_attempts": 0,
+        "roi_norm_successes": 0,
+        "roi_norm_skipped": 11,
+        "two_finder_used": 0,
+        "router_multi_region": 20,
+        "router_blur_metric_sum": 100.773091,
+        "router_saturation_ratio_sum": 0.158410,
+        "router_skew_estimate_deg_sum": 1901.298816,
+        "router_region_density_proxy_sum": 947.915886,
+        "acceptance_rejected": 0,
+        "deskew_attempts": 2827,
+        "deskew_successes": 10,
+        "high_version_precision_attempts": 0,
+        "recovery_mode_attempts": 2028,
+        "scale_retry_attempts": 2764,
+        "scale_retry_successes": 0,
+        "scale_retry_skipped_by_budget": 1652,
+        "hv_subpixel_attempts": 12850,
+        "hv_refine_attempts": 1138,
+        "hv_refine_successes": 0,
+        "rs_erasure_attempts": 1903857,
+        "rs_erasure_successes": 1,
+        "rs_erasure_count_hist": [34668, 71235, 166135, 1631819],
+        "candidate_score_buckets": [0, 0, 789, 32]
+        "attempts_used_histogram": [2, 3, 1, 4, 18]
+      },
+      "runtime": {
+        "samples": 28,
+        "total_ms": 409105.1845,
+        "mean_per_image_ms": 14610.8994,
+        "median_per_image_ms": 10680.9580,
+        "min_per_image_ms": 30.4702,
+        "max_per_image_ms": 42968.2947
+      }
+    }
+  ],
+  "failure_clusters": [
+    {
+      "signature": "format-fail",
+      "count": 9,
+      "qr_weight": 27,
+      "examples": ["benches/images/boofcv/brightness/image013.jpg", "benches/images/boofcv/brightness/image014.jpg", "benches/images/boofcv/brightness/image015.jpg"]
+    },
+    {
+      "signature": "no-groups",
+      "count": 2,
+      "qr_weight": 6,
+      "examples": ["benches/images/boofcv/brightness/image018.jpg", "benches/images/boofcv/brightness/image021.jpg"]
+    }
+  ]
+}

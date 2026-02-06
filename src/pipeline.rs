@@ -16,6 +16,8 @@ const DEFAULT_MAX_TRANSFORMS: usize = 24;
 const DEFAULT_MAX_DECODE_ATTEMPTS: usize = 48;
 const DEFAULT_MAX_REGIONS: usize = 8;
 const DEFAULT_PER_REGION_TOP_K: usize = 4;
+const HIGH_CONFIDENCE_LANE_MIN: f32 = 0.78;
+const MEDIUM_CONFIDENCE_LANE_MIN: f32 = 0.56;
 
 #[derive(Clone, Copy)]
 struct RankedGroupCandidate {
@@ -25,6 +27,8 @@ struct RankedGroupCandidate {
     bl: Point,
     module_size: f32,
     raw_score: f32,
+    rerank_score: f32,
+    saturation_coverage: f32,
     geometry_confidence: f32,
 }
 
@@ -35,6 +39,51 @@ enum StrategyProfile {
     RotationHeavy,
     HighVersionPrecision,
     LowContrastRecovery,
+}
+
+#[derive(Clone, Copy)]
+enum ConfidenceLane {
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Clone, Copy)]
+struct LaneBudget {
+    high: usize,
+    medium: usize,
+    low: usize,
+}
+
+impl LaneBudget {
+    fn consume(&mut self, lane: ConfidenceLane) -> bool {
+        match lane {
+            ConfidenceLane::High => {
+                if self.high == 0 {
+                    false
+                } else {
+                    self.high -= 1;
+                    true
+                }
+            }
+            ConfidenceLane::Medium => {
+                if self.medium == 0 {
+                    false
+                } else {
+                    self.medium -= 1;
+                    true
+                }
+            }
+            ConfidenceLane::Low => {
+                if self.low == 0 {
+                    false
+                } else {
+                    self.low -= 1;
+                    true
+                }
+            }
+        }
+    }
 }
 
 impl StrategyProfile {
@@ -53,6 +102,14 @@ impl StrategyProfile {
 struct RegionCluster {
     indices: Vec<usize>,
     center: Point,
+}
+
+#[derive(Clone, Copy, Default)]
+struct FastSignals {
+    blur_metric: f32,
+    saturation_ratio: f32,
+    skew_estimate_deg: f32,
+    region_density_proxy: f32,
 }
 
 fn order_finder_patterns(
@@ -345,11 +402,171 @@ fn geometry_confidence(patterns: &[FinderPattern], group: &[usize]) -> f32 {
         .clamp(0.0, 1.0)
 }
 
+fn right_angle_residual(patterns: &[FinderPattern], group: &[usize]) -> f32 {
+    if group.len() < 3 {
+        return 1.0;
+    }
+    let p0 = &patterns[group[0]];
+    let p1 = &patterns[group[1]];
+    let p2 = &patterns[group[2]];
+    let d01 = p0.center.distance(&p1.center);
+    let d02 = p0.center.distance(&p2.center);
+    let d12 = p1.center.distance(&p2.center);
+    if d01 <= 0.0 || d02 <= 0.0 || d12 <= 0.0 {
+        return 1.0;
+    }
+    let a2 = d01 * d01;
+    let b2 = d02 * d02;
+    let c2 = d12 * d12;
+    let cos_i = ((a2 + b2 - c2) / (2.0 * d01 * d02)).abs();
+    let cos_j = ((a2 + c2 - b2) / (2.0 * d01 * d12)).abs();
+    let cos_k = ((b2 + c2 - a2) / (2.0 * d02 * d12)).abs();
+    cos_i.min(cos_j).min(cos_k).clamp(0.0, 1.0)
+}
+
+fn module_size_agreement(patterns: &[FinderPattern], group: &[usize]) -> f32 {
+    if group.len() < 3 {
+        return 0.0;
+    }
+    let s0 = patterns[group[0]].module_size.max(1e-3);
+    let s1 = patterns[group[1]].module_size.max(1e-3);
+    let s2 = patterns[group[2]].module_size.max(1e-3);
+    let mean = (s0 + s1 + s2) / 3.0;
+    let var =
+        ((s0 - mean) * (s0 - mean) + (s1 - mean) * (s1 - mean) + (s2 - mean) * (s2 - mean)) / 3.0;
+    let cv = var.sqrt() / mean;
+    (1.0 - cv.clamp(0.0, 1.0)).clamp(0.0, 1.0)
+}
+
+fn stripe_alternation_agreement(binary: &BitMatrix, start: &Point, end: &Point) -> f32 {
+    let dx = end.x - start.x;
+    let dy = end.y - start.y;
+    let distance = (dx * dx + dy * dy).sqrt();
+    if distance < 6.0 {
+        return 0.0;
+    }
+    let steps = distance.round() as usize;
+    let mut prev: Option<bool> = None;
+    let mut transitions = 0usize;
+    let mut valid_samples = 0usize;
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32;
+        let x = (start.x + dx * t).round() as isize;
+        let y = (start.y + dy * t).round() as isize;
+        if x < 0 || y < 0 || x as usize >= binary.width() || y as usize >= binary.height() {
+            continue;
+        }
+        let bit = binary.get(x as usize, y as usize);
+        if let Some(p) = prev {
+            if p != bit {
+                transitions += 1;
+            }
+        }
+        prev = Some(bit);
+        valid_samples += 1;
+    }
+    if valid_samples < 8 {
+        return 0.0;
+    }
+    let opportunities = valid_samples - 1;
+    (transitions as f32 / opportunities as f32).clamp(0.0, 1.0)
+}
+
+fn timing_line_agreement(binary: &BitMatrix, tl: &Point, tr: &Point, bl: &Point) -> f32 {
+    let h = stripe_alternation_agreement(binary, tl, tr);
+    let v = stripe_alternation_agreement(binary, tl, bl);
+    (0.5 * h + 0.5 * v).clamp(0.0, 1.0)
+}
+
+fn global_saturation_ratio(gray: &[u8]) -> f32 {
+    if gray.is_empty() {
+        return 0.0;
+    }
+    let saturated = gray.iter().filter(|&&v| v >= 245).count();
+    (saturated as f32 / gray.len() as f32).clamp(0.0, 1.0)
+}
+
+fn line_saturation_coverage(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    start: &Point,
+    end: &Point,
+) -> f32 {
+    let dx = end.x - start.x;
+    let dy = end.y - start.y;
+    let distance = (dx * dx + dy * dy).sqrt();
+    if distance < 4.0 {
+        return 0.0;
+    }
+    let steps = distance.round() as usize;
+    let mut saturated = 0usize;
+    let mut total = 0usize;
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32;
+        let x = (start.x + dx * t).round() as isize;
+        let y = (start.y + dy * t).round() as isize;
+        if x < 0 || y < 0 || x as usize >= width || y as usize >= height {
+            continue;
+        }
+        let px = gray[y as usize * width + x as usize];
+        if px >= 245 {
+            saturated += 1;
+        }
+        total += 1;
+    }
+    if total == 0 {
+        0.0
+    } else {
+        (saturated as f32 / total as f32).clamp(0.0, 1.0)
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn geometry_rerank_score(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    saturation_mask_enabled: bool,
+    patterns: &[FinderPattern],
+    group: &[usize],
+    tl: &Point,
+    tr: &Point,
+    bl: &Point,
+) -> (f32, f32) {
+    let timing = timing_line_agreement(binary, tl, tr, bl);
+    let saturation_coverage = if saturation_mask_enabled {
+        let h = line_saturation_coverage(gray, width, height, tl, tr);
+        let v = line_saturation_coverage(gray, width, height, tl, bl);
+        (0.5 * h + 0.5 * v).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let timing_adjusted = if saturation_mask_enabled {
+        (timing * (1.0 - 0.6 * saturation_coverage)).clamp(0.0, 1.0)
+    } else {
+        timing
+    };
+    let module_agreement = module_size_agreement(patterns, group);
+    let right_angle = 1.0 - right_angle_residual(patterns, group);
+    (
+        (0.40 * timing_adjusted + 0.35 * module_agreement + 0.25 * right_angle).clamp(0.0, 1.0),
+        saturation_coverage,
+    )
+}
+
 fn rank_groups(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    saturation_mask_enabled: bool,
     patterns: &[FinderPattern],
     raw_groups: Vec<Vec<usize>>,
-) -> Vec<RankedGroupCandidate> {
+) -> (Vec<RankedGroupCandidate>, usize) {
     let mut ranked = Vec::with_capacity(raw_groups.len());
+    let mut rejected = 0usize;
 
     for group in raw_groups {
         if group.len() < 3 {
@@ -359,6 +576,18 @@ fn rank_groups(
         if let Some((tl, tr, bl, module_size)) =
             order_finder_patterns(&patterns[gi[0]], &patterns[gi[1]], &patterns[gi[2]])
         {
+            let (rerank_score, saturation_coverage) = geometry_rerank_score(
+                binary,
+                gray,
+                width,
+                height,
+                saturation_mask_enabled,
+                patterns,
+                &gi,
+                &tl,
+                &tr,
+                &bl,
+            );
             ranked.push(RankedGroupCandidate {
                 group: gi,
                 tl,
@@ -366,12 +595,23 @@ fn rank_groups(
                 bl,
                 module_size,
                 raw_score: group_raw_score(patterns, &gi),
+                rerank_score,
+                saturation_coverage,
                 geometry_confidence: geometry_confidence(patterns, &gi),
             });
+        } else {
+            rejected += 1;
         }
     }
 
     ranked.sort_by(|a, b| {
+        let rerank_order = b
+            .rerank_score
+            .partial_cmp(&a.rerank_score)
+            .unwrap_or(Ordering::Equal);
+        if rerank_order != Ordering::Equal {
+            return rerank_order;
+        }
         let conf_order = b
             .geometry_confidence
             .partial_cmp(&a.geometry_confidence)
@@ -388,7 +628,7 @@ fn rank_groups(
         }
         a.group.cmp(&b.group)
     });
-    ranked
+    (ranked, rejected)
 }
 
 fn decode_top_k_limit(total_candidates: usize) -> usize {
@@ -603,7 +843,58 @@ fn cluster_regions(candidates: &[RankedGroupCandidate], max_regions: usize) -> V
     regions
 }
 
-fn select_strategy(candidates: &[RankedGroupCandidate]) -> StrategyProfile {
+fn estimate_blur_metric(gray: &[u8], width: usize, height: usize) -> f32 {
+    if width < 3 || height < 3 || gray.len() != width * height {
+        return 0.0;
+    }
+    let mut acc = 0.0f32;
+    let mut count = 0usize;
+    for y in (1..height - 1).step_by(2) {
+        for x in (1..width - 1).step_by(2) {
+            let idx = y * width + x;
+            let c = gray[idx] as f32;
+            let lap = (4.0 * c)
+                - gray[idx - 1] as f32
+                - gray[idx + 1] as f32
+                - gray[idx - width] as f32
+                - gray[idx + width] as f32;
+            acc += lap.abs();
+            count += 1;
+        }
+    }
+    if count == 0 {
+        0.0
+    } else {
+        (acc / count as f32).clamp(0.0, 255.0)
+    }
+}
+
+fn estimate_skew_deg(candidate: &RankedGroupCandidate) -> f32 {
+    let dx = candidate.tr.x - candidate.tl.x;
+    let dy = candidate.tr.y - candidate.tl.y;
+    dy.atan2(dx).to_degrees().abs()
+}
+
+fn extract_fast_signals(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    candidates: &[RankedGroupCandidate],
+) -> FastSignals {
+    let saturation_ratio = global_saturation_ratio(gray);
+    let blur_metric = estimate_blur_metric(gray, width, height);
+    let skew_estimate_deg = candidates.first().map(estimate_skew_deg).unwrap_or(0.0);
+    let megapixels = ((width * height) as f32 / 1_000_000.0).max(0.1);
+    let region_density_proxy = (candidates.len() as f32 / megapixels).clamp(0.0, 10_000.0);
+    FastSignals {
+        blur_metric,
+        saturation_ratio,
+        skew_estimate_deg,
+        region_density_proxy,
+    }
+}
+
+fn select_strategy(candidates: &[RankedGroupCandidate], signals: FastSignals) -> StrategyProfile {
     if candidates.is_empty() {
         return StrategyProfile::FastSingle;
     }
@@ -619,6 +910,15 @@ fn select_strategy(candidates: &[RankedGroupCandidate]) -> StrategyProfile {
         0.0
     };
 
+    if signals.region_density_proxy >= 18.0 && candidates.len() >= 3 {
+        return StrategyProfile::MultiQrHeavy;
+    }
+    if signals.skew_estimate_deg >= 16.0 {
+        return StrategyProfile::RotationHeavy;
+    }
+    if signals.saturation_ratio >= 0.08 || signals.blur_metric < 14.0 {
+        return StrategyProfile::LowContrastRecovery;
+    }
     if high_conf >= 3 {
         return StrategyProfile::MultiQrHeavy;
     }
@@ -634,16 +934,111 @@ fn select_strategy(candidates: &[RankedGroupCandidate]) -> StrategyProfile {
     StrategyProfile::FastSingle
 }
 
+fn confidence_lane(geometry_confidence: f32) -> ConfidenceLane {
+    if geometry_confidence >= HIGH_CONFIDENCE_LANE_MIN {
+        ConfidenceLane::High
+    } else if geometry_confidence >= MEDIUM_CONFIDENCE_LANE_MIN {
+        ConfidenceLane::Medium
+    } else {
+        ConfidenceLane::Low
+    }
+}
+
+fn lane_budget_from_attempts(max_decode_attempts: usize, strategy: StrategyProfile) -> LaneBudget {
+    if max_decode_attempts <= 1 {
+        return LaneBudget {
+            high: max_decode_attempts,
+            medium: 0,
+            low: 0,
+        };
+    }
+
+    let mut high = ((max_decode_attempts as f32) * 0.5).floor() as usize;
+    let mut medium = ((max_decode_attempts as f32) * 0.3).floor() as usize;
+    let reserved = high + medium;
+    let mut low = max_decode_attempts.saturating_sub(reserved);
+
+    if high == 0 {
+        high = 1;
+        low = low.saturating_sub(1);
+    }
+    if max_decode_attempts >= 3 && medium == 0 {
+        medium = 1;
+        low = low.saturating_sub(1);
+    }
+
+    match strategy {
+        StrategyProfile::MultiQrHeavy => {
+            if high > 1 {
+                high -= 1;
+                low += 1;
+            }
+        }
+        StrategyProfile::HighVersionPrecision => {
+            if low > 0 {
+                low -= 1;
+                high += 1;
+            } else if medium > 1 {
+                medium -= 1;
+                high += 1;
+            }
+        }
+        StrategyProfile::LowContrastRecovery => {
+            if medium > 0 {
+                medium -= 1;
+                low += 1;
+            }
+        }
+        StrategyProfile::RotationHeavy | StrategyProfile::FastSingle => {}
+    }
+
+    while high + medium + low > max_decode_attempts {
+        if low > 0 {
+            low -= 1;
+        } else if medium > 0 {
+            medium -= 1;
+        } else {
+            high = high.saturating_sub(1);
+        }
+    }
+    while high + medium + low < max_decode_attempts {
+        high += 1;
+    }
+
+    LaneBudget { high, medium, low }
+}
+
+fn record_lane_attempt(telemetry: &mut Option<&mut DetectionTelemetry>, lane: ConfidenceLane) {
+    if let Some(tel) = telemetry.as_mut() {
+        match lane {
+            ConfidenceLane::High => tel.budget_lane_high += 1,
+            ConfidenceLane::Medium => tel.budget_lane_medium += 1,
+            ConfidenceLane::Low => tel.budget_lane_low += 1,
+        }
+    }
+}
+
 fn decode_ranked_groups(
     binary: &BitMatrix,
     gray: &[u8],
     width: usize,
     height: usize,
     finder_patterns: &[FinderPattern],
+    attempt_limit: Option<usize>,
     mut telemetry: Option<&mut DetectionTelemetry>,
 ) -> Vec<QRCode> {
+    let saturation_ratio = global_saturation_ratio(gray);
+    let saturation_mask_enabled = saturation_ratio >= 0.06;
     let raw_groups = group_finder_patterns(finder_patterns);
-    let ranked = rank_groups(finder_patterns, raw_groups);
+    let (ranked, rerank_rejected) = rank_groups(
+        binary,
+        gray,
+        width,
+        height,
+        saturation_mask_enabled,
+        finder_patterns,
+        raw_groups,
+    );
     let consider = ranked.len().min(MAX_GROUP_CANDIDATES);
     let candidates = &ranked[..consider];
 
@@ -651,6 +1046,12 @@ fn decode_ranked_groups(
         tel.groups_found = candidates.len();
         tel.candidate_groups_scored = ranked.len();
         tel.decode_attempts = 0;
+        tel.rerank_enabled = true;
+        tel.rerank_transform_reject_count += rerank_rejected;
+        tel.saturation_mask_enabled = saturation_mask_enabled;
+        if saturation_mask_enabled {
+            tel.saturation_mask_coverage = saturation_ratio;
+        }
         for candidate in &ranked {
             tel.add_candidate_score(candidate.raw_score);
         }
@@ -669,21 +1070,37 @@ fn decode_ranked_groups(
     }
 
     let top_k = decode_top_k_limit(candidates.len());
-    let max_transforms = decode_usize_env("QR_MAX_TRANSFORMS", DEFAULT_MAX_TRANSFORMS, 1, 512);
-    let max_decode_attempts = decode_usize_env(
+    let mut max_decode_attempts = decode_usize_env(
         "QR_MAX_DECODE_ATTEMPTS",
         DEFAULT_MAX_DECODE_ATTEMPTS,
         1,
         1024,
     );
+    if let Some(limit) = attempt_limit {
+        max_decode_attempts = max_decode_attempts.min(limit);
+    }
+    if max_decode_attempts == 0 {
+        if let Some(tel) = telemetry.as_mut() {
+            tel.budget_skips += 1;
+        }
+        return Vec::new();
+    }
+    let max_transforms = decode_usize_env("QR_MAX_TRANSFORMS", DEFAULT_MAX_TRANSFORMS, 1, 512)
+        .min(max_decode_attempts.max(1));
     let high_group_conf = high_group_confidence();
     let low_top_group_conf = low_top_group_confidence();
     let single_qr_floor = single_qr_confidence_floor();
     let top = candidates[0];
-    let strategy = select_strategy(candidates);
+    let fast_signals = extract_fast_signals(gray, width, height, candidates);
+    let strategy = select_strategy(candidates, fast_signals);
     if let Some(tel) = telemetry.as_mut() {
         tel.strategy_profile = strategy.as_str().to_string();
+        tel.router_blur_metric = fast_signals.blur_metric;
+        tel.router_saturation_ratio = fast_signals.saturation_ratio;
+        tel.router_skew_estimate_deg = fast_signals.skew_estimate_deg;
+        tel.router_region_density_proxy = fast_signals.region_density_proxy;
     }
+    let mut lane_budget = lane_budget_from_attempts(max_decode_attempts, strategy);
     let mut should_expand = candidates
         .iter()
         .filter(|c| c.geometry_confidence >= high_group_conf)
@@ -700,6 +1117,17 @@ fn decode_ranked_groups(
 
     let first = top;
     if used_transforms < max_transforms && used_attempts < max_decode_attempts {
+        if let Some(tel) = telemetry.as_mut() {
+            tel.rerank_top1_attempts += 1;
+        }
+        let lane = confidence_lane(first.geometry_confidence);
+        if !lane_budget.consume(lane) {
+            if let Some(tel) = telemetry.as_mut() {
+                tel.budget_skips += 1;
+            }
+            return results;
+        }
+        record_lane_attempt(&mut telemetry, lane);
         if let Some(tel) = telemetry.as_mut() {
             tel.transforms_built += 1;
             tel.decode_attempts += 1;
@@ -720,6 +1148,12 @@ fn decode_ranked_groups(
                 accepted_payloads.insert(qr.content.clone());
                 accepted_geometries.push(candidate_bbox(&first));
                 results.push(qr);
+                if let Some(tel) = telemetry.as_mut() {
+                    tel.rerank_top1_successes += 1;
+                    if saturation_mask_enabled && first.saturation_coverage > 0.08 {
+                        tel.saturation_mask_decode_successes += 1;
+                    }
+                }
                 if !should_expand {
                     return results;
                 }
@@ -781,6 +1215,14 @@ fn decode_ranked_groups(
                 break;
             }
             let candidate = &candidates[idx];
+            let lane = confidence_lane(candidate.geometry_confidence);
+            if !lane_budget.consume(lane) {
+                if let Some(tel) = telemetry.as_mut() {
+                    tel.budget_skips += 1;
+                }
+                continue;
+            }
+            record_lane_attempt(&mut telemetry, lane);
             if let Some(tel) = telemetry.as_mut() {
                 tel.transforms_built += 1;
                 tel.decode_attempts += 1;
@@ -810,6 +1252,9 @@ fn decode_ranked_groups(
                         tel.rs_decode_ok += 1;
                         tel.payload_decoded += 1;
                         tel.router_region_decodes += 1;
+                        if saturation_mask_enabled && candidate.saturation_coverage > 0.08 {
+                            tel.saturation_mask_decode_successes += 1;
+                        }
                     }
                 }
             }
@@ -826,19 +1271,27 @@ pub(crate) fn decode_groups(
     height: usize,
     finder_patterns: &[FinderPattern],
 ) -> Vec<QRCode> {
-    decode_ranked_groups(binary, gray, width, height, finder_patterns, None)
+    decode_ranked_groups(binary, gray, width, height, finder_patterns, None, None)
 }
 
-/// Like `decode_groups` but also collects stage-level telemetry counters.
-pub(crate) fn decode_groups_with_telemetry(
+/// Like `decode_groups_with_telemetry` but enforces a hard decode-attempt cap.
+pub(crate) fn decode_groups_with_telemetry_limited(
     binary: &BitMatrix,
     gray: &[u8],
     width: usize,
     height: usize,
     finder_patterns: &[FinderPattern],
+    max_attempts: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     let mut tel = DetectionTelemetry::default();
-    let results =
-        decode_ranked_groups(binary, gray, width, height, finder_patterns, Some(&mut tel));
+    let results = decode_ranked_groups(
+        binary,
+        gray,
+        width,
+        height,
+        finder_patterns,
+        Some(max_attempts),
+        Some(&mut tel),
+    );
     (results, tel)
 }

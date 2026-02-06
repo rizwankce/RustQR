@@ -1,0 +1,34 @@
+# Phase 9.5 - Per-Image Decode Budget Controller
+
+## Goal
+Prevent runtime spikes while allowing deeper recovery on hard images.
+
+## Scope
+- Introduce confidence-lane attempt allocation (high/medium/low)
+- Enforce hard per-image cap with explicit skip telemetry
+
+## Files
+- src/pipeline.rs
+- src/lib.rs
+- src/bin/qrtool.rs
+
+## Implementation Tasks
+1. Define confidence lanes and attempt allocation policy.
+2. Add hard per-image decode attempt cap.
+3. Enforce lane policy across all fallback paths.
+4. Add telemetry:
+   - budget_lane_high/medium/low
+   - budget_skips
+   - attempts_used_per_image (summary histogram)
+5. Ensure no hidden bypass in specialized paths.
+
+## Validation
+- Fast benchmark sweep on hard categories with and without controller.
+- Verify median/mean runtime stability.
+
+## Success Criteria
+- Runtime regression <= 8% under hard-case workloads.
+- No weighted-global regression from over-pruning.
+
+## Deliverables
+- Budget controller implementation + policy config + telemetry report.

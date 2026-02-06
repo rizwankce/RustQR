@@ -1,0 +1,100 @@
+{
+  "schema_version": "rustqr.reading_rate.v1",
+  "metadata": {
+    "dataset_root": "benches/images/boofcv",
+    "dataset_fingerprint": "ba96d1300e9f787b",
+    "commit_sha": "19ee9252407aa9f43795871a98e2ce3fbd234788",
+    "timestamp_utc": "2026-02-06T17:31:17Z",
+    "limit_per_category": 1,
+    "smoke": false,
+    "non_interactive": true
+  },
+  "summary": {
+    "weighted_global_rate_percent": 0.0000,
+    "total_hits": 0,
+    "total_expected": 1,
+    "total_images_with_labels": 1,
+    "runtime": {
+      "samples": 1,
+      "total_ms": 22696.8067,
+      "mean_per_image_ms": 22696.8067,
+      "median_per_image_ms": 22696.8067,
+      "min_per_image_ms": 22696.8067,
+      "max_per_image_ms": 22696.8067
+    }
+  },
+  "categories": [
+    {
+      "name": "damaged",
+      "description": "Damaged QR codes",
+      "hits": 0,
+      "total_expected": 1,
+      "images_with_labels": 1,
+      "rate_percent": 0.0000,
+      "stage_telemetry": {
+        "total": 1,
+        "binarize_ok": 1,
+        "finder_ok": 1,
+        "groups_ok": 1,
+        "transform_ok": 1,
+        "decode_ok": 0,
+        "total_decode_attempts": 11,
+        "over_budget_skip": 0,
+        "budget_lane_high": 11,
+        "budget_lane_medium": 0,
+        "budget_lane_low": 0,
+        "bin_fallback_otsu_to_adaptive31": 0,
+        "bin_fallback_adaptive31_to_adaptive21": 0,
+        "bin_fallback_successes": 0,
+        "rerank_enabled": 1,
+        "rerank_top1_attempts": 3,
+        "rerank_top1_successes": 0,
+        "rerank_transform_reject_count": 28,
+        "saturation_mask_enabled": 0,
+        "saturation_mask_coverage_sum": 0.000000,
+        "saturation_mask_decode_successes": 0,
+        "roi_norm_attempts": 0,
+        "roi_norm_successes": 0,
+        "roi_norm_skipped": 1,
+        "two_finder_used": 0,
+        "router_multi_region": 0,
+        "router_blur_metric_sum": 7.933515,
+        "router_saturation_ratio_sum": 0.000000,
+        "router_skew_estimate_deg_sum": 89.565948,
+        "router_region_density_proxy_sum": 10.172525,
+        "acceptance_rejected": 0,
+        "deskew_attempts": 350,
+        "deskew_successes": 0,
+        "high_version_precision_attempts": 0,
+        "recovery_mode_attempts": 76,
+        "scale_retry_attempts": 36,
+        "scale_retry_successes": 0,
+        "scale_retry_skipped_by_budget": 332,
+        "hv_subpixel_attempts": 25,
+        "hv_refine_attempts": 0,
+        "hv_refine_successes": 0,
+        "rs_erasure_attempts": 140209,
+        "rs_erasure_successes": 0,
+        "rs_erasure_count_hist": [0, 4014, 26663, 109532],
+        "candidate_score_buckets": [0, 0, 14, 0],
+        "attempts_used_histogram": [0, 0, 0, 0, 1]
+      },
+      "runtime": {
+        "samples": 1,
+        "total_ms": 22696.8067,
+        "mean_per_image_ms": 22696.8067,
+        "median_per_image_ms": 22696.8067,
+        "min_per_image_ms": 22696.8067,
+        "max_per_image_ms": 22696.8067
+      }
+    }
+  ],
+  "failure_clusters": [
+    {
+      "signature": "format-fail",
+      "count": 1,
+      "qr_weight": 1,
+      "examples": ["benches/images/boofcv/damaged/image001.jpg"]
+    }
+  ]
+}

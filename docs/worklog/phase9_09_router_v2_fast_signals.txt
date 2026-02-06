@@ -1,0 +1,31 @@
+# Phase 9.9 - Category-Triggered Router v2 from Fast Signals
+
+## Goal
+Route each image to a minimal effective strategy set using fast pre-signals to improve both speed and hit rate.
+
+## Scope
+- Add fast signal extraction: blur metric, saturation ratio, skew estimate, region density proxy
+- Map signals to strategy profiles
+
+## Files
+- src/pipeline.rs
+- src/bin/qrtool.rs
+- src/lib.rs
+
+## Implementation Tasks
+1. Implement fast signal extraction in pre-decode stage.
+2. Define deterministic routing profiles and thresholds.
+3. Ensure router integrates with budget controller.
+4. Add telemetry:
+   - router_profile_selected
+   - router_profile_success_rate
+   - router_profile_runtime
+
+## Validation
+- Run fast benchmark across top weighted categories and compare profile performance.
+
+## Success Criteria
+- Weighted-global improvement with same or lower median runtime.
+
+## Deliverables
+- Router v2 policy + telemetry + tuned threshold note.

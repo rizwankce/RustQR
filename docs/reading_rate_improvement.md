@@ -760,3 +760,134 @@ Each additional decoded QR contributes approximately `0.081` points to global we
 - `8.5` implemented via deterministic strategy router profiles (`fast_single`, `multi_qr_heavy`, `rotation_heavy`, `high_version_precision`, `low_contrast_recovery`) and profile telemetry in `src/pipeline.rs`.
 - `8.6` implemented via acceptance scoring (RS/geometry/format-version/plausibility factors) and strict relaxed-path thresholds in `src/pipeline.rs`.
 - `8.7` implemented via enhanced artifact comparison with category gates and weighted contribution reports in `scripts/compare_reading_rate_artifacts.py`, plus CI workflow wiring in `.github/workflows/benchmark.yml`.
+
+---
+
+## Phase 9: Hard-Case Recovery Under Strict Budget
+
+Phase 9 focuses on improving difficult categories with bounded runtime by activating targeted recovery only after the strict path fails.
+
+**Status:** Planned
+- [ ] 9.1 Pre-binarization Ensemble (cheap-first fallback)
+- [ ] 9.2 Multi-Scale Decode Schedule (1.0x -> 1.25x -> 1.5x on miss)
+- [ ] 9.3 Finder Triple Re-ranking via Geometry Consistency
+- [ ] 9.4 Local Contrast Normalization on Candidate ROI
+- [ ] 9.5 Per-Image Decode Budget Controller (confidence lanes)
+- [ ] 9.6 High-Version Subpixel Sampler + Single Refinement Pass
+- [ ] 9.7 Damage-Aware Erasure Masking for RS Inputs
+- [ ] 9.8 Glare/Saturation Masking for Finder and Timing Scoring
+- [ ] 9.9 Category-Triggered Router v2 from Fast Image Signals
+- [ ] 9.10 Failure-Signature-Driven Tuning Loop
+
+### Phase 9 Main Points
+
+1. Improve weak categories (`blurred`, `brightness`, `damaged`, `glare`, `bright_spots`) with category-specific recovery.
+2. Keep runtime controlled by strict activation order and per-image attempt budgets.
+3. Require artifact-backed wins before merging broad heuristic changes.
+4. Use fast workflow for iteration and full workflow for final validation only.
+
+### 9.1 Pre-binarization Ensemble (cheap-first fallback)
+- **Files**: `src/tools/mod.rs`, `src/lib.rs`, `src/pipeline.rs`
+- **What**:
+  - run Otsu first, then two adaptive variants only on miss
+  - stop on first successful decode
+- **Success criteria**:
+  - +3pp combined on `brightness` + `shadows` with <=8% median runtime regression
+
+### 9.2 Multi-Scale Decode Schedule
+- **Files**: `src/decoder/qr_decoder/geometry.rs`, `src/decoder/qr_decoder.rs`
+- **What**:
+  - retry failed candidates at 1.25x and 1.5x sampling scale
+  - run scale retries only when module pitch/confidence indicates under-sampling
+- **Success criteria**:
+  - +3pp combined on `close` + `blurred` with bounded extra attempts
+
+### 9.3 Finder Triple Re-ranking via Geometry Consistency
+- **Files**: `src/detector/grouping.rs`, `src/pipeline.rs`
+- **What**:
+  - add timing-line agreement and module-pitch consistency to triple scoring
+  - prioritize geometrically coherent triples before decode
+- **Success criteria**:
+  - reduced wrong-transform attempts and +2pp on `glare` + `bright_spots`
+
+### 9.4 Local Contrast Normalization on Candidate ROI
+- **Files**: `src/utils/grayscale.rs`, `src/decoder/qr_decoder/geometry.rs`
+- **What**:
+  - apply local normalization only to candidate ROI fallback path
+  - avoid whole-image expensive enhancement
+- **Success criteria**:
+  - +2pp on `brightness`/`shadows` without global runtime penalty
+
+### 9.5 Per-Image Decode Budget Controller
+- **Files**: `src/pipeline.rs`, `src/lib.rs`
+- **What**:
+  - allocate attempts by confidence lanes: high, medium, low
+  - cap total per-image attempts with explicit skip telemetry
+- **Success criteria**:
+  - no runtime blowups; median runtime regression <=8% while maintaining gains
+
+### 9.6 High-Version Subpixel Sampler + Single Refinement Pass
+- **Files**: `src/decoder/qr_decoder/geometry.rs`, `src/decoder/qr_decoder.rs`
+- **What**:
+  - use bilinear/subpixel sampler for high-version candidates
+  - run one bounded transform refinement pass
+- **Success criteria**:
+  - +3pp on `high_version` with no regression in `nominal`
+
+### 9.7 Damage-Aware Erasure Masking for RS Inputs
+- **Files**: `src/decoder/qr_decoder/payload.rs`, `src/decoder/reed_solomon.rs`
+- **What**:
+  - mark uncertain modules/codewords near damage patterns as erasures
+  - route to erasure-capable RS decode path
+- **Success criteria**:
+  - +3pp on `damaged` with controlled false-positive rate
+
+### 9.8 Glare/Saturation Masking for Finder and Timing Scoring
+- **Files**: `src/detector/finder.rs`, `src/detector/timing.rs`, `src/pipeline.rs`
+- **What**:
+  - suppress saturated blobs from dominating finder/timing confidence
+  - run mask-aware scoring only when saturation ratio is high
+- **Success criteria**:
+  - +3pp combined on `glare` + `bright_spots`
+
+### 9.9 Category-Triggered Router v2 from Fast Image Signals
+- **Files**: `src/pipeline.rs`, `src/bin/qrtool.rs`
+- **What**:
+  - classify image quickly (blur metric, saturation %, skew estimate, density proxy)
+  - dispatch to minimal recovery stack per profile
+- **Success criteria**:
+  - improved weighted global with same or better median runtime
+
+### 9.10 Failure-Signature-Driven Tuning Loop
+- **Files**: `scripts/triage_failure_clusters.py`, `scripts/*` (new), `src/bin/qrtool.rs`
+- **What**:
+  - select top weighted failure signatures from artifacts
+  - tune only targeted knobs and compare against baseline artifact
+- **Success criteria**:
+  - each merged tuning change maps to a signature-level improvement in artifact diff
+
+### Phase 9 Worklog Packets
+
+1. `9.1` -> `docs/worklog/phase9_01_pre_binarization_ensemble.txt`
+2. `9.2` -> `docs/worklog/phase9_02_multi_scale_decode_schedule.txt`
+3. `9.3` -> `docs/worklog/phase9_03_finder_rerank_geometry.txt`
+4. `9.4` -> `docs/worklog/phase9_04_local_contrast_roi_normalization.txt`
+5. `9.5` -> `docs/worklog/phase9_05_per_image_budget_controller.txt`
+6. `9.6` -> `docs/worklog/phase9_06_high_version_subpixel_refinement.txt`
+7. `9.7` -> `docs/worklog/phase9_07_damage_aware_erasure_masking.txt`
+8. `9.8` -> `docs/worklog/phase9_08_glare_saturation_masking.txt`
+9. `9.9` -> `docs/worklog/phase9_09_router_v2_fast_signals.txt`
+10. `9.10` -> `docs/worklog/phase9_10_failure_signature_tuning_loop.txt`
+
+### Recommended Phase 9 Order
+
+1. `9.5` Per-image budget controller
+2. `9.1` Pre-binarization ensemble
+3. `9.3` Finder triple re-ranking
+4. `9.8` Glare/saturation masking
+5. `9.4` Local contrast normalization
+6. `9.2` Multi-scale decode schedule
+7. `9.6` High-version subpixel refinement
+8. `9.7` Damage-aware erasure masking
+9. `9.9` Router v2 fast signals
+10. `9.10` Failure-signature-driven tuning loop

@@ -1,0 +1,34 @@
+# Phase 9.6 - High-Version Subpixel Sampler + Single Refinement Pass
+
+## Goal
+Improve decode for high-capacity QR codes using more precise sampling and one bounded transform refinement.
+
+## Scope
+- Activate only for high-version candidates (v7+)
+- Single refinement pass to avoid runaway cost
+
+## Files
+- src/decoder/qr_decoder/geometry.rs
+- src/decoder/qr_decoder.rs
+- src/pipeline.rs
+
+## Implementation Tasks
+1. Add subpixel (bilinear) sampler path for high-version matrices.
+2. Add one bounded refinement step using alignment/timing residual.
+3. Keep strict fallback ordering and budget accounting.
+4. Add telemetry:
+   - hv_subpixel_attempts
+   - hv_refine_attempts
+   - hv_refine_successes
+
+## Validation
+- Focused run:
+  - cargo run --features tools --bin qrtool --release -- reading-rate --category high_version --limit 33 --non-interactive
+  - sanity run on nominal category for regression check
+
+## Success Criteria
+- +3pp on high_version.
+- No negative impact on nominal.
+
+## Deliverables
+- High-version precision fallback + telemetry + artifact diff.

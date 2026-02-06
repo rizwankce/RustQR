@@ -7,6 +7,54 @@ use crate::decoder::tables::ec_block_info;
 use crate::decoder::unmask::unmask;
 use crate::decoder::version::VersionInfo;
 use crate::models::{BitMatrix, ECLevel, QRCode, Version};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static RS_ERASURE_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+static RS_ERASURE_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
+static RS_ERASURE_HIST_1: AtomicUsize = AtomicUsize::new(0);
+static RS_ERASURE_HIST_2_3: AtomicUsize = AtomicUsize::new(0);
+static RS_ERASURE_HIST_4_6: AtomicUsize = AtomicUsize::new(0);
+static RS_ERASURE_HIST_7_PLUS: AtomicUsize = AtomicUsize::new(0);
+
+pub(super) fn reset_erasure_counters() {
+    RS_ERASURE_ATTEMPTS.store(0, Ordering::Relaxed);
+    RS_ERASURE_SUCCESSES.store(0, Ordering::Relaxed);
+    RS_ERASURE_HIST_1.store(0, Ordering::Relaxed);
+    RS_ERASURE_HIST_2_3.store(0, Ordering::Relaxed);
+    RS_ERASURE_HIST_4_6.store(0, Ordering::Relaxed);
+    RS_ERASURE_HIST_7_PLUS.store(0, Ordering::Relaxed);
+}
+
+pub(super) fn take_erasure_counters() -> (usize, usize, [usize; 4]) {
+    (
+        RS_ERASURE_ATTEMPTS.swap(0, Ordering::Relaxed),
+        RS_ERASURE_SUCCESSES.swap(0, Ordering::Relaxed),
+        [
+            RS_ERASURE_HIST_1.swap(0, Ordering::Relaxed),
+            RS_ERASURE_HIST_2_3.swap(0, Ordering::Relaxed),
+            RS_ERASURE_HIST_4_6.swap(0, Ordering::Relaxed),
+            RS_ERASURE_HIST_7_PLUS.swap(0, Ordering::Relaxed),
+        ],
+    )
+}
+
+fn record_erasure_hist(count: usize) {
+    match count {
+        0 => {}
+        1 => {
+            RS_ERASURE_HIST_1.fetch_add(1, Ordering::Relaxed);
+        }
+        2..=3 => {
+            RS_ERASURE_HIST_2_3.fetch_add(1, Ordering::Relaxed);
+        }
+        4..=6 => {
+            RS_ERASURE_HIST_4_6.fetch_add(1, Ordering::Relaxed);
+        }
+        _ => {
+            RS_ERASURE_HIST_7_PLUS.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn try_decode_single(
@@ -209,8 +257,13 @@ pub(super) fn deinterleave_and_correct_with_confidence(
                     erasure_threshold(),
                     max_erasures_per_block(info.ecc_per_block),
                 );
-                if !erasures.is_empty() && rs.decode_with_erasures(block, &erasures).is_ok() {
-                    corrected = true;
+                if !erasures.is_empty() {
+                    RS_ERASURE_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                    record_erasure_hist(erasures.len());
+                    if rs.decode_with_erasures(block, &erasures).is_ok() {
+                        RS_ERASURE_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                        corrected = true;
+                    }
                 }
                 let _ = conf;
             }

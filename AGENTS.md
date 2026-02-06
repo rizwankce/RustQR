@@ -30,6 +30,9 @@
 - Place integration regressions in `tests/*_tests.rs`; name tests by scenario (for example, `test_decode_rotated`).
 - Use deterministic assertions on decoded content/metadata when possible.
 - Real-image tests may be tuned with env vars:
+  - `QR_MAX_DIM=1024` is the default recommendation for benchmark/CI parity.
+  - `QR_MAX_DIM=800` for faster local iteration.
+  - `QR_MAX_DIM=1200` for occasional deep validation.
   - `QR_MAX_DIM=0` disables downscaling.
   - `QR_DEBUG=1` enables debug logs.
 - Run targeted tests during iteration, then `cargo test` before commit.
