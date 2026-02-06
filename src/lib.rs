@@ -22,6 +22,30 @@ pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
+/// Per-image telemetry tracking which pipeline stages succeeded or failed.
+///
+/// Every stage records its highest-water-mark count across all binarization
+/// strategies tried (primary + fallback).
+#[derive(Debug, Clone, Default)]
+pub struct DetectionTelemetry {
+    /// Whether binarization produced a non-empty binary matrix.
+    pub binarize_ok: bool,
+    /// Peak number of finder patterns detected across all binarization attempts.
+    pub finder_patterns_found: usize,
+    /// Peak number of valid groups (triplets) formed from finder patterns.
+    pub groups_found: usize,
+    /// Number of groups where a perspective transform could be built.
+    pub transforms_built: usize,
+    /// Number of groups where format info was extractable from the sampled grid.
+    pub format_extracted: usize,
+    /// Number of groups where Reed-Solomon decoding succeeded.
+    pub rs_decode_ok: usize,
+    /// Number of QR codes whose payload parsed into valid content.
+    pub payload_decoded: usize,
+    /// The final detection result count.
+    pub qr_codes_found: usize,
+}
+
 use decoder::qr_decoder::QrDecoder;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
@@ -98,6 +122,93 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     }
 
     results
+}
+
+/// Detect QR codes in an RGB image, returning telemetry about which pipeline
+/// stages succeeded or failed. This is intended for benchmark diagnostics.
+///
+/// The telemetry records the high-water-mark across all binarization attempts
+/// so callers can determine *where* the pipeline stalls for a given image.
+pub fn detect_with_telemetry(
+    image: &[u8],
+    width: usize,
+    height: usize,
+) -> (Vec<QRCode>, DetectionTelemetry) {
+    let mut tel = DetectionTelemetry::default();
+
+    // Step 1: Convert to grayscale
+    let gray = rgb_to_grayscale(image, width, height);
+
+    // Step 2: Binarize (adaptive first on large images, Otsu on small)
+    let mut binary = if width >= 800 || height >= 800 {
+        adaptive_binarize(&gray, width, height, 31)
+    } else {
+        otsu_binarize(&gray, width, height)
+    };
+    tel.binarize_ok = true;
+
+    // Step 3: Detect finder patterns
+    let mut finder_patterns = if width >= 1600 && height >= 1600 {
+        FinderDetector::detect_with_pyramid(&binary)
+    } else {
+        FinderDetector::detect(&binary)
+    };
+    tel.finder_patterns_found = finder_patterns.len();
+
+    // Fallback: if adaptive yields too few patterns, try Otsu (or vice-versa)
+    if finder_patterns.len() < 3 {
+        let fallback = if width >= 800 || height >= 800 {
+            otsu_binarize(&gray, width, height)
+        } else {
+            adaptive_binarize(&gray, width, height, 31)
+        };
+        let fallback_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&fallback)
+        } else {
+            FinderDetector::detect(&fallback)
+        };
+        tel.finder_patterns_found = tel.finder_patterns_found.max(fallback_patterns.len());
+        if fallback_patterns.len() >= 3 {
+            binary = fallback;
+            finder_patterns = fallback_patterns;
+        }
+    }
+
+    let (mut results, decode_tel) =
+        decode_groups_with_telemetry(&binary, &gray, width, height, &finder_patterns);
+    tel.groups_found = tel.groups_found.max(decode_tel.groups_found);
+    tel.transforms_built = tel.transforms_built.max(decode_tel.transforms_built);
+    tel.format_extracted = tel.format_extracted.max(decode_tel.format_extracted);
+    tel.rs_decode_ok = tel.rs_decode_ok.max(decode_tel.rs_decode_ok);
+    tel.payload_decoded = tel.payload_decoded.max(decode_tel.payload_decoded);
+
+    // Final fallback: if no decode, try the other binarizer end-to-end
+    if results.is_empty() {
+        let fallback = if width >= 800 || height >= 800 {
+            otsu_binarize(&gray, width, height)
+        } else {
+            adaptive_binarize(&gray, width, height, 31)
+        };
+        let fallback_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&fallback)
+        } else {
+            FinderDetector::detect(&fallback)
+        };
+        tel.finder_patterns_found = tel.finder_patterns_found.max(fallback_patterns.len());
+        if fallback_patterns.len() >= 3 {
+            let (fb_results, fb_tel) =
+                decode_groups_with_telemetry(&fallback, &gray, width, height, &fallback_patterns);
+            tel.groups_found = tel.groups_found.max(fb_tel.groups_found);
+            tel.transforms_built = tel.transforms_built.max(fb_tel.transforms_built);
+            tel.format_extracted = tel.format_extracted.max(fb_tel.format_extracted);
+            tel.rs_decode_ok = tel.rs_decode_ok.max(fb_tel.rs_decode_ok);
+            tel.payload_decoded = tel.payload_decoded.max(fb_tel.payload_decoded);
+            results = fb_results;
+        }
+    }
+
+    tel.qr_codes_found = results.len();
+    (results, tel)
 }
 
 fn order_finder_patterns(
@@ -432,6 +543,47 @@ fn decode_groups(
     }
 
     results
+}
+
+/// Like `decode_groups` but also collects stage-level telemetry counters.
+fn decode_groups_with_telemetry(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    finder_patterns: &[FinderPattern],
+) -> (Vec<QRCode>, DetectionTelemetry) {
+    let mut tel = DetectionTelemetry::default();
+    let mut results = Vec::new();
+    let mut groups = group_finder_patterns(finder_patterns);
+    score_and_trim_groups(&mut groups, finder_patterns, 40);
+    tel.groups_found = groups.len();
+
+    for group in &groups {
+        if group.len() < 3 {
+            continue;
+        }
+
+        if let Some((tl, tr, bl, module_size)) = order_finder_patterns(
+            &finder_patterns[group[0]],
+            &finder_patterns[group[1]],
+            &finder_patterns[group[2]],
+        ) {
+            tel.transforms_built += 1;
+            match QrDecoder::decode_with_gray(
+                binary, gray, width, height, &tl, &tr, &bl, module_size,
+            ) {
+                Some(qr) => {
+                    tel.rs_decode_ok += 1;
+                    tel.payload_decoded += 1;
+                    results.push(qr);
+                }
+                None => {}
+            }
+        }
+    }
+
+    (results, tel)
 }
 
 /// Detect QR codes from a pre-computed grayscale image

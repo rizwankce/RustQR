@@ -132,14 +132,55 @@ pub fn dataset_root_from_env() -> PathBuf {
 }
 
 /// Default bench limit from environment variables.
+///
+/// Returns `None` (full dataset) when `QR_BENCH_LIMIT` is unset or set to `0`.
+/// Previously defaulted to 5 when unset, which silently sampled only a tiny
+/// subset and produced misleading reading-rate numbers.
 pub fn bench_limit_from_env() -> Option<usize> {
     match env::var("QR_BENCH_LIMIT") {
         Ok(value) => value
             .parse::<usize>()
             .ok()
             .and_then(|v| if v == 0 { None } else { Some(v) }),
-        Err(_) => Some(5),
+        Err(_) => None,
     }
+}
+
+/// Count the number of expected QR codes from a BoofCV-format label file.
+///
+/// The `.txt` files contain hand-selected corner coordinates: one line with
+/// `# list of hand selected 2D points`, a `SETS` marker, then one line per
+/// expected QR code with 8 floating-point values (4 corner points × x,y).
+///
+/// Returns `0` if the file cannot be read or parsed.
+pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
+    let content = match fs::read_to_string(txt_path) {
+        Ok(c) => c,
+        Err(_) => return 0,
+    };
+    let mut count = 0usize;
+    let mut past_header = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if trimmed == "SETS" {
+            past_header = true;
+            continue;
+        }
+        if past_header {
+            // Each data line should have 8 floats (4 corner points)
+            let nums: Vec<f64> = trimmed
+                .split_whitespace()
+                .filter_map(|t| t.parse::<f64>().ok())
+                .collect();
+            if nums.len() >= 8 {
+                count += 1;
+            }
+        }
+    }
+    count
 }
 
 /// Smoke test flag from environment variables.
