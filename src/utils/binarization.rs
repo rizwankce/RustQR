@@ -225,6 +225,156 @@ pub fn threshold_binarize(
     binary
 }
 
+/// Binarize using Sauvola's method which adapts to local contrast.
+/// threshold = mean * (1 + k * (std_dev / R - 1))
+/// This handles uneven illumination better than simple adaptive thresholding.
+pub fn sauvola_binarize(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    window_size: usize,
+    k: f32,
+) -> crate::models::BitMatrix {
+    use crate::models::BitMatrix;
+
+    let mut binary = BitMatrix::new(width, height);
+    let mut integral = build_integral_image(gray, width, height);
+    let mut integral_sq = build_integral_sq_image(gray, width, height);
+    sauvola_binarize_core(
+        gray,
+        width,
+        height,
+        window_size,
+        k,
+        &mut binary,
+        &mut integral,
+        &mut integral_sq,
+    );
+    binary
+}
+
+/// Sauvola binarization writing into existing buffers (avoids allocation)
+pub fn sauvola_binarize_into(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    window_size: usize,
+    k: f32,
+    output: &mut crate::models::BitMatrix,
+    integral: &mut Vec<u32>,
+    integral_sq: &mut Vec<u64>,
+) {
+    output.reset(width, height);
+    build_integral_image_into(gray, width, height, integral);
+    build_integral_sq_image_into(gray, width, height, integral_sq);
+    sauvola_binarize_core(gray, width, height, window_size, k, output, integral, integral_sq);
+}
+
+/// Core Sauvola binarization logic
+fn sauvola_binarize_core(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    window_size: usize,
+    k: f32,
+    binary: &mut crate::models::BitMatrix,
+    integral: &[u32],
+    integral_sq: &[u64],
+) {
+    let half_window = window_size / 2;
+    const R: f64 = 128.0;
+
+    for y in 0..height {
+        for x in 0..width {
+            let idx = y * width + x;
+
+            let x1 = x.saturating_sub(half_window);
+            let y1 = y.saturating_sub(half_window);
+            let x2 = (x + half_window).min(width - 1);
+            let y2 = (y + half_window).min(height - 1);
+
+            let pixel_count = (x2 - x1 + 1) * (y2 - y1 + 1);
+            let local_sum = query_integral_sum(integral, width, height, x1, y1, x2, y2);
+            let local_sq_sum = query_integral_sq_sum(integral_sq, width, x1, y1, x2, y2);
+
+            let mean = local_sum as f64 / pixel_count as f64;
+            let mean_sq = local_sq_sum as f64 / pixel_count as f64;
+            let variance = (mean_sq - mean * mean).max(0.0);
+            let std_dev = variance.sqrt();
+
+            let threshold = mean * (1.0 + k as f64 * (std_dev / R - 1.0));
+            let is_black = (gray[idx] as f64) < threshold;
+            binary.set(x, y, is_black);
+        }
+    }
+}
+
+/// Build integral image of squared pixel values for variance computation
+fn build_integral_sq_image(gray: &[u8], width: usize, height: usize) -> Vec<u64> {
+    let mut integral_sq = vec![0u64; width * height];
+    build_integral_sq_image_into(gray, width, height, &mut integral_sq);
+    integral_sq
+}
+
+/// Build integral image of squared pixel values into an existing buffer
+fn build_integral_sq_image_into(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    integral_sq: &mut Vec<u64>,
+) {
+    let len = width * height;
+    integral_sq.resize(len, 0);
+    integral_sq.fill(0);
+
+    for y in 0..height {
+        let mut row_sum = 0u64;
+        for x in 0..width {
+            let idx = y * width + x;
+            let val = gray[idx] as u64;
+            row_sum += val * val;
+
+            if y == 0 {
+                integral_sq[idx] = row_sum;
+            } else {
+                integral_sq[idx] = integral_sq[(y - 1) * width + x] + row_sum;
+            }
+        }
+    }
+}
+
+/// Query sum of squared values in rectangle from (x1,y1) to (x2,y2)
+fn query_integral_sq_sum(
+    integral_sq: &[u64],
+    width: usize,
+    x1: usize,
+    y1: usize,
+    x2: usize,
+    y2: usize,
+) -> u64 {
+    let a = if x1 > 0 && y1 > 0 {
+        integral_sq[(y1 - 1) * width + (x1 - 1)]
+    } else {
+        0
+    };
+
+    let b = if y1 > 0 {
+        integral_sq[(y1 - 1) * width + x2]
+    } else {
+        0
+    };
+
+    let c = if x1 > 0 {
+        integral_sq[y2 * width + (x1 - 1)]
+    } else {
+        0
+    };
+
+    let d = integral_sq[y2 * width + x2];
+
+    d + a - c - b
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,5 +446,40 @@ mod tests {
         // classified based on whether they're below or above local mean
         assert_eq!(binary.width(), 10);
         assert_eq!(binary.height(), 10);
+    }
+
+    #[test]
+    fn test_integral_sq_image() {
+        let gray = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let integral_sq = build_integral_sq_image(&gray, 3, 3);
+
+        // Query sum of squared values for entire image
+        // 1+4+9+16+25+36+49+64+81 = 285
+        let total = query_integral_sq_sum(&integral_sq, 3, 0, 0, 2, 2);
+        assert_eq!(total, 285);
+
+        // Query single pixel (5^2 = 25)
+        let single = query_integral_sq_sum(&integral_sq, 3, 1, 1, 1, 1);
+        assert_eq!(single, 25);
+    }
+
+    #[test]
+    fn test_sauvola_binarize() {
+        // Create image with varying brightness
+        let mut gray = Vec::new();
+        for _y in 0..20 {
+            for x in 0..20 {
+                if x < 10 {
+                    gray.push(50u8);
+                } else {
+                    gray.push(200u8);
+                }
+            }
+        }
+
+        let binary = sauvola_binarize(&gray, 20, 20, 5, 0.2);
+
+        assert_eq!(binary.width(), 20);
+        assert_eq!(binary.height(), 20);
     }
 }

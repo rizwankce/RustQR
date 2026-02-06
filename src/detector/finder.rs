@@ -38,11 +38,20 @@ impl FinderDetector {
             candidates.extend(row_candidates);
         }
 
+        // Scan every column for vertically-oriented finder patterns (rotated QR codes)
+        for x in 0..width {
+            if !Self::has_significant_edges_column(matrix, x, height) {
+                continue;
+            }
+            let col_candidates = Self::scan_column(matrix, x, height);
+            candidates.extend(col_candidates);
+        }
+
         Self::merge_candidates(candidates)
     }
 
     /// Detect finder patterns using parallel processing
-    /// Processes rows in parallel for multi-core speedup
+    /// Processes rows and columns in parallel for multi-core speedup
     pub fn detect_parallel(matrix: &BitMatrix) -> Vec<FinderPattern> {
         use rayon::prelude::*;
 
@@ -50,7 +59,7 @@ impl FinderDetector {
         let height = matrix.height();
 
         // Collect candidates from all rows in parallel
-        let all_candidates: Vec<Vec<FinderPattern>> = (0..height)
+        let all_row_candidates: Vec<Vec<FinderPattern>> = (0..height)
             .into_par_iter()
             .filter_map(|y| {
                 // Early termination: Skip rows with low variance
@@ -67,10 +76,30 @@ impl FinderDetector {
             })
             .collect();
 
+        // Collect candidates from all columns in parallel
+        let all_col_candidates: Vec<Vec<FinderPattern>> = (0..width)
+            .into_par_iter()
+            .filter_map(|x| {
+                if !Self::has_significant_edges_column(matrix, x, height) {
+                    return None;
+                }
+
+                let col_candidates = Self::scan_column(matrix, x, height);
+                if col_candidates.is_empty() {
+                    None
+                } else {
+                    Some(col_candidates)
+                }
+            })
+            .collect();
+
         // Flatten all candidates
         let mut candidates = Vec::new();
-        for row_candidates in all_candidates {
+        for row_candidates in all_row_candidates {
             candidates.extend(row_candidates);
+        }
+        for col_candidates in all_col_candidates {
+            candidates.extend(col_candidates);
         }
 
         Self::merge_candidates(candidates)
@@ -106,6 +135,15 @@ impl FinderDetector {
             coarse_candidates.extend(row_candidates);
         }
 
+        // Also scan columns at coarse level for rotated QR codes
+        for x in 0..coarse_width {
+            if !Self::has_significant_edges_column(coarse_level, x, coarse_height) {
+                continue;
+            }
+            let col_candidates = Self::scan_column(coarse_level, x, coarse_height);
+            coarse_candidates.extend(col_candidates);
+        }
+
         // If no candidates found at coarse level, fall back to full detection
         if coarse_candidates.is_empty() {
             return Self::detect(matrix);
@@ -124,23 +162,37 @@ impl FinderDetector {
                 WINDOW_SIZE,
             );
 
-            // Scan only the window area at full resolution
+            // Convert coarse module size to original scale for validation
+            let expected_module = coarse_pattern.module_size * scale;
+
+            // Scan rows in the window area at full resolution
             for y in min_y..=max_y {
                 if !Self::has_significant_edges(matrix, y, width) {
                     continue;
                 }
 
-                // Only check patterns near the coarse location
                 let row_candidates = Self::scan_row_in_range(matrix, y, width, min_x, max_x);
 
-                // Convert coarse module size to original scale for validation
-                let expected_module = coarse_pattern.module_size * scale;
-
                 for candidate in row_candidates {
-                    // Validate module size matches expectation from coarse detection
                     let size_ratio = candidate.module_size / expected_module;
                     if size_ratio >= 0.5 && size_ratio <= 2.0 {
-                        // Module size is consistent, keep this candidate
+                        refined_candidates.push(candidate);
+                    }
+                }
+            }
+
+            // Scan columns in the window area at full resolution
+            for x in min_x..=max_x {
+                if !Self::has_significant_edges_column(matrix, x, height) {
+                    continue;
+                }
+
+                let col_candidates =
+                    Self::scan_column_in_range(matrix, x, height, min_y, max_y);
+
+                for candidate in col_candidates {
+                    let size_ratio = candidate.module_size / expected_module;
+                    if size_ratio >= 0.5 && size_ratio <= 2.0 {
                         refined_candidates.push(candidate);
                     }
                 }
@@ -616,6 +668,188 @@ impl FinderDetector {
         Some((center, unit))
     }
 
+    /// Check if column has enough edge transitions to potentially contain patterns
+    fn has_significant_edges_column(matrix: &BitMatrix, x: usize, height: usize) -> bool {
+        if height == 0 {
+            return false;
+        }
+
+        let mut transitions = 0;
+        let sample_step = 4;
+        let mut prev_color = matrix.get(x, 0);
+
+        for y in (sample_step..height).step_by(sample_step) {
+            let color = matrix.get(x, y);
+            if color != prev_color {
+                transitions += 1;
+                prev_color = color;
+
+                if transitions >= 3 {
+                    return true;
+                }
+            }
+        }
+
+        transitions >= 2
+    }
+
+    fn scan_column(matrix: &BitMatrix, x: usize, height: usize) -> Vec<FinderPattern> {
+        let mut candidates = Vec::new();
+        if height == 0 {
+            return candidates;
+        }
+
+        let mut run_lengths: Vec<usize> = Vec::new();
+        let mut run_colors: Vec<bool> = Vec::new();
+        let mut run_start = 0usize;
+        let mut current_color = matrix.get(x, 0);
+
+        const MAX_PATTERNS_PER_COL: usize = 5;
+
+        for y in 1..height {
+            let color = matrix.get(x, y);
+
+            if color != current_color {
+                let run_len = y - run_start;
+                run_lengths.push(run_len);
+                run_colors.push(current_color);
+
+                run_start = y;
+                current_color = color;
+
+                if run_colors.len() >= 5 {
+                    let end_idx = run_colors.len();
+                    let colors = &run_colors[end_idx - 5..end_idx];
+                    let lengths = &run_lengths[end_idx - 5..end_idx];
+
+                    // Pattern should be: black-white-black-white-black
+                    if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
+                        if Self::quick_ratio_check(lengths) {
+                            if let Some((center_y, _unit, total)) = Self::check_pattern(lengths, y)
+                            {
+                                // Cross-check horizontally first (primary axis is vertical)
+                                if let Some((center_x, unit_h)) =
+                                    Self::cross_check_horizontal(matrix, x as f32, center_y, total)
+                                {
+                                    // Then refine vertically
+                                    if let Some((refined_y, unit_v)) =
+                                        Self::cross_check_vertical(
+                                            matrix,
+                                            center_x,
+                                            center_y.round() as usize,
+                                            total,
+                                        )
+                                    {
+                                        let module_size = (unit_h + unit_v) / 2.0;
+                                        candidates.push(FinderPattern::new(
+                                            center_x,
+                                            refined_y,
+                                            module_size,
+                                        ));
+                                    } else {
+                                        candidates.push(FinderPattern::new(
+                                            center_x, center_y, unit_h,
+                                        ));
+                                    }
+                                }
+
+                                if candidates.len() >= MAX_PATTERNS_PER_COL {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        candidates
+    }
+
+    fn scan_column_in_range(
+        matrix: &BitMatrix,
+        x: usize,
+        height: usize,
+        min_y: usize,
+        max_y: usize,
+    ) -> Vec<FinderPattern> {
+        let mut candidates = Vec::new();
+        if height == 0 {
+            return candidates;
+        }
+
+        let mut run_lengths: Vec<usize> = Vec::new();
+        let mut run_colors: Vec<bool> = Vec::new();
+
+        let start_y = min_y.min(height - 1);
+        let end_y = max_y.min(height - 1);
+
+        if start_y >= end_y {
+            return candidates;
+        }
+
+        let mut run_start = start_y;
+        let mut current_color = matrix.get(x, start_y);
+
+        const MAX_PATTERNS_PER_COL: usize = 5;
+
+        for y in (start_y + 1)..=end_y {
+            let color = matrix.get(x, y);
+
+            if color != current_color {
+                let run_len = y - run_start;
+                run_lengths.push(run_len);
+                run_colors.push(current_color);
+
+                run_start = y;
+                current_color = color;
+
+                if run_colors.len() >= 5 {
+                    let end_idx = run_colors.len();
+                    let colors = &run_colors[end_idx - 5..end_idx];
+                    let lengths = &run_lengths[end_idx - 5..end_idx];
+
+                    if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
+                        if Self::quick_ratio_check(lengths) {
+                            if let Some((center_y, _unit, total)) = Self::check_pattern(lengths, y)
+                            {
+                                if let Some((center_x, unit_h)) =
+                                    Self::cross_check_horizontal(matrix, x as f32, center_y, total)
+                                {
+                                    if let Some((refined_y, unit_v)) =
+                                        Self::cross_check_vertical(
+                                            matrix,
+                                            center_x,
+                                            center_y.round() as usize,
+                                            total,
+                                        )
+                                    {
+                                        let module_size = (unit_h + unit_v) / 2.0;
+                                        candidates.push(FinderPattern::new(
+                                            center_x,
+                                            refined_y,
+                                            module_size,
+                                        ));
+                                    } else {
+                                        candidates.push(FinderPattern::new(
+                                            center_x, center_y, unit_h,
+                                        ));
+                                    }
+                                }
+
+                                if candidates.len() >= MAX_PATTERNS_PER_COL {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        candidates
+    }
+
     fn merge_candidates(candidates: Vec<FinderPattern>) -> Vec<FinderPattern> {
         let mut merged: Vec<FinderPattern> = Vec::new();
         // Increased from 5.0 to 50.0 to properly merge duplicate detections
@@ -746,5 +980,12 @@ mod tests {
 
         let bad_center = vec![6, 6, 6, 6, 6];
         assert!(!FinderDetector::quick_ratio_check(&bad_center));
+    }
+
+    #[test]
+    fn test_detect_zero_height_matrix() {
+        let matrix = BitMatrix::new(8, 0);
+        let patterns = FinderDetector::detect(&matrix);
+        assert!(patterns.is_empty());
     }
 }

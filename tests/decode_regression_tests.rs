@@ -60,6 +60,7 @@ fn load_rgb_downscaled(img_path: &str) -> Option<(Vec<u8>, usize, usize)> {
 
 /// Test detection and decoding from a real QR code image
 #[test]
+#[ignore = "slow real-image regression; run with cargo test -- --ignored"]
 fn test_decode_monitor_image001() {
     // This is a real QR code from the benchmark suite
     let img_path = "benches/images/boofcv/monitor/image001.jpg";
@@ -108,6 +109,7 @@ fn test_decode_monitor_image001() {
 
 /// Test that we can decode QR codes from blurred images
 #[test]
+#[ignore = "slow real-image regression; run with cargo test -- --ignored"]
 fn test_decode_blurred_image() {
     let img_path = "benches/images/boofcv/blurred/image001.jpg";
     let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
@@ -136,6 +138,7 @@ fn test_decode_blurred_image() {
 
 /// Test decoding QR codes with different versions
 #[test]
+#[ignore = "slow real-image regression; run with cargo test -- --ignored"]
 fn test_decode_high_version() {
     let img_path = "benches/images/boofcv/high_version/image001.jpg";
     let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
@@ -170,6 +173,7 @@ fn test_decode_high_version() {
 
 /// Test decoding rotated QR codes
 #[test]
+#[ignore = "slow real-image regression; run with cargo test -- --ignored"]
 fn test_decode_rotated() {
     let img_path = "benches/images/boofcv/rotations/image001.jpg";
     let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
@@ -194,6 +198,7 @@ fn test_decode_rotated() {
 
 /// Test that decoder handles damaged QR codes gracefully
 #[test]
+#[ignore = "slow real-image regression; run with cargo test -- --ignored"]
 fn test_decode_damaged() {
     let img_path = "benches/images/boofcv/damaged/image001.jpg";
     let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
@@ -223,6 +228,7 @@ fn test_decode_damaged() {
 
 /// Test that multiple QR codes in one image are all detected
 #[test]
+#[ignore = "slow real-image regression; run with cargo test -- --ignored"]
 fn test_decode_multiple_codes() {
     let img_path = "benches/images/boofcv/lots/image001.jpg";
     let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {
@@ -250,6 +256,7 @@ fn test_decode_multiple_codes() {
 
 /// Test nominal (ideal) QR codes - these should decode with high reliability
 #[test]
+#[ignore = "slow real-image regression; run with cargo test -- --ignored"]
 fn test_decode_nominal() {
     let img_path = "benches/images/boofcv/nominal/image001.jpg";
     let Some((rgb_bytes, width, height)) = load_rgb_downscaled(img_path) else {

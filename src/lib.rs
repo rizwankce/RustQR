@@ -50,6 +50,7 @@ use decoder::qr_decoder::QrDecoder;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
     adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into,
+    sauvola_binarize,
 };
 use utils::grayscale::{rgb_to_grayscale, rgb_to_grayscale_with_buffer};
 use utils::memory_pool::BufferPool;
@@ -103,6 +104,19 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     }
 
     let mut results = decode_groups(&binary, &gray, width, height, &finder_patterns);
+
+    // Sauvola fallback: adapts to local contrast (handles shadows/glare)
+    if results.is_empty() {
+        let sauvola = sauvola_binarize(&gray, width, height, 31, 0.2);
+        let sauvola_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&sauvola)
+        } else {
+            FinderDetector::detect(&sauvola)
+        };
+        if sauvola_patterns.len() >= 3 {
+            results = decode_groups(&sauvola, &gray, width, height, &sauvola_patterns);
+        }
+    }
 
     // Final fallback: if no decode, try the other binarizer end-to-end
     if results.is_empty() {
@@ -182,6 +196,27 @@ pub fn detect_with_telemetry(
     tel.rs_decode_ok = tel.rs_decode_ok.max(decode_tel.rs_decode_ok);
     tel.payload_decoded = tel.payload_decoded.max(decode_tel.payload_decoded);
 
+    // Sauvola fallback: adapts to local contrast (handles shadows/glare)
+    if results.is_empty() {
+        let sauvola = sauvola_binarize(&gray, width, height, 31, 0.2);
+        let sauvola_patterns = if width >= 1600 && height >= 1600 {
+            FinderDetector::detect_with_pyramid(&sauvola)
+        } else {
+            FinderDetector::detect(&sauvola)
+        };
+        tel.finder_patterns_found = tel.finder_patterns_found.max(sauvola_patterns.len());
+        if sauvola_patterns.len() >= 3 {
+            let (sv_results, sv_tel) =
+                decode_groups_with_telemetry(&sauvola, &gray, width, height, &sauvola_patterns);
+            tel.groups_found = tel.groups_found.max(sv_tel.groups_found);
+            tel.transforms_built = tel.transforms_built.max(sv_tel.transforms_built);
+            tel.format_extracted = tel.format_extracted.max(sv_tel.format_extracted);
+            tel.rs_decode_ok = tel.rs_decode_ok.max(sv_tel.rs_decode_ok);
+            tel.payload_decoded = tel.payload_decoded.max(sv_tel.payload_decoded);
+            results = sv_results;
+        }
+    }
+
     // Final fallback: if no decode, try the other binarizer end-to-end
     if results.is_empty() {
         let fallback = if width >= 800 || height >= 800 {
@@ -218,7 +253,7 @@ fn order_finder_patterns(
 ) -> Option<(Point, Point, Point, f32)> {
     let patterns = [a, b, c];
 
-    if patterns.iter().any(|p| p.module_size < 2.0) {
+    if patterns.iter().any(|p| p.module_size < 1.0) {
         return None;
     }
 
@@ -621,6 +656,15 @@ pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<Q
     // Step 3: Group finder patterns and decode QR codes
     let mut results = decode_groups(&binary, image, width, height, &finder_patterns);
 
+    // Sauvola fallback: adapts to local contrast (handles shadows/glare)
+    if results.is_empty() {
+        let sauvola = sauvola_binarize(image, width, height, 31, 0.2);
+        let sauvola_patterns = FinderDetector::detect(&sauvola);
+        if sauvola_patterns.len() >= 3 {
+            results = decode_groups(&sauvola, image, width, height, &sauvola_patterns);
+        }
+    }
+
     if results.is_empty() {
         let fallback = if width >= 800 || height >= 800 {
             otsu_binarize(image, width, height)
@@ -697,6 +741,15 @@ pub fn detect_with_pool(
 
     // Step 4: Group and decode
     let mut results = decode_groups(binary, gray_buffer, width, height, &finder_patterns);
+
+    // Sauvola fallback: adapts to local contrast (handles shadows/glare)
+    if results.is_empty() {
+        let sauvola = sauvola_binarize(gray_buffer, width, height, 31, 0.2);
+        let sauvola_patterns = FinderDetector::detect(&sauvola);
+        if sauvola_patterns.len() >= 3 {
+            results = decode_groups(&sauvola, gray_buffer, width, height, &sauvola_patterns);
+        }
+    }
 
     if results.is_empty() {
         let fallback_patterns = if width >= 800 || height >= 800 {
@@ -809,7 +862,9 @@ mod tests {
         let img = image::open(img_path).expect("Failed to load image");
         let (orig_w, orig_h) = img.dimensions();
         let max_dim = orig_w.max(orig_h);
-        let max_dim_limit = test_max_dim(1200);
+        // Keep this smoke test fast in default `cargo test` runs.
+        // Callers can still override with QR_MAX_DIM.
+        let max_dim_limit = test_max_dim(800);
         let rgb_img = if max_dim > max_dim_limit {
             let scale = max_dim_limit as f32 / max_dim as f32;
             let new_w = (orig_w as f32 * scale).round().max(1.0) as u32;

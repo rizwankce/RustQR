@@ -1089,15 +1089,15 @@ mod tests {
 
     #[test]
     fn test_decoder_basic() {
-        // Create a simple test case with 3 finder patterns
+        // Use intentionally inconsistent geometry so decode exits quickly.
+        // This keeps a smoke check on invalid-input handling without triggering
+        // the expensive full candidate search.
         let matrix = BitMatrix::new(100, 100);
         let tl = Point::new(20.0, 20.0);
         let tr = Point::new(80.0, 20.0);
         let bl = Point::new(20.0, 80.0);
-
-        // This will fail because there's no actual QR code in the matrix
-        // but it exercises the decode pipeline (smoke test)
-        let _ = QrDecoder::decode(&matrix, &tl, &tr, &bl, 1.0);
+        let result = QrDecoder::decode(&matrix, &tl, &tr, &bl, 100.0);
+        assert!(result.is_none());
     }
 
     #[test]

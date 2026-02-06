@@ -158,9 +158,14 @@ Goal: Raise RustQR's overall reading rate from **~15%** toward **60%+** (beating
 
 ## Improvement Plan: Prioritized by Impact
 
-### Phase 0: Measurement Correctness & Benchmark Hygiene (Must do first)
+### Phase 0: Measurement Correctness & Benchmark Hygiene (Completed on 2026-02-06)
 
 Before algorithm work, ensure benchmark numbers are trustworthy and comparable across runs.
+
+**Status:** Completed
+- [x] 0.1 Fix Reading-Rate Scoring Correctness
+- [x] 0.2 Add Per-Stage Miss Telemetry
+- [x] 0.3 Benchmark Consistency Cleanup
 
 #### 0.1 Fix Reading-Rate Scoring Correctness
 - **Files**: `src/bin/qrtool.rs`, `src/tools/mod.rs`
@@ -404,7 +409,7 @@ Decode speed directly affects reading rate — slow decoding means CI timeouts a
 | Phase | Reading Rate | Key Unlocks | Speed Impact |
 |-------|-------------|-------------|--------------|
 | Current | ~18.7% | — | — |
-| Phase 0 | ~18.7% (more accurate) | Reliable measurement + diagnostics | Neutral |
+| Phase 0 (completed) | ~18.7% (more accurate) | Reliable measurement + diagnostics | Neutral |
 | Phase 1 | ~35% | high_version, brightness, shadows, rotations (partial) | Neutral |
 | Phase 2 | ~45% | Faster decoding enables more retry strategies | 10-30x decode speedup |
 | Phase 3 | ~55% | lots, better perspective/curved/glare | Managed by early-exit |
@@ -421,17 +426,14 @@ ZBar's 38.95% is achievable with Phase 1 + Phase 2 alone. Phase 3+ aims to appro
 
 ## Recommended Implementation Order
 
-1. **Phase 0.1** - Correct benchmark scoring (content match + weighted global rate)
-2. **Phase 0.2** - Add stage-level telemetry and failure histograms
-3. **Phase 0.3** - Standardize benchmark config + metadata + README generation
-4. **Phase 2.1** - Eliminate brute-force format search (2-4 hrs, massive speedup)
-5. **Phase 2.3** - Limit version candidates (30 min, major speedup)
-6. **Phase 2.2** - Add timing pattern validation (1-2 hrs)
-7. **Phase 1.2** - Sauvola binarization (4-6 hrs, unlocks brightness/shadows)
-8. **Phase 1.3** - Vertical column scanning (3-4 hrs, partially unlocks rotations)
-9. **Phase 1.4** - Remove/relax module_size < 2.0 filter (quick win)
-10. **Phase 3.3** - Local grid thresholding (2-3 hrs)
-11. **Phase 3.1** - Multi-threshold strategy (2-3 hrs)
-12. **Phase 3.4** - Relax grouping constraints (30 min)
+1. **Phase 2.1** - Eliminate brute-force format search (2-4 hrs, massive speedup)
+2. **Phase 2.3** - Limit version candidates (30 min, major speedup)
+3. **Phase 2.2** - Add timing pattern validation (1-2 hrs)
+4. **Phase 1.2** - Sauvola binarization (4-6 hrs, unlocks brightness/shadows)
+5. **Phase 1.3** - Vertical column scanning (3-4 hrs, partially unlocks rotations)
+6. **Phase 1.4** - Remove/relax module_size < 2.0 filter (quick win)
+7. **Phase 3.3** - Local grid thresholding (2-3 hrs)
+8. **Phase 3.1** - Multi-threshold strategy (2-3 hrs)
+9. **Phase 3.4** - Relax grouping constraints (30 min)
 
-This order prioritizes: measurement correctness → speed → robustness, so improvements are real, reproducible, and easier to tune.
+With Phase 0 complete, this order now prioritizes: speed → robustness, while preserving the measurement correctness baseline for reproducible tuning.
