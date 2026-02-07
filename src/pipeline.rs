@@ -20,7 +20,8 @@ const HIGH_CONFIDENCE_LANE_MIN: f32 = 0.78;
 const MEDIUM_CONFIDENCE_LANE_MIN: f32 = 0.56;
 const CLUSTER_GROUP_TRIGGER: usize = 64;
 const CLUSTER_TARGET_SIZE: usize = 28;
-const CLUSTER_MAX_SIZE: usize = 40;
+// Increased from 40 to 64 for better multi-QR coverage in "lots" category
+const CLUSTER_MAX_SIZE: usize = 64;
 
 #[derive(Clone, Copy)]
 struct RankedGroupCandidate {
@@ -272,8 +273,9 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let sizes = [pi.module_size, pj.module_size, pk.module_size];
                 let min_size = sizes.iter().fold(f32::INFINITY, |a, &b| a.min(b));
                 let max_size = sizes.iter().fold(0.0f32, |a, &b| a.max(b));
+                // Relaxed from 2.0 to 2.5 for perspective-distorted QR codes
                 let size_ratio = max_size / min_size;
-                if size_ratio > 2.0 {
+                if size_ratio > 2.5 {
                     continue;
                 }
 

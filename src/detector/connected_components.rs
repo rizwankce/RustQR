@@ -49,13 +49,21 @@ pub fn find_black_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize
             let idx = y * width + x;
             let mut neighbor_labels = Vec::new();
 
-            // Check left
+            // Check left (4-connectivity)
             if x > 0 && matrix.get(x - 1, y) {
                 neighbor_labels.push(labels[y * width + x - 1]);
             }
-            // Check above
+            // Check above (4-connectivity)
             if y > 0 && matrix.get(x, y - 1) {
                 neighbor_labels.push(labels[(y - 1) * width + x]);
+            }
+            // Check upper-left diagonal (8-connectivity for finder patterns)
+            if x > 0 && y > 0 && matrix.get(x - 1, y - 1) {
+                neighbor_labels.push(labels[(y - 1) * width + x - 1]);
+            }
+            // Check upper-right diagonal (8-connectivity)
+            if x + 1 < width && y > 0 && matrix.get(x + 1, y - 1) {
+                neighbor_labels.push(labels[(y - 1) * width + x + 1]);
             }
 
             if neighbor_labels.is_empty() {

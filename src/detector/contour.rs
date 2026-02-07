@@ -18,18 +18,21 @@ impl ContourDetector {
             let w = max_x.saturating_sub(min_x) + 1;
             let h = max_y.saturating_sub(min_y) + 1;
             let area = w * h;
-            if area < 64 {
+            // Lowered from 64 to 32 for better small QR detection
+            if area < 32 {
                 continue;
             }
 
             let aspect = w as f32 / h as f32;
-            if !(0.65..=1.45).contains(&aspect) {
+            // Relaxed from 0.65-1.45 to 0.5-2.0 for noncompliant/pathological
+            if !(0.50..=2.00).contains(&aspect) {
                 continue;
             }
 
             let black = black_pixels_in_bbox(matrix, min_x, min_y, max_x, max_y);
             let fill_ratio = black as f32 / area as f32;
-            if !(0.18..=0.82).contains(&fill_ratio) {
+            // Relaxed fill ratio for damaged/partially obscured QR codes
+            if !(0.12..=0.88).contains(&fill_ratio) {
                 continue;
             }
 

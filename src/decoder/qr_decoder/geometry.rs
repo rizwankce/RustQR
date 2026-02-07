@@ -383,7 +383,8 @@ fn find_alignment_center(binary: &BitMatrix, predicted: Point, module_size: f32)
         return None;
     }
 
-    let radius = (module_size * 4.0).max(4.0);
+    // Increased radius from 4.0*module_size to 6.0*module_size for better high-version detection
+    let radius = (module_size * 6.0).max(6.0);
     let min_x = (predicted.x - radius).floor().max(0.0) as isize;
     let max_x = (predicted.x + radius)
         .ceil()
@@ -408,8 +409,9 @@ fn find_alignment_center(binary: &BitMatrix, predicted: Point, module_size: f32)
         }
     }
 
+    // Relaxed threshold from 8 to 10 for high-version QR codes
     match best {
-        Some((center, mismatch)) if mismatch <= 8 => Some(center),
+        Some((center, mismatch)) if mismatch <= 10 => Some(center),
         _ => None,
     }
 }

@@ -305,6 +305,13 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
 
     variants.push(sauvola_k01);
     variants.push(sauvola_k03);
+    
+    // Add larger window variants for high-version QR codes
+    let large_window = (window * 2).clamp(63, 255);
+    if large_window != window {
+        variants.push(sauvola_binarize(gray, width, height, large_window, 0.2));
+        variants.push(adaptive_binarize(gray, width, height, large_window));
+    }
 
     let mut results = Vec::new();
     for binary in variants {
@@ -314,12 +321,15 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
         } else {
             Vec::new()
         };
+        let finder_decode_failed = decoded.is_empty();
         for qr in decoded {
             if !results.iter().any(|r: &QRCode| r.content == qr.content) {
                 results.push(qr);
             }
         }
-        if results.is_empty() {
+        // Trigger contour detector more aggressively for pathological/noncompliant cases
+        // Also try when finder patterns exist but decode failed (not just <2 patterns)
+        if results.is_empty() || (finder_patterns.len() >= 2 && finder_decode_failed) {
             let contour_patterns = ContourDetector::detect(&binary);
             if contour_patterns.len() >= 2 {
                 let contour_decoded =
