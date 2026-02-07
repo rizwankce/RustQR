@@ -3,6 +3,18 @@ use crate::decoder::function_mask::FunctionMask;
 use crate::decoder::qr_decoder::{orientation, payload};
 use crate::models::{BitMatrix, ECLevel, MaskPattern, QRCode};
 
+fn fallback_ec_levels() -> &'static [ECLevel] {
+    if crate::decoder::config::format_fallback_full_ec() {
+        &[ECLevel::L, ECLevel::M, ECLevel::Q, ECLevel::H]
+    } else {
+        &[ECLevel::L, ECLevel::M]
+    }
+}
+
+fn strict_fallback_version_match() -> bool {
+    crate::decoder::config::strict_fallback_version_match()
+}
+
 pub(super) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
     decode_from_matrix_internal(qr_matrix, version_num, None)
 }
@@ -23,11 +35,7 @@ fn decode_from_matrix_internal(
     let mut orientations = orientation::candidate_orientations(qr_matrix);
     if orientations.is_empty() {
         // Quiet-zone reconstruction fallback: tolerate more finder mismatches.
-        let mismatches = std::env::var("QR_RELAXED_FINDER_MISMATCH")
-            .ok()
-            .and_then(|v| v.trim().parse::<usize>().ok())
-            .unwrap_or(10)
-            .clamp(4, 16);
+        let mismatches = crate::decoder::config::relaxed_finder_mismatch();
         orientations = orientation::candidate_orientations_relaxed(qr_matrix, mismatches);
     }
     if orientations.is_empty() {
@@ -60,12 +68,12 @@ fn decode_from_matrix_internal(
     }
 
     // Last-resort fallback: limited EC/mask subset (not full 32-combo brute force).
+    let strict_version_match = strict_fallback_version_match();
     for oriented in &orientations {
-        if !orientation::version_matches_candidate(oriented, version_num) {
+        if strict_version_match && !orientation::version_matches_candidate(oriented, version_num) {
             continue;
         }
-        let fallback_ec = [ECLevel::L, ECLevel::M];
-        for &ec in &fallback_ec {
+        for &ec in fallback_ec_levels() {
             for mask in 0..8u8 {
                 if let Some(mask_pattern) = MaskPattern::from_bits(mask) {
                     let info = FormatInfo {
@@ -109,25 +117,10 @@ fn attempt_uncertain_module_beam_repair(
         return None;
     }
 
-    let top_n = std::env::var("QR_BEAM_TOP_N")
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .unwrap_or(6)
-        .clamp(2, 12);
-    let max_attempts = std::env::var("QR_BEAM_MAX_ATTEMPTS")
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .unwrap_or(12)
-        .clamp(1, 64);
-    let max_depth = std::env::var("QR_BEAM_MAX_DEPTH")
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .unwrap_or(2)
-        .clamp(1, 3);
-    let conf_threshold = std::env::var("QR_BEAM_CONF_THRESHOLD")
-        .ok()
-        .and_then(|v| v.trim().parse::<u8>().ok())
-        .unwrap_or(36);
+    let top_n = crate::decoder::config::beam_top_n();
+    let max_attempts = crate::decoder::config::beam_max_attempts();
+    let max_depth = crate::decoder::config::beam_max_depth();
+    let conf_threshold = crate::decoder::config::beam_conf_threshold();
 
     let dim = qr_matrix.width();
     let func = FunctionMask::new(version_num);

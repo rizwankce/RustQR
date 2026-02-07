@@ -3,7 +3,7 @@ use crate::decoder::qr_decoder::QrDecoder;
 use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::env;
 
 const MAX_GROUP_CANDIDATES: usize = 40;
@@ -18,6 +18,9 @@ const DEFAULT_MAX_REGIONS: usize = 8;
 const DEFAULT_PER_REGION_TOP_K: usize = 4;
 const HIGH_CONFIDENCE_LANE_MIN: f32 = 0.78;
 const MEDIUM_CONFIDENCE_LANE_MIN: f32 = 0.56;
+const CLUSTER_GROUP_TRIGGER: usize = 64;
+const CLUSTER_TARGET_SIZE: usize = 28;
+const CLUSTER_MAX_SIZE: usize = 40;
 
 #[derive(Clone, Copy)]
 struct RankedGroupCandidate {
@@ -248,7 +251,7 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
         if indices.len() < 3 {
             continue;
         }
-        all_groups.extend(build_groups(patterns, &indices));
+        all_groups.extend(build_groups_clustered(patterns, &indices));
     }
 
     all_groups
@@ -304,6 +307,110 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 }
 
                 groups.push(vec![i, j, k]);
+            }
+        }
+    }
+
+    groups
+}
+
+fn trim_cluster_indices(
+    patterns: &[FinderPattern],
+    cluster_indices: &[usize],
+    cx: usize,
+    cy: usize,
+    cell_w: f32,
+    cell_h: f32,
+) -> Vec<usize> {
+    if cluster_indices.len() <= CLUSTER_MAX_SIZE {
+        return cluster_indices.to_vec();
+    }
+    let center_x = (cx as f32 + 0.5) * cell_w;
+    let center_y = (cy as f32 + 0.5) * cell_h;
+    let mut scored = cluster_indices
+        .iter()
+        .map(|&idx| {
+            let p = &patterns[idx];
+            let dx = p.center.x - center_x;
+            let dy = p.center.y - center_y;
+            (idx, dx * dx + dy * dy)
+        })
+        .collect::<Vec<_>>();
+    scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+    scored
+        .into_iter()
+        .take(CLUSTER_MAX_SIZE)
+        .map(|(idx, _)| idx)
+        .collect()
+}
+
+fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
+    if indices.len() <= CLUSTER_GROUP_TRIGGER {
+        return build_groups(patterns, indices);
+    }
+
+    let mut min_x = f32::INFINITY;
+    let mut max_x = 0.0f32;
+    let mut min_y = f32::INFINITY;
+    let mut max_y = 0.0f32;
+    for &idx in indices {
+        let p = &patterns[idx];
+        min_x = min_x.min(p.center.x);
+        max_x = max_x.max(p.center.x);
+        min_y = min_y.min(p.center.y);
+        max_y = max_y.max(p.center.y);
+    }
+    let span_x = (max_x - min_x).max(1.0);
+    let span_y = (max_y - min_y).max(1.0);
+    let grid = (((indices.len() as f32) / (CLUSTER_TARGET_SIZE as f32))
+        .sqrt()
+        .ceil() as usize)
+        .clamp(2, 8);
+    let cell_w = span_x / grid as f32;
+    let cell_h = span_y / grid as f32;
+
+    let mut cells: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    for &idx in indices {
+        let p = &patterns[idx];
+        let mut cx = ((p.center.x - min_x) / cell_w).floor() as usize;
+        let mut cy = ((p.center.y - min_y) / cell_h).floor() as usize;
+        if cx >= grid {
+            cx = grid - 1;
+        }
+        if cy >= grid {
+            cy = grid - 1;
+        }
+        cells.entry((cx, cy)).or_default().push(idx);
+    }
+
+    let mut groups = Vec::new();
+    let mut seen = HashSet::new();
+    for cy in 0..grid {
+        for cx in 0..grid {
+            let mut cluster_indices = Vec::new();
+            for oy in cy.saturating_sub(1)..=(cy + 1).min(grid - 1) {
+                for ox in cx.saturating_sub(1)..=(cx + 1).min(grid - 1) {
+                    if let Some(cell) = cells.get(&(ox, oy)) {
+                        cluster_indices.extend_from_slice(cell);
+                    }
+                }
+            }
+            if cluster_indices.len() < 3 {
+                continue;
+            }
+            cluster_indices.sort_unstable();
+            cluster_indices.dedup();
+            let cluster_indices =
+                trim_cluster_indices(patterns, &cluster_indices, cx, cy, cell_w, cell_h);
+            if cluster_indices.len() < 3 {
+                continue;
+            }
+            for triple in build_groups(patterns, &cluster_indices) {
+                let mut key = [triple[0], triple[1], triple[2]];
+                key.sort_unstable();
+                if seen.insert((key[0], key[1], key[2])) {
+                    groups.push(triple);
+                }
             }
         }
     }
@@ -568,7 +675,7 @@ fn rank_groups(
     let mut ranked = Vec::with_capacity(raw_groups.len());
     let mut rejected = 0usize;
 
-    for group in raw_groups {
+    for group in &raw_groups {
         if group.len() < 3 {
             continue;
         }
@@ -696,6 +803,7 @@ fn decode_candidate(
     gray: &[u8],
     width: usize,
     height: usize,
+    allow_heavy_recovery: bool,
 ) -> Option<QRCode> {
     let mut qr = QrDecoder::decode_with_gray(
         binary,
@@ -706,6 +814,7 @@ fn decode_candidate(
         &candidate.tr,
         &candidate.bl,
         candidate.module_size,
+        allow_heavy_recovery,
     )?;
     let proxy = decode_proxy_confidence(&qr);
     qr.confidence = (0.75 * candidate.geometry_confidence + 0.25 * proxy).clamp(0.0, 1.0);
@@ -796,8 +905,9 @@ fn dedupe_results(
     accepted_geometries: &mut Vec<(f32, f32, f32, f32)>,
     candidate: &RankedGroupCandidate,
     qr: QRCode,
+    dedupe_by_payload: bool,
 ) -> bool {
-    if results.iter().any(|r| r.content == qr.content) {
+    if dedupe_by_payload && results.iter().any(|r| r.content == qr.content) {
         return false;
     }
     let geom = candidate_bbox(candidate);
@@ -1085,7 +1195,7 @@ fn decode_ranked_groups(
         }
         return Vec::new();
     }
-    let max_transforms = decode_usize_env("QR_MAX_TRANSFORMS", DEFAULT_MAX_TRANSFORMS, 1, 512)
+    let mut max_transforms = decode_usize_env("QR_MAX_TRANSFORMS", DEFAULT_MAX_TRANSFORMS, 1, 512)
         .min(max_decode_attempts.max(1));
     let high_group_conf = high_group_confidence();
     let low_top_group_conf = low_top_group_confidence();
@@ -1093,6 +1203,21 @@ fn decode_ranked_groups(
     let top = candidates[0];
     let fast_signals = extract_fast_signals(gray, width, height, candidates);
     let strategy = select_strategy(candidates, fast_signals);
+    if matches!(strategy, StrategyProfile::MultiQrHeavy) {
+        let base_regions = decode_usize_env("QR_MAX_REGIONS", DEFAULT_MAX_REGIONS, 1, 64);
+        let mut base_top_k = decode_usize_env(
+            "QR_PER_REGION_TOP_K",
+            DEFAULT_PER_REGION_TOP_K,
+            1,
+            MAX_DECODE_TOP_K,
+        );
+        base_top_k = base_top_k.max(16);
+        let scaled_budget = (base_regions * base_top_k * 2).min(512);
+        // Multi-QR images require substantially larger attempt budgets.
+        max_decode_attempts = max_decode_attempts.max(scaled_budget);
+        // Keep transform and decode budgets aligned for dense scenes.
+        max_transforms = max_transforms.max(max_decode_attempts).min(512);
+    }
     if let Some(tel) = telemetry.as_mut() {
         tel.strategy_profile = strategy.as_str().to_string();
         tel.router_blur_metric = fast_signals.blur_metric;
@@ -1101,6 +1226,7 @@ fn decode_ranked_groups(
         tel.router_region_density_proxy = fast_signals.region_density_proxy;
     }
     let mut lane_budget = lane_budget_from_attempts(max_decode_attempts, strategy);
+    let heavy_recovery_top_n = decode_usize_env("QR_HEAVY_RECOVERY_TOP_N", 2, 0, 16);
     let mut should_expand = candidates
         .iter()
         .filter(|c| c.geometry_confidence >= high_group_conf)
@@ -1108,10 +1234,14 @@ fn decode_ranked_groups(
         .count()
         >= 2
         || top.geometry_confidence < low_top_group_conf;
+    if matches!(strategy, StrategyProfile::MultiQrHeavy) {
+        should_expand = true;
+    }
 
     let mut used_transforms = 0usize;
     let mut used_attempts = 0usize;
     let mut results = Vec::new();
+    let dedupe_by_payload = !matches!(strategy, StrategyProfile::MultiQrHeavy);
     let mut accepted_payloads: HashSet<String> = HashSet::new();
     let mut accepted_geometries: Vec<(f32, f32, f32, f32)> = Vec::new();
 
@@ -1134,7 +1264,8 @@ fn decode_ranked_groups(
         }
         used_transforms += 1;
         used_attempts += 1;
-        if let Some(qr) = decode_candidate(&first, binary, gray, width, height) {
+        let allow_heavy = used_attempts <= heavy_recovery_top_n;
+        if let Some(qr) = decode_candidate(&first, binary, gray, width, height, allow_heavy) {
             let acceptance = acceptance_score(&qr, first.geometry_confidence);
             let floor = decode_acceptance_floor();
             if acceptance >= floor {
@@ -1145,7 +1276,9 @@ fn decode_ranked_groups(
                 if qr.confidence < single_qr_floor {
                     should_expand = true;
                 }
-                accepted_payloads.insert(qr.content.clone());
+                if dedupe_by_payload {
+                    accepted_payloads.insert(qr.content.clone());
+                }
                 accepted_geometries.push(candidate_bbox(&first));
                 results.push(qr);
                 if let Some(tel) = telemetry.as_mut() {
@@ -1154,7 +1287,7 @@ fn decode_ranked_groups(
                         tel.saturation_mask_decode_successes += 1;
                     }
                 }
-                if !should_expand {
+                if !should_expand && !matches!(strategy, StrategyProfile::MultiQrHeavy) {
                     return results;
                 }
             } else if let Some(tel) = telemetry.as_mut() {
@@ -1168,22 +1301,23 @@ fn decode_ranked_groups(
         return results;
     }
 
-    if !should_expand {
+    if !should_expand && !matches!(strategy, StrategyProfile::MultiQrHeavy) {
         return results;
     }
 
-    let max_regions = decode_usize_env("QR_MAX_REGIONS", DEFAULT_MAX_REGIONS, 1, 64);
+    let mut max_regions = decode_usize_env("QR_MAX_REGIONS", DEFAULT_MAX_REGIONS, 1, 64);
     let mut per_region_top_k = decode_usize_env(
         "QR_PER_REGION_TOP_K",
         DEFAULT_PER_REGION_TOP_K,
         1,
         MAX_DECODE_TOP_K,
     );
-    let mut per_region_attempt_cap = decode_usize_env("QR_PER_REGION_ATTEMPTS", 3, 1, 24);
+    let mut per_region_attempt_cap = decode_usize_env("QR_PER_REGION_ATTEMPTS", 3, 1, 64);
     match strategy {
         StrategyProfile::MultiQrHeavy => {
-            per_region_top_k = per_region_top_k.max(5);
-            per_region_attempt_cap = per_region_attempt_cap.max(4);
+            max_regions = max_regions.max(32);
+            per_region_top_k = per_region_top_k.max(16);
+            per_region_attempt_cap = per_region_attempt_cap.max(48);
         }
         StrategyProfile::HighVersionPrecision => {
             per_region_attempt_cap = per_region_attempt_cap.min(2);
@@ -1200,6 +1334,12 @@ fn decode_ranked_groups(
     if let Some(tel) = telemetry.as_mut() {
         tel.router_multi_region = multi_region;
         tel.regions_considered = regions.len();
+    }
+
+    if matches!(strategy, StrategyProfile::MultiQrHeavy) && regions.len() <= 1 {
+        let remaining_attempts = max_decode_attempts.saturating_sub(used_attempts);
+        per_region_top_k = per_region_top_k.max(remaining_attempts.min(64));
+        per_region_attempt_cap = per_region_attempt_cap.max(remaining_attempts.min(128));
     }
 
     let relaxed_floor = decode_relaxed_acceptance_floor();
@@ -1230,8 +1370,10 @@ fn decode_ranked_groups(
             used_transforms += 1;
             used_attempts += 1;
 
-            if let Some(qr) = decode_candidate(candidate, binary, gray, width, height) {
-                if accepted_payloads.contains(&qr.content) {
+            let allow_heavy = used_attempts <= heavy_recovery_top_n;
+            if let Some(qr) = decode_candidate(candidate, binary, gray, width, height, allow_heavy)
+            {
+                if dedupe_by_payload && accepted_payloads.contains(&qr.content) {
                     continue;
                 }
                 let acceptance = acceptance_score(&qr, candidate.geometry_confidence);
@@ -1246,8 +1388,11 @@ fn decode_ranked_groups(
                     &mut accepted_geometries,
                     candidate,
                     qr.clone(),
+                    dedupe_by_payload,
                 ) {
-                    accepted_payloads.insert(qr.content);
+                    if dedupe_by_payload {
+                        accepted_payloads.insert(qr.content);
+                    }
                     if let Some(tel) = telemetry.as_mut() {
                         tel.rs_decode_ok += 1;
                         tel.payload_decoded += 1;

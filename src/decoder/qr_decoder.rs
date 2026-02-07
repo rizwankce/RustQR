@@ -1,6 +1,7 @@
 /// Main QR code decoder - wires everything together
 use crate::models::{BitMatrix, Point, QRCode};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::RefCell;
+use std::time::Instant;
 
 mod geometry;
 mod matrix_decode;
@@ -10,7 +11,7 @@ mod payload;
 /// Main QR decoder that processes a detected QR region
 pub struct QrDecoder;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub(crate) struct DecodeCounters {
     pub deskew_attempts: usize,
     pub deskew_successes: usize,
@@ -25,51 +26,57 @@ pub(crate) struct DecodeCounters {
     pub rs_erasure_attempts: usize,
     pub rs_erasure_successes: usize,
     pub rs_erasure_count_hist: [usize; 4],
+    pub phase11_time_budget_skips: usize,
 }
 
-static DESKEW_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
-static DESKEW_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
-static HIGH_VERSION_PRECISION_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
-static RECOVERY_MODE_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
-static SCALE_RETRY_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
-static SCALE_RETRY_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
-static SCALE_RETRY_SKIPPED_BY_BUDGET: AtomicUsize = AtomicUsize::new(0);
-static HV_SUBPIXEL_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
-static HV_REFINE_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
-static HV_REFINE_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
+impl DecodeCounters {
+    const fn new() -> Self {
+        Self {
+            deskew_attempts: 0,
+            deskew_successes: 0,
+            high_version_precision_attempts: 0,
+            recovery_mode_attempts: 0,
+            scale_retry_attempts: 0,
+            scale_retry_successes: 0,
+            scale_retry_skipped_by_budget: 0,
+            hv_subpixel_attempts: 0,
+            hv_refine_attempts: 0,
+            hv_refine_successes: 0,
+            rs_erasure_attempts: 0,
+            rs_erasure_successes: 0,
+            rs_erasure_count_hist: [0; 4],
+            phase11_time_budget_skips: 0,
+        }
+    }
+}
+
+impl Default for DecodeCounters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+thread_local! {
+    static DECODE_COUNTERS: RefCell<DecodeCounters> = const { RefCell::new(DecodeCounters::new()) };
+}
 
 pub(crate) fn reset_decode_counters() {
-    DESKEW_ATTEMPTS.store(0, Ordering::Relaxed);
-    DESKEW_SUCCESSES.store(0, Ordering::Relaxed);
-    HIGH_VERSION_PRECISION_ATTEMPTS.store(0, Ordering::Relaxed);
-    RECOVERY_MODE_ATTEMPTS.store(0, Ordering::Relaxed);
-    SCALE_RETRY_ATTEMPTS.store(0, Ordering::Relaxed);
-    SCALE_RETRY_SUCCESSES.store(0, Ordering::Relaxed);
-    SCALE_RETRY_SKIPPED_BY_BUDGET.store(0, Ordering::Relaxed);
-    HV_SUBPIXEL_ATTEMPTS.store(0, Ordering::Relaxed);
-    HV_REFINE_ATTEMPTS.store(0, Ordering::Relaxed);
-    HV_REFINE_SUCCESSES.store(0, Ordering::Relaxed);
+    DECODE_COUNTERS.with(|c| *c.borrow_mut() = DecodeCounters::new());
     payload::reset_erasure_counters();
 }
 
 pub(crate) fn take_decode_counters() -> DecodeCounters {
+    let mut out = DecodeCounters::new();
+    DECODE_COUNTERS.with(|c| {
+        out = *c.borrow();
+        *c.borrow_mut() = DecodeCounters::new();
+    });
     let (rs_erasure_attempts, rs_erasure_successes, rs_erasure_count_hist) =
         payload::take_erasure_counters();
-    DecodeCounters {
-        deskew_attempts: DESKEW_ATTEMPTS.swap(0, Ordering::Relaxed),
-        deskew_successes: DESKEW_SUCCESSES.swap(0, Ordering::Relaxed),
-        high_version_precision_attempts: HIGH_VERSION_PRECISION_ATTEMPTS.swap(0, Ordering::Relaxed),
-        recovery_mode_attempts: RECOVERY_MODE_ATTEMPTS.swap(0, Ordering::Relaxed),
-        scale_retry_attempts: SCALE_RETRY_ATTEMPTS.swap(0, Ordering::Relaxed),
-        scale_retry_successes: SCALE_RETRY_SUCCESSES.swap(0, Ordering::Relaxed),
-        scale_retry_skipped_by_budget: SCALE_RETRY_SKIPPED_BY_BUDGET.swap(0, Ordering::Relaxed),
-        hv_subpixel_attempts: HV_SUBPIXEL_ATTEMPTS.swap(0, Ordering::Relaxed),
-        hv_refine_attempts: HV_REFINE_ATTEMPTS.swap(0, Ordering::Relaxed),
-        hv_refine_successes: HV_REFINE_SUCCESSES.swap(0, Ordering::Relaxed),
-        rs_erasure_attempts,
-        rs_erasure_successes,
-        rs_erasure_count_hist,
-    }
+    out.rs_erasure_attempts = rs_erasure_attempts;
+    out.rs_erasure_successes = rs_erasure_successes;
+    out.rs_erasure_count_hist = rs_erasure_count_hist;
+    out
 }
 
 impl QrDecoder {
@@ -117,7 +124,7 @@ impl QrDecoder {
 
         for version_num in candidates {
             if version_num >= 7 {
-                HIGH_VERSION_PRECISION_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                DECODE_COUNTERS.with(|c| c.borrow_mut().high_version_precision_attempts += 1);
             }
             let dimension = 17 + 4 * version_num as usize;
             for br in &br_candidates {
@@ -170,7 +177,11 @@ impl QrDecoder {
         top_right: &Point,
         bottom_left: &Point,
         module_size: f32,
+        allow_heavy_recovery: bool,
     ) -> Option<QRCode> {
+        let started = Instant::now();
+        let candidate_budget_ms = crate::decoder::config::candidate_time_budget_ms();
+        let budget_exhausted = || started.elapsed().as_millis() as u64 >= candidate_budget_ms;
         let bottom_right = Self::calculate_bottom_right(top_left, top_right, bottom_left)?;
         let mut br_candidates = Vec::new();
         let step = module_size.max(1.0) * 2.0;
@@ -213,7 +224,7 @@ impl QrDecoder {
                         gray, width, height, &transform, dimension,
                     );
                 if version_num >= 7 {
-                    HV_SUBPIXEL_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                    DECODE_COUNTERS.with(|c| c.borrow_mut().hv_subpixel_attempts += 1);
                 }
                 if !orientation::validate_timing_patterns(&qr_matrix) {
                     continue;
@@ -237,9 +248,13 @@ impl QrDecoder {
                 }
 
                 let should_scale_retry = module_size <= 2.4 || version_num >= 7 || dimension >= 85;
-                if should_scale_retry {
+                if allow_heavy_recovery && should_scale_retry && !budget_exhausted() {
                     for &scale in &[1.25f32, 1.5f32] {
-                        SCALE_RETRY_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                        if budget_exhausted() {
+                            DECODE_COUNTERS.with(|c| c.borrow_mut().phase11_time_budget_skips += 1);
+                            break;
+                        }
+                        DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_attempts += 1);
                         let (scaled_matrix, scaled_conf) =
                             Self::extract_qr_region_gray_with_transform_and_confidence_scaled(
                                 gray, width, height, &transform, dimension, scale,
@@ -252,7 +267,7 @@ impl QrDecoder {
                             version_num,
                             &scaled_conf,
                         ) {
-                            SCALE_RETRY_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                            DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_successes += 1);
                             return Some(qr);
                         }
                         let scaled_inverted = orientation::invert_matrix(&scaled_matrix);
@@ -261,16 +276,16 @@ impl QrDecoder {
                             version_num,
                             &scaled_conf,
                         ) {
-                            SCALE_RETRY_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                            DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_successes += 1);
                             return Some(qr);
                         }
                     }
                 } else {
-                    SCALE_RETRY_SKIPPED_BY_BUDGET.fetch_add(1, Ordering::Relaxed);
+                    DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_skipped_by_budget += 1);
                 }
 
-                if version_num >= 7 {
-                    HV_REFINE_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                if allow_heavy_recovery && version_num >= 7 && !budget_exhausted() {
+                    DECODE_COUNTERS.with(|c| c.borrow_mut().hv_refine_attempts += 1);
                     if let Some(refined_hv_transform) = Self::refine_transform_with_alignment(
                         binary,
                         &transform,
@@ -296,7 +311,7 @@ impl QrDecoder {
                                 version_num,
                                 &hv_conf,
                             ) {
-                                HV_REFINE_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                                DECODE_COUNTERS.with(|c| c.borrow_mut().hv_refine_successes += 1);
                                 return Some(qr);
                             }
                         }
@@ -305,8 +320,8 @@ impl QrDecoder {
 
                 // Rotation-specialized deskew fallback: apply a bounded mesh warp variant
                 // only after strict decode misses.
-                if version_num >= 2 {
-                    DESKEW_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                if allow_heavy_recovery && version_num >= 2 && !budget_exhausted() {
+                    DECODE_COUNTERS.with(|c| c.borrow_mut().deskew_attempts += 1);
                     let (deskew_matrix, deskew_conf) = Self::extract_qr_region_gray_with_mesh_warp(
                         gray, width, height, &transform, dimension,
                     );
@@ -316,49 +331,57 @@ impl QrDecoder {
                             version_num,
                             &deskew_conf,
                         ) {
-                            DESKEW_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                            DECODE_COUNTERS.with(|c| c.borrow_mut().deskew_successes += 1);
                             return Some(qr);
                         }
                     }
                 }
 
-                let (mesh_matrix, mesh_conf) = Self::extract_qr_region_gray_with_mesh_warp(
-                    gray, width, height, &transform, dimension,
-                );
-                if orientation::validate_timing_patterns(&mesh_matrix) {
-                    if let Some(qr) = Self::decode_from_matrix_with_confidence(
-                        &mesh_matrix,
-                        version_num,
-                        &mesh_conf,
-                    ) {
-                        return Some(qr);
-                    }
-                }
-
-                if let Some((radial_matrix, radial_conf)) =
-                    Self::extract_qr_region_gray_with_radial_compensation(
+                if allow_heavy_recovery && !budget_exhausted() {
+                    let (mesh_matrix, mesh_conf) = Self::extract_qr_region_gray_with_mesh_warp(
                         gray, width, height, &transform, dimension,
-                    )
-                {
-                    if orientation::validate_timing_patterns(&radial_matrix) {
+                    );
+                    if orientation::validate_timing_patterns(&mesh_matrix) {
                         if let Some(qr) = Self::decode_from_matrix_with_confidence(
-                            &radial_matrix,
+                            &mesh_matrix,
                             version_num,
-                            &radial_conf,
+                            &mesh_conf,
                         ) {
                             return Some(qr);
                         }
                     }
                 }
 
-                let qr_matrix =
-                    Self::extract_qr_region_with_transform(binary, &transform, dimension);
-                if !orientation::validate_timing_patterns(&qr_matrix) {
-                    continue;
+                if allow_heavy_recovery && !budget_exhausted() {
+                    if let Some((radial_matrix, radial_conf)) =
+                        Self::extract_qr_region_gray_with_radial_compensation(
+                            gray, width, height, &transform, dimension,
+                        )
+                    {
+                        if orientation::validate_timing_patterns(&radial_matrix) {
+                            if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                                &radial_matrix,
+                                version_num,
+                                &radial_conf,
+                            ) {
+                                return Some(qr);
+                            }
+                        }
+                    }
                 }
-                RECOVERY_MODE_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
-                if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
-                    return Some(qr);
+
+                if allow_heavy_recovery && !budget_exhausted() {
+                    let qr_matrix =
+                        Self::extract_qr_region_with_transform(binary, &transform, dimension);
+                    if !orientation::validate_timing_patterns(&qr_matrix) {
+                        continue;
+                    }
+                    DECODE_COUNTERS.with(|c| c.borrow_mut().recovery_mode_attempts += 1);
+                    if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
+                        return Some(qr);
+                    }
+                } else if budget_exhausted() {
+                    DECODE_COUNTERS.with(|c| c.borrow_mut().phase11_time_budget_skips += 1);
                 }
             }
         }

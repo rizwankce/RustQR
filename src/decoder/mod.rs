@@ -10,6 +10,7 @@
 pub mod bch;
 /// Bitstream extraction from QR matrix
 pub mod bitstream;
+pub mod config;
 /// Format information extraction (mask pattern, EC level)
 pub mod format;
 /// Function module mask builder (finder/timing/format/alignment/version)

@@ -117,6 +117,7 @@ fn main() {
                 &tr_f,
                 &bl_f,
                 module_size,
+                true,
             ) {
                 println!(
                     "Decoded (version {}, offset {}): {}",

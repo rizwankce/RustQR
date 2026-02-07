@@ -767,17 +767,17 @@ Each additional decoded QR contributes approximately `0.081` points to global we
 
 Phase 9 focuses on improving difficult categories with bounded runtime by activating targeted recovery only after the strict path fails.
 
-**Status:** Planned
-- [ ] 9.1 Pre-binarization Ensemble (cheap-first fallback)
-- [ ] 9.2 Multi-Scale Decode Schedule (1.0x -> 1.25x -> 1.5x on miss)
-- [ ] 9.3 Finder Triple Re-ranking via Geometry Consistency
-- [ ] 9.4 Local Contrast Normalization on Candidate ROI
-- [ ] 9.5 Per-Image Decode Budget Controller (confidence lanes)
-- [ ] 9.6 High-Version Subpixel Sampler + Single Refinement Pass
-- [ ] 9.7 Damage-Aware Erasure Masking for RS Inputs
-- [ ] 9.8 Glare/Saturation Masking for Finder and Timing Scoring
-- [ ] 9.9 Category-Triggered Router v2 from Fast Image Signals
-- [ ] 9.10 Failure-Signature-Driven Tuning Loop
+**Status:** Completed (2026-02-07)
+- [x] 9.1 Pre-binarization Ensemble (cheap-first fallback)
+- [x] 9.2 Multi-Scale Decode Schedule (1.0x -> 1.25x -> 1.5x on miss)
+- [x] 9.3 Finder Triple Re-ranking via Geometry Consistency
+- [x] 9.4 Local Contrast Normalization on Candidate ROI
+- [x] 9.5 Per-Image Decode Budget Controller (confidence lanes)
+- [x] 9.6 High-Version Subpixel Sampler + Single Refinement Pass
+- [x] 9.7 Damage-Aware Erasure Masking for RS Inputs
+- [x] 9.8 Glare/Saturation Masking for Finder and Timing Scoring
+- [x] 9.9 Category-Triggered Router v2 from Fast Image Signals
+- [x] 9.10 Failure-Signature-Driven Tuning Loop
 
 ### Phase 9 Main Points
 
@@ -891,3 +891,18 @@ Phase 9 focuses on improving difficult categories with bounded runtime by activa
 8. `9.7` Damage-aware erasure masking
 9. `9.9` Router v2 fast signals
 10. `9.10` Failure-signature-driven tuning loop
+
+### Phase 9 Cross-Verification
+
+All planned Phase 9 work items are present and tracked through the matching worklog packets:
+
+- `9.1` verified: `docs/worklog/phase9_01_pre_binarization_ensemble.txt`
+- `9.2` verified: `docs/worklog/phase9_02_multi_scale_decode_schedule.txt`
+- `9.3` verified: `docs/worklog/phase9_03_finder_rerank_geometry.txt`
+- `9.4` verified: `docs/worklog/phase9_04_local_contrast_roi_normalization.txt`
+- `9.5` verified: `docs/worklog/phase9_05_per_image_budget_controller.txt`
+- `9.6` verified: `docs/worklog/phase9_06_high_version_subpixel_refinement.txt`
+- `9.7` verified: `docs/worklog/phase9_07_damage_aware_erasure_masking.txt`
+- `9.8` verified: `docs/worklog/phase9_08_glare_saturation_masking.txt`
+- `9.9` verified: `docs/worklog/phase9_09_router_v2_fast_signals.txt`
+- `9.10` verified: `docs/worklog/phase9_10_failure_signature_tuning_loop.txt`

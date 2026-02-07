@@ -7,53 +7,56 @@ use crate::decoder::tables::ec_block_info;
 use crate::decoder::unmask::unmask;
 use crate::decoder::version::VersionInfo;
 use crate::models::{BitMatrix, ECLevel, QRCode, Version};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::RefCell;
 
-static RS_ERASURE_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
-static RS_ERASURE_SUCCESSES: AtomicUsize = AtomicUsize::new(0);
-static RS_ERASURE_HIST_1: AtomicUsize = AtomicUsize::new(0);
-static RS_ERASURE_HIST_2_3: AtomicUsize = AtomicUsize::new(0);
-static RS_ERASURE_HIST_4_6: AtomicUsize = AtomicUsize::new(0);
-static RS_ERASURE_HIST_7_PLUS: AtomicUsize = AtomicUsize::new(0);
+#[derive(Clone, Copy, Default)]
+struct ErasureCounters {
+    attempts: usize,
+    successes: usize,
+    hist_1: usize,
+    hist_2_3: usize,
+    hist_4_6: usize,
+    hist_7_plus: usize,
+}
+
+thread_local! {
+    static ERASURE_COUNTERS: RefCell<ErasureCounters> = const { RefCell::new(ErasureCounters {
+        attempts: 0,
+        successes: 0,
+        hist_1: 0,
+        hist_2_3: 0,
+        hist_4_6: 0,
+        hist_7_plus: 0,
+    }) };
+}
 
 pub(super) fn reset_erasure_counters() {
-    RS_ERASURE_ATTEMPTS.store(0, Ordering::Relaxed);
-    RS_ERASURE_SUCCESSES.store(0, Ordering::Relaxed);
-    RS_ERASURE_HIST_1.store(0, Ordering::Relaxed);
-    RS_ERASURE_HIST_2_3.store(0, Ordering::Relaxed);
-    RS_ERASURE_HIST_4_6.store(0, Ordering::Relaxed);
-    RS_ERASURE_HIST_7_PLUS.store(0, Ordering::Relaxed);
+    ERASURE_COUNTERS.with(|c| *c.borrow_mut() = ErasureCounters::default());
 }
 
 pub(super) fn take_erasure_counters() -> (usize, usize, [usize; 4]) {
-    (
-        RS_ERASURE_ATTEMPTS.swap(0, Ordering::Relaxed),
-        RS_ERASURE_SUCCESSES.swap(0, Ordering::Relaxed),
-        [
-            RS_ERASURE_HIST_1.swap(0, Ordering::Relaxed),
-            RS_ERASURE_HIST_2_3.swap(0, Ordering::Relaxed),
-            RS_ERASURE_HIST_4_6.swap(0, Ordering::Relaxed),
-            RS_ERASURE_HIST_7_PLUS.swap(0, Ordering::Relaxed),
-        ],
-    )
+    ERASURE_COUNTERS.with(|c| {
+        let ec = *c.borrow();
+        *c.borrow_mut() = ErasureCounters::default();
+        (
+            ec.attempts,
+            ec.successes,
+            [ec.hist_1, ec.hist_2_3, ec.hist_4_6, ec.hist_7_plus],
+        )
+    })
 }
 
 fn record_erasure_hist(count: usize) {
-    match count {
-        0 => {}
-        1 => {
-            RS_ERASURE_HIST_1.fetch_add(1, Ordering::Relaxed);
+    ERASURE_COUNTERS.with(|c| {
+        let mut ec = c.borrow_mut();
+        match count {
+            0 => {}
+            1 => ec.hist_1 += 1,
+            2..=3 => ec.hist_2_3 += 1,
+            4..=6 => ec.hist_4_6 += 1,
+            _ => ec.hist_7_plus += 1,
         }
-        2..=3 => {
-            RS_ERASURE_HIST_2_3.fetch_add(1, Ordering::Relaxed);
-        }
-        4..=6 => {
-            RS_ERASURE_HIST_4_6.fetch_add(1, Ordering::Relaxed);
-        }
-        _ => {
-            RS_ERASURE_HIST_7_PLUS.fetch_add(1, Ordering::Relaxed);
-        }
-    }
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -258,10 +261,10 @@ pub(super) fn deinterleave_and_correct_with_confidence(
                     max_erasures_per_block(info.ecc_per_block),
                 );
                 if !erasures.is_empty() {
-                    RS_ERASURE_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+                    ERASURE_COUNTERS.with(|c| c.borrow_mut().attempts += 1);
                     record_erasure_hist(erasures.len());
                     if rs.decode_with_erasures(block, &erasures).is_ok() {
-                        RS_ERASURE_SUCCESSES.fetch_add(1, Ordering::Relaxed);
+                        ERASURE_COUNTERS.with(|c| c.borrow_mut().successes += 1);
                         corrected = true;
                     }
                 }
@@ -313,19 +316,15 @@ fn bits_to_codewords_with_confidence(
 }
 
 fn erasure_threshold() -> u8 {
-    std::env::var("QR_RS_ERASURE_CONF_THRESHOLD")
-        .ok()
-        .and_then(|v| v.trim().parse::<u8>().ok())
-        .unwrap_or(40)
+    crate::decoder::config::rs_erasure_conf_threshold()
 }
 
 fn max_erasures_per_block(ecc_per_block: usize) -> usize {
     let default_limit = (ecc_per_block / 2).max(1);
-    std::env::var("QR_RS_MAX_ERASURES")
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .map(|v| v.min(ecc_per_block).max(1))
-        .unwrap_or(default_limit)
+    match crate::decoder::config::rs_max_erasures_override() {
+        Some(v) => v.min(ecc_per_block).max(1),
+        None => default_limit,
+    }
 }
 
 fn low_confidence_positions(confidence: &[u8], threshold: u8, max_count: usize) -> Vec<usize> {

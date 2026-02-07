@@ -134,6 +134,8 @@ pub struct DetectionTelemetry {
     pub rs_erasure_successes: usize,
     /// RS erasure count histogram buckets: [1, 2-3, 4-6, 7+].
     pub rs_erasure_count_hist: [usize; 4],
+    /// Number of candidate decode branches skipped by phase 9.11 time budget.
+    pub phase11_time_budget_skips: usize,
 }
 
 impl DetectionTelemetry {
@@ -209,6 +211,7 @@ impl DetectionTelemetry {
         for i in 0..self.rs_erasure_count_hist.len() {
             self.rs_erasure_count_hist[i] += other.rs_erasure_count_hist[i];
         }
+        self.phase11_time_budget_skips += other.phase11_time_budget_skips;
         if self.strategy_profile.is_empty() && !other.strategy_profile.is_empty() {
             self.strategy_profile = other.strategy_profile.clone();
         }
@@ -398,11 +401,7 @@ fn binarize_with_policy(
 }
 
 fn image_decode_attempt_budget() -> usize {
-    std::env::var("QR_MAX_IMAGE_DECODE_ATTEMPTS")
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .filter(|&v| v > 0)
-        .unwrap_or(72)
+    decoder::config::image_decode_attempt_budget()
 }
 
 fn record_binarization_transition(
@@ -767,6 +766,7 @@ pub fn detect_with_telemetry(
     tel.rs_erasure_attempts = counters.rs_erasure_attempts;
     tel.rs_erasure_successes = counters.rs_erasure_successes;
     tel.rs_erasure_count_hist = counters.rs_erasure_count_hist;
+    tel.phase11_time_budget_skips = counters.phase11_time_budget_skips;
     (results, tel)
 }
 

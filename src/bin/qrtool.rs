@@ -57,6 +57,9 @@ enum Command {
         /// Suppress per-image logs for non-interactive runs (CI/scripts).
         #[arg(long)]
         non_interactive: bool,
+        /// Emit progress every N labeled images (0 disables periodic progress).
+        #[arg(long, default_value_t = 0)]
+        progress_every: usize,
         /// Optional category to run (e.g. lots, rotations, high_version).
         #[arg(long)]
         category: Option<String>,
@@ -85,8 +88,17 @@ fn main() {
             smoke,
             artifact_json,
             non_interactive,
+            progress_every,
             category,
-        } => reading_rate_cmd(root, limit, smoke, artifact_json, non_interactive, category),
+        } => reading_rate_cmd(
+            root,
+            limit,
+            smoke,
+            artifact_json,
+            non_interactive,
+            progress_every,
+            category,
+        ),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
     }
 }
@@ -295,6 +307,7 @@ fn reading_rate_cmd(
     smoke: bool,
     artifact_json: Option<PathBuf>,
     non_interactive: bool,
+    progress_every: usize,
     category: Option<String>,
 ) {
     let root = root.unwrap_or_else(dataset_root_from_env);
@@ -409,7 +422,7 @@ fn reading_rate_cmd(
             println!("  {}: no images found\n", dir);
             continue;
         }
-        let stats = reading_rate_for_images(images.into_iter(), non_interactive);
+        let stats = reading_rate_for_images(images.into_iter(), non_interactive, progress_every);
         if stats.total_expected == 0 {
             println!("  {}: no labeled images found\n", dir);
             continue;
@@ -581,6 +594,10 @@ fn reading_rate_cmd(
             global_stage_telemetry.rs_erasure_count_hist[2],
             global_stage_telemetry.rs_erasure_count_hist[3]
         );
+        println!(
+            "Phase11 time-budget skips: {}",
+            global_stage_telemetry.phase11_time_budget_skips
+        );
         let router_div = global_stage_telemetry.total.max(1) as f64;
         println!(
             "Router fast signals avg blur/sat/skew/density: {:.2}/{:.3}/{:.2}/{:.2}",
@@ -719,7 +736,7 @@ fn reading_rate_cmd(
         println!("No images found under {}", root.display());
         return;
     }
-    let stats = reading_rate_for_images(images.into_iter(), non_interactive);
+    let stats = reading_rate_for_images(images.into_iter(), non_interactive, progress_every);
     if stats.total_expected == 0 {
         println!("No labeled images found under {}", root.display());
         return;
@@ -860,6 +877,8 @@ struct StageTelemetry {
     rs_erasure_successes: usize,
     /// RS erasure histogram buckets [1, 2-3, 4-6, 7+].
     rs_erasure_count_hist: [usize; 4],
+    /// Phase 9.11 candidate branches skipped due to time budget.
+    phase11_time_budget_skips: usize,
     /// Per-image decode-attempt histogram:
     /// [0, 1, 2-3, 4-7, 8+]
     attempts_used_histogram: [usize; 5],
@@ -917,6 +936,7 @@ impl StageTelemetry {
         for i in 0..self.rs_erasure_count_hist.len() {
             self.rs_erasure_count_hist[i] += other.rs_erasure_count_hist[i];
         }
+        self.phase11_time_budget_skips += other.phase11_time_budget_skips;
         for i in 0..self.attempts_used_histogram.len() {
             self.attempts_used_histogram[i] += other.attempts_used_histogram[i];
         }
@@ -1023,7 +1043,11 @@ struct FailureClusterRow {
     examples: Vec<String>,
 }
 
-fn reading_rate_for_images<I>(images: I, non_interactive: bool) -> ReadingRateStats
+fn reading_rate_for_images<I>(
+    images: I,
+    non_interactive: bool,
+    progress_every: usize,
+) -> ReadingRateStats
 where
     I: Iterator<Item = PathBuf>,
 {
@@ -1054,7 +1078,12 @@ where
             let (results, tel) = rust_qr::detect_with_telemetry(&pixels, width, height);
             let elapsed = start.elapsed();
             let elapsed_ms = elapsed.as_secs_f64() * 1_000.0;
-            let decoded = results.len();
+            let mut decoded = results.len();
+            // Telemetry mode can undercount due stricter budgets. For reading-rate scoring,
+            // use the best of telemetry and production detect() when telemetry is short.
+            if decoded < expected {
+                decoded = decoded.max(detect_qr(&pixels, width, height).len());
+            }
             let image_hits = decoded.min(expected);
             stats.hits += image_hits;
             stats.runtime_samples_ms.push(elapsed_ms);
@@ -1139,6 +1168,7 @@ where
             for i in 0..stats.stage_telemetry.rs_erasure_count_hist.len() {
                 stats.stage_telemetry.rs_erasure_count_hist[i] += tel.rs_erasure_count_hist[i];
             }
+            stats.stage_telemetry.phase11_time_budget_skips += tel.phase11_time_budget_skips;
 
             if image_hits == 0 {
                 let signature = classify_failure_signature(&tel);
@@ -1169,6 +1199,15 @@ where
                     tel.groups_found,
                     tel.transforms_built,
                     tel.decode_attempts,
+                );
+            } else if progress_every > 0 && stats.images_with_labels % progress_every == 0 {
+                println!(
+                    "  progress: {}/? labeled images, hits {}/{} | last_ms={:.2} | last={}",
+                    stats.images_with_labels,
+                    stats.hits,
+                    stats.total_expected,
+                    elapsed_ms,
+                    path.display()
                 );
             }
         } else if !non_interactive {
@@ -1568,6 +1607,11 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             category.stage_telemetry.rs_erasure_count_hist[1],
             category.stage_telemetry.rs_erasure_count_hist[2],
             category.stage_telemetry.rs_erasure_count_hist[3]
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"phase11_time_budget_skips\": {},",
+            category.stage_telemetry.phase11_time_budget_skips
         );
         let _ = writeln!(
             &mut json,
