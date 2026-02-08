@@ -285,6 +285,10 @@ fn rotate_gray_45(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
     out
 }
 
+/// Threshold for early termination when too many finder patterns are detected.
+/// Avoids pathological case of trying O(n^3) combinations with 100+ patterns.
+const FINDER_PATTERN_THRESHOLD: usize = 50;
+
 fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     let window = auto_window(width, height);
     let otsu = otsu_binarize(gray, width, height);
@@ -316,7 +320,12 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
     let mut results = Vec::new();
     for binary in variants {
         let finder_patterns = detect_finder_patterns(&binary, width, height);
-        let decoded = if finder_patterns.len() >= 2 {
+
+        // Early termination: if too many finder patterns detected, skip directly to
+        // rotation-invariant contour detection to avoid O(n^3) group combination explosion
+        let decoded = if finder_patterns.len() > FINDER_PATTERN_THRESHOLD {
+            Vec::new()
+        } else if finder_patterns.len() >= 2 {
             decode_groups_with_module_aware_retry(&binary, gray, width, height, &finder_patterns)
         } else {
             Vec::new()
@@ -329,12 +338,29 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
         }
         // Trigger contour detector more aggressively for pathological/noncompliant cases
         // Also try when finder patterns exist but decode failed (not just <2 patterns)
-        if results.is_empty() || (finder_patterns.len() >= 2 && finder_decode_failed) {
+        // OR when too many finder patterns triggered early termination
+        if results.is_empty()
+            || (finder_patterns.len() >= 2 && finder_decode_failed)
+            || finder_patterns.len() > FINDER_PATTERN_THRESHOLD
+        {
             let contour_patterns = ContourDetector::detect(&binary);
             if contour_patterns.len() >= 2 {
                 let contour_decoded =
                     pipeline::decode_groups(&binary, gray, width, height, &contour_patterns);
                 for qr in contour_decoded {
+                    if !results.iter().any(|r: &QRCode| r.content == qr.content) {
+                        results.push(qr);
+                    }
+                }
+            }
+        }
+        // Try rotation-invariant contour detection for arbitrarily rotated QR codes
+        if results.is_empty() {
+            let rotation_patterns = ContourDetector::detect_rotation_invariant(&binary);
+            if rotation_patterns.len() >= 2 {
+                let rotation_decoded =
+                    pipeline::decode_groups(&binary, gray, width, height, &rotation_patterns);
+                for qr in rotation_decoded {
                     if !results.iter().any(|r: &QRCode| r.content == qr.content) {
                         results.push(qr);
                     }
@@ -685,7 +711,10 @@ pub fn detect_with_telemetry(
         }
         tel.finder_patterns_found = tel.finder_patterns_found.max(finder_patterns.len());
 
-        if finder_patterns.len() >= 3 {
+        // Early termination: if too many finder patterns, skip expensive decode_groups
+        let too_many_patterns = finder_patterns.len() > FINDER_PATTERN_THRESHOLD;
+
+        if finder_patterns.len() >= 3 && !too_many_patterns {
             let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
                 &binary,
                 &gray,
@@ -703,7 +732,7 @@ pub fn detect_with_telemetry(
                 results = decoded;
                 break;
             }
-        } else if finder_patterns.len() == 2 {
+        } else if finder_patterns.len() == 2 && !too_many_patterns {
             tel.two_finder_attempts += 1;
             let decoded = decode_two_finder_fallback_limited(
                 &binary,
@@ -721,6 +750,30 @@ pub fn detect_with_telemetry(
                 }
                 results = decoded;
                 break;
+            }
+        }
+
+        // If too many finder patterns, skip directly to contour detection
+        if too_many_patterns {
+            let contour_patterns = ContourDetector::detect(&binary);
+            if contour_patterns.len() >= 3 {
+                let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
+                    &binary,
+                    &gray,
+                    width,
+                    height,
+                    &contour_patterns,
+                    remaining_attempts,
+                );
+                remaining_attempts = remaining_attempts.saturating_sub(decode_tel.decode_attempts);
+                tel.merge_high_water_from(&decode_tel);
+                if !decoded.is_empty() {
+                    if i > 0 {
+                        tel.bin_fallback_successes += 1;
+                    }
+                    results = decoded;
+                    break;
+                }
             }
         }
     }
@@ -864,15 +917,37 @@ pub fn detect_with_pool(
         }
     }
 
+    // Early termination: if too many finder patterns, skip directly to contour detection
+    let too_many_patterns = finder_patterns.len() > FINDER_PATTERN_THRESHOLD;
+
     // Step 4: Group and decode
-    let mut results =
-        decode_groups_with_module_aware_retry(binary, gray_buffer, width, height, &finder_patterns);
+    let mut results = if too_many_patterns {
+        Vec::new()
+    } else {
+        decode_groups_with_module_aware_retry(binary, gray_buffer, width, height, &finder_patterns)
+    };
+
+    // If too many patterns or decode failed, try contour detection
+    if results.is_empty() {
+        let contour_patterns = ContourDetector::detect(binary);
+        if contour_patterns.len() >= 2 {
+            results = pipeline::decode_groups(binary, gray_buffer, width, height, &contour_patterns);
+        }
+    }
+
+    // Try rotation-invariant contour detection if still no results
+    if results.is_empty() {
+        let rotation_patterns = ContourDetector::detect_rotation_invariant(binary);
+        if rotation_patterns.len() >= 2 {
+            results = pipeline::decode_groups(binary, gray_buffer, width, height, &rotation_patterns);
+        }
+    }
 
     // Sauvola fallback: adapts to local contrast (handles shadows/glare)
-    if results.is_empty() {
+    if results.is_empty() && !too_many_patterns {
         let sauvola = sauvola_binarize(gray_buffer, width, height, 31, 0.2);
         let sauvola_patterns = detect_finder_patterns(&sauvola, width, height);
-        if sauvola_patterns.len() >= 2 {
+        if sauvola_patterns.len() >= 2 && sauvola_patterns.len() <= FINDER_PATTERN_THRESHOLD {
             results = decode_groups_with_module_aware_retry(
                 &sauvola,
                 gray_buffer,
@@ -883,13 +958,13 @@ pub fn detect_with_pool(
         }
     }
 
-    if results.is_empty() {
+    if results.is_empty() && !too_many_patterns {
         let fallback_patterns = if width >= 800 || height >= 800 {
             detect_finder_patterns(bin_otsu, width, height)
         } else {
             detect_finder_patterns(bin_adaptive, width, height)
         };
-        if fallback_patterns.len() >= 2 {
+        if fallback_patterns.len() >= 2 && fallback_patterns.len() <= FINDER_PATTERN_THRESHOLD {
             let fallback_binary: &BitMatrix = if width >= 800 || height >= 800 {
                 bin_otsu
             } else {
