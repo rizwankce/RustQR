@@ -139,7 +139,7 @@ Reading rate comparison across different QR code image categories (based on [Dyn
 | Category | Images | Dynamsoft | BoofCV | ZBar | **RustQR** |
 |----------|--------|-----------|--------|------|------------|
 | blurred | 45 | 66.15% | 38.46% | 35.38% | **50.77%** |
-| brightness | 28 | 81.18% | 78.82% | 50.59% | **21.18%** |
+| brightness | 28 | 81.18% | 78.82% | 50.59% | **24.71%** |
 | bright_spots | 32 | 43.30% | 27.84% | 19.59% | **14.43%** |
 | close | 40 | 95.00% | 100.00% | 12.50% | **25.00%** |
 | curved | 50 | 70.00% | 56.67% | 35.00% | **36.67%** |
@@ -154,11 +154,11 @@ Reading rate comparison across different QR code image categories (based on [Dyn
 | perspective | 35 | 62.86% | 80.00% | 42.86% | **28.57%** |
 | rotations | 44 | 99.25% | 96.24% | 48.87% | **29.32%** |
 | shadows | 14 | 100.00% | 85.00% | 90.00% | **15.00%** |
-| **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **16.27%** |
+| **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **16.48%** |
 
-> **Note:** RustQR values above are from GitHub Actions run `21805091495` (`macos-latest`) on commit `7c1a9c133bf8f6e63e1b7327fa32f67c67c8cc5b` over all 16 categories (521 labeled images processed, 1217 QR labels; dataset fingerprint `ba96d1300e9f787b`).
+> **Note:** RustQR values above are from GitHub Actions run `21806843379` (`macos-latest`) on commit `ebf16d17d98d948e8b9f976043ffbfbf57353282` over all 16 categories (521 labeled images processed, 1217 QR labels; dataset fingerprint `ba96d1300e9f787b`).
 >
-> macOS reading-rate runtime in that run: median `8238.16 ms/image` (mean `8826.98 ms/image`, `n=521`), with the reading-rate step taking about `46m`.
+> macOS reading-rate runtime in that run: median `8549.90 ms/image` (mean `9851.82 ms/image`, `n=521`), with the reading-rate step taking about `20m`.
 >
 > Run the benchmark:
 > ```bash
