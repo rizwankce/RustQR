@@ -822,6 +822,7 @@ fn decode_candidate(
         &candidate.bl,
         candidate.module_size,
         effective_heavy_recovery,
+        blur_metric,
     )?;
     let proxy = decode_proxy_confidence(&qr);
     qr.confidence = (0.75 * candidate.geometry_confidence + 0.25 * proxy).clamp(0.0, 1.0);

@@ -168,6 +168,7 @@ impl QrDecoder {
     }
 
     /// Decode using grayscale sampling to build the QR matrix (more robust for real photos).
+    /// Skips expensive subpixel refinement for very blurry images (blur < threshold).
     #[allow(clippy::too_many_arguments)]
     pub fn decode_with_gray(
         binary: &BitMatrix,
@@ -179,6 +180,7 @@ impl QrDecoder {
         bottom_left: &Point,
         module_size: f32,
         allow_heavy_recovery: bool,
+        blur_metric: f32,
     ) -> Option<QRCode> {
         let started = Instant::now();
         let candidate_budget_ms = crate::decoder::config::candidate_time_budget_ms();
@@ -208,23 +210,31 @@ impl QrDecoder {
                         Some(t) => t,
                         None => continue,
                     };
-                let transform = Self::refine_transform_with_alignment(
-                    binary,
-                    &transform,
-                    version_num,
-                    dimension,
-                    module_size,
-                    top_left,
-                    top_right,
-                    bottom_left,
-                )
-                .unwrap_or(transform);
+                // Skip expensive subpixel refinement for very blurry images
+                let blur_threshold = crate::decoder::config::blur_disable_recovery_threshold();
+                let should_do_subpixel = version_num >= 7 && blur_metric >= blur_threshold;
+                
+                let transform = if should_do_subpixel {
+                    Self::refine_transform_with_alignment(
+                        binary,
+                        &transform,
+                        version_num,
+                        dimension,
+                        module_size,
+                        top_left,
+                        top_right,
+                        bottom_left,
+                    )
+                    .unwrap_or(transform)
+                } else {
+                    transform
+                };
 
                 let (qr_matrix, module_confidence) =
                     Self::extract_qr_region_gray_with_transform_and_confidence(
                         gray, width, height, &transform, dimension,
                     );
-                if version_num >= 7 {
+                if should_do_subpixel {
                     DECODE_COUNTERS.with(|c| c.borrow_mut().hv_subpixel_attempts += 1);
                 }
                 if !orientation::validate_timing_patterns(&qr_matrix) {
