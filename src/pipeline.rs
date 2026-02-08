@@ -1272,7 +1272,15 @@ fn decode_ranked_groups(
         used_transforms += 1;
         used_attempts += 1;
         let allow_heavy = used_attempts <= heavy_recovery_top_n;
-        if let Some(qr) = decode_candidate(&first, binary, gray, width, height, allow_heavy, fast_signals.blur_metric) {
+        if let Some(qr) = decode_candidate(
+            &first,
+            binary,
+            gray,
+            width,
+            height,
+            allow_heavy,
+            fast_signals.blur_metric,
+        ) {
             let acceptance = acceptance_score(&qr, first.geometry_confidence);
             let floor = decode_acceptance_floor();
             if acceptance >= floor {
@@ -1378,8 +1386,15 @@ fn decode_ranked_groups(
             used_attempts += 1;
 
             let allow_heavy = used_attempts <= heavy_recovery_top_n;
-            if let Some(qr) = decode_candidate(candidate, binary, gray, width, height, allow_heavy, fast_signals.blur_metric)
-            {
+            if let Some(qr) = decode_candidate(
+                candidate,
+                binary,
+                gray,
+                width,
+                height,
+                allow_heavy,
+                fast_signals.blur_metric,
+            ) {
                 if dedupe_by_payload && accepted_payloads.contains(&qr.content) {
                     continue;
                 }
