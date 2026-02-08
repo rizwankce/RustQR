@@ -72,33 +72,19 @@ jobs:
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ inputs.category }}" ]; then
             echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Category: all" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ inputs.category }}" ]; then
-            # Run each category separately and collect results
-            IFS=',' read -ra CATEGORIES <<< "${{ inputs.category }}"
-            TOTAL_HITS=0
-            TOTAL_EXPECTED=0
-            for CAT in "${CATEGORIES[@]}"; do
-              echo "Running category: $CAT" >> $GITHUB_STEP_SUMMARY
+            # Run each category separately
+            for CAT in $(echo "${{ inputs.category }}" | tr ',' '\n'); do
+              echo "Running: $CAT" >> $GITHUB_STEP_SUMMARY
               cargo run --features tools --bin qrtool --release -- \
                 reading-rate \
                 --non-interactive \
                 --category "$CAT" \
                 --artifact-json "reading_rate_${CAT}.json" \
                 2>&1 | tee "reading_rate_${CAT}.txt"
-              cat "reading_rate_${CAT}.txt" >> $GITHUB_STEP_SUMMARY
-              # Extract hits/expected from JSON and sum
-              HITS=$(grep -o '"total_hits": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
-              EXPECTED=$(grep -o '"total_expected": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
-              TOTAL_HITS=$((TOTAL_HITS + HITS))
-              TOTAL_EXPECTED=$((TOTAL_EXPECTED + EXPECTED))
+              echo "---" >> $GITHUB_STEP_SUMMARY
             done
-            # Create combined JSON
-            echo "{\"total_hits\": $TOTAL_HITS, \"total_expected\": $TOTAL_EXPECTED}" > reading_rate_linux.json
           else
+            echo "Category: all" >> $GITHUB_STEP_SUMMARY
             cargo run --features tools --bin qrtool --release -- \
               reading-rate \
               --non-interactive \
@@ -165,33 +151,19 @@ jobs:
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ inputs.category }}" ]; then
             echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Category: all" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ inputs.category }}" ]; then
-            # Run each category separately and collect results
-            IFS=',' read -ra CATEGORIES <<< "${{ inputs.category }}"
-            TOTAL_HITS=0
-            TOTAL_EXPECTED=0
-            for CAT in "${CATEGORIES[@]}"; do
-              echo "Running category: $CAT" >> $GITHUB_STEP_SUMMARY
+            # Run each category separately
+            for CAT in $(echo "${{ inputs.category }}" | tr ',' '\n'); do
+              echo "Running: $CAT" >> $GITHUB_STEP_SUMMARY
               cargo run --features tools --bin qrtool --release -- \
                 reading-rate \
                 --non-interactive \
                 --category "$CAT" \
                 --artifact-json "reading_rate_${CAT}.json" \
                 2>&1 | tee "reading_rate_${CAT}.txt"
-              cat "reading_rate_${CAT}.txt" >> $GITHUB_STEP_SUMMARY
-              # Extract hits/expected from JSON and sum
-              HITS=$(grep -o '"total_hits": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
-              EXPECTED=$(grep -o '"total_expected": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
-              TOTAL_HITS=$((TOTAL_HITS + HITS))
-              TOTAL_EXPECTED=$((TOTAL_EXPECTED + EXPECTED))
+              echo "---" >> $GITHUB_STEP_SUMMARY
             done
-            # Create combined JSON
-            echo "{\"total_hits\": $TOTAL_HITS, \"total_expected\": $TOTAL_EXPECTED}" > reading_rate_macos.json
           else
+            echo "Category: all" >> $GITHUB_STEP_SUMMARY
             cargo run --features tools --bin qrtool --release -- \
               reading-rate \
               --non-interactive \
@@ -258,26 +230,19 @@ jobs:
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ inputs.category }}" ]; then
             echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Category: all" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ inputs.category }}" ]; then
-            # Run each category separately and collect results
-            IFS=',' read -ra CATEGORIES <<< "${{ inputs.category }}"
-            TOTAL_HITS=0
-            TOTAL_EXPECTED=0
-            for CAT in "${CATEGORIES[@]}"; do
-              echo "Running category: $CAT" >> $GITHUB_STEP_SUMMARY
+            # Run each category separately
+            for CAT in $(echo "${{ inputs.category }}" | tr ',' '\n'); do
+              echo "Running: $CAT" >> $GITHUB_STEP_SUMMARY
               cargo run --features tools --bin qrtool --release -- \
                 reading-rate \
                 --non-interactive \
                 --category "$CAT" \
                 --artifact-json "reading_rate_${CAT}.json" \
                 2>&1 | tee "reading_rate_${CAT}.txt"
-              cat "reading_rate_${CAT}.txt" >> $GITHUB_STEP_SUMMARY
+              echo "---" >> $GITHUB_STEP_SUMMARY
             done
           else
+            echo "Category: all" >> $GITHUB_STEP_SUMMARY
             cargo run --features tools --bin qrtool --release -- \
               reading-rate \
               --non-interactive \
