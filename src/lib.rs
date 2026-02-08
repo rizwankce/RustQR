@@ -354,19 +354,6 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
                 }
             }
         }
-        // Try rotation-invariant contour detection for arbitrarily rotated QR codes
-        if results.is_empty() {
-            let rotation_patterns = ContourDetector::detect_rotation_invariant(&binary);
-            if rotation_patterns.len() >= 2 {
-                let rotation_decoded =
-                    pipeline::decode_groups(&binary, gray, width, height, &rotation_patterns);
-                for qr in rotation_decoded {
-                    if !results.iter().any(|r: &QRCode| r.content == qr.content) {
-                        results.push(qr);
-                    }
-                }
-            }
-        }
         if !results.is_empty() {
             return results;
         }
@@ -932,14 +919,6 @@ pub fn detect_with_pool(
         let contour_patterns = ContourDetector::detect(binary);
         if contour_patterns.len() >= 2 {
             results = pipeline::decode_groups(binary, gray_buffer, width, height, &contour_patterns);
-        }
-    }
-
-    // Try rotation-invariant contour detection if still no results
-    if results.is_empty() {
-        let rotation_patterns = ContourDetector::detect_rotation_invariant(binary);
-        if rotation_patterns.len() >= 2 {
-            results = pipeline::decode_groups(binary, gray_buffer, width, height, &rotation_patterns);
         }
     }
 
