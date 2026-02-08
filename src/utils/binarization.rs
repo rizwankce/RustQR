@@ -386,6 +386,144 @@ fn query_integral_sq_sum(
     d + a - c - b
 }
 
+/// Calculate image brightness statistics
+pub fn brightness_stats(gray: &[u8]) -> (u8, u8, f32) {
+    if gray.is_empty() {
+        return (0, 0, 0.0);
+    }
+
+    let mut histogram = [0u32; 256];
+    let mut sum = 0u64;
+    for &pixel in gray {
+        histogram[pixel as usize] += 1;
+        sum += pixel as u64;
+    }
+
+    let len_u64 = gray.len() as u64;
+    let mean = (sum / len_u64) as u8;
+
+    // Find median (50th percentile)
+    let mut cumulative = 0u32;
+    let total = gray.len() as u32;
+    let mut median = 0u8;
+    for (i, &count) in histogram.iter().enumerate() {
+        cumulative += count;
+        if cumulative * 2 >= total {
+            median = i as u8;
+            break;
+        }
+    }
+
+    // Calculate percentage of saturated (very bright) pixels
+    let saturated_count: u32 = histogram[240..].iter().sum();
+    let saturation_ratio = saturated_count as f32 / total as f32;
+
+    (mean, median, saturation_ratio)
+}
+
+/// Apply gamma correction to grayscale image
+/// gamma < 1.0 brightens the image, gamma > 1.0 darkens it
+pub fn gamma_correct(gray: &[u8], gamma: f32) -> Vec<u8> {
+    if gamma == 1.0 {
+        return gray.to_vec();
+    }
+
+    // Precompute lookup table
+    let mut lut = [0u8; 256];
+    for i in 0..256 {
+        let normalized = i as f32 / 255.0;
+        let corrected = normalized.powf(gamma);
+        lut[i] = (corrected * 255.0).round() as u8;
+    }
+
+    gray.iter().map(|&p| lut[p as usize]).collect()
+}
+
+/// Invert grayscale image (useful for very bright images)
+pub fn invert_gray(gray: &[u8]) -> Vec<u8> {
+    gray.iter().map(|&p| 255 - p).collect()
+}
+
+/// Binarize with inverted threshold for very bright images
+/// Uses 255 - value approach to handle inverted brightness
+pub fn inverted_binarize(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    window_size: usize,
+) -> crate::models::BitMatrix {
+    use crate::models::BitMatrix;
+
+    let inverted = invert_gray(gray);
+    adaptive_binarize(&inverted, width, height, window_size)
+}
+
+/// Sauvola binarization optimized for bright images
+/// Uses higher k value to be more aggressive in thresholding
+pub fn sauvola_binarize_bright(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    window_size: usize,
+) -> crate::models::BitMatrix {
+    // Higher k value (0.5) for bright images - more aggressive thresholding
+    sauvola_binarize(gray, width, height, window_size, 0.5)
+}
+
+/// Contrast-limited adaptive histogram equalization (CLAHE) simplified
+/// Clip limit controls how much equalization is applied
+pub fn limited_contrast_stretch(gray: &[u8], clip_percentile: f32) -> Vec<u8> {
+    if gray.is_empty() {
+        return Vec::new();
+    }
+
+    let mut histogram = [0u32; 256];
+    for &pixel in gray {
+        histogram[pixel as usize] += 1;
+    }
+
+    // Find clip limit based on percentile
+    let total = gray.len() as u32;
+    let clip_limit = (total as f32 * clip_percentile / 100.0) as u32;
+
+    // Clip histogram
+    let mut excess = 0u32;
+    for count in histogram.iter_mut() {
+        if *count > clip_limit {
+            excess += *count - clip_limit;
+            *count = clip_limit;
+        }
+    }
+
+    // Redistribute excess
+    let redistribution = excess / 256;
+    for count in histogram.iter_mut() {
+        *count += redistribution;
+    }
+
+    // Normalize histogram to full range
+    let max_count = *histogram.iter().max().unwrap_or(&1).max(&1u32);
+    if max_count == 0 {
+        return gray.to_vec();
+    }
+
+    let mut cdf = [0u32; 256];
+    let mut sum = 0u32;
+    for i in 0..256 {
+        sum += histogram[i];
+        cdf[i] = sum;
+    }
+
+    // Apply CDF as mapping function
+    let scale = 255.0 / sum as f32;
+    gray.iter()
+        .map(|&p| {
+            let mapped = (cdf[p as usize] as f32 * scale).round() as u8;
+            mapped.clamp(0, 255)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

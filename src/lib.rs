@@ -225,8 +225,9 @@ use decoder::qr_decoder::{reset_decode_counters, take_decode_counters};
 use detector::contour::ContourDetector;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
-    adaptive_binarize, adaptive_binarize_into, otsu_binarize, otsu_binarize_into, sauvola_binarize,
-    threshold_binarize,
+    adaptive_binarize, adaptive_binarize_into, gamma_correct, invert_gray, inverted_binarize,
+    limited_contrast_stretch, otsu_binarize, otsu_binarize_into, sauvola_binarize,
+    sauvola_binarize_bright, threshold_binarize,
 };
 use utils::grayscale::{
     normalize_roi_local_contrast, rgb_to_grayscale, rgb_to_grayscale_with_buffer,
@@ -283,6 +284,102 @@ fn rotate_gray_45(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
     }
 
     out
+}
+
+/// Check if image is overexposed (too bright) based on histogram analysis
+fn is_overexposed(gray: &[u8]) -> bool {
+    if gray.is_empty() {
+        return false;
+    }
+
+    let mut histogram = [0u32; 256];
+    for &pixel in gray {
+        histogram[pixel as usize] += 1;
+    }
+
+    let total = gray.len() as u32;
+
+    // Check if significant portion of pixels are very bright
+    let bright_pixels: u32 = histogram[200..].iter().sum();
+    let bright_ratio = bright_pixels as f32 / total as f32;
+
+    // Check if median is in the bright range
+    let mut cumulative = 0u32;
+    let mut median = 128u8;
+    for (i, &count) in histogram.iter().enumerate() {
+        cumulative += count;
+        if cumulative * 2 >= total {
+            median = i as u8;
+            break;
+        }
+    }
+
+    // Image is overexposed if:
+    // - More than 20% of pixels are in the very bright range (>200)
+    // - OR median is above 180 (most pixels are bright)
+    bright_ratio > 0.20 || median > 180
+}
+
+/// Run brightness-specific detection for overexposed images
+/// Simplified and optimized to avoid timeouts
+fn run_brightness_detection(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    let window = auto_window(width, height);
+
+    // Quick check: gamma-corrected Otsu first (most likely to work)
+    let gamma_corrected = gamma_correct(gray, 0.6);
+    let gamma_otsu = otsu_binarize(&gamma_corrected, width, height);
+    let patterns = detect_finder_patterns(&gamma_otsu, width, height);
+    if patterns.len() >= 3 && patterns.len() <= FINDER_PATTERN_THRESHOLD {
+        let decoded = pipeline::decode_groups(&gamma_otsu, gray, width, height, &patterns);
+        if !decoded.is_empty() {
+            return decoded;
+        }
+    }
+
+    // If gamma worked but decode failed, try contour fallback
+    if patterns.len() >= 2 {
+        let contour_patterns = ContourDetector::detect(&gamma_otsu);
+        if contour_patterns.len() >= 3 {
+            let decoded = pipeline::decode_groups(&gamma_otsu, gray, width, height, &contour_patterns);
+            if !decoded.is_empty() {
+                return decoded;
+            }
+        }
+    }
+
+    // Try inverted Otsu as second strategy
+    let inverted = invert_gray(gray);
+    let inv_otsu = otsu_binarize(&inverted, width, height);
+    let inv_patterns = detect_finder_patterns(&inv_otsu, width, height);
+    if inv_patterns.len() >= 3 && inv_patterns.len() <= FINDER_PATTERN_THRESHOLD {
+        let decoded = pipeline::decode_groups(&inv_otsu, gray, width, height, &inv_patterns);
+        if !decoded.is_empty() {
+            return decoded;
+        }
+    }
+
+    // Contour fallback for inverted
+    if inv_patterns.len() >= 2 {
+        let contour_patterns = ContourDetector::detect(&inv_otsu);
+        if contour_patterns.len() >= 3 {
+            let decoded = pipeline::decode_groups(&inv_otsu, gray, width, height, &contour_patterns);
+            if !decoded.is_empty() {
+                return decoded;
+            }
+        }
+    }
+
+    // Try Sauvola with higher k as third strategy
+    let sauvola = sauvola_binarize_bright(gray, width, height, window);
+    let sauv_patterns = detect_finder_patterns(&sauvola, width, height);
+    if sauv_patterns.len() >= 3 && sauv_patterns.len() <= FINDER_PATTERN_THRESHOLD {
+        let decoded = pipeline::decode_groups(&sauvola, gray, width, height, &sauv_patterns);
+        if !decoded.is_empty() {
+            return decoded;
+        }
+    }
+
+    Vec::new()
 }
 
 /// Threshold for early termination when too many finder patterns are detected.
@@ -617,6 +714,14 @@ fn run_fast_path(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
 }
 
 fn run_detection_with_phase4_fallbacks(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    // Step 0: Check for overexposed/brightness-challenged images
+    if is_overexposed(gray) {
+        let results = run_brightness_detection(gray, width, height);
+        if !results.is_empty() {
+            return results;
+        }
+    }
+
     let mut results = run_detection_strategies(gray, width, height);
     if !results.is_empty() {
         return results;
@@ -669,6 +774,15 @@ pub fn detect_with_telemetry(
 
     // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
+
+    // Step 1.5: Check for overexposed/brightness-challenged images
+    if is_overexposed(&gray) {
+        let results = run_brightness_detection(&gray, width, height);
+        if !results.is_empty() {
+            tel.qr_codes_found = results.len();
+            return (results, tel);
+        }
+    }
 
     // Step 2+: strict path first, then bounded fallback binarization ensemble on miss.
     let policies = phase9_binarization_sequence(width, height);
