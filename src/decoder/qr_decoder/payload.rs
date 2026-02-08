@@ -30,6 +30,22 @@ thread_local! {
     }) };
 }
 
+/// Global counter for RS erasure attempts (across all blocks in an image)
+static RS_ERASURE_GLOBAL_ATTEMPTS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+pub(crate) fn reset_rs_erasure_global_counter() {
+    RS_ERASURE_GLOBAL_ATTEMPTS.store(0, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub(crate) fn get_rs_erasure_global_counter() -> usize {
+    RS_ERASURE_GLOBAL_ATTEMPTS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub(crate) fn increment_rs_erasure_global_counter() -> usize {
+    RS_ERASURE_GLOBAL_ATTEMPTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
 pub(super) fn reset_erasure_counters() {
     ERASURE_COUNTERS.with(|c| *c.borrow_mut() = ErasureCounters::default());
 }
@@ -261,12 +277,7 @@ pub(super) fn deinterleave_and_correct_with_confidence(
                     max_erasures_per_block(info.ecc_per_block),
                 );
                 if !erasures.is_empty() {
-                    ERASURE_COUNTERS.with(|c| c.borrow_mut().attempts += 1);
-                    record_erasure_hist(erasures.len());
-                    if rs.decode_with_erasures(block, &erasures).is_ok() {
-                        ERASURE_COUNTERS.with(|c| c.borrow_mut().successes += 1);
-                        corrected = true;
-                    }
+                    corrected = try_erasure_with_cap(&rs, block, &erasures);
                 }
                 let _ = conf;
             }
@@ -340,6 +351,37 @@ fn low_confidence_positions(confidence: &[u8], threshold: u8, max_count: usize) 
         .take(max_count)
         .map(|(i, _)| i)
         .collect()
+}
+
+/// Check if RS erasure should be attempted based on global cap
+fn should_attempt_erasure() -> bool {
+    let global_cap = crate::decoder::config::rs_erasure_global_cap();
+    if global_cap == 0 {
+        return true; // No cap
+    }
+    let current = get_rs_erasure_global_counter();
+    if current >= global_cap {
+        return false; // Cap reached
+    }
+    true
+}
+
+/// Attempt RS erasure with global cap tracking
+fn try_erasure_with_cap(rs: &ReedSolomonDecoder, block: &mut [u8], erasures: &[usize]) -> bool {
+    if !should_attempt_erasure() {
+        return false;
+    }
+    let current = increment_rs_erasure_global_counter();
+    if current > crate::decoder::config::rs_erasure_global_cap() {
+        return false;
+    }
+    ERASURE_COUNTERS.with(|c| c.borrow_mut().attempts += 1);
+    record_erasure_hist(erasures.len());
+    if rs.decode_with_erasures(block, erasures).is_ok() {
+        ERASURE_COUNTERS.with(|c| c.borrow_mut().successes += 1);
+        return true;
+    }
+    false
 }
 
 pub(super) fn decode_payload(data_codewords: &[u8], version: u8) -> Option<(Vec<u8>, String)> {

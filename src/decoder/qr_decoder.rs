@@ -63,6 +63,7 @@ thread_local! {
 pub(crate) fn reset_decode_counters() {
     DECODE_COUNTERS.with(|c| *c.borrow_mut() = DecodeCounters::new());
     payload::reset_erasure_counters();
+    payload::reset_rs_erasure_global_counter();
 }
 
 pub(crate) fn take_decode_counters() -> DecodeCounters {
