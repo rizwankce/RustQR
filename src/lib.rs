@@ -305,7 +305,7 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
 
     variants.push(sauvola_k01);
     variants.push(sauvola_k03);
-    
+
     // Add larger window variants for high-version QR codes
     let large_window = (window * 2).clamp(63, 255);
     if large_window != window {

@@ -8,16 +8,6 @@ on:
         required: false
         default: '0'
         type: string
-      run_reading_rate:
-        description: 'Run reading rate benchmark'
-        required: false
-        default: true
-        type: boolean
-      run_criterion:
-        description: 'Run Criterion benchmarks'
-        required: false
-        default: true
-        type: boolean
       baseline_artifact:
         description: 'Optional baseline artifact JSON path for regression gates'
         required: false
@@ -80,7 +70,6 @@ jobs:
         run: cargo build --release --features tools
 
       - name: Run reading rate benchmark
-        if: ${{ inputs.run_reading_rate }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
         run: |
@@ -96,30 +85,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Run Criterion benchmarks (smoke)
-        if: ${{ inputs.run_criterion }}
-        env:
-          QR_SMOKE: "1"
-        run: |
-          echo "## Criterion Smoke Test - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_smoke_${{ matrix.platform }}.txt
-          cat criterion_smoke_${{ matrix.platform }}.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-        shell: bash
-
-      - name: Run Criterion benchmarks (full)
-        if: ${{ inputs.run_criterion }}
-        env:
-          QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
-        run: |
-          echo "## Criterion Full Test (${{ inputs.bench_limit }} images) - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_full_${{ matrix.platform }}.txt
-          cat criterion_full_${{ matrix.platform }}.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-        shell: bash
-
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
@@ -128,12 +93,10 @@ jobs:
             reading_rate_*.txt
             reading_rate_*.json
             reading_rate_contribution_*.json
-            criterion_*.txt
-            target/criterion/
           retention-days: 30
 
       - name: Regression gate (macOS reading-rate)
-        if: ${{ inputs.run_reading_rate && matrix.platform == 'macos' && inputs.baseline_artifact != '' }}
+        if: ${{ matrix.platform == 'macos' && inputs.baseline_artifact != '' }}
         run: |
           IFS=',' read -ra CATEGORY_GATES <<< "${{ inputs.category_gates }}"
           CATEGORY_ARGS=()

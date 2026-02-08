@@ -23,16 +23,6 @@ on:
         required: false
         default: ''
         type: string
-      run_reading_rate:
-        description: 'Run reading rate benchmark'
-        required: false
-        default: true
-        type: boolean
-      run_criterion_smoke:
-        description: 'Run Criterion smoke benchmark'
-        required: false
-        default: false
-        type: boolean
 
 env:
   CARGO_TERM_COLOR: always
@@ -64,7 +54,6 @@ jobs:
         run: cargo build --release --features tools
 
       - name: Run reading rate benchmark (fast)
-        if: ${{ inputs.run_reading_rate }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
         run: |
@@ -95,18 +84,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Run Criterion smoke benchmark
-        if: ${{ inputs.run_criterion_smoke }}
-        env:
-          QR_SMOKE: "1"
-        run: |
-          echo "## Criterion Smoke - linux" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo bench --features tools --bench real_qr_images 2>&1 | tee "criterion_smoke_linux.txt"
-          cat "criterion_smoke_linux.txt" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-        shell: bash
-
       - name: Upload fast benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -114,7 +91,6 @@ jobs:
           path: |
             reading_rate_*.txt
             reading_rate_*.json
-            criterion_smoke_*.txt
           retention-days: 14
 
   benchmark-macos:
@@ -143,7 +119,6 @@ jobs:
         run: cargo build --release --features tools
 
       - name: Run reading rate benchmark (fast)
-        if: ${{ inputs.run_reading_rate }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
         run: |
@@ -174,18 +149,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Run Criterion smoke benchmark
-        if: ${{ inputs.run_criterion_smoke }}
-        env:
-          QR_SMOKE: "1"
-        run: |
-          echo "## Criterion Smoke - macos" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo bench --features tools --bench real_qr_images 2>&1 | tee "criterion_smoke_macos.txt"
-          cat "criterion_smoke_macos.txt" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-        shell: bash
-
       - name: Upload fast benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -193,7 +156,6 @@ jobs:
           path: |
             reading_rate_*.txt
             reading_rate_*.json
-            criterion_smoke_*.txt
           retention-days: 14
 
   benchmark-windows:
@@ -222,7 +184,6 @@ jobs:
         run: cargo build --release --features tools
 
       - name: Run reading rate benchmark (fast)
-        if: ${{ inputs.run_reading_rate }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
         run: |
@@ -253,18 +214,6 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Run Criterion smoke benchmark
-        if: ${{ inputs.run_criterion_smoke }}
-        env:
-          QR_SMOKE: "1"
-        run: |
-          echo "## Criterion Smoke - windows" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo bench --features tools --bench real_qr_images 2>&1 | tee "criterion_smoke_windows.txt"
-          cat "criterion_smoke_windows.txt" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-        shell: bash
-
       - name: Upload fast benchmark artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -272,5 +221,4 @@ jobs:
           path: |
             reading_rate_*.txt
             reading_rate_*.json
-            criterion_smoke_*.txt
           retention-days: 14

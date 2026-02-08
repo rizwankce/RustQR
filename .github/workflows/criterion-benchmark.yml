@@ -1,0 +1,190 @@
+name: Criterion Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Target platform'
+        required: false
+        default: 'macos'
+        type: choice
+        options:
+          - macos
+          - linux
+          - windows
+          - all
+      smoke:
+        description: 'Run smoke test only (1 image per category)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+  QR_MAX_DIM: "1024"
+
+jobs:
+  criterion-linux:
+    name: Criterion on linux
+    runs-on: ubuntu-latest
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'linux' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-criterion-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-criterion-
+            ${{ runner.os }}-cargo-
+
+      - name: Build release (with tools)
+        run: cargo build --release --features tools
+
+      - name: Run Criterion smoke benchmark
+        if: ${{ inputs.smoke }}
+        env:
+          QR_SMOKE: "1"
+        run: |
+          echo "## Criterion Smoke Test - linux" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_smoke_linux.txt
+          cat criterion_smoke_linux.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Run Criterion full benchmark
+        if: ${{ !inputs.smoke }}
+        run: |
+          echo "## Criterion Full Test - linux" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_full_linux.txt
+          cat criterion_full_linux.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-results-linux
+          path: |
+            criterion_*.txt
+            target/criterion/
+          retention-days: 30
+
+  criterion-macos:
+    name: Criterion on macos
+    runs-on: macos-latest
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'macos' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-criterion-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-criterion-
+            ${{ runner.os }}-cargo-
+
+      - name: Build release (with tools)
+        run: cargo build --release --features tools
+
+      - name: Run Criterion smoke benchmark
+        if: ${{ inputs.smoke }}
+        env:
+          QR_SMOKE: "1"
+        run: |
+          echo "## Criterion Smoke Test - macos" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_smoke_macos.txt
+          cat criterion_smoke_macos.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Run Criterion full benchmark
+        if: ${{ !inputs.smoke }}
+        run: |
+          echo "## Criterion Full Test - macos" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_full_macos.txt
+          cat criterion_full_macos.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-results-macos
+          path: |
+            criterion_*.txt
+            target/criterion/
+          retention-days: 30
+
+  criterion-windows:
+    name: Criterion on windows
+    runs-on: windows-latest
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-criterion-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-criterion-
+            ${{ runner.os }}-cargo-
+
+      - name: Build release (with tools)
+        run: cargo build --release --features tools
+
+      - name: Run Criterion smoke benchmark
+        if: ${{ inputs.smoke }}
+        env:
+          QR_SMOKE: "1"
+        run: |
+          echo "## Criterion Smoke Test - windows" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_smoke_windows.txt
+          cat criterion_smoke_windows.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Run Criterion full benchmark
+        if: ${{ !inputs.smoke }}
+        run: |
+          echo "## Criterion Full Test - windows" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo bench --features tools --bench real_qr_images 2>&1 | tee criterion_full_windows.txt
+          cat criterion_full_windows.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-results-windows
+          path: |
+            criterion_*.txt
+            target/criterion/
+          retention-days: 30
