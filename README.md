@@ -138,7 +138,7 @@ Reading rate comparison across different QR code image categories (based on [Dyn
 
 | Category | Images | Dynamsoft | BoofCV | ZBar | **RustQR** |
 |----------|--------|-----------|--------|------|------------|
-| blurred | 45 | 66.15% | 38.46% | 35.38% | **32.31%** |
+| blurred | 45 | 66.15% | 38.46% | 35.38% | **50.77%** |
 | brightness | 28 | 81.18% | 78.82% | 50.59% | **21.18%** |
 | bright_spots | 32 | 43.30% | 27.84% | 19.59% | **14.43%** |
 | close | 40 | 95.00% | 100.00% | 12.50% | **25.00%** |
