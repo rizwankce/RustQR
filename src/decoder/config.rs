@@ -101,3 +101,26 @@ pub(crate) fn image_decode_attempt_budget() -> usize {
     *IMAGE_DECODE_ATTEMPT_BUDGET
         .get_or_init(|| parse_env_usize("QR_MAX_IMAGE_DECODE_ATTEMPTS", 72).max(1))
 }
+
+static BLUR_DISABLE_RECOVERY_THRESHOLD: OnceLock<f32> = OnceLock::new();
+
+/// Blur metric threshold below which expensive recovery (RS erasure, subpixel) is disabled.
+/// Lower values = more blur. Default: 8.0 (images blurrier than this skip expensive recovery)
+pub(crate) fn blur_disable_recovery_threshold() -> f32 {
+    *BLUR_DISABLE_RECOVERY_THRESHOLD
+        .get_or_init(|| parse_env_f32("QR_BLUR_DISABLE_RECOVERY_THRESHOLD", 8.0).max(0.0))
+}
+
+static RS_ERASURE_GLOBAL_CAP: OnceLock<usize> = OnceLock::new();
+
+/// Hard cap on total RS erasure attempts per image. Default: 100 (0 = unlimited)
+pub(crate) fn rs_erasure_global_cap() -> usize {
+    *RS_ERASURE_GLOBAL_CAP.get_or_init(|| parse_env_usize("QR_RS_ERASURE_GLOBAL_CAP", 100))
+}
+
+fn parse_env_f32(name: &str, default: f32) -> f32 {
+    std::env::var(name)
+        .ok()
+        .and_then(|v| v.trim().parse::<f32>().ok())
+        .unwrap_or(default)
+}
