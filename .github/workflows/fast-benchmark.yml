@@ -56,6 +56,7 @@ jobs:
       - name: Run reading rate benchmark (fast)
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
+          QR_MAX_DIM: 1024
         run: |
           echo "## Fast Reading Rate - linux" >> $GITHUB_STEP_SUMMARY
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
@@ -121,6 +122,7 @@ jobs:
       - name: Run reading rate benchmark (fast)
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
+          QR_MAX_DIM: 1024
         run: |
           echo "## Fast Reading Rate - macos" >> $GITHUB_STEP_SUMMARY
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
@@ -186,6 +188,7 @@ jobs:
       - name: Run reading rate benchmark (fast)
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
+          QR_MAX_DIM: 1024
         run: |
           echo "## Fast Reading Rate - windows" >> $GITHUB_STEP_SUMMARY
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
