@@ -67,28 +67,45 @@ jobs:
         if: ${{ inputs.run_reading_rate }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
-          CATEGORY_FILTER: ${{ inputs.category }}
         run: |
-          CATEGORY_ARGS=()
-          if [ -n "$CATEGORY_FILTER" ]; then
-            CATEGORY_ARGS+=(--category "$CATEGORY_FILTER")
-          fi
-
           echo "## Fast Reading Rate - linux" >> $GITHUB_STEP_SUMMARY
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
-          if [ -n "$CATEGORY_FILTER" ]; then
-            echo "Category: \`$CATEGORY_FILTER\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ inputs.category }}" ]; then
+            echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "Category: all" >> $GITHUB_STEP_SUMMARY
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo run --features tools --bin qrtool --release -- \
-            reading-rate \
-            --non-interactive \
-            "${CATEGORY_ARGS[@]}" \
-            --artifact-json "reading_rate_linux.json" \
-            2>&1 | tee "reading_rate_linux.txt"
-          cat "reading_rate_linux.txt" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ inputs.category }}" ]; then
+            # Run each category separately and collect results
+            IFS=',' read -ra CATEGORIES <<< "${{ inputs.category }}"
+            TOTAL_HITS=0
+            TOTAL_EXPECTED=0
+            for CAT in "${CATEGORIES[@]}"; do
+              echo "Running category: $CAT" >> $GITHUB_STEP_SUMMARY
+              cargo run --features tools --bin qrtool --release -- \
+                reading-rate \
+                --non-interactive \
+                --category "$CAT" \
+                --artifact-json "reading_rate_${CAT}.json" \
+                2>&1 | tee "reading_rate_${CAT}.txt"
+              cat "reading_rate_${CAT}.txt" >> $GITHUB_STEP_SUMMARY
+              # Extract hits/expected from JSON and sum
+              HITS=$(grep -o '"total_hits": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
+              EXPECTED=$(grep -o '"total_expected": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
+              TOTAL_HITS=$((TOTAL_HITS + HITS))
+              TOTAL_EXPECTED=$((TOTAL_EXPECTED + EXPECTED))
+            done
+            # Create combined JSON
+            echo "{\"total_hits\": $TOTAL_HITS, \"total_expected\": $TOTAL_EXPECTED}" > reading_rate_linux.json
+          else
+            cargo run --features tools --bin qrtool --release -- \
+              reading-rate \
+              --non-interactive \
+              --artifact-json "reading_rate_linux.json" \
+              2>&1 | tee "reading_rate_linux.txt"
+            cat "reading_rate_linux.txt" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
@@ -143,28 +160,45 @@ jobs:
         if: ${{ inputs.run_reading_rate }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
-          CATEGORY_FILTER: ${{ inputs.category }}
         run: |
-          CATEGORY_ARGS=()
-          if [ -n "$CATEGORY_FILTER" ]; then
-            CATEGORY_ARGS+=(--category "$CATEGORY_FILTER")
-          fi
-
           echo "## Fast Reading Rate - macos" >> $GITHUB_STEP_SUMMARY
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
-          if [ -n "$CATEGORY_FILTER" ]; then
-            echo "Category: \`$CATEGORY_FILTER\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ inputs.category }}" ]; then
+            echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "Category: all" >> $GITHUB_STEP_SUMMARY
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo run --features tools --bin qrtool --release -- \
-            reading-rate \
-            --non-interactive \
-            "${CATEGORY_ARGS[@]}" \
-            --artifact-json "reading_rate_macos.json" \
-            2>&1 | tee "reading_rate_macos.txt"
-          cat "reading_rate_macos.txt" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ inputs.category }}" ]; then
+            # Run each category separately and collect results
+            IFS=',' read -ra CATEGORIES <<< "${{ inputs.category }}"
+            TOTAL_HITS=0
+            TOTAL_EXPECTED=0
+            for CAT in "${CATEGORIES[@]}"; do
+              echo "Running category: $CAT" >> $GITHUB_STEP_SUMMARY
+              cargo run --features tools --bin qrtool --release -- \
+                reading-rate \
+                --non-interactive \
+                --category "$CAT" \
+                --artifact-json "reading_rate_${CAT}.json" \
+                2>&1 | tee "reading_rate_${CAT}.txt"
+              cat "reading_rate_${CAT}.txt" >> $GITHUB_STEP_SUMMARY
+              # Extract hits/expected from JSON and sum
+              HITS=$(grep -o '"total_hits": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
+              EXPECTED=$(grep -o '"total_expected": [0-9]*' "reading_rate_${CAT}.json" | grep -o '[0-9]*' || echo "0")
+              TOTAL_HITS=$((TOTAL_HITS + HITS))
+              TOTAL_EXPECTED=$((TOTAL_EXPECTED + EXPECTED))
+            done
+            # Create combined JSON
+            echo "{\"total_hits\": $TOTAL_HITS, \"total_expected\": $TOTAL_EXPECTED}" > reading_rate_macos.json
+          else
+            cargo run --features tools --bin qrtool --release -- \
+              reading-rate \
+              --non-interactive \
+              --artifact-json "reading_rate_macos.json" \
+              2>&1 | tee "reading_rate_macos.txt"
+            cat "reading_rate_macos.txt" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
@@ -219,28 +253,38 @@ jobs:
         if: ${{ inputs.run_reading_rate }}
         env:
           QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
-          CATEGORY_FILTER: ${{ inputs.category }}
         run: |
-          CATEGORY_ARGS=()
-          if [ -n "$CATEGORY_FILTER" ]; then
-            CATEGORY_ARGS+=(--category "$CATEGORY_FILTER")
-          fi
-
           echo "## Fast Reading Rate - windows" >> $GITHUB_STEP_SUMMARY
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
-          if [ -n "$CATEGORY_FILTER" ]; then
-            echo "Category: \`$CATEGORY_FILTER\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ inputs.category }}" ]; then
+            echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "Category: all" >> $GITHUB_STEP_SUMMARY
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo run --features tools --bin qrtool --release -- \
-            reading-rate \
-            --non-interactive \
-            "${CATEGORY_ARGS[@]}" \
-            --artifact-json "reading_rate_windows.json" \
-            2>&1 | tee "reading_rate_windows.txt"
-          cat "reading_rate_windows.txt" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ inputs.category }}" ]; then
+            # Run each category separately and collect results
+            IFS=',' read -ra CATEGORIES <<< "${{ inputs.category }}"
+            TOTAL_HITS=0
+            TOTAL_EXPECTED=0
+            for CAT in "${CATEGORIES[@]}"; do
+              echo "Running category: $CAT" >> $GITHUB_STEP_SUMMARY
+              cargo run --features tools --bin qrtool --release -- \
+                reading-rate \
+                --non-interactive \
+                --category "$CAT" \
+                --artifact-json "reading_rate_${CAT}.json" \
+                2>&1 | tee "reading_rate_${CAT}.txt"
+              cat "reading_rate_${CAT}.txt" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            cargo run --features tools --bin qrtool --release -- \
+              reading-rate \
+              --non-interactive \
+              --artifact-json "reading_rate_windows.json" \
+              2>&1 | tee "reading_rate_windows.txt"
+            cat "reading_rate_windows.txt" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
