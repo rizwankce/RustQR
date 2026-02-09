@@ -1137,7 +1137,17 @@ fn lane_budget_from_attempts(max_decode_attempts: usize, strategy: StrategyProfi
                 low += 1;
             }
         }
-        StrategyProfile::RotationHeavy | StrategyProfile::FastSingle => {}
+        StrategyProfile::RotationHeavy => {
+            if low > 0 {
+                low -= 1;
+                medium += 1;
+            }
+            if low > 0 {
+                low -= 1;
+                high += 1;
+            }
+        }
+        StrategyProfile::FastSingle => {}
     }
 
     while high + medium + low > max_decode_attempts {

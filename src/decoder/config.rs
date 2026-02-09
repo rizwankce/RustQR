@@ -32,7 +32,7 @@ fn parse_env_bool_u8(name: &str, default: bool) -> bool {
 static CANDIDATE_TIME_BUDGET_MS: OnceLock<u64> = OnceLock::new();
 
 pub(crate) fn candidate_time_budget_ms() -> u64 {
-    *CANDIDATE_TIME_BUDGET_MS.get_or_init(|| parse_env_u64("QR_CANDIDATE_TIME_BUDGET_MS", 120))
+    *CANDIDATE_TIME_BUDGET_MS.get_or_init(|| parse_env_u64("QR_CANDIDATE_TIME_BUDGET_MS", 300))
 }
 
 static FORMAT_FALLBACK_FULL_EC: OnceLock<bool> = OnceLock::new();
@@ -122,7 +122,7 @@ static IMAGE_DECODE_ATTEMPT_BUDGET: OnceLock<usize> = OnceLock::new();
 
 pub(crate) fn image_decode_attempt_budget() -> usize {
     *IMAGE_DECODE_ATTEMPT_BUDGET
-        .get_or_init(|| parse_env_usize("QR_MAX_IMAGE_DECODE_ATTEMPTS", 72).max(1))
+        .get_or_init(|| parse_env_usize("QR_MAX_IMAGE_DECODE_ATTEMPTS", 128).max(1))
 }
 
 static BLUR_DISABLE_RECOVERY_THRESHOLD: OnceLock<f32> = OnceLock::new();

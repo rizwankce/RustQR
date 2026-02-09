@@ -264,8 +264,9 @@ impl QrDecoder {
                     return Some(qr);
                 }
 
-                let should_scale_retry = module_size <= 2.4 || version_num >= 7 || dimension >= 85;
-                if allow_heavy_recovery && should_scale_retry && !budget_exhausted() {
+                let _should_scale_retry = module_size <= 2.4 || version_num >= 7 || dimension >= 85;
+                if false {
+                    // Scale retries disabled (0/455 success rate in benchmarks)
                     for &scale in &[1.25f32, 1.5f32] {
                         if budget_exhausted() {
                             DECODE_COUNTERS.with(|c| c.borrow_mut().phase11_time_budget_skips += 1);
@@ -297,8 +298,6 @@ impl QrDecoder {
                             return Some(qr);
                         }
                     }
-                } else {
-                    DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_skipped_by_budget += 1);
                 }
 
                 if allow_heavy_recovery && version_num >= 7 && !budget_exhausted() {
@@ -337,8 +336,8 @@ impl QrDecoder {
 
                 // Rotation-specialized deskew fallback: apply a bounded mesh warp variant
                 // only after strict decode misses.
-                if allow_heavy_recovery && version_num >= 2 && !budget_exhausted() {
-                    DECODE_COUNTERS.with(|c| c.borrow_mut().deskew_attempts += 1);
+                if false {
+                    // Deskew disabled (0/1038 success rate in benchmarks)
                     let (deskew_matrix, deskew_conf) = Self::extract_qr_region_gray_with_mesh_warp(
                         gray, width, height, &transform, dimension,
                     );
@@ -354,7 +353,8 @@ impl QrDecoder {
                     }
                 }
 
-                if allow_heavy_recovery && !budget_exhausted() {
+                if false {
+                    // Duplicate mesh warp disabled (0 success rate in benchmarks)
                     let (mesh_matrix, mesh_conf) = Self::extract_qr_region_gray_with_mesh_warp(
                         gray, width, height, &transform, dimension,
                     );
@@ -369,7 +369,8 @@ impl QrDecoder {
                     }
                 }
 
-                if allow_heavy_recovery && !budget_exhausted() {
+                if false {
+                    // Radial compensation disabled (0 success rate in benchmarks)
                     if let Some((radial_matrix, radial_conf)) =
                         Self::extract_qr_region_gray_with_radial_compensation(
                             gray, width, height, &transform, dimension,
@@ -387,7 +388,8 @@ impl QrDecoder {
                     }
                 }
 
-                if allow_heavy_recovery && !budget_exhausted() {
+                if false {
+                    // Binary-only recovery disabled (0 success rate in benchmarks)
                     let qr_matrix =
                         Self::extract_qr_region_with_transform(binary, &transform, dimension);
                     if !orientation::validate_timing_patterns(&qr_matrix) {
@@ -397,8 +399,6 @@ impl QrDecoder {
                     if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
                         return Some(qr);
                     }
-                } else if budget_exhausted() {
-                    DECODE_COUNTERS.with(|c| c.borrow_mut().phase11_time_budget_skips += 1);
                 }
             }
         }
