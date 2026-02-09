@@ -17,16 +17,22 @@ impl FormatInfo {
         let bits_a_rev = Self::reverse_15(bits_a);
         let bits_b_rev = Self::reverse_15(bits_b);
 
-        // Try both copies (and reversed); take the one with the smallest Hamming distance.
-        let (best_a, dist_a) = Self::decode_with_distance(bits_a)
-            .or_else(|| Self::decode_with_distance(bits_a_rev))?;
-        let (best_b, dist_b) = Self::decode_with_distance(bits_b)
-            .or_else(|| Self::decode_with_distance(bits_b_rev))?;
+        let result_a =
+            Self::decode_with_distance(bits_a).or_else(|| Self::decode_with_distance(bits_a_rev));
+        let result_b =
+            Self::decode_with_distance(bits_b).or_else(|| Self::decode_with_distance(bits_b_rev));
 
-        if dist_a <= dist_b {
-            Some(best_a)
-        } else {
-            Some(best_b)
+        match (result_a, result_b) {
+            (Some((a, dist_a)), Some((b, dist_b))) => {
+                if dist_a <= dist_b {
+                    Some(a)
+                } else {
+                    Some(b)
+                }
+            }
+            (Some((a, _)), None) => Some(a),
+            (None, Some((b, _))) => Some(b),
+            (None, None) => None,
         }
     }
 

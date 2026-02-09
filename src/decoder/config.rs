@@ -99,7 +99,7 @@ static MAX_GROUPS_TO_RANK: OnceLock<usize> = OnceLock::new();
 /// Hard limit on groups to rank to prevent O(n) slowdown on pathological images.
 /// Default: 8 (normal QR scenes rarely exceed 10-20 valid groups).
 pub(crate) fn max_groups_to_rank() -> usize {
-    *MAX_GROUPS_TO_RANK.get_or_init(|| parse_env_usize("QR_MAX_GROUPS_TO_RANK", 8).clamp(4, 32))
+    *MAX_GROUPS_TO_RANK.get_or_init(|| parse_env_usize("QR_MAX_GROUPS_TO_RANK", 16).clamp(4, 64))
 }
 
 static RS_ERASURE_CONF_THRESHOLD: OnceLock<u8> = OnceLock::new();

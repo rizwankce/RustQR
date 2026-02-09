@@ -170,7 +170,7 @@ fn order_finder_patterns(
     let dim2 = estimate_dimension_from_distance(d_bl, avg_module)?;
     let dim = if dim1 == dim2 {
         dim1
-    } else if (dim1 as isize - dim2 as isize).abs() <= 4 {
+    } else if (dim1 as isize - dim2 as isize).abs() <= 8 {
         ((dim1 + dim2) / 2).max(21)
     } else {
         return None;
@@ -178,7 +178,7 @@ fn order_finder_patterns(
 
     let module_size = (d_tr + d_bl) / 2.0 / (dim as f32 - 7.0);
     let module_ratio = module_size / avg_module;
-    if !(0.7..=1.3).contains(&module_ratio) {
+    if !(0.5..=1.8).contains(&module_ratio) {
         return None;
     }
 
