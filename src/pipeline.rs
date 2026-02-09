@@ -1,7 +1,7 @@
-use crate::DetectionTelemetry;
 use crate::decoder::qr_decoder::QrDecoder;
 use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
+use crate::DetectionTelemetry;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::env;

@@ -270,9 +270,13 @@ pub(super) fn has_finders_with_tolerance(matrix: &BitMatrix, max_mismatches: usi
 }
 
 pub(super) fn validate_timing_patterns(matrix: &BitMatrix) -> bool {
+    timing_pattern_quality(matrix) >= 0.60
+}
+
+pub(super) fn timing_pattern_quality(matrix: &BitMatrix) -> f32 {
     let dim = matrix.width();
     if dim < 21 || matrix.height() != dim {
-        return false;
+        return 0.0;
     }
 
     let horizontal = read_timing_pattern(
@@ -287,10 +291,26 @@ pub(super) fn validate_timing_patterns(matrix: &BitMatrix) -> bool {
     );
 
     let (Some(h_bits), Some(v_bits)) = (horizontal, vertical) else {
-        return false;
+        return 0.0;
     };
 
-    alternation_ratio(&h_bits) >= 0.60 && alternation_ratio(&v_bits) >= 0.60
+    alternation_ratio(&h_bits).min(alternation_ratio(&v_bits))
+}
+
+pub(super) fn validate_timing_patterns_adaptive(matrix: &BitMatrix) -> bool {
+    let dim = matrix.width();
+    let threshold = timing_threshold_for_dimension(dim);
+    timing_pattern_quality(matrix) >= threshold
+}
+
+fn timing_threshold_for_dimension(dim: usize) -> f32 {
+    match dim {
+        0..=33 => 0.60,   // Version 1-6
+        34..=57 => 0.50,  // Version 7-13
+        58..=85 => 0.45,  // Version 14-20
+        86..=117 => 0.40, // Version 21-28
+        _ => 0.35,        // Version 29-40
+    }
 }
 
 pub(super) fn version_matches_candidate(matrix: &BitMatrix, version_num: u8) -> bool {
@@ -299,7 +319,7 @@ pub(super) fn version_matches_candidate(matrix: &BitMatrix, version_num: u8) -> 
     }
 
     match VersionInfo::extract(matrix) {
-        Some(exact_version) => exact_version == version_num,
+        Some(extracted_version) => extracted_version == version_num,
         None => true,
     }
 }

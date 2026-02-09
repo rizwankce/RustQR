@@ -184,50 +184,149 @@ impl QrDecoder {
         let candidate_budget_ms = crate::decoder::config::candidate_time_budget_ms();
         let budget_exhausted = || started.elapsed().as_millis() as u64 >= candidate_budget_ms;
         let bottom_right = Self::calculate_bottom_right(top_left, top_right, bottom_left)?;
-        let mut br_candidates = Vec::new();
+
+        let estimated_dimension =
+            Self::estimate_dimension(top_left, top_right, &bottom_right, module_size)?;
+        let estimated_version = ((estimated_dimension - 17) / 4) as i32;
+        let is_high_version = estimated_version >= 7;
+
+        // Early exit: skip very high versions with small module size (impossible to decode)
+        if is_high_version && module_size < 2.0 {
+            return None;
+        }
+
+        // Performance safeguard: limit candidates for high versions
+        let candidates = if is_high_version {
+            vec![estimated_version as u8]
+        } else {
+            Self::version_candidates(estimated_version)
+        };
+
+        // Performance safeguard: limit BR candidates for high versions
+        let br_range = if is_high_version { 1 } else { 4 };
         let step = module_size.max(1.0) * 2.0;
-        for dy in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
-            for dx in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
+        let mut br_candidates = Vec::new();
+        for dy in -br_range..=br_range {
+            for dx in -br_range..=br_range {
                 br_candidates.push(Point::new(
-                    bottom_right.x + dx * step,
-                    bottom_right.y + dy * step,
+                    bottom_right.x + dx as f32 * step,
+                    bottom_right.y + dy as f32 * step,
                 ));
             }
         }
-        let estimated_dimension =
-            Self::estimate_dimension(top_left, top_right, &bottom_right, module_size)?;
 
-        let estimated_version = ((estimated_dimension - 17) / 4) as i32;
-        let candidates = Self::version_candidates(estimated_version);
+        // Hard limit on extraction attempts for high versions
+        let max_extractions = if is_high_version { 5 } else { usize::MAX };
+        let mut extraction_count = 0;
 
         for version_num in candidates {
             let dimension = 17 + 4 * version_num as usize;
-            for br in &br_candidates {
-                let transform =
+            let max_br = if is_high_version {
+                1
+            } else {
+                br_candidates.len()
+            };
+            for br in br_candidates.iter().take(max_br) {
+                // Hard limit on expensive extractions for high versions
+                if is_high_version {
+                    extraction_count += 1;
+                    if extraction_count > max_extractions {
+                        break;
+                    }
+                }
+
+                if budget_exhausted() {
+                    DECODE_COUNTERS.with(|c| c.borrow_mut().phase11_time_budget_skips += 1);
+                    continue;
+                }
+
+                let initial_transform =
                     match Self::build_transform(top_left, top_right, bottom_left, br, dimension) {
                         Some(t) => t,
                         None => continue,
                     };
-                let transform = Self::refine_transform_with_alignment(
-                    binary,
-                    &transform,
-                    version_num,
-                    dimension,
-                    module_size,
-                    top_left,
-                    top_right,
-                    bottom_left,
-                )
-                .unwrap_or(transform);
+
+                // Try multi-point transform with alignments for high versions
+                let transform = if is_high_version {
+                    let positions =
+                        crate::detector::alignment::get_alignment_positions(version_num);
+                    let found_alignments = geometry::find_all_alignment_centers(
+                        binary,
+                        &initial_transform,
+                        &positions,
+                        module_size,
+                        version_num,
+                    );
+
+                    // Filter to only positions that are not in finder pattern areas
+                    let filtered_positions: Vec<(usize, usize)> = positions
+                        .iter()
+                        .filter(|(x, y)| {
+                            let in_tl = *x <= 8 && *y <= 8;
+                            let in_tr = *x >= dimension - 9 && *y <= 8;
+                            let in_bl = *x <= 8 && *y >= dimension - 9;
+                            !in_tl && !in_tr && !in_bl
+                        })
+                        .copied()
+                        .collect();
+
+                    if found_alignments.len() >= 1 {
+                        if let Some(multi_transform) = Self::build_transform_with_alignments(
+                            top_left,
+                            top_right,
+                            bottom_left,
+                            br,
+                            &filtered_positions,
+                            &found_alignments,
+                            dimension,
+                        ) {
+                            let refined = Self::refine_transform_with_alignment(
+                                binary,
+                                &multi_transform,
+                                version_num,
+                                dimension,
+                                module_size,
+                                top_left,
+                                top_right,
+                                bottom_left,
+                            );
+                            refined.unwrap_or(multi_transform)
+                        } else {
+                            initial_transform
+                        }
+                    } else {
+                        initial_transform
+                    }
+                } else {
+                    Self::refine_transform_with_alignment(
+                        binary,
+                        &initial_transform,
+                        version_num,
+                        dimension,
+                        module_size,
+                        top_left,
+                        top_right,
+                        bottom_left,
+                    )
+                    .unwrap_or(initial_transform)
+                };
 
                 let (qr_matrix, module_confidence) =
                     Self::extract_qr_region_gray_with_transform_and_confidence(
                         gray, width, height, &transform, dimension,
                     );
+
                 if version_num >= 7 {
                     DECODE_COUNTERS.with(|c| c.borrow_mut().hv_subpixel_attempts += 1);
                 }
-                if !orientation::validate_timing_patterns(&qr_matrix) {
+
+                // Use adaptive timing validation for high versions
+                let timing_ok = if is_high_version {
+                    orientation::validate_timing_patterns_adaptive(&qr_matrix)
+                } else {
+                    orientation::validate_timing_patterns(&qr_matrix)
+                };
+                if !timing_ok {
                     continue;
                 }
 
@@ -248,8 +347,11 @@ impl QrDecoder {
                     return Some(qr);
                 }
 
-                let should_scale_retry = module_size <= 2.4 || version_num >= 7 || dimension >= 85;
-                if allow_heavy_recovery && should_scale_retry && !budget_exhausted() {
+                let should_skip_heavy = is_high_version && dimension > 85;
+                let should_scale_retry = allow_heavy_recovery
+                    && !should_skip_heavy
+                    && (module_size <= 2.4 || dimension >= 85);
+                if should_scale_retry && !budget_exhausted() {
                     for &scale in &[1.25f32, 1.5f32] {
                         if budget_exhausted() {
                             DECODE_COUNTERS.with(|c| c.borrow_mut().phase11_time_budget_skips += 1);
@@ -281,11 +383,15 @@ impl QrDecoder {
                             return Some(qr);
                         }
                     }
-                } else {
+                } else if should_skip_heavy {
                     DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_skipped_by_budget += 1);
                 }
 
-                if allow_heavy_recovery && version_num >= 7 && !budget_exhausted() {
+                if allow_heavy_recovery
+                    && version_num >= 7
+                    && !is_high_version
+                    && !budget_exhausted()
+                {
                     DECODE_COUNTERS.with(|c| c.borrow_mut().hv_refine_attempts += 1);
                     if let Some(refined_hv_transform) = Self::refine_transform_with_alignment(
                         binary,
@@ -454,6 +560,26 @@ impl QrDecoder {
         dimension: usize,
     ) -> Option<crate::utils::geometry::PerspectiveTransform> {
         geometry::build_transform(top_left, top_right, bottom_left, bottom_right, dimension)
+    }
+
+    fn build_transform_with_alignments(
+        top_left: &Point,
+        top_right: &Point,
+        bottom_left: &Point,
+        bottom_right: &Point,
+        alignments: &[(usize, usize)],
+        found_alignments: &[Point],
+        dimension: usize,
+    ) -> Option<crate::utils::geometry::PerspectiveTransform> {
+        geometry::build_transform_with_alignments(
+            top_left,
+            top_right,
+            bottom_left,
+            bottom_right,
+            alignments,
+            found_alignments,
+            dimension,
+        )
     }
 
     fn extract_qr_region_with_transform(

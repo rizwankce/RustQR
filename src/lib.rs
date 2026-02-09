@@ -235,7 +235,11 @@ use utils::memory_pool::BufferPool;
 
 fn auto_window(width: usize, height: usize) -> usize {
     let base = (width.min(height) / 24).max(31);
-    if base % 2 == 0 { base + 1 } else { base }
+    if base % 2 == 0 {
+        base + 1
+    } else {
+        base
+    }
 }
 
 fn contrast_stretch(gray: &[u8]) -> Vec<u8> {
@@ -461,7 +465,7 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
 }
 
 fn detect_finder_patterns(binary: &BitMatrix, width: usize, height: usize) -> Vec<FinderPattern> {
-    if width >= 1600 && height >= 1600 {
+    if width >= 800 && height >= 800 {
         FinderDetector::detect_with_pyramid(binary)
     } else {
         FinderDetector::detect(binary)

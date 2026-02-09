@@ -158,6 +158,140 @@ pub fn angle(p1: &Point, p2: &Point, p3: &Point) -> f32 {
     cross.atan2(dot).abs()
 }
 
+/// Create perspective transform from multiple point correspondences using DLT with least squares
+/// Returns None if fewer than 4 points or if the system is singular
+pub fn perspective_from_points_multi(
+    src_points: &[Point],
+    dst_points: &[Point],
+) -> Option<PerspectiveTransform> {
+    let n = src_points.len().min(dst_points.len());
+    if n < 4 {
+        return None;
+    }
+
+    // Build over-determined system (2n equations, 8 unknowns)
+    // Use least squares: (A^T A) x = A^T b
+    let mut ata = [[0.0f32; 8]; 8];
+    let mut atb = [0.0f32; 8];
+
+    for i in 0..n {
+        let (sx, sy) = (src_points[i].x, src_points[i].y);
+        let (dx, dy) = (dst_points[i].x, dst_points[i].y);
+
+        // x' equation: x' = (a*x + b*y + c) / (g*x + h*y + 1)
+        // Linearized: a*x + b*y + c - g*x*x' - h*y*x' = x'
+        ata[0][0] += sx * sx;
+        ata[0][1] += sx * sy;
+        ata[0][2] += sx;
+        ata[0][6] -= sx * dx;
+        ata[0][7] -= sy * dx;
+        atb[0] += dx - sx;
+
+        ata[1][0] += sx * sy;
+        ata[1][1] += sy * sy;
+        ata[1][2] += sy;
+        ata[1][6] -= sx * dy;
+        ata[1][7] -= sy * dy;
+        atb[1] += dy - sy;
+
+        ata[2][0] += sx * sx;
+        ata[2][1] += sx * sy;
+        ata[2][2] += sx;
+        ata[2][6] -= sx * dx;
+        ata[2][7] -= sy * dx;
+        atb[2] += dx - sx;
+
+        ata[3][0] += sx * sy;
+        ata[3][1] += sy * sy;
+        ata[3][2] += sy;
+        ata[3][6] -= sx * dy;
+        ata[3][7] -= sy * dy;
+        atb[3] += dy - sy;
+    }
+
+    // Fill remaining equations (use first n equations twice for y')
+    for i in 0..n.min(4) {
+        let (sx, sy) = (src_points[i].x, src_points[i].y);
+        let (_, dy) = (dst_points[i].x, dst_points[i].y);
+
+        let row = 4 + i;
+        ata[row][0] += sx * sx;
+        ata[row][1] += sx * sy;
+        ata[row][2] += sx;
+        ata[row][6] -= sx * dy;
+        ata[row][7] -= sy * dy;
+        atb[row] += dy - sy;
+    }
+
+    // Solve normal equations: ATA * x = ATB
+    // Use simple Gaussian elimination
+    solve_normal_equations(&ata, &atb).map(|coeffs| PerspectiveTransform {
+        a11: coeffs[0],
+        a12: coeffs[1],
+        a13: coeffs[2],
+        a21: coeffs[3],
+        a22: coeffs[4],
+        a23: coeffs[5],
+        a31: coeffs[6],
+        a32: coeffs[7],
+        a33: 1.0,
+    })
+}
+
+fn solve_normal_equations(a: &[[f32; 8]; 8], b: &[f32; 8]) -> Option<[f32; 8]> {
+    let mut a = *a;
+    let mut b = *b;
+    let n = 8;
+
+    for i in 0..n {
+        let mut max_val = a[i][i].abs();
+        let mut max_row = i;
+        for k in (i + 1)..n {
+            if a[k][i].abs() > max_val {
+                max_val = a[k][i].abs();
+                max_row = k;
+            }
+        }
+
+        if max_val < 1e-10 {
+            return None;
+        }
+
+        if max_row != i {
+            for j in 0..n {
+                let temp = a[i][j];
+                a[i][j] = a[max_row][j];
+                a[max_row][j] = temp;
+            }
+            let temp = b[i];
+            b[i] = b[max_row];
+            b[max_row] = temp;
+        }
+
+        for k in (i + 1)..n {
+            let factor = a[k][i] / a[i][i];
+            for j in i..n {
+                a[k][j] -= factor * a[i][j];
+            }
+            b[k] -= factor * b[i];
+        }
+    }
+
+    let mut x = [0.0f32; 8];
+    for i in (0..n).rev() {
+        let mut sum = b[i];
+        for j in (i + 1)..n {
+            sum -= a[i][j] * x[j];
+        }
+        if a[i][i].abs() < 1e-10 {
+            return None;
+        }
+        x[i] = sum / a[i][i];
+    }
+
+    Some(x)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

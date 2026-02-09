@@ -93,6 +93,46 @@ pub(super) fn build_transform(
     PerspectiveTransform::from_points(&src, &dst)
 }
 
+pub(super) fn build_transform_with_alignments(
+    top_left: &Point,
+    top_right: &Point,
+    bottom_left: &Point,
+    bottom_right: &Point,
+    alignments: &[(usize, usize)],
+    found_alignments: &[Point],
+    dimension: usize,
+) -> Option<PerspectiveTransform> {
+    if alignments.is_empty() || found_alignments.is_empty() {
+        return None;
+    }
+
+    let mut src_points = Vec::with_capacity(4 + alignments.len().min(found_alignments.len()));
+    let mut dst_points = Vec::with_capacity(4 + alignments.len().min(found_alignments.len()));
+
+    src_points.push(Point::new(3.5, 3.5));
+    src_points.push(Point::new(dimension as f32 - 3.5, 3.5));
+    src_points.push(Point::new(3.5, dimension as f32 - 3.5));
+    src_points.push(Point::new(dimension as f32 - 3.5, dimension as f32 - 3.5));
+
+    dst_points.push(*top_left);
+    dst_points.push(*top_right);
+    dst_points.push(*bottom_left);
+    dst_points.push(*bottom_right);
+
+    let count = alignments.len().min(found_alignments.len());
+    for i in 0..count {
+        let (ax, ay) = alignments[i];
+        src_points.push(Point::new(ax as f32 + 0.5, ay as f32 + 0.5));
+        dst_points.push(found_alignments[i]);
+    }
+
+    if src_points.len() < 4 {
+        return None;
+    }
+
+    crate::utils::geometry::perspective_from_points_multi(&src_points, &dst_points)
+}
+
 pub(super) fn extract_qr_region_with_transform(
     matrix: &BitMatrix,
     transform: &PerspectiveTransform,
@@ -332,29 +372,57 @@ pub(super) fn refine_transform_with_alignment(
     }
 
     let centers = alignment_centers(version_num, dimension);
-    let (ax, ay) = centers.iter().max_by_key(|(x, y)| x + y)?;
-    let align_src = Point::new(*ax as f32 + 0.5, *ay as f32 + 0.5);
-    let predicted = transform.transform(&align_src);
-    let found = find_alignment_center(binary, predicted, module_size)?;
-    let best = best_refined_transform(
-        binary,
-        dimension,
-        version_num,
-        top_left,
-        top_right,
-        bottom_left,
-        align_src,
-        found,
-        module_size,
-    )?;
-
-    let base_score = transform_quality(binary, &best, dimension, version_num, module_size);
-    let original_score = transform_quality(binary, transform, dimension, version_num, module_size);
-    if original_score > base_score {
+    if centers.is_empty() {
         return None;
     }
 
-    Some(best)
+    // For high versions, try multiple alignment patterns
+    let num_to_try = if version_num >= 7 {
+        centers.len().min(3)
+    } else {
+        1
+    };
+
+    let mut best_transform = None;
+    let mut best_quality = -1.0;
+
+    for i in 0..num_to_try {
+        let (ax, ay) = centers[i];
+        let align_src = Point::new(ax as f32 + 0.5, ay as f32 + 0.5);
+        let predicted = transform.transform(&align_src);
+        let Some(found) = find_alignment_center(binary, predicted, module_size, version_num) else {
+            continue;
+        };
+
+        if let Some(refined) = best_refined_transform(
+            binary,
+            dimension,
+            version_num,
+            top_left,
+            top_right,
+            bottom_left,
+            align_src,
+            found,
+            module_size,
+        ) {
+            let quality = timing_quality(binary, &refined, dimension);
+            if quality > best_quality {
+                best_quality = quality;
+                best_transform = Some(refined);
+            }
+        }
+    }
+
+    // Only return if we improved quality
+    if let Some(refined) = &best_transform {
+        let original_quality = timing_quality(binary, transform, dimension);
+        let refined_quality = timing_quality(binary, refined, dimension);
+        if refined_quality > original_quality {
+            return best_transform;
+        }
+    }
+
+    None
 }
 
 fn alignment_centers(version: u8, dimension: usize) -> Vec<(usize, usize)> {
@@ -378,13 +446,19 @@ fn alignment_centers(version: u8, dimension: usize) -> Vec<(usize, usize)> {
     centers
 }
 
-fn find_alignment_center(binary: &BitMatrix, predicted: Point, module_size: f32) -> Option<Point> {
+fn find_alignment_center(
+    binary: &BitMatrix,
+    predicted: Point,
+    module_size: f32,
+    version_num: u8,
+) -> Option<Point> {
     if !predicted.x.is_finite() || !predicted.y.is_finite() {
         return None;
     }
 
-    // Increased radius from 4.0*module_size to 6.0*module_size for better high-version detection
-    let radius = (module_size * 6.0).max(6.0);
+    // Adaptive radius based on version - larger for high versions
+    let radius_multiplier = if version_num >= 7 { 8.0 } else { 6.0 };
+    let radius = (module_size * radius_multiplier).max(6.0);
     let min_x = (predicted.x - radius).floor().max(0.0) as isize;
     let max_x = (predicted.x + radius)
         .ceil()
@@ -393,6 +467,9 @@ fn find_alignment_center(binary: &BitMatrix, predicted: Point, module_size: f32)
     let max_y = (predicted.y + radius)
         .ceil()
         .min((binary.height().saturating_sub(1)) as f32) as isize;
+
+    // Adaptive threshold - relaxed for high versions
+    let max_mismatch = if version_num >= 7 { 12 } else { 10 };
 
     let mut best: Option<(Point, usize)> = None;
     for y in min_y..=max_y {
@@ -409,11 +486,36 @@ fn find_alignment_center(binary: &BitMatrix, predicted: Point, module_size: f32)
         }
     }
 
-    // Relaxed threshold from 8 to 10 for high-version QR codes
     match best {
-        Some((center, mismatch)) if mismatch <= 10 => Some(center),
+        Some((center, mismatch)) if mismatch <= max_mismatch => Some(center),
         _ => None,
     }
+}
+
+pub(super) fn find_all_alignment_centers(
+    binary: &BitMatrix,
+    transform: &PerspectiveTransform,
+    positions: &[(usize, usize)],
+    module_size: f32,
+    version_num: u8,
+) -> Vec<Point> {
+    if version_num < 2 || positions.is_empty() {
+        return Vec::new();
+    }
+
+    let mut found = Vec::new();
+
+    for &(ax, ay) in positions {
+        let align_src = Point::new(ax as f32 + 0.5, ay as f32 + 0.5);
+        let predicted = transform.transform(&align_src);
+        if let Some(found_center) =
+            find_alignment_center(binary, predicted, module_size, version_num)
+        {
+            found.push(found_center);
+        }
+    }
+
+    found
 }
 
 fn alignment_pattern_mismatch(

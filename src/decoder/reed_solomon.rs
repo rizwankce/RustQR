@@ -564,11 +564,9 @@ mod tests {
         }
 
         let decoder = ReedSolomonDecoder::new(num_ecc);
-        assert!(
-            decoder
-                .decode_with_erasures(&mut codeword, &erasures)
-                .is_ok()
-        );
+        assert!(decoder
+            .decode_with_erasures(&mut codeword, &erasures)
+            .is_ok());
         assert_eq!(&codeword[..data.len()], &data);
     }
 
