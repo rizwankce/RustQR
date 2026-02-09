@@ -225,9 +225,8 @@ use decoder::qr_decoder::{reset_decode_counters, take_decode_counters};
 use detector::contour::ContourDetector;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
-    adaptive_binarize, adaptive_binarize_into, gamma_correct, invert_gray, inverted_binarize,
-    limited_contrast_stretch, otsu_binarize, otsu_binarize_into, sauvola_binarize,
-    sauvola_binarize_bright, threshold_binarize,
+    adaptive_binarize, adaptive_binarize_into, gamma_correct, invert_gray, otsu_binarize,
+    otsu_binarize_into, sauvola_binarize, sauvola_binarize_bright, threshold_binarize,
 };
 use utils::grayscale::{
     normalize_roi_local_contrast, rgb_to_grayscale, rgb_to_grayscale_with_buffer,
@@ -340,7 +339,8 @@ fn run_brightness_detection(gray: &[u8], width: usize, height: usize) -> Vec<QRC
     if patterns.len() >= 2 {
         let contour_patterns = ContourDetector::detect(&gamma_otsu);
         if contour_patterns.len() >= 3 {
-            let decoded = pipeline::decode_groups(&gamma_otsu, gray, width, height, &contour_patterns);
+            let decoded =
+                pipeline::decode_groups(&gamma_otsu, gray, width, height, &contour_patterns);
             if !decoded.is_empty() {
                 return decoded;
             }
@@ -362,7 +362,8 @@ fn run_brightness_detection(gray: &[u8], width: usize, height: usize) -> Vec<QRC
     if inv_patterns.len() >= 2 {
         let contour_patterns = ContourDetector::detect(&inv_otsu);
         if contour_patterns.len() >= 3 {
-            let decoded = pipeline::decode_groups(&inv_otsu, gray, width, height, &contour_patterns);
+            let decoded =
+                pipeline::decode_groups(&inv_otsu, gray, width, height, &contour_patterns);
             if !decoded.is_empty() {
                 return decoded;
             }
@@ -1032,7 +1033,8 @@ pub fn detect_with_pool(
     if results.is_empty() {
         let contour_patterns = ContourDetector::detect(binary);
         if contour_patterns.len() >= 2 {
-            results = pipeline::decode_groups(binary, gray_buffer, width, height, &contour_patterns);
+            results =
+                pipeline::decode_groups(binary, gray_buffer, width, height, &contour_patterns);
         }
     }
 

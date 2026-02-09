@@ -430,10 +430,10 @@ pub fn gamma_correct(gray: &[u8], gamma: f32) -> Vec<u8> {
 
     // Precompute lookup table
     let mut lut = [0u8; 256];
-    for i in 0..256 {
+    for (i, item) in lut.iter_mut().enumerate() {
         let normalized = i as f32 / 255.0;
         let corrected = normalized.powf(gamma);
-        lut[i] = (corrected * 255.0).round() as u8;
+        *item = (corrected * 255.0).round() as u8;
     }
 
     gray.iter().map(|&p| lut[p as usize]).collect()
@@ -452,8 +452,6 @@ pub fn inverted_binarize(
     height: usize,
     window_size: usize,
 ) -> crate::models::BitMatrix {
-    use crate::models::BitMatrix;
-
     let inverted = invert_gray(gray);
     adaptive_binarize(&inverted, width, height, window_size)
 }

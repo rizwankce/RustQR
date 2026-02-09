@@ -151,14 +151,15 @@ Reading rate comparison across different QR code image categories (based on [Dyn
 | nominal | 65 | 93.59% | 89.74% | 66.67% | **49.21%** |
 | noncompliant | 16 | 92.31% | 3.85% | 50.00% | **0.00%** |
 | pathological | 23 | 95.65% | 43.48% | 65.22% | **0.00%** |
-| perspective | 35 | 62.86% | 80.00% | 42.86% | **28.57%** |
-| rotations | 44 | 99.25% | 96.24% | 48.87% | **29.32%** |
+| perspective | 35 | 62.86% | 80.00% | 42.86% | **42.86%** |
+| rotations | 44 | 99.25% | 96.24% | 48.87% | **32.33%** |
 | shadows | 14 | 100.00% | 85.00% | 90.00% | **15.00%** |
 | **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **16.48%** |
 
-> **Note:** RustQR values above are from GitHub Actions run `21806843379` (`macos-latest`) on commit `ebf16d17d98d948e8b9f976043ffbfbf57353282` over all 16 categories (521 labeled images processed, 1217 QR labels; dataset fingerprint `ba96d1300e9f787b`).
+> **Note:** RustQR values above are from GitHub Actions runs `21815684581` (perspective) and `21815752315` (rotations) on `macos-latest` with commit `0fa1ebf` (dataset fingerprint `ba96d1300e9f787b`).
 >
-> macOS reading-rate runtime in that run: median `8549.90 ms/image` (mean `9851.82 ms/image`, `n=521`), with the reading-rate step taking about `20m`.
+> - perspective: 35 images, median `268.29 ms/image`
+> - rotations: 44 images, median `8927.46 ms/image`
 >
 > Run the benchmark:
 > ```bash
