@@ -79,6 +79,29 @@ pub(crate) fn beam_conf_threshold() -> u8 {
     *BEAM_CONF_THRESHOLD.get_or_init(|| parse_env_u8("QR_BEAM_CONF_THRESHOLD", 36))
 }
 
+static BEAM_TIME_BUDGET_MS: OnceLock<u64> = OnceLock::new();
+
+/// Time budget for beam repair in milliseconds. Default: 50ms to avoid hangs on pathological cases.
+pub(crate) fn beam_time_budget_ms() -> u64 {
+    *BEAM_TIME_BUDGET_MS.get_or_init(|| parse_env_u64("QR_BEAM_TIME_BUDGET_MS", 50))
+}
+
+static BEAM_UNCERTAIN_MAX: OnceLock<usize> = OnceLock::new();
+
+/// Max uncertain modules before skipping beam repair entirely. Pathological images may have hundreds.
+/// Default: 80 (roughly 3x expected max for normal QR codes).
+pub(crate) fn beam_uncertain_max() -> usize {
+    *BEAM_UNCERTAIN_MAX.get_or_init(|| parse_env_usize("QR_BEAM_UNCERTAIN_MAX", 80).clamp(20, 200))
+}
+
+static MAX_GROUPS_TO_RANK: OnceLock<usize> = OnceLock::new();
+
+/// Hard limit on groups to rank to prevent O(n) slowdown on pathological images.
+/// Default: 8 (normal QR scenes rarely exceed 10-20 valid groups).
+pub(crate) fn max_groups_to_rank() -> usize {
+    *MAX_GROUPS_TO_RANK.get_or_init(|| parse_env_usize("QR_MAX_GROUPS_TO_RANK", 8).clamp(4, 32))
+}
+
 static RS_ERASURE_CONF_THRESHOLD: OnceLock<u8> = OnceLock::new();
 
 pub(crate) fn rs_erasure_conf_threshold() -> u8 {
@@ -116,6 +139,14 @@ static RS_ERASURE_GLOBAL_CAP: OnceLock<usize> = OnceLock::new();
 /// Hard cap on total RS erasure attempts per image. Default: 100 (0 = unlimited)
 pub(crate) fn rs_erasure_global_cap() -> usize {
     *RS_ERASURE_GLOBAL_CAP.get_or_init(|| parse_env_usize("QR_RS_ERASURE_GLOBAL_CAP", 100))
+}
+
+static GLOBAL_TIME_BUDGET_MS: OnceLock<u64> = OnceLock::new();
+
+/// Global time budget for entire detect() call in milliseconds.
+/// Default: 2000ms (2s) to prevent hangs on pathological images.
+pub(crate) fn global_time_budget_ms() -> u64 {
+    *GLOBAL_TIME_BUDGET_MS.get_or_init(|| parse_env_u64("QR_GLOBAL_TIME_BUDGET_MS", 2000))
 }
 
 fn parse_env_f32(name: &str, default: f32) -> f32 {

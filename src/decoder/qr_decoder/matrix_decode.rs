@@ -67,13 +67,18 @@ fn decode_from_matrix_internal(
         }
     }
 
-    // Last-resort fallback: limited EC/mask subset (not full 32-combo brute force).
     let strict_version_match = strict_fallback_version_match();
     for oriented in &orientations {
+        if super::global_deadline_expired() {
+            return None;
+        }
         if strict_version_match && !orientation::version_matches_candidate(oriented, version_num) {
             continue;
         }
         for &ec in fallback_ec_levels() {
+            if super::global_deadline_expired() {
+                return None;
+            }
             for mask in 0..8u8 {
                 if let Some(mask_pattern) = MaskPattern::from_bits(mask) {
                     let info = FormatInfo {
@@ -113,6 +118,8 @@ fn attempt_uncertain_module_beam_repair(
     version_num: u8,
     module_confidence: &[u8],
 ) -> Option<QRCode> {
+    use std::time::Instant;
+
     if module_confidence.len() != qr_matrix.width() * qr_matrix.height() {
         return None;
     }
@@ -121,6 +128,11 @@ fn attempt_uncertain_module_beam_repair(
     let max_attempts = crate::decoder::config::beam_max_attempts();
     let max_depth = crate::decoder::config::beam_max_depth();
     let conf_threshold = crate::decoder::config::beam_conf_threshold();
+    let time_budget_ms = crate::decoder::config::beam_time_budget_ms();
+    let uncertain_max = crate::decoder::config::beam_uncertain_max();
+
+    let started = Instant::now();
+    let budget_exhausted = || started.elapsed().as_millis() as u64 >= time_budget_ms;
 
     let dim = qr_matrix.width();
     let func = FunctionMask::new(version_num);
@@ -137,6 +149,12 @@ fn attempt_uncertain_module_beam_repair(
             }
         }
     }
+
+    // Pathological case: too many uncertain modules - skip beam repair entirely
+    if uncertain.len() > uncertain_max {
+        return None;
+    }
+
     uncertain.sort_by_key(|(idx, c)| (*c, *idx));
     if uncertain.is_empty() {
         return None;
@@ -149,7 +167,7 @@ fn attempt_uncertain_module_beam_repair(
 
     let mut attempts = 0usize;
     for &i in &positions {
-        if attempts >= max_attempts {
+        if attempts >= max_attempts || budget_exhausted() {
             break;
         }
         attempts += 1;
@@ -160,7 +178,7 @@ fn attempt_uncertain_module_beam_repair(
     if max_depth >= 2 {
         for a in 0..positions.len() {
             for b in (a + 1)..positions.len() {
-                if attempts >= max_attempts {
+                if attempts >= max_attempts || budget_exhausted() {
                     break;
                 }
                 attempts += 1;
@@ -170,7 +188,7 @@ fn attempt_uncertain_module_beam_repair(
                     return Some(qr);
                 }
             }
-            if attempts >= max_attempts {
+            if attempts >= max_attempts || budget_exhausted() {
                 break;
             }
         }
@@ -179,7 +197,7 @@ fn attempt_uncertain_module_beam_repair(
         for a in 0..positions.len() {
             for b in (a + 1)..positions.len() {
                 for c in (b + 1)..positions.len() {
-                    if attempts >= max_attempts {
+                    if attempts >= max_attempts || budget_exhausted() {
                         break;
                     }
                     attempts += 1;
@@ -191,11 +209,11 @@ fn attempt_uncertain_module_beam_repair(
                         return Some(qr);
                     }
                 }
-                if attempts >= max_attempts {
+                if attempts >= max_attempts || budget_exhausted() {
                     break;
                 }
             }
-            if attempts >= max_attempts {
+            if attempts >= max_attempts || budget_exhausted() {
                 break;
             }
         }

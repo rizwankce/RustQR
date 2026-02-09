@@ -58,6 +58,22 @@ impl Default for DecodeCounters {
 
 thread_local! {
     static DECODE_COUNTERS: RefCell<DecodeCounters> = const { RefCell::new(DecodeCounters::new()) };
+    static GLOBAL_DEADLINE: RefCell<Option<Instant>> = const { RefCell::new(None) };
+}
+
+pub(crate) fn set_global_deadline(deadline: Instant) {
+    GLOBAL_DEADLINE.with(|d| *d.borrow_mut() = Some(deadline));
+}
+
+pub(crate) fn clear_global_deadline() {
+    GLOBAL_DEADLINE.with(|d| *d.borrow_mut() = None);
+}
+
+pub(crate) fn global_deadline_expired() -> bool {
+    GLOBAL_DEADLINE.with(|d| {
+        d.borrow()
+            .map_or(false, |deadline| Instant::now() >= deadline)
+    })
 }
 
 pub(crate) fn reset_decode_counters() {

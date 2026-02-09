@@ -451,3 +451,25 @@ fn collect_images(root: &Path) -> Vec<PathBuf> {
 
     images
 }
+
+#[cfg(test)]
+mod timing_tests {
+    use std::time::Instant;
+
+    #[test]
+    fn test_image_load_timing() {
+        for i in 1..=10 {
+            let path = format!("benches/images/boofcv/pathological/image{:03}.png", i);
+            let start = Instant::now();
+            let img = image::open(&path).unwrap();
+            let rgb = img.to_rgb8();
+            let elapsed = start.elapsed();
+            println!(
+                "Image {:03}: load+to_rgb8={:.2}ms, dims={:?}",
+                i,
+                elapsed.as_secs_f64() * 1000.0,
+                rgb.dimensions()
+            );
+        }
+    }
+}

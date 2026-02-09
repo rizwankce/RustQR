@@ -244,7 +244,11 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
 
     // Try each bin and its neighbor to allow slight size mismatch.
     let mut all_groups = Vec::new();
+    let max_groups = crate::decoder::config::max_groups_to_rank();
     for i in 0..bins.len() {
+        if all_groups.len() >= max_groups {
+            break;
+        }
         let mut indices = bins[i].clone();
         if i + 1 < bins.len() {
             indices.extend_from_slice(&bins[i + 1]);
@@ -253,6 +257,9 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
             continue;
         }
         all_groups.extend(build_groups_clustered(patterns, &indices));
+        if all_groups.len() >= max_groups {
+            break;
+        }
     }
 
     all_groups
@@ -260,12 +267,22 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
 
 fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
     let mut groups = Vec::new();
+    let max_groups = crate::decoder::config::max_groups_to_rank();
 
     for idx_i in 0..indices.len() {
+        if groups.len() >= max_groups {
+            break;
+        }
         let i = indices[idx_i];
         for idx_j in (idx_i + 1)..indices.len() {
+            if groups.len() >= max_groups {
+                break;
+            }
             let j = indices[idx_j];
             for &k in indices.iter().skip(idx_j + 1) {
+                if groups.len() >= max_groups {
+                    break;
+                }
                 let pi = &patterns[i];
                 let pj = &patterns[j];
                 let pk = &patterns[k];
@@ -387,8 +404,12 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
 
     let mut groups = Vec::new();
     let mut seen = HashSet::new();
+    let max_groups = crate::decoder::config::max_groups_to_rank();
     for cy in 0..grid {
         for cx in 0..grid {
+            if groups.len() >= max_groups {
+                break;
+            }
             let mut cluster_indices = Vec::new();
             for oy in cy.saturating_sub(1)..=(cy + 1).min(grid - 1) {
                 for ox in cx.saturating_sub(1)..=(cx + 1).min(grid - 1) {
@@ -408,6 +429,9 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
                 continue;
             }
             for triple in build_groups(patterns, &cluster_indices) {
+                if groups.len() >= max_groups {
+                    break;
+                }
                 let mut key = [triple[0], triple[1], triple[2]];
                 key.sort_unstable();
                 if seen.insert((key[0], key[1], key[2])) {
@@ -674,10 +698,17 @@ fn rank_groups(
     patterns: &[FinderPattern],
     raw_groups: Vec<Vec<usize>>,
 ) -> (Vec<RankedGroupCandidate>, usize) {
-    let mut ranked = Vec::with_capacity(raw_groups.len());
+    let max_groups = crate::decoder::config::max_groups_to_rank();
+    // Hard cap: truncate groups early to prevent O(n) slowdown on pathological images
+    let groups_to_process: Vec<_> = raw_groups.into_iter().take(max_groups).collect();
+
+    let mut ranked = Vec::with_capacity(groups_to_process.len().min(max_groups));
     let mut rejected = 0usize;
 
-    for group in &raw_groups {
+    for group in &groups_to_process {
+        if ranked.len() >= max_groups {
+            break;
+        }
         if group.len() < 3 {
             continue;
         }

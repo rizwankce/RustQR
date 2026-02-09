@@ -221,7 +221,9 @@ impl DetectionTelemetry {
     }
 }
 
-use decoder::qr_decoder::{reset_decode_counters, take_decode_counters};
+use decoder::qr_decoder::{
+    clear_global_deadline, reset_decode_counters, set_global_deadline, take_decode_counters,
+};
 use detector::contour::ContourDetector;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
@@ -319,62 +321,103 @@ fn is_overexposed(gray: &[u8]) -> bool {
     bright_ratio > 0.20 || median > 180
 }
 
+fn budgeted_decode(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    patterns: &[FinderPattern],
+    remaining: &mut usize,
+) -> Vec<QRCode> {
+    if *remaining == 0 {
+        return Vec::new();
+    }
+    let cap = (*remaining).min(24);
+    let (decoded, tel) =
+        pipeline::decode_groups_with_telemetry_limited(binary, gray, width, height, patterns, cap);
+    *remaining = remaining.saturating_sub(tel.decode_attempts);
+    decoded
+}
+
 /// Run brightness-specific detection for overexposed images
 /// Simplified and optimized to avoid timeouts
-fn run_brightness_detection(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+fn run_brightness_detection<F: Fn() -> bool>(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    is_expired: &F,
+    remaining: &mut usize,
+) -> Vec<QRCode> {
     let window = auto_window(width, height);
 
-    // Quick check: gamma-corrected Otsu first (most likely to work)
     let gamma_corrected = gamma_correct(gray, 0.6);
     let gamma_otsu = otsu_binarize(&gamma_corrected, width, height);
     let patterns = detect_finder_patterns(&gamma_otsu, width, height);
     if patterns.len() >= 3 && patterns.len() <= FINDER_PATTERN_THRESHOLD {
-        let decoded = pipeline::decode_groups(&gamma_otsu, gray, width, height, &patterns);
+        let decoded = budgeted_decode(&gamma_otsu, gray, width, height, &patterns, remaining);
         if !decoded.is_empty() {
             return decoded;
         }
     }
 
-    // If gamma worked but decode failed, try contour fallback
+    if is_expired() || *remaining == 0 {
+        return Vec::new();
+    }
+
     if patterns.len() >= 2 {
         let contour_patterns = ContourDetector::detect(&gamma_otsu);
         if contour_patterns.len() >= 3 {
-            let decoded =
-                pipeline::decode_groups(&gamma_otsu, gray, width, height, &contour_patterns);
+            let decoded = budgeted_decode(
+                &gamma_otsu,
+                gray,
+                width,
+                height,
+                &contour_patterns,
+                remaining,
+            );
             if !decoded.is_empty() {
                 return decoded;
             }
         }
     }
 
-    // Try inverted Otsu as second strategy
+    if is_expired() || *remaining == 0 {
+        return Vec::new();
+    }
+
     let inverted = invert_gray(gray);
     let inv_otsu = otsu_binarize(&inverted, width, height);
     let inv_patterns = detect_finder_patterns(&inv_otsu, width, height);
     if inv_patterns.len() >= 3 && inv_patterns.len() <= FINDER_PATTERN_THRESHOLD {
-        let decoded = pipeline::decode_groups(&inv_otsu, gray, width, height, &inv_patterns);
+        let decoded = budgeted_decode(&inv_otsu, gray, width, height, &inv_patterns, remaining);
         if !decoded.is_empty() {
             return decoded;
         }
     }
 
-    // Contour fallback for inverted
+    if is_expired() || *remaining == 0 {
+        return Vec::new();
+    }
+
     if inv_patterns.len() >= 2 {
         let contour_patterns = ContourDetector::detect(&inv_otsu);
         if contour_patterns.len() >= 3 {
             let decoded =
-                pipeline::decode_groups(&inv_otsu, gray, width, height, &contour_patterns);
+                budgeted_decode(&inv_otsu, gray, width, height, &contour_patterns, remaining);
             if !decoded.is_empty() {
                 return decoded;
             }
         }
     }
 
-    // Try Sauvola with higher k as third strategy
+    if is_expired() || *remaining == 0 {
+        return Vec::new();
+    }
+
     let sauvola = sauvola_binarize_bright(gray, width, height, window);
     let sauv_patterns = detect_finder_patterns(&sauvola, width, height);
     if sauv_patterns.len() >= 3 && sauv_patterns.len() <= FINDER_PATTERN_THRESHOLD {
-        let decoded = pipeline::decode_groups(&sauvola, gray, width, height, &sauv_patterns);
+        let decoded = budgeted_decode(&sauvola, gray, width, height, &sauv_patterns, remaining);
         if !decoded.is_empty() {
             return decoded;
         }
@@ -387,40 +430,90 @@ fn run_brightness_detection(gray: &[u8], width: usize, height: usize) -> Vec<QRC
 /// Avoids pathological case of trying O(n^3) combinations with 100+ patterns.
 const FINDER_PATTERN_THRESHOLD: usize = 50;
 
-fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+fn histogram_median(gray: &[u8]) -> u8 {
+    let mut hist = [0u32; 256];
+    for &v in gray {
+        hist[v as usize] += 1;
+    }
+    let half = gray.len() as u32 / 2;
+    let mut cum = 0u32;
+    for (i, &c) in hist.iter().enumerate() {
+        cum += c;
+        if cum >= half {
+            return i as u8;
+        }
+    }
+    128
+}
+
+fn run_detection_strategies<F: Fn() -> bool>(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    is_expired: &F,
+) -> Vec<QRCode> {
     let window = auto_window(width, height);
-    let otsu = otsu_binarize(gray, width, height);
-    let adaptive = adaptive_binarize(gray, width, height, window);
-    let sauvola_k02 = sauvola_binarize(gray, width, height, window, 0.2);
-    let sauvola_k01 = sauvola_binarize(gray, width, height, window, 0.1);
-    let sauvola_k03 = sauvola_binarize(gray, width, height, window, 0.3);
-
-    let mut variants = vec![sauvola_k02, adaptive, otsu];
-
-    let mut sorted = gray.to_vec();
-    sorted.sort_unstable();
-    let median = sorted[sorted.len() / 2] as i16;
+    let large_window = (window * 2).clamp(63, 255);
+    let median = histogram_median(gray) as i16;
     let t_dark = (median - 26).clamp(0, 255) as u8;
     let t_light = (median + 26).clamp(0, 255) as u8;
-    variants.push(threshold_binarize(gray, width, height, t_dark));
-    variants.push(threshold_binarize(gray, width, height, t_light));
+    let has_large = large_window != window;
 
-    variants.push(sauvola_k01);
-    variants.push(sauvola_k03);
+    type BinFn<'a> = Box<dyn FnOnce() -> BitMatrix + 'a>;
+    let variant_builders: Vec<(&str, BinFn)> = vec![
+        (
+            "sauvola_k02",
+            Box::new(|| sauvola_binarize(gray, width, height, window, 0.2)),
+        ),
+        (
+            "adaptive",
+            Box::new(|| adaptive_binarize(gray, width, height, window)),
+        ),
+        ("otsu", Box::new(|| otsu_binarize(gray, width, height))),
+        (
+            "thresh_dark",
+            Box::new(|| threshold_binarize(gray, width, height, t_dark)),
+        ),
+        (
+            "thresh_light",
+            Box::new(|| threshold_binarize(gray, width, height, t_light)),
+        ),
+        (
+            "sauvola_k01",
+            Box::new(|| sauvola_binarize(gray, width, height, window, 0.1)),
+        ),
+        (
+            "sauvola_k03",
+            Box::new(|| sauvola_binarize(gray, width, height, window, 0.3)),
+        ),
+    ];
 
-    // Add larger window variants for high-version QR codes
-    let large_window = (window * 2).clamp(63, 255);
-    if large_window != window {
-        variants.push(sauvola_binarize(gray, width, height, large_window, 0.2));
-        variants.push(adaptive_binarize(gray, width, height, large_window));
-    }
+    let large_builders: Vec<(&str, BinFn)> = if has_large {
+        vec![
+            (
+                "sauvola_lw",
+                Box::new(|| sauvola_binarize(gray, width, height, large_window, 0.2)),
+            ),
+            (
+                "adaptive_lw",
+                Box::new(|| adaptive_binarize(gray, width, height, large_window)),
+            ),
+        ]
+    } else {
+        vec![]
+    };
+
+    let all_builders = variant_builders.into_iter().chain(large_builders);
 
     let mut results = Vec::new();
-    for binary in variants {
+    for (_name, build_fn) in all_builders {
+        if is_expired() {
+            break;
+        }
+
+        let binary = build_fn();
         let finder_patterns = detect_finder_patterns(&binary, width, height);
 
-        // Early termination: if too many finder patterns detected, skip directly to
-        // rotation-invariant contour detection to avoid O(n^3) group combination explosion
         let decoded = if finder_patterns.len() > FINDER_PATTERN_THRESHOLD {
             Vec::new()
         } else if finder_patterns.len() >= 2 {
@@ -434,12 +527,10 @@ fn run_detection_strategies(gray: &[u8], width: usize, height: usize) -> Vec<QRC
                 results.push(qr);
             }
         }
-        // Trigger contour detector more aggressively for pathological/noncompliant cases
-        // Also try when finder patterns exist but decode failed (not just <2 patterns)
-        // OR when too many finder patterns triggered early termination
-        if results.is_empty()
+        if (results.is_empty()
             || (finder_patterns.len() >= 2 && finder_decode_failed)
-            || finder_patterns.len() > FINDER_PATTERN_THRESHOLD
+            || finder_patterns.len() > FINDER_PATTERN_THRESHOLD)
+            && !is_expired()
         {
             let contour_patterns = ContourDetector::detect(&binary);
             if contour_patterns.len() >= 2 {
@@ -714,28 +805,49 @@ fn run_fast_path(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     pipeline::decode_groups(&binary, gray, width, height, &finder_patterns)
 }
 
-fn run_detection_with_phase4_fallbacks(gray: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    // Step 0: Check for overexposed/brightness-challenged images
+fn run_detection_with_phase4_fallbacks<F>(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    is_expired: F,
+) -> Vec<QRCode>
+where
+    F: Fn() -> bool,
+{
+    let mut remaining = image_decode_attempt_budget();
+
     if is_overexposed(gray) {
-        let results = run_brightness_detection(gray, width, height);
+        if is_expired() {
+            return Vec::new();
+        }
+        let results = run_brightness_detection(gray, width, height, &is_expired, &mut remaining);
         if !results.is_empty() {
             return results;
         }
     }
 
-    let mut results = run_detection_strategies(gray, width, height);
+    if is_expired() {
+        return Vec::new();
+    }
+    let mut results = run_detection_strategies(gray, width, height, &is_expired);
     if !results.is_empty() {
         return results;
     }
 
+    if is_expired() {
+        return Vec::new();
+    }
     let enhanced = contrast_stretch(gray);
-    results = run_detection_strategies(&enhanced, width, height);
+    results = run_detection_strategies(&enhanced, width, height, &is_expired);
     if !results.is_empty() {
         return results;
     }
 
+    if is_expired() {
+        return Vec::new();
+    }
     let rotated = rotate_gray_45(gray, width, height);
-    run_detection_strategies(&rotated, width, height)
+    run_detection_strategies(&rotated, width, height, &is_expired)
 }
 
 /// Detect QR codes in an RGB image
@@ -750,14 +862,26 @@ fn run_detection_with_phase4_fallbacks(gray: &[u8], width: usize, height: usize)
 ///
 /// Uses pyramid detection for large images (800px+) for better performance
 pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    // Step 1: Convert to grayscale
+    let start = std::time::Instant::now();
+    let budget_ms = decoder::config::global_time_budget_ms();
+    let deadline = start + std::time::Duration::from_millis(budget_ms);
+    set_global_deadline(deadline);
+    let is_expired = || start.elapsed().as_millis() as u64 >= budget_ms;
+
     let gray = rgb_to_grayscale(image, width, height);
+    if is_expired() {
+        clear_global_deadline();
+        return Vec::new();
+    }
     let fast = run_fast_path(&gray, width, height);
     if !fast.is_empty() {
+        clear_global_deadline();
         return fast;
     }
 
-    run_detection_with_phase4_fallbacks(&gray, width, height)
+    let results = run_detection_with_phase4_fallbacks(&gray, width, height, is_expired);
+    clear_global_deadline();
+    results
 }
 
 /// Detect QR codes in an RGB image, returning telemetry about which pipeline
@@ -773,14 +897,26 @@ pub fn detect_with_telemetry(
     let mut tel = DetectionTelemetry::default();
     reset_decode_counters();
 
-    // Step 1: Convert to grayscale
     let gray = rgb_to_grayscale(image, width, height);
 
-    // Step 1.5: Check for overexposed/brightness-challenged images
+    let start_tel = std::time::Instant::now();
+    let budget_ms_tel = decoder::config::global_time_budget_ms();
+    let deadline_tel = start_tel + std::time::Duration::from_millis(budget_ms_tel);
+    set_global_deadline(deadline_tel);
+    let is_expired_tel = || start_tel.elapsed().as_millis() as u64 >= budget_ms_tel;
+    let mut brightness_remaining = image_decode_attempt_budget();
+
     if is_overexposed(&gray) {
-        let results = run_brightness_detection(&gray, width, height);
+        let results = run_brightness_detection(
+            &gray,
+            width,
+            height,
+            &is_expired_tel,
+            &mut brightness_remaining,
+        );
         if !results.is_empty() {
             tel.qr_codes_found = results.len();
+            clear_global_deadline();
             return (results, tel);
         }
     }
@@ -932,6 +1068,7 @@ pub fn detect_with_telemetry(
     tel.rs_erasure_successes = counters.rs_erasure_successes;
     tel.rs_erasure_count_hist = counters.rs_erasure_count_hist;
     tel.phase11_time_budget_skips = counters.phase11_time_budget_skips;
+    clear_global_deadline();
     (results, tel)
 }
 
@@ -945,12 +1082,21 @@ pub fn detect_with_telemetry(
 /// # Returns
 /// Vector of detected QR codes
 pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    let start = std::time::Instant::now();
+    let budget_ms = decoder::config::global_time_budget_ms();
+    let deadline = start + std::time::Duration::from_millis(budget_ms);
+    set_global_deadline(deadline);
+    let is_expired = || start.elapsed().as_millis() as u64 >= budget_ms;
+
     let fast = run_fast_path(image, width, height);
     if !fast.is_empty() {
+        clear_global_deadline();
         return fast;
     }
 
-    run_detection_with_phase4_fallbacks(image, width, height)
+    let results = run_detection_with_phase4_fallbacks(image, width, height, is_expired);
+    clear_global_deadline();
+    results
 }
 
 /// Detect QR codes using a reusable buffer pool (faster for batch processing)
