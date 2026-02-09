@@ -1,7 +1,9 @@
 use crate::DetectionTelemetry;
+use crate::decoder::format::FormatInfo;
 use crate::decoder::qr_decoder::QrDecoder;
 use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
+use crate::utils::geometry::PerspectiveTransform;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -170,7 +172,7 @@ fn order_finder_patterns(
     let dim2 = estimate_dimension_from_distance(d_bl, avg_module)?;
     let dim = if dim1 == dim2 {
         dim1
-    } else if (dim1 as isize - dim2 as isize).abs() <= 4 {
+    } else if (dim1 as isize - dim2 as isize).abs() <= 8 {
         ((dim1 + dim2) / 2).max(21)
     } else {
         return None;
@@ -178,7 +180,7 @@ fn order_finder_patterns(
 
     let module_size = (d_tr + d_bl) / 2.0 / (dim as f32 - 7.0);
     let module_ratio = module_size / avg_module;
-    if !(0.7..=1.3).contains(&module_ratio) {
+    if !(0.5..=1.8).contains(&module_ratio) {
         return None;
     }
 
@@ -244,7 +246,11 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
 
     // Try each bin and its neighbor to allow slight size mismatch.
     let mut all_groups = Vec::new();
+    let max_groups = crate::decoder::config::max_groups_to_rank();
     for i in 0..bins.len() {
+        if all_groups.len() >= max_groups {
+            break;
+        }
         let mut indices = bins[i].clone();
         if i + 1 < bins.len() {
             indices.extend_from_slice(&bins[i + 1]);
@@ -253,6 +259,9 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
             continue;
         }
         all_groups.extend(build_groups_clustered(patterns, &indices));
+        if all_groups.len() >= max_groups {
+            break;
+        }
     }
 
     all_groups
@@ -260,12 +269,22 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
 
 fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
     let mut groups = Vec::new();
+    let max_groups = crate::decoder::config::max_groups_to_rank();
 
     for idx_i in 0..indices.len() {
+        if groups.len() >= max_groups {
+            break;
+        }
         let i = indices[idx_i];
         for idx_j in (idx_i + 1)..indices.len() {
+            if groups.len() >= max_groups {
+                break;
+            }
             let j = indices[idx_j];
             for &k in indices.iter().skip(idx_j + 1) {
+                if groups.len() >= max_groups {
+                    break;
+                }
                 let pi = &patterns[i];
                 let pj = &patterns[j];
                 let pk = &patterns[k];
@@ -387,8 +406,12 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
 
     let mut groups = Vec::new();
     let mut seen = HashSet::new();
+    let max_groups = crate::decoder::config::max_groups_to_rank();
     for cy in 0..grid {
         for cx in 0..grid {
+            if groups.len() >= max_groups {
+                break;
+            }
             let mut cluster_indices = Vec::new();
             for oy in cy.saturating_sub(1)..=(cy + 1).min(grid - 1) {
                 for ox in cx.saturating_sub(1)..=(cx + 1).min(grid - 1) {
@@ -408,6 +431,9 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
                 continue;
             }
             for triple in build_groups(patterns, &cluster_indices) {
+                if groups.len() >= max_groups {
+                    break;
+                }
                 let mut key = [triple[0], triple[1], triple[2]];
                 key.sort_unstable();
                 if seen.insert((key[0], key[1], key[2])) {
@@ -674,10 +700,17 @@ fn rank_groups(
     patterns: &[FinderPattern],
     raw_groups: Vec<Vec<usize>>,
 ) -> (Vec<RankedGroupCandidate>, usize) {
-    let mut ranked = Vec::with_capacity(raw_groups.len());
+    let max_groups = crate::decoder::config::max_groups_to_rank();
+    // Hard cap: truncate groups early to prevent O(n) slowdown on pathological images
+    let groups_to_process: Vec<_> = raw_groups.into_iter().take(max_groups).collect();
+
+    let mut ranked = Vec::with_capacity(groups_to_process.len().min(max_groups));
     let mut rejected = 0usize;
 
-    for group in &raw_groups {
+    for group in &groups_to_process {
+        if ranked.len() >= max_groups {
+            break;
+        }
         if group.len() < 3 {
             continue;
         }
@@ -826,6 +859,91 @@ fn decode_candidate(
     let proxy = decode_proxy_confidence(&qr);
     qr.confidence = (0.75 * candidate.geometry_confidence + 0.25 * proxy).clamp(0.0, 1.0);
     Some(qr)
+}
+
+#[allow(dead_code)]
+fn probe_candidate_quality(
+    candidate: &RankedGroupCandidate,
+    binary: &BitMatrix,
+    _gray: &[u8],
+    _width: usize,
+    _height: usize,
+) -> f32 {
+    let bottom_right = Point::new(
+        candidate.tr.x + candidate.bl.x - candidate.tl.x,
+        candidate.tr.y + candidate.bl.y - candidate.tl.y,
+    );
+    let estimated_dimension = {
+        let d_tr = candidate.tl.distance(&candidate.tr);
+        let d_bl = candidate.tl.distance(&candidate.bl);
+        let avg_d = (d_tr + d_bl) / 2.0;
+        let raw = avg_d / candidate.module_size + 7.0;
+        let version = ((raw - 17.0) / 4.0).round() as i32;
+        if !(1..=40).contains(&version) {
+            return 0.0;
+        }
+        17 + 4 * version as usize
+    };
+
+    let src = [
+        Point::new(3.5, 3.5),
+        Point::new(estimated_dimension as f32 - 3.5, 3.5),
+        Point::new(3.5, estimated_dimension as f32 - 3.5),
+        Point::new(
+            estimated_dimension as f32 - 3.5,
+            estimated_dimension as f32 - 3.5,
+        ),
+    ];
+    let dst = [candidate.tl, candidate.tr, candidate.bl, bottom_right];
+    let transform = match PerspectiveTransform::from_points(&src, &dst) {
+        Some(t) => t,
+        None => return 0.0,
+    };
+
+    let dim = estimated_dimension;
+    let mut qr_matrix = BitMatrix::new(dim, dim);
+    for y in 0..dim {
+        for x in 0..dim {
+            let module_center = Point::new(x as f32 + 0.5, y as f32 + 0.5);
+            let img_point = transform.transform(&module_center);
+            let ix = img_point.x.round() as isize;
+            let iy = img_point.y.round() as isize;
+            if ix >= 0
+                && iy >= 0
+                && (ix as usize) < binary.width()
+                && (iy as usize) < binary.height()
+            {
+                qr_matrix.set(x, y, binary.get(ix as usize, iy as usize));
+            }
+        }
+    }
+
+    let mut timing_score = 0.0f32;
+    if dim >= 21 {
+        let mut h_correct = 0usize;
+        let mut v_correct = 0usize;
+        let timing_len = dim - 14;
+        for i in 0..timing_len {
+            let expected = (i % 2) == 0;
+            if qr_matrix.get(8 + i, 6) == expected {
+                h_correct += 1;
+            }
+            if qr_matrix.get(6, 8 + i) == expected {
+                v_correct += 1;
+            }
+        }
+        if timing_len > 0 {
+            timing_score = (h_correct + v_correct) as f32 / (2 * timing_len) as f32;
+        }
+    }
+
+    let format_score = if FormatInfo::extract(&qr_matrix).is_some() {
+        1.0
+    } else {
+        0.3
+    };
+
+    0.6 * timing_score + 0.4 * format_score
 }
 
 fn candidate_center(c: &RankedGroupCandidate) -> Point {
@@ -1106,7 +1224,17 @@ fn lane_budget_from_attempts(max_decode_attempts: usize, strategy: StrategyProfi
                 low += 1;
             }
         }
-        StrategyProfile::RotationHeavy | StrategyProfile::FastSingle => {}
+        StrategyProfile::RotationHeavy => {
+            if low > 0 {
+                low -= 1;
+                medium += 1;
+            }
+            if low > 0 {
+                low -= 1;
+                high += 1;
+            }
+        }
+        StrategyProfile::FastSingle => {}
     }
 
     while high + medium + low > max_decode_attempts {
@@ -1157,7 +1285,9 @@ fn decode_ranked_groups(
         raw_groups,
     );
     let consider = ranked.len().min(MAX_GROUP_CANDIDATES);
-    let candidates = &ranked[..consider];
+    let pre_probe = &ranked[..consider];
+
+    let candidates = pre_probe;
 
     if let Some(tel) = telemetry.as_mut() {
         tel.groups_found = candidates.len();

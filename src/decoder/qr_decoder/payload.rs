@@ -357,13 +357,10 @@ fn low_confidence_positions(confidence: &[u8], threshold: u8, max_count: usize) 
 fn should_attempt_erasure() -> bool {
     let global_cap = crate::decoder::config::rs_erasure_global_cap();
     if global_cap == 0 {
-        return true; // No cap
+        return false;
     }
     let current = get_rs_erasure_global_counter();
-    if current >= global_cap {
-        return false; // Cap reached
-    }
-    true
+    current < global_cap
 }
 
 /// Attempt RS erasure with global cap tracking

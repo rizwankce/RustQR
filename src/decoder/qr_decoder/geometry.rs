@@ -626,6 +626,122 @@ fn best_refined_transform(
     best.map(|(t, _)| t)
 }
 
+#[allow(dead_code)]
+pub(super) fn refine_transform_gray_timing(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    base_transform: &PerspectiveTransform,
+    dimension: usize,
+    module_size: f32,
+) -> PerspectiveTransform {
+    let step = module_size * 0.15;
+    let mut best_transform = base_transform.clone();
+    let mut best_score = score_timing_gray(gray, width, height, base_transform, dimension);
+
+    let offsets = [
+        (step, 0.0),
+        (-step, 0.0),
+        (0.0, step),
+        (0.0, -step),
+        (step, step),
+        (-step, -step),
+        (step, -step),
+        (-step, step),
+    ];
+
+    for &(dx, dy) in &offsets {
+        let shifted = match shift_transform(base_transform, dx, dy, dimension) {
+            Some(t) => t,
+            None => continue,
+        };
+        let score = score_timing_gray(gray, width, height, &shifted, dimension);
+        if score > best_score {
+            best_score = score;
+            best_transform = shifted;
+        }
+    }
+
+    best_transform
+}
+
+#[allow(dead_code)]
+fn score_timing_gray(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+) -> f32 {
+    let h_score = score_timing_line_gray(gray, width, height, transform, dimension, true);
+    let v_score = score_timing_line_gray(gray, width, height, transform, dimension, false);
+    h_score + v_score
+}
+
+#[allow(dead_code)]
+fn score_timing_line_gray(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+    horizontal: bool,
+) -> f32 {
+    let start = 8;
+    let end = dimension.saturating_sub(9);
+    if end <= start {
+        return 0.0;
+    }
+
+    let mut values = Vec::with_capacity(end - start + 1);
+    for m in start..=end {
+        let p = if horizontal {
+            transform.transform(&Point::new(m as f32 + 0.5, 6.5))
+        } else {
+            transform.transform(&Point::new(6.5, m as f32 + 0.5))
+        };
+        if let Some(v) = bilinear_sample(gray, width, height, p.x, p.y) {
+            values.push(v);
+        }
+    }
+
+    if values.len() < 3 {
+        return 0.0;
+    }
+
+    let mut score = 0.0f32;
+    for i in 1..values.len() {
+        let diff = (values[i] - values[i - 1]).abs();
+        score += diff;
+    }
+    score
+}
+
+#[allow(dead_code)]
+fn shift_transform(
+    base: &PerspectiveTransform,
+    dx: f32,
+    dy: f32,
+    dimension: usize,
+) -> Option<PerspectiveTransform> {
+    let src = [
+        Point::new(3.5, 3.5),
+        Point::new(dimension as f32 - 3.5, 3.5),
+        Point::new(3.5, dimension as f32 - 3.5),
+        Point::new(dimension as f32 - 3.5, dimension as f32 - 3.5),
+    ];
+
+    let dst: Vec<Point> = src
+        .iter()
+        .map(|s| {
+            let p = base.transform(s);
+            Point::new(p.x + dx, p.y + dy)
+        })
+        .collect();
+
+    PerspectiveTransform::from_points(&src, &[dst[0], dst[1], dst[2], dst[3]])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
