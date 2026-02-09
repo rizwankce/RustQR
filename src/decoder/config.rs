@@ -35,12 +35,6 @@ pub(crate) fn candidate_time_budget_ms() -> u64 {
     *CANDIDATE_TIME_BUDGET_MS.get_or_init(|| parse_env_u64("QR_CANDIDATE_TIME_BUDGET_MS", 300))
 }
 
-static FORMAT_FALLBACK_FULL_EC: OnceLock<bool> = OnceLock::new();
-
-pub(crate) fn format_fallback_full_ec() -> bool {
-    *FORMAT_FALLBACK_FULL_EC.get_or_init(|| parse_env_bool_u8("QR_FORMAT_FALLBACK_FULL_EC", true))
-}
-
 static STRICT_FALLBACK_VERSION_MATCH: OnceLock<bool> = OnceLock::new();
 
 pub(crate) fn strict_fallback_version_match() -> bool {
@@ -136,9 +130,9 @@ pub(crate) fn blur_disable_recovery_threshold() -> f32 {
 
 static RS_ERASURE_GLOBAL_CAP: OnceLock<usize> = OnceLock::new();
 
-/// Hard cap on total RS erasure attempts per image. Default: 100 (0 = unlimited)
+/// Hard cap on total RS erasure attempts per image. Default: 0 (disabled)
 pub(crate) fn rs_erasure_global_cap() -> usize {
-    *RS_ERASURE_GLOBAL_CAP.get_or_init(|| parse_env_usize("QR_RS_ERASURE_GLOBAL_CAP", 100))
+    *RS_ERASURE_GLOBAL_CAP.get_or_init(|| parse_env_usize("QR_RS_ERASURE_GLOBAL_CAP", 0))
 }
 
 static GLOBAL_TIME_BUDGET_MS: OnceLock<u64> = OnceLock::new();

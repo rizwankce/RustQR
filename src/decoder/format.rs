@@ -36,6 +36,61 @@ impl FormatInfo {
         }
     }
 
+    /// Extract soft format candidates with BCH distance up to `max_dist`.
+    /// Returns candidates sorted by distance (best first), excluding any
+    /// that would have been returned by `extract()` (distance ≤ 3).
+    pub fn extract_soft(matrix: &BitMatrix, max_dist: u32) -> Vec<Self> {
+        let bits_a = Self::read_format_bits_top_left(matrix);
+        let bits_b = Self::read_format_bits_other(matrix);
+
+        let mut candidates: Vec<(Self, u32)> = Vec::new();
+        let mut seen = [false; 32]; // track ec_bits*8 + mask combos
+
+        for &bits_opt in &[bits_a, bits_b] {
+            let Some(bits) = bits_opt else { continue };
+            for &b in &[bits, Self::reverse_15(bits)] {
+                for ecl_bits in 0..4u16 {
+                    for mask in 0..8u16 {
+                        let combo = (ecl_bits * 8 + mask) as usize;
+                        if seen[combo] {
+                            continue;
+                        }
+                        let data = (ecl_bits << 3) | mask;
+                        let mut rem = data;
+                        for _ in 0..10 {
+                            rem = (rem << 1) ^ (((rem >> 9) & 1) * 0x537);
+                        }
+                        let candidate = ((data << 10) | rem) ^ 0x5412;
+                        let dist = (candidate ^ b).count_ones();
+                        if dist > 3 && dist <= max_dist {
+                            seen[combo] = true;
+                            let ec_level = match ecl_bits {
+                                0 => ECLevel::M,
+                                1 => ECLevel::L,
+                                2 => ECLevel::H,
+                                3 => ECLevel::Q,
+                                _ => continue,
+                            };
+                            if let Some(mask_pattern) = MaskPattern::from_bits(mask as u8) {
+                                candidates.push((
+                                    Self {
+                                        ec_level,
+                                        mask_pattern,
+                                    },
+                                    dist,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        candidates.sort_by_key(|(_, d)| *d);
+        candidates.truncate(4);
+        candidates.into_iter().map(|(info, _)| info).collect()
+    }
+
     fn read_format_bits_top_left(matrix: &BitMatrix) -> Option<u16> {
         let size = matrix.width();
         if size < 21 {

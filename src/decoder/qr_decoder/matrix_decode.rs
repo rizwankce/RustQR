@@ -4,11 +4,7 @@ use crate::decoder::qr_decoder::{orientation, payload};
 use crate::models::{BitMatrix, ECLevel, MaskPattern, QRCode};
 
 fn fallback_ec_levels() -> &'static [ECLevel] {
-    if crate::decoder::config::format_fallback_full_ec() {
-        &[ECLevel::L, ECLevel::M, ECLevel::Q, ECLevel::H]
-    } else {
-        &[ECLevel::L, ECLevel::M]
-    }
+    &[ECLevel::L, ECLevel::M, ECLevel::Q, ECLevel::H]
 }
 
 fn strict_fallback_version_match() -> bool {
@@ -55,6 +51,33 @@ fn decode_from_matrix_internal(
                     oriented,
                     version_num,
                     &format_info,
+                    start_upward,
+                    swap_columns,
+                    true,
+                    false,
+                    module_confidence,
+                ) {
+                    return Some(qr);
+                }
+            }
+        }
+    }
+
+    // Soft format path: try top candidates with distance 4-6 (near-miss formats)
+    for oriented in &orientations {
+        if super::global_deadline_expired() {
+            return None;
+        }
+        if !orientation::version_matches_candidate(oriented, version_num) {
+            continue;
+        }
+        let soft_candidates = FormatInfo::extract_soft(oriented, 6);
+        for format_info in &soft_candidates {
+            for &(start_upward, swap_columns) in &traversal_opts {
+                if let Some(qr) = payload::try_decode_single(
+                    oriented,
+                    version_num,
+                    format_info,
                     start_upward,
                     swap_columns,
                     true,
