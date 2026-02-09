@@ -1,7 +1,9 @@
 use crate::DetectionTelemetry;
+use crate::decoder::format::FormatInfo;
 use crate::decoder::qr_decoder::QrDecoder;
 use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
+use crate::utils::geometry::PerspectiveTransform;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -859,6 +861,91 @@ fn decode_candidate(
     Some(qr)
 }
 
+#[allow(dead_code)]
+fn probe_candidate_quality(
+    candidate: &RankedGroupCandidate,
+    binary: &BitMatrix,
+    _gray: &[u8],
+    _width: usize,
+    _height: usize,
+) -> f32 {
+    let bottom_right = Point::new(
+        candidate.tr.x + candidate.bl.x - candidate.tl.x,
+        candidate.tr.y + candidate.bl.y - candidate.tl.y,
+    );
+    let estimated_dimension = {
+        let d_tr = candidate.tl.distance(&candidate.tr);
+        let d_bl = candidate.tl.distance(&candidate.bl);
+        let avg_d = (d_tr + d_bl) / 2.0;
+        let raw = avg_d / candidate.module_size + 7.0;
+        let version = ((raw - 17.0) / 4.0).round() as i32;
+        if !(1..=40).contains(&version) {
+            return 0.0;
+        }
+        17 + 4 * version as usize
+    };
+
+    let src = [
+        Point::new(3.5, 3.5),
+        Point::new(estimated_dimension as f32 - 3.5, 3.5),
+        Point::new(3.5, estimated_dimension as f32 - 3.5),
+        Point::new(
+            estimated_dimension as f32 - 3.5,
+            estimated_dimension as f32 - 3.5,
+        ),
+    ];
+    let dst = [candidate.tl, candidate.tr, candidate.bl, bottom_right];
+    let transform = match PerspectiveTransform::from_points(&src, &dst) {
+        Some(t) => t,
+        None => return 0.0,
+    };
+
+    let dim = estimated_dimension;
+    let mut qr_matrix = BitMatrix::new(dim, dim);
+    for y in 0..dim {
+        for x in 0..dim {
+            let module_center = Point::new(x as f32 + 0.5, y as f32 + 0.5);
+            let img_point = transform.transform(&module_center);
+            let ix = img_point.x.round() as isize;
+            let iy = img_point.y.round() as isize;
+            if ix >= 0
+                && iy >= 0
+                && (ix as usize) < binary.width()
+                && (iy as usize) < binary.height()
+            {
+                qr_matrix.set(x, y, binary.get(ix as usize, iy as usize));
+            }
+        }
+    }
+
+    let mut timing_score = 0.0f32;
+    if dim >= 21 {
+        let mut h_correct = 0usize;
+        let mut v_correct = 0usize;
+        let timing_len = dim - 14;
+        for i in 0..timing_len {
+            let expected = (i % 2) == 0;
+            if qr_matrix.get(8 + i, 6) == expected {
+                h_correct += 1;
+            }
+            if qr_matrix.get(6, 8 + i) == expected {
+                v_correct += 1;
+            }
+        }
+        if timing_len > 0 {
+            timing_score = (h_correct + v_correct) as f32 / (2 * timing_len) as f32;
+        }
+    }
+
+    let format_score = if FormatInfo::extract(&qr_matrix).is_some() {
+        1.0
+    } else {
+        0.3
+    };
+
+    0.6 * timing_score + 0.4 * format_score
+}
+
 fn candidate_center(c: &RankedGroupCandidate) -> Point {
     let br = Point::new(c.tr.x + c.bl.x - c.tl.x, c.tr.y + c.bl.y - c.tl.y);
     Point::new(
@@ -1198,7 +1285,9 @@ fn decode_ranked_groups(
         raw_groups,
     );
     let consider = ranked.len().min(MAX_GROUP_CANDIDATES);
-    let candidates = &ranked[..consider];
+    let pre_probe = &ranked[..consider];
+
+    let candidates = pre_probe;
 
     if let Some(tel) = telemetry.as_mut() {
         tel.groups_found = candidates.len();

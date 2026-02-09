@@ -1016,6 +1016,33 @@ pub fn detect_with_telemetry(
         }
     }
 
+    // Contour fallback: try when finder patterns exist but grouping/decode failed
+    if results.is_empty() && !best_finder_patterns.is_empty() && remaining_attempts > 0 {
+        for &policy in policies.iter().take(2) {
+            if is_expired_tel() || remaining_attempts == 0 {
+                break;
+            }
+            let binary = binarize_with_policy(&gray, width, height, policy);
+            let contour_patterns = ContourDetector::detect(&binary);
+            if contour_patterns.len() >= 3 && contour_patterns.len() <= FINDER_PATTERN_THRESHOLD {
+                let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
+                    &binary,
+                    &gray,
+                    width,
+                    height,
+                    &contour_patterns,
+                    remaining_attempts,
+                );
+                remaining_attempts = remaining_attempts.saturating_sub(decode_tel.decode_attempts);
+                tel.merge_high_water_from(&decode_tel);
+                if !decoded.is_empty() {
+                    results = decoded;
+                    break;
+                }
+            }
+        }
+    }
+
     if results.is_empty() {
         let weak_contrast = grayscale_contrast_span(&gray) <= 90;
         if remaining_attempts == 0 || !weak_contrast {

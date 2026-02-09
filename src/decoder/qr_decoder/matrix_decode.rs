@@ -30,7 +30,6 @@ fn decode_from_matrix_internal(
 ) -> Option<QRCode> {
     let mut orientations = orientation::candidate_orientations(qr_matrix);
     if orientations.is_empty() {
-        // Quiet-zone reconstruction fallback: tolerate more finder mismatches.
         let mismatches = crate::decoder::config::relaxed_finder_mismatch();
         orientations = orientation::candidate_orientations_relaxed(qr_matrix, mismatches);
     }
@@ -38,88 +37,117 @@ fn decode_from_matrix_internal(
         return None;
     }
 
-    let traversal_opts = [(true, false), (true, true), (false, false), (false, true)];
-
-    // Fast path: if format BCH extraction succeeds, use only that format.
-    for oriented in &orientations {
-        if !orientation::version_matches_candidate(oriented, version_num) {
-            continue;
-        }
-        if let Some(format_info) = FormatInfo::extract(oriented) {
-            for &(start_upward, swap_columns) in &traversal_opts {
-                if let Some(qr) = payload::try_decode_single(
-                    oriented,
-                    version_num,
-                    &format_info,
-                    start_upward,
-                    swap_columns,
-                    true,
-                    false,
-                    module_confidence,
-                ) {
-                    return Some(qr);
+    let corrected_versions = if version_num >= 7 {
+        let mut versions = Vec::with_capacity(4);
+        for oriented in &orientations {
+            if let Some(v) = crate::decoder::version::VersionInfo::extract(oriented) {
+                if (7..=40).contains(&v) && !versions.contains(&v) {
+                    versions.push(v);
                 }
             }
         }
-    }
-
-    // Soft format path: try top candidates with distance 4-6 (near-miss formats)
-    for oriented in &orientations {
-        if super::global_deadline_expired() {
-            return None;
+        if !versions.contains(&version_num) {
+            versions.push(version_num);
         }
-        if !orientation::version_matches_candidate(oriented, version_num) {
+        versions
+    } else {
+        vec![version_num]
+    };
+
+    let traversal_opts = [(true, false), (true, true), (false, false), (false, true)];
+
+    for &v_num in &corrected_versions {
+        let dim_check = 17 + 4 * v_num as usize;
+        if dim_check != qr_matrix.width() {
             continue;
         }
-        let soft_candidates = FormatInfo::extract_soft(oriented, 6);
-        for format_info in &soft_candidates {
-            for &(start_upward, swap_columns) in &traversal_opts {
-                if let Some(qr) = payload::try_decode_single(
-                    oriented,
-                    version_num,
-                    format_info,
-                    start_upward,
-                    swap_columns,
-                    true,
-                    false,
-                    module_confidence,
-                ) {
-                    return Some(qr);
+
+        for oriented in &orientations {
+            if !orientation::version_matches_candidate(oriented, v_num) {
+                continue;
+            }
+            if let Some(format_info) = FormatInfo::extract(oriented) {
+                for &(start_upward, swap_columns) in &traversal_opts {
+                    if let Some(qr) = payload::try_decode_single(
+                        oriented,
+                        v_num,
+                        &format_info,
+                        start_upward,
+                        swap_columns,
+                        true,
+                        false,
+                        module_confidence,
+                    ) {
+                        return Some(qr);
+                    }
+                }
+            }
+        }
+
+        for oriented in &orientations {
+            if super::global_deadline_expired() {
+                return None;
+            }
+            if !orientation::version_matches_candidate(oriented, v_num) {
+                continue;
+            }
+            let soft_candidates = FormatInfo::extract_soft(oriented, 6);
+            for format_info in &soft_candidates {
+                for &(start_upward, swap_columns) in &traversal_opts {
+                    if let Some(qr) = payload::try_decode_single(
+                        oriented,
+                        v_num,
+                        format_info,
+                        start_upward,
+                        swap_columns,
+                        true,
+                        false,
+                        module_confidence,
+                    ) {
+                        return Some(qr);
+                    }
                 }
             }
         }
     }
 
     let strict_version_match = strict_fallback_version_match();
-    for oriented in &orientations {
-        if super::global_deadline_expired() {
-            return None;
-        }
-        if strict_version_match && !orientation::version_matches_candidate(oriented, version_num) {
+    for &v_num in &corrected_versions {
+        let dim_check = 17 + 4 * v_num as usize;
+        if dim_check != qr_matrix.width() {
             continue;
         }
-        for &ec in fallback_ec_levels() {
+
+        for oriented in &orientations {
             if super::global_deadline_expired() {
                 return None;
             }
-            for mask in 0..8u8 {
-                if let Some(mask_pattern) = MaskPattern::from_bits(mask) {
-                    let info = FormatInfo {
-                        ec_level: ec,
-                        mask_pattern,
-                    };
-                    for &(start_upward, swap_columns) in &traversal_opts {
-                        if let Some(qr) = payload::try_decode_single(
-                            oriented,
-                            version_num,
-                            &info,
-                            start_upward,
-                            swap_columns,
-                            true,
-                            false,
-                            module_confidence,
-                        ) {
-                            return Some(qr);
+            if strict_version_match && !orientation::version_matches_candidate(oriented, v_num) {
+                continue;
+            }
+            for &ec in fallback_ec_levels() {
+                if super::global_deadline_expired() {
+                    return None;
+                }
+                for mask in 0..8u8 {
+                    if let Some(mask_pattern) = MaskPattern::from_bits(mask) {
+                        let info = FormatInfo {
+                            ec_level: ec,
+                            mask_pattern,
+                        };
+                        for &(start_upward, swap_columns) in &traversal_opts {
+                            if let Some(qr) = payload::try_decode_single(
+                                oriented,
+                                v_num,
+                                &info,
+                                start_upward,
+                                swap_columns,
+                                true,
+                                false,
+                                module_confidence,
+                            ) {
+                                return Some(qr);
+                            }
                         }
                     }
                 }

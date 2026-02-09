@@ -2,6 +2,7 @@
 use crate::models::Point;
 
 /// Perspective transformation matrix (3x3)
+#[derive(Clone)]
 pub struct PerspectiveTransform {
     a11: f32,
     a12: f32,
@@ -61,6 +62,25 @@ impl PerspectiveTransform {
             a32: solution[7],
             a33: 1.0,
         })
+    }
+
+    /// Return a new transform whose output is shifted by `(dx, dy)` in image space.
+    ///
+    /// For a perspective mapping `f(p) = (Nx/D, Ny/D)` this produces
+    /// `f'(p) = (Nx/D + dx, Ny/D + dy)` by folding the offset into
+    /// the numerator coefficients so the denominator stays unchanged.
+    pub fn translated(&self, dx: f32, dy: f32) -> Self {
+        Self {
+            a11: self.a11 + dx * self.a31,
+            a12: self.a12 + dx * self.a32,
+            a13: self.a13 + dx * self.a33,
+            a21: self.a21 + dy * self.a31,
+            a22: self.a22 + dy * self.a32,
+            a23: self.a23 + dy * self.a33,
+            a31: self.a31,
+            a32: self.a32,
+            a33: self.a33,
+        }
     }
 
     /// Transform a point using this perspective matrix
