@@ -138,28 +138,27 @@ Reading rate comparison across different QR code image categories (based on [Dyn
 
 | Category | Images | Dynamsoft | BoofCV | ZBar | **RustQR** |
 |----------|--------|-----------|--------|------|------------|
-| blurred | 45 | 66.15% | 38.46% | 35.38% | **50.77%** |
-| brightness | 28 | 81.18% | 78.82% | 50.59% | **24.71%** |
-| bright_spots | 32 | 43.30% | 27.84% | 19.59% | **14.43%** |
-| close | 40 | 95.00% | 100.00% | 12.50% | **25.00%** |
-| curved | 50 | 70.00% | 56.67% | 35.00% | **36.67%** |
-| damaged | 37 | 51.16% | 16.28% | 25.58% | **23.26%** |
-| glare | 50 | 84.91% | 32.08% | 35.85% | **37.74%** |
+| blurred | 45 | 66.15% | 38.46% | 35.38% | **36.92%** |
+| brightness | 28 | 81.18% | 78.82% | 50.59% | **8.24%** |
+| bright_spots | 32 | 43.30% | 27.84% | 19.59% | **2.06%** |
+| close | 40 | 95.00% | 100.00% | 12.50% | **27.50%** |
+| curved | 50 | 70.00% | 56.67% | 35.00% | **38.33%** |
+| damaged | 37 | 51.16% | 16.28% | 25.58% | **30.23%** |
+| glare | 50 | 84.91% | 32.08% | 35.85% | **41.51%** |
 | high_version | 33 | 97.30% | 40.54% | 27.03% | **0.00%** |
-| lots | 7 | 100.00% | 99.76% | 18.10% | **0.00%** |
-| monitor | 17 | 100.00% | 82.35% | 0.00% | **76.47%** |
-| nominal | 65 | 93.59% | 89.74% | 66.67% | **49.21%** |
-| noncompliant | 16 | 92.31% | 3.85% | 50.00% | **0.00%** |
-| pathological | 23 | 95.65% | 43.48% | 65.22% | **0.00%** |
-| perspective | 35 | 62.86% | 80.00% | 42.86% | **42.86%** |
-| rotations | 44 | 99.25% | 96.24% | 48.87% | **32.33%** |
-| shadows | 14 | 100.00% | 85.00% | 90.00% | **15.00%** |
-| **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **16.48%** |
+| lots | 7 | 100.00% | 99.76% | 18.10% | **0.24%** |
+| monitor | 17 | 100.00% | 82.35% | 0.00% | **100.00%** |
+| nominal | 65 | 93.59% | 89.74% | 66.67% | **74.36%** |
+| noncompliant | 16 | 92.31% | 3.85% | 50.00% | **30.77%** |
+| pathological | 23 | 95.65% | 43.48% | 65.22% | **86.96%** |
+| perspective | 35 | 62.86% | 80.00% | 42.86% | **34.29%** |
+| rotations | 44 | 99.25% | 96.24% | 48.87% | **1.50%** |
+| shadows | 14 | 100.00% | 85.00% | 90.00% | **25.00%** |
+| **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **18.26%** |
 
-> **Note:** RustQR values above are from GitHub Actions runs `21815684581` (perspective) and `21815752315` (rotations) on `macos-latest` with commit `0fa1ebf` (dataset fingerprint `ba96d1300e9f787b`).
+> **Note:** RustQR values above are from GitHub Actions run `21837108650` on `macos-latest` with commit `f26d7e8` (dataset fingerprint `ba96d1300e9f787b`).
 >
-> - perspective: 35 images, median `268.29 ms/image`
-> - rotations: 44 images, median `8927.46 ms/image`
+> - 536 images, median `820.08 ms/image` (mean 1189.64 ms/image)
 >
 > Run the benchmark:
 > ```bash
