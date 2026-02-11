@@ -109,3 +109,17 @@ Summary:
 - Added source-coordinate remapping from working grid to original image bounds
 - Reused integral images across adaptive/sauvola binarizers to remove duplicate heavy passes
 - Added regression tests for determinism, bounds safety, and per-view kept-count consistency
+
+[x] CP-012 Reading-Rate Harness Runtime Controls + Proposal In-Stage Cutoffs
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+- src/pipeline/proposal_ensemble.rs
+- tests/wp008_quality_throughput_tests.rs
+Summary:
+- Added `reading-rate` runtime flags: `--max-working-dim` and `--emergency-cutoff-ms`
+- Wired flags into `DetectConfig` for per-run tuning
+- Added decode-time image resize path in harness loader (includes PNG/JPEG coverage)
+- Added proposal-stage in-loop budget cutoffs so view/scanning work can stop early under tight budgets
+- Added regression tests for new CLI/runtime behavior and cutoff consistency

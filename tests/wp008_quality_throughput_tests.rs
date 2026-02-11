@@ -69,6 +69,12 @@ fn proposal_view_keep_counts_stay_consistent_after_optimization() {
     };
 
     let report = pipeline::detect_with_config(&image, width, height, &config);
+    let sum_raw: usize = report
+        .proposal_ensemble
+        .views
+        .iter()
+        .map(|view| view.raw_candidates)
+        .sum();
     let sum_kept: usize = report
         .proposal_ensemble
         .views
@@ -76,9 +82,67 @@ fn proposal_view_keep_counts_stay_consistent_after_optimization() {
         .map(|view| view.kept_candidates)
         .sum();
 
+    assert_eq!(
+        report.proposal_ensemble.binary_views_built,
+        report.proposal_ensemble.views.len()
+    );
+    assert_eq!(sum_raw, report.proposal_ensemble.total_raw_candidates);
     assert_eq!(sum_kept, report.proposal_ensemble.total_kept_candidates);
     assert_eq!(sum_kept, report.counters.proposals);
     assert!(report.proposal_ensemble.binary_views_built >= 3);
+}
+
+#[test]
+fn tight_budget_short_circuits_views_and_preserves_consistency() {
+    let width = 1920usize;
+    let height = 1080usize;
+    let image = checkerboard_rgb(width, height, 8);
+    let config = DetectConfig {
+        proposal_ensemble_budget_ms: 1,
+        max_working_dim: 1920,
+        max_proposals: 64,
+        ..DetectConfig::default()
+    };
+    let expected_view_count = if config.enable_glare_suppression_view {
+        4usize
+    } else {
+        3usize
+    };
+
+    let report_a = pipeline::detect_with_config(&image, width, height, &config);
+    let report_b = pipeline::detect_with_config(&image, width, height, &config);
+    let proposal_a = &report_a.proposal_ensemble;
+    let proposal_b = &report_b.proposal_ensemble;
+
+    let sum_raw: usize = proposal_a
+        .views
+        .iter()
+        .map(|view| view.raw_candidates)
+        .sum();
+    let sum_kept: usize = proposal_a
+        .views
+        .iter()
+        .map(|view| view.kept_candidates)
+        .sum();
+
+    assert!(!proposal_a.within_budget);
+    assert!(proposal_a.binary_views_built < expected_view_count);
+    assert_eq!(proposal_a.binary_views_built, proposal_a.views.len());
+    assert_eq!(sum_raw, proposal_a.total_raw_candidates);
+    assert_eq!(sum_kept, proposal_a.total_kept_candidates);
+    assert_eq!(sum_kept, report_a.counters.proposals);
+    assert!(proposal_a.total_kept_candidates <= config.max_proposals);
+
+    assert_eq!(proposal_a.binary_views_built, proposal_b.binary_views_built);
+    assert_eq!(
+        proposal_a.total_raw_candidates,
+        proposal_b.total_raw_candidates
+    );
+    assert_eq!(
+        proposal_a.total_kept_candidates,
+        proposal_b.total_kept_candidates
+    );
+    assert_eq!(proposal_a.top_proposals, proposal_b.top_proposals);
 }
 
 fn checkerboard_rgb(width: usize, height: usize, tile: usize) -> Vec<u8> {

@@ -7,11 +7,6 @@ use crate::types::{Proposal, ProposalView};
 
 use super::state::PipelineState;
 
-struct BinaryView {
-    view: ProposalView,
-    bits: Vec<u8>,
-}
-
 struct WorkingImage {
     gray: Vec<u8>,
     width: usize,
@@ -34,59 +29,87 @@ pub(crate) fn run(
     config: &DetectConfig,
 ) -> ProposalEnsembleReport {
     let start = Instant::now();
+    let budget_ms = config.proposal_ensemble_budget_ms as f64;
+    let source_width = state.width;
+    let source_height = state.height;
     let working = build_working_grayscale(image, state.width, state.height, config.max_working_dim);
-
-    let integral = integral_u8(&working.gray, working.width, working.height);
-    let integral_sq = integral_sq_u8(&working.gray, working.width, working.height);
-
-    let mut views = vec![
-        BinaryView {
-            view: ProposalView::Otsu,
-            bits: otsu_binarize(&working.gray, working.width, working.height),
-        },
-        BinaryView {
-            view: ProposalView::Adaptive,
-            bits: adaptive_mean_binarize(&working.gray, working.width, working.height, &integral),
-        },
-        BinaryView {
-            view: ProposalView::Sauvola,
-            bits: sauvola_binarize(
-                &working.gray,
-                working.width,
-                working.height,
-                &integral,
-                &integral_sq,
-            ),
-        },
-    ];
-
-    if config.enable_glare_suppression_view {
-        let glare_suppressed = suppress_glare(&working.gray);
-        views.push(BinaryView {
-            view: ProposalView::GlareSuppressed,
-            bits: otsu_binarize(&glare_suppressed, working.width, working.height),
-        });
-    }
-
-    let mut per_view = Vec::with_capacity(views.len());
+    let planned_views = if config.enable_glare_suppression_view {
+        4usize
+    } else {
+        3usize
+    };
+    let mut per_view = Vec::with_capacity(planned_views);
     let capacity_per_view = estimate_candidate_capacity(working.width, working.height);
-    let mut combined = Vec::with_capacity(capacity_per_view.saturating_mul(views.len()));
+    let mut combined = Vec::with_capacity(capacity_per_view.saturating_mul(planned_views));
     let mut total_raw_candidates = 0usize;
     let mut next_id = 0usize;
 
-    for view in views {
-        let mut raw = extract_raw_candidates(&view.bits, working.width, working.height);
+    let mut integral: Option<Vec<u64>> = None;
+    let mut integral_sq: Option<Vec<u64>> = None;
+    let mut view_exhausted = false;
+    let mut view_idx = 0usize;
+
+    while view_idx < planned_views && !view_exhausted && !budget_exhausted(start, budget_ms) {
+        let (view, bits) = match view_idx {
+            0 => (
+                ProposalView::Otsu,
+                otsu_binarize(&working.gray, working.width, working.height),
+            ),
+            1 => {
+                let integral = integral.get_or_insert_with(|| {
+                    integral_u8(&working.gray, working.width, working.height)
+                });
+                (
+                    ProposalView::Adaptive,
+                    adaptive_mean_binarize(
+                        &working.gray,
+                        working.width,
+                        working.height,
+                        integral.as_slice(),
+                    ),
+                )
+            }
+            2 => {
+                let integral = integral.get_or_insert_with(|| {
+                    integral_u8(&working.gray, working.width, working.height)
+                });
+                let integral_sq = integral_sq.get_or_insert_with(|| {
+                    integral_sq_u8(&working.gray, working.width, working.height)
+                });
+                (
+                    ProposalView::Sauvola,
+                    sauvola_binarize(
+                        &working.gray,
+                        working.width,
+                        working.height,
+                        integral.as_slice(),
+                        integral_sq.as_slice(),
+                    ),
+                )
+            }
+            3 => {
+                let glare_suppressed = suppress_glare(&working.gray);
+                (
+                    ProposalView::GlareSuppressed,
+                    otsu_binarize(&glare_suppressed, working.width, working.height),
+                )
+            }
+            _ => unreachable!(),
+        };
+
+        let (mut raw, exhausted_during_scan) =
+            extract_raw_candidates(&bits, working.width, working.height, start, budget_ms);
         let raw_count = raw.len();
         total_raw_candidates += raw_count;
 
         let (raw_min, raw_max, normalized_avg) = normalize_candidates(&mut raw);
         for c in raw {
-            let weighted = c.normalized_score * view_weight(view.view);
+            let weighted = c.normalized_score * view_weight(view);
             combined.push(Proposal {
                 id: next_id,
-                view: view.view,
-                x: map_working_to_source(c.x, working.scale_x, state.width),
-                y: map_working_to_source(c.y, working.scale_y, state.height),
+                view,
+                x: map_working_to_source(c.x, working.scale_x, source_width),
+                y: map_working_to_source(c.y, working.scale_y, source_height),
                 score: weighted,
                 raw_score: c.raw_score,
             });
@@ -94,13 +117,16 @@ pub(crate) fn run(
         }
 
         per_view.push(ProposalViewTelemetry {
-            view: view.view,
+            view,
             raw_candidates: raw_count,
             kept_candidates: 0,
             raw_score_min: raw_min,
             raw_score_max: raw_max,
             normalized_score_avg: normalized_avg,
         });
+
+        view_exhausted = exhausted_during_scan || budget_exhausted(start, budget_ms);
+        view_idx += 1;
     }
 
     normalize_global_scores(&mut combined);
@@ -132,11 +158,11 @@ pub(crate) fn run(
 
     state.proposals = combined;
 
-    let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
+    let elapsed_ms = elapsed_ms_since(start);
     ProposalEnsembleReport {
         elapsed_ms,
         budget_ms: config.proposal_ensemble_budget_ms,
-        within_budget: elapsed_ms <= config.proposal_ensemble_budget_ms as f64,
+        within_budget: elapsed_ms <= budget_ms,
         binary_views_built: per_view.len(),
         total_raw_candidates,
         total_kept_candidates: state.proposals.len(),
@@ -235,6 +261,14 @@ fn map_working_to_source(coord: usize, scale: f32, source_dim: usize) -> usize {
     }
     let mapped = ((coord as f32 + 0.5) * scale).floor() as isize;
     mapped.clamp(0, source_dim.saturating_sub(1) as isize) as usize
+}
+
+fn elapsed_ms_since(start: Instant) -> f64 {
+    start.elapsed().as_secs_f64() * 1_000.0
+}
+
+fn budget_exhausted(start: Instant, budget_ms: f64) -> bool {
+    elapsed_ms_since(start) >= budget_ms
 }
 
 fn rgb_to_grayscale(image: &[u8], width: usize, height: usize) -> Vec<u8> {
@@ -403,16 +437,27 @@ fn rect_sum(integral: &[u64], width: usize, x0: usize, y0: usize, x1: usize, y1:
     d + a - b - c
 }
 
-fn extract_raw_candidates(bits: &[u8], width: usize, height: usize) -> Vec<RawCandidate> {
+fn extract_raw_candidates(
+    bits: &[u8],
+    width: usize,
+    height: usize,
+    start: Instant,
+    budget_ms: f64,
+) -> (Vec<RawCandidate>, bool) {
     if width < 5 || height < 5 {
-        return Vec::new();
+        return (Vec::new(), false);
     }
 
     let cell = (width.min(height) / 18).clamp(8, 32);
     let mut out = Vec::with_capacity(estimate_candidate_capacity(width, height));
+    let mut exhausted = false;
 
-    for gy in (2..height.saturating_sub(2)).step_by(cell) {
+    'scan: for gy in (2..height.saturating_sub(2)).step_by(cell) {
         for gx in (2..width.saturating_sub(2)).step_by(cell) {
+            if budget_exhausted(start, budget_ms) {
+                exhausted = true;
+                break 'scan;
+            }
             let y_end = (gy + cell).min(height.saturating_sub(2));
             let x_end = (gx + cell).min(width.saturating_sub(2));
 
@@ -450,7 +495,7 @@ fn extract_raw_candidates(bits: &[u8], width: usize, height: usize) -> Vec<RawCa
         }
     }
 
-    out
+    (out, exhausted)
 }
 
 fn local_edge_score(bits: &[u8], width: usize, x: usize, y: usize) -> f32 {

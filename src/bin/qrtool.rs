@@ -22,7 +22,7 @@ fn main() {
                     println!("{}", tools::reading_rate_usage());
                 }
                 Ok(tools::ReadingRateCommand::Run(parsed)) => {
-                    let report = match tools::build_scaffold_report(&parsed) {
+                    let report = match tools::build_reading_rate_report(&parsed) {
                         Ok(report) => report,
                         Err(err) => {
                             eprintln!("reading-rate error: {err}");
@@ -54,7 +54,7 @@ fn main() {
             eprintln!("RustQR scaffold CLI");
             eprintln!("usage: qrtool smoke");
             eprintln!(
-                "       qrtool reading-rate [--dataset-root PATH] [--artifact PATH] [--limit N]"
+                "       qrtool reading-rate [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
             );
             std::process::exit(2);
         }

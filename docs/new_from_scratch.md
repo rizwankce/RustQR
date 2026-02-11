@@ -38,9 +38,10 @@
 - Done: `WP-008 throughput optimization` (working-resolution cap + proposal hot-path cleanup)
 - Done: `WP-009 semantic naming refactor`
 
-Current scaffold supports fast benchmark reporting via:
+Current harness supports benchmark reporting via:
 - `cargo run --bin qrtool -- reading-rate --limit N --artifact <path>`
-- Output schema: `wp007-reading-rate-v1` with global/category/case breakdown and KPI placeholders.
+- It runs real `pipeline::detect_with_config` evaluation per image and writes schema `wp007-reading-rate-v1`.
+- Runtime knobs: `--max-working-dim N`, `--emergency-cutoff-ms N`.
 
 ## Proposed Architecture
 

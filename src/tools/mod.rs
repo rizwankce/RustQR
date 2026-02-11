@@ -1,13 +1,16 @@
+use image::{DynamicImage, imageops::FilterType, io::Reader as ImageReader};
+use rust_qr::{DetectConfig, pipeline};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub const DEFAULT_DATASET_ROOT: &str = "benches/images/boofcv";
 pub const DEFAULT_ARTIFACT_PATH: &str = "target/reading_rate_report.json";
-pub const SCAFFOLD_FAILURE_SIGNATURE: &str = "scaffold-image-decode-unimplemented";
+pub const IMAGE_LOAD_FAILURE_SIGNATURE: &str = "image-load-fail";
+pub const PAYLOAD_MISMATCH_SIGNATURE: &str = "payload-mismatch";
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp"];
 
@@ -22,6 +25,8 @@ pub struct ReadingRateArgs {
     pub dataset_root: PathBuf,
     pub artifact_path: PathBuf,
     pub limit: Option<usize>,
+    pub max_working_dim: Option<usize>,
+    pub emergency_cutoff_ms: Option<u64>,
 }
 
 impl Default for ReadingRateArgs {
@@ -30,6 +35,8 @@ impl Default for ReadingRateArgs {
             dataset_root: PathBuf::from(DEFAULT_DATASET_ROOT),
             artifact_path: PathBuf::from(DEFAULT_ARTIFACT_PATH),
             limit: None,
+            max_working_dim: None,
+            emergency_cutoff_ms: None,
         }
     }
 }
@@ -125,6 +132,26 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
                     Some(parsed_limit)
                 };
             }
+            "--max-working-dim" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--max-working-dim requires a value".to_string())?;
+                let parsed_dim = value
+                    .parse::<usize>()
+                    .map_err(|_| format!("invalid --max-working-dim value: {value}"))?;
+                parsed.max_working_dim = Some(parsed_dim);
+            }
+            "--emergency-cutoff-ms" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--emergency-cutoff-ms requires a value".to_string())?;
+                let parsed_cutoff = value
+                    .parse::<u64>()
+                    .map_err(|_| format!("invalid --emergency-cutoff-ms value: {value}"))?;
+                parsed.emergency_cutoff_ms = Some(parsed_cutoff);
+            }
             unknown => {
                 return Err(format!(
                     "unknown argument for reading-rate: {unknown}\n{}",
@@ -139,7 +166,7 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
 }
 
 pub fn reading_rate_usage() -> &'static str {
-    "usage: qrtool reading-rate [--dataset-root PATH] [--artifact PATH] [--limit N]"
+    "usage: qrtool reading-rate [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
 }
 
 pub fn discover_label_cases(
@@ -179,11 +206,20 @@ pub fn discover_label_cases(
 
 pub fn category_from_label_path(dataset_root: &Path, label_path: &Path) -> String {
     if let Ok(relative) = label_path.strip_prefix(dataset_root) {
-        if let Some(first) = relative.components().next() {
-            let first = first.as_os_str().to_string_lossy();
-            if !first.is_empty() {
-                return first.to_string();
+        let mut components = relative.components();
+        if let Some(first) = components.next() {
+            if components.next().is_some() {
+                let first = first.as_os_str().to_string_lossy();
+                if !first.is_empty() {
+                    return first.to_string();
+                }
             }
+        }
+    }
+
+    if let Some(name) = dataset_root.file_name().and_then(|value| value.to_str()) {
+        if !name.is_empty() {
+            return name.to_string();
         }
     }
 
@@ -206,19 +242,65 @@ pub fn paired_image_path(label_path: &Path) -> Option<PathBuf> {
     None
 }
 
-pub fn scaffold_outcomes(cases: Vec<LabelCase>) -> Vec<CaseOutcome> {
+pub fn evaluate_cases(
+    cases: Vec<LabelCase>,
+    detect_config: &DetectConfig,
+    decode_resize_max_dim: Option<usize>,
+) -> Vec<CaseOutcome> {
     cases
         .into_iter()
-        .map(|case| CaseOutcome {
-            category: case.category,
-            label_path: case.label_path,
-            image_path: case.image_path,
-            expected_payload: case.expected_payload,
-            matched: false,
-            runtime_ms: 0.0,
-            failure_signature: Some(SCAFFOLD_FAILURE_SIGNATURE.to_string()),
-        })
+        .map(|case| evaluate_case(case, detect_config, decode_resize_max_dim))
         .collect()
+}
+
+fn evaluate_case(
+    case: LabelCase,
+    detect_config: &DetectConfig,
+    decode_resize_max_dim: Option<usize>,
+) -> CaseOutcome {
+    let case_start = Instant::now();
+    let expected_payload = normalize_payload(&case.expected_payload);
+
+    let (image, width, height) = match load_rgb_image(&case.image_path, decode_resize_max_dim) {
+        Ok(decoded) => decoded,
+        Err(_) => {
+            return CaseOutcome {
+                category: case.category,
+                label_path: case.label_path,
+                image_path: case.image_path,
+                expected_payload: case.expected_payload,
+                matched: false,
+                runtime_ms: elapsed_ms(case_start),
+                failure_signature: Some(IMAGE_LOAD_FAILURE_SIGNATURE.to_string()),
+            };
+        }
+    };
+
+    let report = pipeline::detect_with_config(&image, width, height, detect_config);
+    let matched = report
+        .codes
+        .iter()
+        .any(|code| normalize_payload(&code.payload) == expected_payload);
+
+    let failure_signature = if matched {
+        None
+    } else if report.codes.is_empty() {
+        report
+            .failure_signature
+            .or_else(|| Some("no-decode-yet".to_string()))
+    } else {
+        Some(PAYLOAD_MISMATCH_SIGNATURE.to_string())
+    };
+
+    CaseOutcome {
+        category: case.category,
+        label_path: case.label_path,
+        image_path: case.image_path,
+        expected_payload: case.expected_payload,
+        matched,
+        runtime_ms: elapsed_ms(case_start),
+        failure_signature,
+    }
 }
 
 pub fn median_runtime(values: &[f64]) -> f64 {
@@ -316,11 +398,12 @@ pub fn summarize_outcomes(outcomes: &[CaseOutcome]) -> (Vec<CategorySummary>, Gl
     (categories, global)
 }
 
-pub fn build_scaffold_report(args: &ReadingRateArgs) -> Result<ReadingRateReport, String> {
+pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateReport, String> {
     let cases = discover_label_cases(&args.dataset_root, args.limit)
         .map_err(|err| format!("failed to discover label cases: {err}"))?;
 
-    let outcomes = scaffold_outcomes(cases);
+    let detect_config = reading_rate_detect_config(args);
+    let outcomes = evaluate_cases(cases, &detect_config, args.max_working_dim);
     let (categories, global) = summarize_outcomes(&outcomes);
 
     let generated_at_unix_ms = SystemTime::now()
@@ -341,11 +424,69 @@ pub fn build_scaffold_report(args: &ReadingRateArgs) -> Result<ReadingRateReport
         global,
         kpi_gate,
         notes: vec![
-            "scaffold mode: image decode execution is not wired yet".to_string(),
-            format!("failure signature placeholder: {SCAFFOLD_FAILURE_SIGNATURE}"),
+            "reading-rate mode: real image decode + payload match evaluation".to_string(),
+            "decode core is still scaffold quality; benchmark rate is expected to be low until real decoder lands".to_string(),
         ],
         cases: outcomes,
     })
+}
+
+fn reading_rate_detect_config(args: &ReadingRateArgs) -> DetectConfig {
+    let mut config = DetectConfig::default();
+    if let Some(max_working_dim) = args.max_working_dim {
+        config.max_working_dim = max_working_dim;
+    }
+    if let Some(emergency_cutoff_ms) = args.emergency_cutoff_ms {
+        config.emergency_cutoff_ms = emergency_cutoff_ms;
+    }
+    config
+}
+
+pub(crate) fn load_rgb_image(
+    path: &Path,
+    decode_resize_max_dim: Option<usize>,
+) -> Result<(Vec<u8>, usize, usize), String> {
+    let reader = ImageReader::open(path)
+        .map_err(|err| format!("failed to open image {}: {err}", path.display()))?;
+    let decoded = reader
+        .decode()
+        .map_err(|err| format!("failed to decode image {}: {err}", path.display()))?;
+    let resized = maybe_resize_decoded_image(decoded, decode_resize_max_dim);
+    let rgb = resized.to_rgb8();
+    let (width, height) = rgb.dimensions();
+    Ok((rgb.into_raw(), width as usize, height as usize))
+}
+
+fn maybe_resize_decoded_image(
+    image: DynamicImage,
+    decode_resize_max_dim: Option<usize>,
+) -> DynamicImage {
+    let Some(limit) = decode_resize_max_dim else {
+        return image;
+    };
+    if limit == 0 {
+        return image;
+    }
+
+    let width = image.width();
+    let height = image.height();
+    let source_max_dim = width.max(height) as usize;
+    if source_max_dim <= limit {
+        return image;
+    }
+
+    let scale = limit as f64 / source_max_dim as f64;
+    let resized_width = ((width as f64) * scale).round().max(1.0) as u32;
+    let resized_height = ((height as f64) * scale).round().max(1.0) as u32;
+    image.resize_exact(resized_width, resized_height, FilterType::Triangle)
+}
+
+fn normalize_payload(payload: &str) -> String {
+    payload.trim().replace("\r\n", "\n")
+}
+
+fn elapsed_ms(start: Instant) -> f64 {
+    start.elapsed().as_secs_f64() * 1_000.0
 }
 
 pub fn render_console_summary(report: &ReadingRateReport) -> String {

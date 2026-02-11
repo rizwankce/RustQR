@@ -2,8 +2,9 @@
 #[path = "../src/tools/mod.rs"]
 mod tools;
 
+use image::{Rgb, RgbImage};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
@@ -24,6 +25,8 @@ fn parse_reading_rate_defaults() {
         PathBuf::from(tools::DEFAULT_ARTIFACT_PATH)
     );
     assert_eq!(parsed.limit, None);
+    assert_eq!(parsed.max_working_dim, None);
+    assert_eq!(parsed.emergency_cutoff_ms, None);
 }
 
 #[test]
@@ -35,6 +38,10 @@ fn parse_reading_rate_overrides_and_help() {
         "tmp/report.json".to_string(),
         "--limit".to_string(),
         "5".to_string(),
+        "--max-working-dim".to_string(),
+        "640".to_string(),
+        "--emergency-cutoff-ms".to_string(),
+        "250".to_string(),
     ];
 
     let parsed = tools::parse_reading_rate_args(&args).expect("parse should succeed");
@@ -45,6 +52,8 @@ fn parse_reading_rate_overrides_and_help() {
     assert_eq!(parsed.dataset_root, PathBuf::from("tmp/data"));
     assert_eq!(parsed.artifact_path, PathBuf::from("tmp/report.json"));
     assert_eq!(parsed.limit, Some(5));
+    assert_eq!(parsed.max_working_dim, Some(640));
+    assert_eq!(parsed.emergency_cutoff_ms, Some(250));
 
     let help_args = vec!["--help".to_string()];
     let parsed_help = tools::parse_reading_rate_args(&help_args).expect("help should parse");
@@ -58,9 +67,25 @@ fn parse_reading_rate_rejects_invalid_args() {
         tools::parse_reading_rate_args(&bad_limit).expect_err("expected parse error");
     assert!(bad_limit_err.contains("invalid --limit value"));
 
+    let bad_dim = vec!["--max-working-dim".to_string(), "abc".to_string()];
+    let bad_dim_err = tools::parse_reading_rate_args(&bad_dim).expect_err("expected parse error");
+    assert!(bad_dim_err.contains("invalid --max-working-dim value"));
+
+    let bad_cutoff = vec!["--emergency-cutoff-ms".to_string(), "abc".to_string()];
+    let bad_cutoff_err =
+        tools::parse_reading_rate_args(&bad_cutoff).expect_err("expected parse error");
+    assert!(bad_cutoff_err.contains("invalid --emergency-cutoff-ms value"));
+
     let unknown = vec!["--wat".to_string()];
     let unknown_err = tools::parse_reading_rate_args(&unknown).expect_err("expected parse error");
     assert!(unknown_err.contains("unknown argument"));
+}
+
+#[test]
+fn reading_rate_usage_mentions_runtime_knobs() {
+    let usage = tools::reading_rate_usage();
+    assert!(usage.contains("--max-working-dim"));
+    assert!(usage.contains("--emergency-cutoff-ms"));
 }
 
 #[test]
@@ -80,6 +105,21 @@ fn paired_image_and_category_helpers_work() {
         tools::category_from_label_path(&temp, &label),
         "nominal".to_string()
     );
+}
+
+#[test]
+fn category_helper_uses_dataset_name_for_flat_roots() {
+    let temp = temp_dir("flat_category");
+    let label = temp.join("image001.txt");
+    fs::write(&label, "payload").expect("write label");
+
+    let category = tools::category_from_label_path(&temp, &label);
+    let expected = temp
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("temp dir name")
+        .to_string();
+    assert_eq!(category, expected);
 }
 
 #[test]
@@ -168,6 +208,94 @@ fn summary_helpers_compute_rates_medians_and_top_failure() {
     assert!((global.reading_rate - (1.0 / 3.0)).abs() < 1e-9);
     assert!((global.median_runtime_ms - 10.0).abs() < 1e-9);
     assert_eq!(global.top_failure_signature.as_deref(), Some("x"));
+}
+
+#[test]
+fn reading_rate_report_flags_image_decode_failures() {
+    let temp = temp_dir("decode_fail");
+    let label = temp.join("image001.txt");
+    let image = temp.join("image001.jpg");
+    fs::write(&label, "expected").expect("write label");
+    fs::write(&image, "not-a-real-image").expect("write invalid image");
+
+    let args = tools::ReadingRateArgs {
+        dataset_root: temp.clone(),
+        artifact_path: temp.join("artifact.json"),
+        limit: None,
+        max_working_dim: None,
+        emergency_cutoff_ms: None,
+    };
+    let report = tools::build_reading_rate_report(&args).expect("build report");
+
+    assert_eq!(report.global.total_cases, 1);
+    assert_eq!(report.global.matched_cases, 0);
+    assert_eq!(
+        report.global.top_failure_signature.as_deref(),
+        Some(tools::IMAGE_LOAD_FAILURE_SIGNATURE)
+    );
+    assert_eq!(report.cases.len(), 1);
+    assert_eq!(
+        report.cases[0].failure_signature.as_deref(),
+        Some(tools::IMAGE_LOAD_FAILURE_SIGNATURE)
+    );
+}
+
+#[test]
+fn harness_loader_resizes_large_images_and_decodes_png_jpeg() {
+    let temp = temp_dir("decode_resize");
+    let png_path = temp.join("large.png");
+    let jpg_path = temp.join("large.jpg");
+    write_checkerboard_image(&png_path, 640, 320);
+    write_checkerboard_image(&jpg_path, 300, 500);
+
+    let (_, png_width, png_height) =
+        tools::load_rgb_image(&png_path, Some(128)).expect("decode resized png");
+    assert_eq!((png_width, png_height), (128, 64));
+
+    let (_, jpg_width, jpg_height) =
+        tools::load_rgb_image(&jpg_path, Some(100)).expect("decode resized jpeg");
+    assert_eq!((jpg_width, jpg_height), (60, 100));
+
+    let (_, original_width, original_height) =
+        tools::load_rgb_image(&png_path, None).expect("decode original png");
+    assert_eq!((original_width, original_height), (640, 320));
+}
+
+#[test]
+fn reading_rate_report_applies_emergency_cutoff_override() {
+    let temp = temp_dir("cutoff_override");
+    let label = temp.join("image001.txt");
+    let image = temp.join("image001.png");
+    fs::write(&label, "expected").expect("write label");
+    write_checkerboard_image(&image, 96, 96);
+
+    let args = tools::ReadingRateArgs {
+        dataset_root: temp.clone(),
+        artifact_path: temp.join("artifact.json"),
+        limit: None,
+        max_working_dim: None,
+        emergency_cutoff_ms: Some(0),
+    };
+    let report = tools::build_reading_rate_report(&args).expect("build report");
+
+    assert_eq!(report.global.total_cases, 1);
+    assert_eq!(report.cases.len(), 1);
+    assert_eq!(
+        report.cases[0].failure_signature.as_deref(),
+        Some("emergency-cutoff")
+    );
+}
+
+fn write_checkerboard_image(path: &Path, width: u32, height: u32) {
+    let mut image = RgbImage::new(width, height);
+    for y in 0..height {
+        for x in 0..width {
+            let on = ((x / 8) + (y / 8)) % 2 == 0;
+            let value = if on { 224 } else { 32 };
+            image.put_pixel(x, y, Rgb([value, value, value]));
+        }
+    }
+    image.save(path).expect("save test image");
 }
 
 fn temp_dir(suffix: &str) -> PathBuf {
