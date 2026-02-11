@@ -91,7 +91,7 @@ Acceptance:
 Status:
 - Completed on 2026-02-11 via `src/tools/mod.rs`, CLI wiring in `src/bin/qrtool.rs`, and harness tests in `tests/wp007_benchmark_harness_tests.rs`.
 
-[ ] WP-008 Quality and Throughput Optimization
+[x] WP-008 Quality and Throughput Optimization
 Goal: Reach <=1s median while preserving accuracy.
 Deliverables:
 - Hotspot profiling and remediation
@@ -100,6 +100,11 @@ Deliverables:
 Acceptance:
 - Median <=1000ms on benchmark platform profile
 - No accuracy regression on primary categories
+Status:
+- Completed on 2026-02-11 in scaffold optimization pass:
+- Added working-resolution cap (`max_working_dim`) and source-coordinate remapping in `src/pipeline/proposal_ensemble.rs`.
+- Removed duplicate integral-image computation by reusing shared integrals across adaptive/sauvola views.
+- Added throughput/consistency regression tests in `tests/wp008_quality_throughput_tests.rs`.
 
 [x] WP-009 Pipeline Naming Refactor (Stage Labels -> Semantic Modules)
 Goal: Replace temporary stage-based module names with stable semantic names.

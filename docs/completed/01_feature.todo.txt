@@ -98,3 +98,14 @@ Summary:
 - Replaced placeholder multi-QR stage with strongest-first acceptance loop
 - Added confidence thresholding and payload-level dedupe with max_multi_qr bound
 - Added integration tests for dedupe, bounded count, and deterministic acceptance order
+
+[x] CP-011 WP-008 Quality + Throughput Optimization Pass
+Files:
+- src/config.rs
+- src/pipeline/proposal_ensemble.rs
+- tests/wp008_quality_throughput_tests.rs
+Summary:
+- Added `max_working_dim` config to cap working resolution on large inputs for faster proposal generation
+- Added source-coordinate remapping from working grid to original image bounds
+- Reused integral images across adaptive/sauvola binarizers to remove duplicate heavy passes
+- Added regression tests for determinism, bounds safety, and per-view kept-count consistency

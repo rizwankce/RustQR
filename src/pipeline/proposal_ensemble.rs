@@ -12,6 +12,14 @@ struct BinaryView {
     bits: Vec<u8>,
 }
 
+struct WorkingImage {
+    gray: Vec<u8>,
+    width: usize,
+    height: usize,
+    scale_x: f32,
+    scale_y: f32,
+}
+
 #[derive(Clone, Copy)]
 struct RawCandidate {
     x: usize,
@@ -26,38 +34,48 @@ pub(crate) fn run(
     config: &DetectConfig,
 ) -> ProposalEnsembleReport {
     let start = Instant::now();
-    let gray = rgb_to_grayscale(image, state.width, state.height);
+    let working = build_working_grayscale(image, state.width, state.height, config.max_working_dim);
+
+    let integral = integral_u8(&working.gray, working.width, working.height);
+    let integral_sq = integral_sq_u8(&working.gray, working.width, working.height);
 
     let mut views = vec![
         BinaryView {
             view: ProposalView::Otsu,
-            bits: otsu_binarize(&gray, state.width, state.height),
+            bits: otsu_binarize(&working.gray, working.width, working.height),
         },
         BinaryView {
             view: ProposalView::Adaptive,
-            bits: adaptive_mean_binarize(&gray, state.width, state.height),
+            bits: adaptive_mean_binarize(&working.gray, working.width, working.height, &integral),
         },
         BinaryView {
             view: ProposalView::Sauvola,
-            bits: sauvola_binarize(&gray, state.width, state.height),
+            bits: sauvola_binarize(
+                &working.gray,
+                working.width,
+                working.height,
+                &integral,
+                &integral_sq,
+            ),
         },
     ];
 
     if config.enable_glare_suppression_view {
-        let glare_suppressed = suppress_glare(&gray);
+        let glare_suppressed = suppress_glare(&working.gray);
         views.push(BinaryView {
             view: ProposalView::GlareSuppressed,
-            bits: otsu_binarize(&glare_suppressed, state.width, state.height),
+            bits: otsu_binarize(&glare_suppressed, working.width, working.height),
         });
     }
 
     let mut per_view = Vec::with_capacity(views.len());
-    let mut combined = Vec::new();
+    let capacity_per_view = estimate_candidate_capacity(working.width, working.height);
+    let mut combined = Vec::with_capacity(capacity_per_view.saturating_mul(views.len()));
     let mut total_raw_candidates = 0usize;
     let mut next_id = 0usize;
 
     for view in views {
-        let mut raw = extract_raw_candidates(&view.bits, state.width, state.height);
+        let mut raw = extract_raw_candidates(&view.bits, working.width, working.height);
         let raw_count = raw.len();
         total_raw_candidates += raw_count;
 
@@ -67,8 +85,8 @@ pub(crate) fn run(
             combined.push(Proposal {
                 id: next_id,
                 view: view.view,
-                x: c.x,
-                y: c.y,
+                x: map_working_to_source(c.x, working.scale_x, state.width),
+                y: map_working_to_source(c.y, working.scale_y, state.height),
                 score: weighted,
                 raw_score: c.raw_score,
             });
@@ -93,8 +111,12 @@ pub(crate) fn run(
         proposal.id = new_id;
     }
 
+    let mut kept_counts = [0usize; 4];
+    for proposal in &combined {
+        kept_counts[view_slot(proposal.view)] += 1;
+    }
     for row in &mut per_view {
-        row.kept_candidates = combined.iter().filter(|p| p.view == row.view).count();
+        row.kept_candidates = kept_counts[view_slot(row.view)];
     }
 
     let top_proposals = combined
@@ -130,6 +152,89 @@ fn view_weight(view: ProposalView) -> f32 {
         ProposalView::Sauvola => 1.06,
         ProposalView::GlareSuppressed => 0.98,
     }
+}
+
+fn view_slot(view: ProposalView) -> usize {
+    match view {
+        ProposalView::Otsu => 0,
+        ProposalView::Adaptive => 1,
+        ProposalView::Sauvola => 2,
+        ProposalView::GlareSuppressed => 3,
+    }
+}
+
+fn build_working_grayscale(
+    image: &[u8],
+    source_width: usize,
+    source_height: usize,
+    max_working_dim: usize,
+) -> WorkingImage {
+    let source_max_dim = source_width.max(source_height);
+    if max_working_dim == 0 || source_max_dim <= max_working_dim {
+        return WorkingImage {
+            gray: rgb_to_grayscale(image, source_width, source_height),
+            width: source_width,
+            height: source_height,
+            scale_x: 1.0,
+            scale_y: 1.0,
+        };
+    }
+
+    let scale = source_max_dim as f32 / max_working_dim as f32;
+    let width = ((source_width as f32 / scale).round() as usize).clamp(1, source_width);
+    let height = ((source_height as f32 / scale).round() as usize).clamp(1, source_height);
+    let mut gray = vec![0u8; width * height];
+
+    let max_source_x = source_width.saturating_sub(1) as isize;
+    let max_source_y = source_height.saturating_sub(1) as isize;
+
+    for y in 0..height {
+        let source_y =
+            ((((y as f32 + 0.5) * scale) - 0.5).round() as isize).clamp(0, max_source_y) as usize;
+        for x in 0..width {
+            let source_x = ((((x as f32 + 0.5) * scale) - 0.5).round() as isize)
+                .clamp(0, max_source_x) as usize;
+            let src_idx = (source_y * source_width + source_x) * 3;
+            let r = image[src_idx] as u32;
+            let g = image[src_idx + 1] as u32;
+            let b = image[src_idx + 2] as u32;
+            gray[y * width + x] = ((299 * r + 587 * g + 114 * b + 500) / 1000) as u8;
+        }
+    }
+
+    WorkingImage {
+        gray,
+        width,
+        height,
+        scale_x: source_width as f32 / width as f32,
+        scale_y: source_height as f32 / height as f32,
+    }
+}
+
+fn estimate_candidate_capacity(width: usize, height: usize) -> usize {
+    if width < 5 || height < 5 {
+        return 0;
+    }
+    let cell = (width.min(height) / 18).clamp(8, 32);
+    let x_count = range_count(2, width.saturating_sub(2), cell);
+    let y_count = range_count(2, height.saturating_sub(2), cell);
+    x_count.saturating_mul(y_count)
+}
+
+fn range_count(start: usize, end_exclusive: usize, step: usize) -> usize {
+    if step == 0 || end_exclusive <= start {
+        return 0;
+    }
+    let span = end_exclusive - start;
+    1 + (span - 1) / step
+}
+
+fn map_working_to_source(coord: usize, scale: f32, source_dim: usize) -> usize {
+    if source_dim == 0 {
+        return 0;
+    }
+    let mapped = ((coord as f32 + 0.5) * scale).floor() as isize;
+    mapped.clamp(0, source_dim.saturating_sub(1) as isize) as usize
 }
 
 fn rgb_to_grayscale(image: &[u8], width: usize, height: usize) -> Vec<u8> {
@@ -198,8 +303,7 @@ fn otsu_binarize(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
         .collect()
 }
 
-fn adaptive_mean_binarize(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
-    let integral = integral_u8(gray, width, height);
+fn adaptive_mean_binarize(gray: &[u8], width: usize, height: usize, integral: &[u64]) -> Vec<u8> {
     let mut out = vec![0u8; width * height];
     let mut window = (width.min(height) / 20).clamp(9, 41);
     if window % 2 == 0 {
@@ -214,7 +318,7 @@ fn adaptive_mean_binarize(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
             let x0 = x.saturating_sub(radius);
             let x1 = (x + radius + 1).min(width);
             let area = (x1 - x0) * (y1 - y0);
-            let sum = rect_sum(&integral, width, x0, y0, x1, y1);
+            let sum = rect_sum(integral, width, x0, y0, x1, y1);
             let mean = sum as f32 / area as f32;
             let threshold = (mean - 5.0).max(0.0);
             let idx = y * width + x;
@@ -225,9 +329,13 @@ fn adaptive_mean_binarize(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
     out
 }
 
-fn sauvola_binarize(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
-    let integral = integral_u8(gray, width, height);
-    let integral_sq = integral_sq_u8(gray, width, height);
+fn sauvola_binarize(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    integral: &[u64],
+    integral_sq: &[u64],
+) -> Vec<u8> {
     let mut out = vec![0u8; width * height];
     let mut window = (width.min(height) / 16).clamp(11, 51);
     if window % 2 == 0 {
@@ -244,8 +352,8 @@ fn sauvola_binarize(gray: &[u8], width: usize, height: usize) -> Vec<u8> {
             let x0 = x.saturating_sub(radius);
             let x1 = (x + radius + 1).min(width);
             let area = (x1 - x0) * (y1 - y0);
-            let sum = rect_sum(&integral, width, x0, y0, x1, y1) as f32;
-            let sum_sq = rect_sum(&integral_sq, width, x0, y0, x1, y1) as f32;
+            let sum = rect_sum(integral, width, x0, y0, x1, y1) as f32;
+            let sum_sq = rect_sum(integral_sq, width, x0, y0, x1, y1) as f32;
             let mean = sum / area as f32;
             let mean_sq = (sum_sq / area as f32).max(mean * mean);
             let variance = (mean_sq - mean * mean).max(0.0);
@@ -301,7 +409,7 @@ fn extract_raw_candidates(bits: &[u8], width: usize, height: usize) -> Vec<RawCa
     }
 
     let cell = (width.min(height) / 18).clamp(8, 32);
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(estimate_candidate_capacity(width, height));
 
     for gy in (2..height.saturating_sub(2)).step_by(cell) {
         for gx in (2..width.saturating_sub(2)).step_by(cell) {

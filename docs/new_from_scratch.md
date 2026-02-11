@@ -35,7 +35,7 @@
 - Done: `WP-005 multi_qr_iteration` (scaffold strongest-first bounded acceptance + payload dedupe)
 - Done: `WP-006 runtime controller + budgeting`
 - Done: `WP-007 benchmark harness + KPI artifact scaffold`
-- Pending: `WP-008 throughput optimization`
+- Done: `WP-008 throughput optimization` (working-resolution cap + proposal hot-path cleanup)
 - Done: `WP-009 semantic naming refactor`
 
 Current scaffold supports fast benchmark reporting via:
