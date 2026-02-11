@@ -41,6 +41,11 @@
 - Done: `WP-011` (decode + multi reserve lanes under stage over-budget)
 - Done: `WP-012` (reading-rate smoke profiles for monitor/nominal)
 - Done: `WP-013` (strict payload-validated benchmark lane)
+- Planned: `WP-014` (locked full BoofCV baseline artifact)
+- Planned: `WP-015` (`benchdiff` artifact comparator)
+- Planned: `WP-016` (dual KPI lanes: annotation vs strict payload)
+- Planned: `WP-017` (category uplift: rotations/high_version/lots)
+- Planned: `WP-018` (workflow KPI gates + threshold enforcement)
 
 Current harness supports benchmark reporting via:
 - `cargo run --bin qrtool -- reading-rate --limit N --artifact <path>`

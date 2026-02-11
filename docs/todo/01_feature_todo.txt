@@ -172,3 +172,68 @@ Acceptance:
 Status:
 - Completed on 2026-02-11 in `src/tools/mod.rs`, `src/bin/qrtool.rs`, `.github/workflows/benchmark.yml`, and `tests/wp007_benchmark_harness_tests.rs`.
 - Sample baseline (`2026-02-11`): `payload-validated` 26/26 matched (1.0000), median 149.876 ms.
+
+[ ] WP-014 Locked BoofCV Baseline Artifact
+Goal: Freeze a reproducible full-dataset baseline before further tuning.
+Deliverables:
+- Capture full `boofcv` reading-rate artifact with fixed runtime knobs
+- Record command, artifact path, and top failure signatures in docs
+- Reserve baseline artifact naming convention for future diffs
+Acceptance:
+- Baseline artifact can be regenerated with the same command and settings
+- Baseline summary is documented and referenced by subsequent workpackets
+Status:
+- Pending.
+
+[ ] WP-015 Benchmark Artifact Diff Tool (`benchdiff`)
+Goal: Make benchmark changes explainable between any two runs.
+Deliverables:
+- Add `qrtool benchdiff --base <json> --candidate <json>` command
+- Report global and per-category deltas (rate, median runtime, failures)
+- Emit machine-readable diff artifact for CI comments/gates
+Acceptance:
+- Tool surfaces top regressions/improvements without manual JSON inspection
+- Integration tests cover parsing and delta math edge cases
+Status:
+- Pending.
+
+[ ] WP-016 Dual KPI Lanes (Annotation vs Strict Payload)
+Goal: Track pipeline robustness and strict decode correctness as separate KPIs.
+Deliverables:
+- Define official KPI lanes:
+- `boofcv` (annotation-style any-decode)
+- `payload-validated` (strict payload match)
+- Add lane-specific summary notes in benchmark outputs
+- Ensure workflow dispatch can run both lanes reliably
+Acceptance:
+- KPI reporting always distinguishes lane semantics clearly
+- Docs and workflow usage examples include both lane commands
+Status:
+- Pending.
+
+[ ] WP-017 High-Leverage Category Uplift (`rotations`, `high_version`, `lots`)
+Goal: Target categories with highest impact on global reading rate.
+Deliverables:
+- Rotation robustness pass (angle normalization + candidate expansion)
+- High-version decode robustness pass (sampling/version recovery retries)
+- Dense-scene multi-QR improvements (`lots`) with better suppression/dedupe
+Acceptance:
+- Category-level reading-rate improvement is measurable via `benchdiff`
+- No regression in median runtime gate after each category-focused change
+Status:
+- Pending.
+
+[ ] WP-018 Benchmark Workflow KPI Gates
+Goal: Convert benchmark runs into actionable pass/fail quality gates.
+Deliverables:
+- Add configurable thresholds for:
+- global reading rate
+- `rotations` reading rate
+- `high_version` reading rate
+- median runtime (`<=1000 ms`)
+- Fail workflow on threshold violations with clear failure reasons
+Acceptance:
+- Workflow dispatch reports gate status and failing metrics explicitly
+- Thresholds are configurable without code edits
+Status:
+- Pending.
