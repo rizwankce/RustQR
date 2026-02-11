@@ -1,0 +1,31 @@
+RUSTQR REBUILD - FEATURE WORKPACKETS (COMPLETED)
+Source Plan: docs/new_from_scratch.md
+Last Updated: 2026-02-11
+
+[x] CP-001 Repository Reset for Scratch Rebuild
+Summary:
+- Preserved benchmark images under benches/images
+- Removed legacy codebase and legacy docs
+- Kept only new strategic docs and baseline README table
+
+[x] CP-002 Strategic Design Docs Added
+Files:
+- docs/learnings_from_old_code_base_try.md
+- docs/new_from_scratch.md
+Summary:
+- Captured lessons from prior architecture
+- Defined from-scratch target architecture and phased plan
+
+[x] CP-003 Fresh Rust Scaffold Bootstrapped
+Files:
+- Cargo.toml
+- src/lib.rs
+- src/config.rs
+- src/types.rs
+- src/telemetry.rs
+- src/pipeline/*
+- src/bin/qrtool.rs
+- tests/scaffold_smoke_tests.rs
+Summary:
+- Created compile-ready baseline crate with stage-wired pipeline skeleton
+- Added deterministic smoke tests and minimal CLI entrypoint

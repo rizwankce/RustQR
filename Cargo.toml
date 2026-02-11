@@ -2,50 +2,11 @@
 name = "rust_qr"
 version = "0.1.0"
 edition = "2024"
-authors = ["Rizwan <rizwan@example.com>"]
-description = "World's fastest QR code scanning library in pure Rust"
+description = "RustQR rebuild scaffold"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/rizwankce/RustQR"
-keywords = ["qr", "qrcode", "barcode", "scanning", "vision"]
-categories = ["computer-vision", "no-std"]
-
-[dependencies]
-rayon = "1.7"
-image = "0.24"
-clap = { version = "4.5", features = ["derive"], optional = true }
 
 [features]
-tools = ["clap"]
+default = []
+tools = []
 
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-image = "0.24"
-
-[[bench]]
-name = "qr_detect"
-harness = false
-
-[[bench]]
-name = "real_qr_images"
-harness = false
-
-[[bench]]
-name = "grayscale"
-harness = false
-
-[[bench]]
-name = "binarization"
-harness = false
-
-[[bench]]
-name = "memory_pool"
-harness = false
-
-[[bench]]
-name = "real_qr_cc"
-harness = false
-
-[[bin]]
-name = "qrtool"
-path = "src/bin/qrtool.rs"
-required-features = ["tools"]
+[dependencies]

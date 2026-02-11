@@ -1,0 +1,88 @@
+RUSTQR REBUILD - FEATURE WORKPACKETS (TODO)
+Source Plan: docs/new_from_scratch.md
+Last Updated: 2026-02-11
+
+Legend:
+- [ ] TODO
+- [~] IN PROGRESS
+- [x] DONE
+
+[ ] WP-001 Stage-A Proposal Ensemble
+Goal: Build parallel preprocessing + proposal generation (otsu/adaptive/sauvola/glare-aware).
+Deliverables:
+- Proposal generator interface + scoring normalization
+- Per-view proposal telemetry
+- Top-K proposal retention with deterministic ordering
+Acceptance:
+- No regressions in input validation
+- Stage A runtime budget compliance telemetry
+
+[ ] WP-002 Finder Graph + Bounded Hypothesis Search
+Goal: Replace O(n^3) triplets with graph-based bounded search.
+Deliverables:
+- Finder graph representation
+- L-shape hypothesis builder with K-neighborhood constraints
+- Beam/heap top-H retention
+Acceptance:
+- Hypothesis count remains bounded by config
+- Deterministic outputs for fixed image/config
+
+[ ] WP-003 Geometry Refinement Loop
+Goal: Add iterative homography refinement before decode.
+Deliverables:
+- Subpixel corner refinement
+- Timing phase consistency scoring
+- 2-3 iteration capped optimizer loop
+Acceptance:
+- Refinement convergence telemetry available
+- Failure signature split includes geometry/refine misses
+
+[ ] WP-004 Robust Decode Core
+Goal: Implement bounded decode with confidence-aware sampling/retries.
+Deliverables:
+- Soft module confidence model
+- BCH/RS candidate manager with bounded retries
+- Decode confidence calibration
+Acceptance:
+- Decode retry count bounded by config
+- Format/version recovery telemetry emitted
+
+[ ] WP-005 Multi-QR Iterative Residual Decode
+Goal: Unlock dense scene decode (`lots`) via iterative strongest-first decode.
+Deliverables:
+- Region suppression/masking after accepted decode
+- Residual loop with stop conditions
+- Multi-QR acceptance dedupe rules
+Acceptance:
+- Can return >1 code per image
+- Loop bounded by max_multi_qr + time budgets
+
+[ ] WP-006 Runtime Controller + Budgeting
+Goal: Stage-level budgets with emergency cutoff.
+Deliverables:
+- Per-stage budget checks
+- High-value retry reserve lane
+- Pathological emergency cutoff handling
+Acceptance:
+- Median runtime KPI pipeline fields populated
+- Budget-failure signatures tracked
+
+[ ] WP-007 Benchmark Harness + KPI Gates
+Goal: Ensure measurement and gating stay stable while rebuilding.
+Deliverables:
+- Reading-rate runner scaffold command
+- Stage failure cluster outputs
+- KPI gate report format (rate + median runtime)
+Acceptance:
+- Artifact format documented
+- KPI gate script path reserved
+
+[ ] WP-008 Quality and Throughput Optimization
+Goal: Reach <=1s median while preserving accuracy.
+Deliverables:
+- Hotspot profiling and remediation
+- SIMD/parallel plan + rollout
+- Cache-friendly memory/layout improvements
+Acceptance:
+- Median <=1000ms on benchmark platform profile
+- No accuracy regression on primary categories
