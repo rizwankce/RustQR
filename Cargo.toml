@@ -11,3 +11,4 @@ tools = []
 
 [dependencies]
 image = { version = "0.24.9", default-features = false, features = ["png", "jpeg", "gif", "bmp"] }
+quircs = "0.10"

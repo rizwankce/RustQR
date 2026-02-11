@@ -117,3 +117,45 @@ Acceptance:
 - Tests updated and passing
 Status:
 - Completed on 2026-02-11 (`proposal_ensemble`, `hypothesis_search`, `geometry_refinement`, `decode_engine`, `multi_qr_iteration`).
+
+[x] WP-010 Real Decode Backend (De-Scaffold Stage D)
+Goal: Replace synthetic decode outputs with real payload extraction from image data.
+Deliverables:
+- Decode engine returns true decoded payloads (no synthetic strings)
+- Real corner data propagation into `QrCode`
+- Deterministic ranking + bounded candidate retention
+Acceptance:
+- No `wp004-hypothesis-*` synthetic payloads in runtime decode path
+- At least one clean benchmark subset case decodes to expected label
+- Existing pipeline tests remain green
+Status:
+- Completed on 2026-02-11 with `quircs`-backed decode path in `src/pipeline/decode_engine.rs`.
+- Added runtime regression tests in `tests/wp004_decode_engine_tests.rs` and `tests/wp010_decode_backend_tests.rs`.
+
+[x] WP-011 Stage Coupling + Decode Reserve Lane
+Goal: Ensure decode can still run in bounded form when earlier stages overrun budget.
+Deliverables:
+- Runtime-controller reserve path for decode
+- Stage timing/labels updated for reserve execution
+- Failure signatures differentiate cutoff vs reserve decode miss
+Acceptance:
+- `reading-rate` on monitor subset no longer dominated by proposal-stage skip
+- Budget regression tests updated and passing
+Status:
+- Completed on 2026-02-11 in `src/pipeline/mod.rs` with `decode_engine:reserve` and `multi_qr_iteration:reserve` lanes.
+- Covered by runtime tests including reserve-lane assertion in `tests/wp010_decode_backend_tests.rs`.
+
+[x] WP-012 Real Reading-Rate Gate (Monitor/Nominal Smoke)
+Goal: Start tracking actual, non-scaffold read-rate movement while rebuilding.
+Deliverables:
+- Smoke gate command profile for monitor/nominal subsets
+- Artifact fields for nonzero decode tracking
+- Workpacket report update with current baseline
+Acceptance:
+- Monitor or nominal subset reports real decode attempts and stable metrics
+- Command documented in source-of-truth doc
+Status:
+- Completed on 2026-02-11 with `--profile monitor-smoke|nominal-smoke` in `src/tools/mod.rs` and `src/bin/qrtool.rs`.
+- Current sample baselines:
+- `monitor-smoke`: 17/17 matched (1.0000), median 3905.864 ms.
+- `nominal-smoke --limit 20`: 10/20 matched (0.5000), median 667.834 ms.

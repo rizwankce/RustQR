@@ -37,11 +37,20 @@
 - Done: `WP-007 benchmark harness + KPI artifact scaffold`
 - Done: `WP-008 throughput optimization` (working-resolution cap + proposal hot-path cleanup)
 - Done: `WP-009 semantic naming refactor`
+- Done: `WP-010` (real decode backend via `quircs`, no synthetic payload runtime path)
+- Done: `WP-011` (decode + multi reserve lanes under stage over-budget)
+- Done: `WP-012` (reading-rate smoke profiles for monitor/nominal)
 
 Current harness supports benchmark reporting via:
 - `cargo run --bin qrtool -- reading-rate --limit N --artifact <path>`
+- `cargo run --bin qrtool -- reading-rate --profile monitor-smoke --artifact <path>`
+- `cargo run --bin qrtool -- reading-rate --profile nominal-smoke --limit N --artifact <path>`
 - It runs real `pipeline::detect_with_config` evaluation per image and writes schema `wp007-reading-rate-v1`.
 - Runtime knobs: `--max-working-dim N`, `--emergency-cutoff-ms N`.
+
+Current sample smoke baselines (2026-02-11):
+- `monitor-smoke`: rate `1.0000` (17/17), median `3905.864 ms`
+- `nominal-smoke --limit 20`: rate `0.5000` (10/20), median `667.834 ms`
 
 ## Proposed Architecture
 

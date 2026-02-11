@@ -54,7 +54,7 @@ fn main() {
             eprintln!("RustQR scaffold CLI");
             eprintln!("usage: qrtool smoke");
             eprintln!(
-                "       qrtool reading-rate [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+                "       qrtool reading-rate [--profile monitor-smoke|nominal-smoke] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
             );
             std::process::exit(2);
         }

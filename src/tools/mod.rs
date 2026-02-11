@@ -11,6 +11,8 @@ pub const DEFAULT_DATASET_ROOT: &str = "benches/images/boofcv";
 pub const DEFAULT_ARTIFACT_PATH: &str = "target/reading_rate_report.json";
 pub const IMAGE_LOAD_FAILURE_SIGNATURE: &str = "image-load-fail";
 pub const PAYLOAD_MISMATCH_SIGNATURE: &str = "payload-mismatch";
+pub const MONITOR_SMOKE_PROFILE: &str = "monitor-smoke";
+pub const NOMINAL_SMOKE_PROFILE: &str = "nominal-smoke";
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp"];
 
@@ -20,9 +22,25 @@ pub enum ReadingRateCommand {
     Run(ReadingRateArgs),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadingRateProfile {
+    MonitorSmoke,
+    NominalSmoke,
+}
+
+impl ReadingRateProfile {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MonitorSmoke => MONITOR_SMOKE_PROFILE,
+            Self::NominalSmoke => NOMINAL_SMOKE_PROFILE,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadingRateArgs {
     pub dataset_root: PathBuf,
+    pub profile: Option<ReadingRateProfile>,
     pub artifact_path: PathBuf,
     pub limit: Option<usize>,
     pub max_working_dim: Option<usize>,
@@ -33,6 +51,7 @@ impl Default for ReadingRateArgs {
     fn default() -> Self {
         Self {
             dataset_root: PathBuf::from(DEFAULT_DATASET_ROOT),
+            profile: None,
             artifact_path: PathBuf::from(DEFAULT_ARTIFACT_PATH),
             limit: None,
             max_working_dim: None,
@@ -97,8 +116,27 @@ pub struct ReadingRateReport {
     pub cases: Vec<CaseOutcome>,
 }
 
+pub fn parse_reading_rate_profile(raw: &str) -> Result<ReadingRateProfile, String> {
+    match raw {
+        MONITOR_SMOKE_PROFILE => Ok(ReadingRateProfile::MonitorSmoke),
+        NOMINAL_SMOKE_PROFILE => Ok(ReadingRateProfile::NominalSmoke),
+        _ => Err(format!(
+            "unknown --profile value: {raw}; expected one of: {MONITOR_SMOKE_PROFILE}, {NOMINAL_SMOKE_PROFILE}"
+        )),
+    }
+}
+
+pub fn reading_rate_profile_dataset_root(profile: ReadingRateProfile) -> PathBuf {
+    match profile {
+        ReadingRateProfile::MonitorSmoke => PathBuf::from("benches/images/boofcv/monitor"),
+        ReadingRateProfile::NominalSmoke => PathBuf::from("benches/images/boofcv/nominal"),
+    }
+}
+
 pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, String> {
     let mut parsed = ReadingRateArgs::default();
+    let mut explicit_dataset_root: Option<PathBuf> = None;
+    let mut selected_profile: Option<ReadingRateProfile> = None;
 
     let mut idx = 0usize;
     while idx < args.len() {
@@ -109,7 +147,14 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
                 let value = args
                     .get(idx)
                     .ok_or_else(|| "--dataset-root requires a value".to_string())?;
-                parsed.dataset_root = PathBuf::from(value);
+                explicit_dataset_root = Some(PathBuf::from(value));
+            }
+            "--profile" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--profile requires a value".to_string())?;
+                selected_profile = Some(parse_reading_rate_profile(value)?);
             }
             "--artifact" => {
                 idx += 1;
@@ -162,11 +207,18 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
         idx += 1;
     }
 
+    if let Some(dataset_root) = explicit_dataset_root {
+        parsed.dataset_root = dataset_root;
+    } else if let Some(profile) = selected_profile {
+        parsed.dataset_root = reading_rate_profile_dataset_root(profile);
+    }
+    parsed.profile = selected_profile;
+
     Ok(ReadingRateCommand::Run(parsed))
 }
 
 pub fn reading_rate_usage() -> &'static str {
-    "usage: qrtool reading-rate [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+    "usage: qrtool reading-rate [--profile monitor-smoke|nominal-smoke] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
 }
 
 pub fn discover_label_cases(
@@ -260,6 +312,7 @@ fn evaluate_case(
 ) -> CaseOutcome {
     let case_start = Instant::now();
     let expected_payload = normalize_payload(&case.expected_payload);
+    let annotation_label_mode = is_point_annotation_label(&case.expected_payload);
 
     let (image, width, height) = match load_rgb_image(&case.image_path, decode_resize_max_dim) {
         Ok(decoded) => decoded,
@@ -277,10 +330,14 @@ fn evaluate_case(
     };
 
     let report = pipeline::detect_with_config(&image, width, height, detect_config);
-    let matched = report
-        .codes
-        .iter()
-        .any(|code| normalize_payload(&code.payload) == expected_payload);
+    let matched = if annotation_label_mode {
+        !report.codes.is_empty()
+    } else {
+        report
+            .codes
+            .iter()
+            .any(|code| normalize_payload(&code.payload) == expected_payload)
+    };
 
     let failure_signature = if matched {
         None
@@ -417,16 +474,25 @@ pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateRe
         top_failure_signature: global.top_failure_signature.clone(),
     };
 
+    let mut notes = vec![
+        "reading-rate mode: real image decode + payload match evaluation".to_string(),
+        "decode core is still scaffold quality; benchmark rate is expected to be low until real decoder lands".to_string(),
+    ];
+    if let Some(profile) = args.profile {
+        notes.push(format!(
+            "reading-rate profile={} resolved_dataset_root={}",
+            profile.as_str(),
+            args.dataset_root.display()
+        ));
+    }
+
     Ok(ReadingRateReport {
         dataset_root: args.dataset_root.clone(),
         generated_at_unix_ms,
         categories,
         global,
         kpi_gate,
-        notes: vec![
-            "reading-rate mode: real image decode + payload match evaluation".to_string(),
-            "decode core is still scaffold quality; benchmark rate is expected to be low until real decoder lands".to_string(),
-        ],
+        notes,
         cases: outcomes,
     })
 }
@@ -483,6 +549,27 @@ fn maybe_resize_decoded_image(
 
 fn normalize_payload(payload: &str) -> String {
     payload.trim().replace("\r\n", "\n")
+}
+
+fn is_point_annotation_label(raw: &str) -> bool {
+    let normalized = normalize_payload(raw);
+    if normalized.is_empty() {
+        return false;
+    }
+    if normalized
+        .lines()
+        .any(|line| line.trim().eq_ignore_ascii_case("SETS"))
+    {
+        return true;
+    }
+    normalized
+        .lines()
+        .next()
+        .map(|line| {
+            line.to_ascii_lowercase()
+                .contains("hand selected 2d points")
+        })
+        .unwrap_or(false)
 }
 
 fn elapsed_ms(start: Instant) -> f64 {

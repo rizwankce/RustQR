@@ -24,6 +24,7 @@ fn parse_reading_rate_defaults() {
         parsed.artifact_path,
         PathBuf::from(tools::DEFAULT_ARTIFACT_PATH)
     );
+    assert_eq!(parsed.profile, None);
     assert_eq!(parsed.limit, None);
     assert_eq!(parsed.max_working_dim, None);
     assert_eq!(parsed.emergency_cutoff_ms, None);
@@ -50,6 +51,7 @@ fn parse_reading_rate_overrides_and_help() {
     };
 
     assert_eq!(parsed.dataset_root, PathBuf::from("tmp/data"));
+    assert_eq!(parsed.profile, None);
     assert_eq!(parsed.artifact_path, PathBuf::from("tmp/report.json"));
     assert_eq!(parsed.limit, Some(5));
     assert_eq!(parsed.max_working_dim, Some(640));
@@ -76,6 +78,11 @@ fn parse_reading_rate_rejects_invalid_args() {
         tools::parse_reading_rate_args(&bad_cutoff).expect_err("expected parse error");
     assert!(bad_cutoff_err.contains("invalid --emergency-cutoff-ms value"));
 
+    let bad_profile = vec!["--profile".to_string(), "bad-smoke".to_string()];
+    let bad_profile_err =
+        tools::parse_reading_rate_args(&bad_profile).expect_err("expected parse error");
+    assert!(bad_profile_err.contains("unknown --profile value"));
+
     let unknown = vec!["--wat".to_string()];
     let unknown_err = tools::parse_reading_rate_args(&unknown).expect_err("expected parse error");
     assert!(unknown_err.contains("unknown argument"));
@@ -84,8 +91,93 @@ fn parse_reading_rate_rejects_invalid_args() {
 #[test]
 fn reading_rate_usage_mentions_runtime_knobs() {
     let usage = tools::reading_rate_usage();
+    assert!(usage.contains("--profile"));
     assert!(usage.contains("--max-working-dim"));
     assert!(usage.contains("--emergency-cutoff-ms"));
+}
+
+#[test]
+fn parse_reading_rate_profile_resolves_dataset_root() {
+    let monitor_args = vec![
+        "--profile".to_string(),
+        tools::MONITOR_SMOKE_PROFILE.to_string(),
+    ];
+    let parsed_monitor =
+        tools::parse_reading_rate_args(&monitor_args).expect("monitor profile should parse");
+    let tools::ReadingRateCommand::Run(parsed_monitor) = parsed_monitor else {
+        panic!("expected run command");
+    };
+    assert_eq!(
+        parsed_monitor.profile,
+        Some(tools::ReadingRateProfile::MonitorSmoke)
+    );
+    assert_eq!(
+        parsed_monitor.dataset_root,
+        PathBuf::from("benches/images/boofcv/monitor")
+    );
+
+    let nominal_args = vec![
+        "--profile".to_string(),
+        tools::NOMINAL_SMOKE_PROFILE.to_string(),
+    ];
+    let parsed_nominal =
+        tools::parse_reading_rate_args(&nominal_args).expect("nominal profile should parse");
+    let tools::ReadingRateCommand::Run(parsed_nominal) = parsed_nominal else {
+        panic!("expected run command");
+    };
+    assert_eq!(
+        parsed_nominal.profile,
+        Some(tools::ReadingRateProfile::NominalSmoke)
+    );
+    assert_eq!(
+        parsed_nominal.dataset_root,
+        PathBuf::from("benches/images/boofcv/nominal")
+    );
+}
+
+#[test]
+fn parse_reading_rate_dataset_root_overrides_profile() {
+    let profile_then_dataset = vec![
+        "--profile".to_string(),
+        tools::MONITOR_SMOKE_PROFILE.to_string(),
+        "--dataset-root".to_string(),
+        "tmp/custom".to_string(),
+    ];
+    let parsed_profile_then_dataset = tools::parse_reading_rate_args(&profile_then_dataset)
+        .expect("profile then dataset parse should succeed");
+    let tools::ReadingRateCommand::Run(parsed_profile_then_dataset) = parsed_profile_then_dataset
+    else {
+        panic!("expected run command");
+    };
+    assert_eq!(
+        parsed_profile_then_dataset.profile,
+        Some(tools::ReadingRateProfile::MonitorSmoke)
+    );
+    assert_eq!(
+        parsed_profile_then_dataset.dataset_root,
+        PathBuf::from("tmp/custom")
+    );
+
+    let dataset_then_profile = vec![
+        "--dataset-root".to_string(),
+        "tmp/explicit".to_string(),
+        "--profile".to_string(),
+        tools::NOMINAL_SMOKE_PROFILE.to_string(),
+    ];
+    let parsed_dataset_then_profile = tools::parse_reading_rate_args(&dataset_then_profile)
+        .expect("dataset then profile parse should succeed");
+    let tools::ReadingRateCommand::Run(parsed_dataset_then_profile) = parsed_dataset_then_profile
+    else {
+        panic!("expected run command");
+    };
+    assert_eq!(
+        parsed_dataset_then_profile.profile,
+        Some(tools::ReadingRateProfile::NominalSmoke)
+    );
+    assert_eq!(
+        parsed_dataset_then_profile.dataset_root,
+        PathBuf::from("tmp/explicit")
+    );
 }
 
 #[test]
@@ -220,6 +312,7 @@ fn reading_rate_report_flags_image_decode_failures() {
 
     let args = tools::ReadingRateArgs {
         dataset_root: temp.clone(),
+        profile: None,
         artifact_path: temp.join("artifact.json"),
         limit: None,
         max_working_dim: None,
@@ -271,6 +364,7 @@ fn reading_rate_report_applies_emergency_cutoff_override() {
 
     let args = tools::ReadingRateArgs {
         dataset_root: temp.clone(),
+        profile: None,
         artifact_path: temp.join("artifact.json"),
         limit: None,
         max_working_dim: None,
@@ -284,6 +378,30 @@ fn reading_rate_report_applies_emergency_cutoff_override() {
         report.cases[0].failure_signature.as_deref(),
         Some("emergency-cutoff")
     );
+}
+
+#[test]
+fn reading_rate_report_includes_profile_metadata_note() {
+    let temp = temp_dir("profile_metadata");
+    let label = temp.join("image001.txt");
+    let image = temp.join("image001.jpg");
+    fs::write(&label, "expected").expect("write label");
+    fs::write(&image, "not-a-real-image").expect("write invalid image");
+
+    let args = tools::ReadingRateArgs {
+        dataset_root: temp.clone(),
+        profile: Some(tools::ReadingRateProfile::MonitorSmoke),
+        artifact_path: temp.join("artifact.json"),
+        limit: Some(1),
+        max_working_dim: None,
+        emergency_cutoff_ms: None,
+    };
+    let report = tools::build_reading_rate_report(&args).expect("build report");
+
+    assert!(report.notes.iter().any(|note| {
+        note.contains("profile=monitor-smoke")
+            && note.contains(&format!("resolved_dataset_root={}", temp.display()))
+    }));
 }
 
 fn write_checkerboard_image(path: &Path, width: u32, height: u32) {

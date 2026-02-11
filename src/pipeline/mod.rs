@@ -23,6 +23,7 @@ enum StageId {
 enum StageBudgetStatus {
     Ok,
     OverBudget,
+    Reserve,
     SkippedBudget,
     SkippedCutoff,
 }
@@ -33,6 +34,7 @@ fn stage_label(stage: StageId, status: StageBudgetStatus) -> &'static str {
         (StageId::ProposalEnsemble, StageBudgetStatus::OverBudget) => {
             "proposal_ensemble:over-budget"
         }
+        (StageId::ProposalEnsemble, StageBudgetStatus::Reserve) => "proposal_ensemble:reserve",
         (StageId::ProposalEnsemble, StageBudgetStatus::SkippedBudget) => {
             "proposal_ensemble:skipped-budget"
         }
@@ -43,6 +45,7 @@ fn stage_label(stage: StageId, status: StageBudgetStatus) -> &'static str {
         (StageId::HypothesisSearch, StageBudgetStatus::OverBudget) => {
             "hypothesis_search:over-budget"
         }
+        (StageId::HypothesisSearch, StageBudgetStatus::Reserve) => "hypothesis_search:reserve",
         (StageId::HypothesisSearch, StageBudgetStatus::SkippedBudget) => {
             "hypothesis_search:skipped-budget"
         }
@@ -53,6 +56,7 @@ fn stage_label(stage: StageId, status: StageBudgetStatus) -> &'static str {
         (StageId::GeometryRefinement, StageBudgetStatus::OverBudget) => {
             "geometry_refinement:over-budget"
         }
+        (StageId::GeometryRefinement, StageBudgetStatus::Reserve) => "geometry_refinement:reserve",
         (StageId::GeometryRefinement, StageBudgetStatus::SkippedBudget) => {
             "geometry_refinement:skipped-budget"
         }
@@ -61,12 +65,14 @@ fn stage_label(stage: StageId, status: StageBudgetStatus) -> &'static str {
         }
         (StageId::DecodeEngine, StageBudgetStatus::Ok) => "decode_engine:ok",
         (StageId::DecodeEngine, StageBudgetStatus::OverBudget) => "decode_engine:over-budget",
+        (StageId::DecodeEngine, StageBudgetStatus::Reserve) => "decode_engine:reserve",
         (StageId::DecodeEngine, StageBudgetStatus::SkippedBudget) => "decode_engine:skipped-budget",
         (StageId::DecodeEngine, StageBudgetStatus::SkippedCutoff) => "decode_engine:skipped-cutoff",
         (StageId::MultiQrIteration, StageBudgetStatus::Ok) => "multi_qr_iteration:ok",
         (StageId::MultiQrIteration, StageBudgetStatus::OverBudget) => {
             "multi_qr_iteration:over-budget"
         }
+        (StageId::MultiQrIteration, StageBudgetStatus::Reserve) => "multi_qr_iteration:reserve",
         (StageId::MultiQrIteration, StageBudgetStatus::SkippedBudget) => {
             "multi_qr_iteration:skipped-budget"
         }
@@ -112,6 +118,8 @@ pub fn detect_with_config(
     let mut budget_exhausted = false;
     let mut emergency_cutoff_hit = false;
     let mut hypothesis_and_refinement_elapsed_ms = 0.0f64;
+    let mut decode_reserve_allowed = false;
+    let mut decode_executed_in_reserve_lane = false;
 
     if cutoff_reached(global_start, config) {
         emergency_cutoff_hit = true;
@@ -134,6 +142,7 @@ pub fn detect_with_config(
         let within_budget = stage_elapsed_ms <= config.proposal_ensemble_budget_ms as f64;
         if !within_budget {
             budget_exhausted = true;
+            decode_reserve_allowed = true;
         }
         timings.push(StageTiming::new(
             stage_label(
@@ -177,6 +186,7 @@ pub fn detect_with_config(
             <= config.hypothesis_and_refinement_budget_ms as f64;
         if !within_budget {
             budget_exhausted = true;
+            decode_reserve_allowed = true;
         }
         timings.push(StageTiming::new(
             stage_label(
@@ -229,6 +239,7 @@ pub fn detect_with_config(
             <= config.hypothesis_and_refinement_budget_ms as f64;
         if !within_budget {
             budget_exhausted = true;
+            decode_reserve_allowed = true;
         }
         timings.push(StageTiming::new(
             stage_label(
@@ -252,20 +263,34 @@ pub fn detect_with_config(
             stage_label(StageId::DecodeEngine, StageBudgetStatus::SkippedCutoff),
             0.0,
         ));
-    } else if budget_exhausted {
-        timings.push(StageTiming::new(
-            stage_label(StageId::DecodeEngine, StageBudgetStatus::SkippedBudget),
-            0.0,
-        ));
     } else if config.decode_budget_ms == 0 {
         budget_exhausted = true;
         timings.push(StageTiming::new(
             stage_label(StageId::DecodeEngine, StageBudgetStatus::SkippedBudget),
             0.0,
         ));
+    } else if budget_exhausted && decode_reserve_allowed {
+        let t3 = Instant::now();
+        decode_engine::run(image, &mut state, config);
+        let stage_elapsed_ms = elapsed_ms(t3);
+        decode_executed_in_reserve_lane = true;
+        timings.push(StageTiming::new(
+            stage_label(StageId::DecodeEngine, StageBudgetStatus::Reserve),
+            stage_elapsed_ms,
+        ));
+        if cutoff_reached(global_start, config) {
+            emergency_cutoff_hit = true;
+            budget_exhausted = false;
+            decode_executed_in_reserve_lane = false;
+        }
+    } else if budget_exhausted {
+        timings.push(StageTiming::new(
+            stage_label(StageId::DecodeEngine, StageBudgetStatus::SkippedBudget),
+            0.0,
+        ));
     } else {
         let t3 = Instant::now();
-        decode_engine::run(&mut state, config);
+        decode_engine::run(image, &mut state, config);
         let stage_elapsed_ms = elapsed_ms(t3);
         let within_budget = stage_elapsed_ms <= config.decode_budget_ms as f64;
         if !within_budget {
@@ -293,13 +318,27 @@ pub fn detect_with_config(
             stage_label(StageId::MultiQrIteration, StageBudgetStatus::SkippedCutoff),
             0.0,
         ));
-    } else if budget_exhausted {
+    } else if config.multi_qr_budget_ms == 0 {
+        budget_exhausted = true;
         timings.push(StageTiming::new(
             stage_label(StageId::MultiQrIteration, StageBudgetStatus::SkippedBudget),
             0.0,
         ));
-    } else if config.multi_qr_budget_ms == 0 {
-        budget_exhausted = true;
+    } else if budget_exhausted
+        && (decode_executed_in_reserve_lane || !state.decode_candidates.is_empty())
+    {
+        let t4 = Instant::now();
+        multi_qr_iteration::run(&mut state, config);
+        let stage_elapsed_ms = elapsed_ms(t4);
+        timings.push(StageTiming::new(
+            stage_label(StageId::MultiQrIteration, StageBudgetStatus::Reserve),
+            stage_elapsed_ms,
+        ));
+        if cutoff_reached(global_start, config) {
+            emergency_cutoff_hit = true;
+            budget_exhausted = false;
+        }
+    } else if budget_exhausted {
         timings.push(StageTiming::new(
             stage_label(StageId::MultiQrIteration, StageBudgetStatus::SkippedBudget),
             0.0,
@@ -329,14 +368,14 @@ pub fn detect_with_config(
         }
     }
 
-    let failure_signature = if emergency_cutoff_hit {
+    let failure_signature = if !state.accepted.is_empty() {
+        None
+    } else if emergency_cutoff_hit {
         Some("emergency-cutoff".to_string())
     } else if budget_exhausted {
         Some("over-budget".to_string())
-    } else if state.accepted.is_empty() {
-        Some("no-decode-yet".to_string())
     } else {
-        None
+        Some("no-decode-yet".to_string())
     };
 
     DetectionRunReport {

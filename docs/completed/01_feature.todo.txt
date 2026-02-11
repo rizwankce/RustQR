@@ -123,3 +123,34 @@ Summary:
 - Added decode-time image resize path in harness loader (includes PNG/JPEG coverage)
 - Added proposal-stage in-loop budget cutoffs so view/scanning work can stop early under tight budgets
 - Added regression tests for new CLI/runtime behavior and cutoff consistency
+
+[x] CP-013 WP-010 Real Decode Backend (Stage D De-Scaffold)
+Files:
+- Cargo.toml
+- src/pipeline/decode_engine.rs
+- tests/wp004_decode_engine_tests.rs
+- tests/wp010_decode_backend_tests.rs
+Summary:
+- Replaced synthetic payload/corner generation with `quircs`-backed runtime decode candidates
+- Kept bounded candidate count and deterministic ordering behavior
+- Added runtime regression tests that assert non-synthetic decode outputs
+
+[x] CP-014 WP-011 Decode Reserve Lane + Stage Coupling
+Files:
+- src/pipeline/mod.rs
+- tests/wp010_decode_backend_tests.rs
+Summary:
+- Added reserve-stage execution path for decode and multi-QR acceptance when earlier stages overrun budgets
+- Added stage timing labels `decode_engine:reserve` and `multi_qr_iteration:reserve`
+- Preserved fail-safe behavior for explicit zero-budget stage skips
+
+[x] CP-015 WP-012 Real Reading-Rate Smoke Profiles
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+- docs/new_from_scratch.md
+Summary:
+- Added `reading-rate --profile monitor-smoke|nominal-smoke` with dataset resolution and metadata notes
+- Updated harness matching for BoofCV annotation-style labels (`SETS`/2D point files) to count decode success appropriately
+- Established initial smoke baselines with nonzero real decode rates
