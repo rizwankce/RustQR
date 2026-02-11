@@ -92,6 +92,7 @@ fn parse_reading_rate_rejects_invalid_args() {
 fn reading_rate_usage_mentions_runtime_knobs() {
     let usage = tools::reading_rate_usage();
     assert!(usage.contains("--profile"));
+    assert!(usage.contains("boofcv-all"));
     assert!(usage.contains("payload-validated"));
     assert!(usage.contains("--max-working-dim"));
     assert!(usage.contains("--emergency-cutoff-ms"));
@@ -99,40 +100,58 @@ fn reading_rate_usage_mentions_runtime_knobs() {
 
 #[test]
 fn parse_reading_rate_profile_resolves_dataset_root() {
-    let monitor_args = vec![
+    let boofcv_all_args = vec![
+        "--profile".to_string(),
+        tools::BOOFCV_ALL_PROFILE.to_string(),
+    ];
+    let parsed_boofcv_all =
+        tools::parse_reading_rate_args(&boofcv_all_args).expect("boofcv-all profile should parse");
+    let tools::ReadingRateCommand::Run(parsed_boofcv_all) = parsed_boofcv_all else {
+        panic!("expected run command");
+    };
+    assert_eq!(
+        parsed_boofcv_all.profile,
+        Some(tools::ReadingRateProfile::BoofcvAll)
+    );
+    assert_eq!(
+        parsed_boofcv_all.dataset_root,
+        PathBuf::from("benches/images/boofcv")
+    );
+
+    let rotations_args = vec![
+        "--profile".to_string(),
+        tools::BOOFCV_ROTATIONS_PROFILE.to_string(),
+    ];
+    let parsed_rotations =
+        tools::parse_reading_rate_args(&rotations_args).expect("rotations profile should parse");
+    let tools::ReadingRateCommand::Run(parsed_rotations) = parsed_rotations else {
+        panic!("expected run command");
+    };
+    assert_eq!(
+        parsed_rotations.profile,
+        Some(tools::ReadingRateProfile::BoofcvRotations)
+    );
+    assert_eq!(
+        parsed_rotations.dataset_root,
+        PathBuf::from("benches/images/boofcv/rotations")
+    );
+
+    let monitor_alias_args = vec![
         "--profile".to_string(),
         tools::MONITOR_SMOKE_PROFILE.to_string(),
     ];
-    let parsed_monitor =
-        tools::parse_reading_rate_args(&monitor_args).expect("monitor profile should parse");
-    let tools::ReadingRateCommand::Run(parsed_monitor) = parsed_monitor else {
+    let parsed_monitor_alias = tools::parse_reading_rate_args(&monitor_alias_args)
+        .expect("legacy monitor alias profile should parse");
+    let tools::ReadingRateCommand::Run(parsed_monitor_alias) = parsed_monitor_alias else {
         panic!("expected run command");
     };
     assert_eq!(
-        parsed_monitor.profile,
+        parsed_monitor_alias.profile,
         Some(tools::ReadingRateProfile::MonitorSmoke)
     );
     assert_eq!(
-        parsed_monitor.dataset_root,
+        parsed_monitor_alias.dataset_root,
         PathBuf::from("benches/images/boofcv/monitor")
-    );
-
-    let nominal_args = vec![
-        "--profile".to_string(),
-        tools::NOMINAL_SMOKE_PROFILE.to_string(),
-    ];
-    let parsed_nominal =
-        tools::parse_reading_rate_args(&nominal_args).expect("nominal profile should parse");
-    let tools::ReadingRateCommand::Run(parsed_nominal) = parsed_nominal else {
-        panic!("expected run command");
-    };
-    assert_eq!(
-        parsed_nominal.profile,
-        Some(tools::ReadingRateProfile::NominalSmoke)
-    );
-    assert_eq!(
-        parsed_nominal.dataset_root,
-        PathBuf::from("benches/images/boofcv/nominal")
     );
 
     let payload_args = vec![
@@ -152,6 +171,19 @@ fn parse_reading_rate_profile_resolves_dataset_root() {
         parsed_payload.dataset_root,
         PathBuf::from("benches/images/custom/decoding")
     );
+}
+
+#[test]
+fn all_profiles_map_to_existing_roots() {
+    for profile in tools::ALL_READING_RATE_PROFILES {
+        let dataset_root = tools::reading_rate_profile_dataset_root(*profile);
+        assert!(
+            dataset_root.is_dir(),
+            "missing dataset root for profile {} at {}",
+            profile.as_str(),
+            dataset_root.display()
+        );
+    }
 }
 
 #[test]

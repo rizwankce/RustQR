@@ -237,3 +237,16 @@ Acceptance:
 - Thresholds are configurable without code edits
 Status:
 - Pending.
+
+[x] WP-019 Full ReadingRateProfile Coverage + All-Profiles Benchmark Dispatch
+Goal: Expose all BoofCV categories as first-class profiles and allow one-run full sweep.
+Deliverables:
+- Add profile mappings for all BoofCV categories and full dataset (`boofcv-all`)
+- Keep backward-compatible profile aliases (`monitor-smoke`, `nominal-smoke`)
+- Update benchmark workflow with `all-profiles` mode that runs every profile and uploads all artifacts
+Acceptance:
+- `reading-rate --profile boofcv-<category>` resolves each category dataset root
+- `Benchmark` workflow dispatch can run `all-profiles` without per-category manual reruns
+- Harness tests validate profile mapping for canonical + alias paths
+Status:
+- Completed on 2026-02-11 in `src/tools/mod.rs`, `tests/wp007_benchmark_harness_tests.rs`, `src/bin/qrtool.rs`, and `.github/workflows/benchmark.yml`.

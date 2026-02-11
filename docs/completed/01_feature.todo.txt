@@ -166,3 +166,15 @@ Summary:
 - Added `reading-rate --profile payload-validated` mapped to `benches/images/custom/decoding`
 - Exposed strict payload lane in benchmark workflow dispatch profile choices
 - Added harness coverage for payload profile parsing/mapping and strict-label assumptions
+
+[x] CP-017 WP-019 Full ReadingRateProfile Coverage + All-Profiles Dispatch
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+- .github/workflows/benchmark.yml
+- docs/new_from_scratch.md
+Summary:
+- Added first-class profiles for full BoofCV set (`boofcv-all` + `boofcv-<category>`) while preserving legacy monitor/nominal aliases
+- Added benchmark workflow `profile=all-profiles` mode to run every profile and upload a full artifact bundle
+- Expanded harness tests to validate canonical profile mapping and dataset-root existence coverage

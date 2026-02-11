@@ -14,6 +14,23 @@ pub const PAYLOAD_MISMATCH_SIGNATURE: &str = "payload-mismatch";
 pub const MONITOR_SMOKE_PROFILE: &str = "monitor-smoke";
 pub const NOMINAL_SMOKE_PROFILE: &str = "nominal-smoke";
 pub const PAYLOAD_VALIDATED_PROFILE: &str = "payload-validated";
+pub const BOOFCV_ALL_PROFILE: &str = "boofcv-all";
+pub const BOOFCV_BLURRED_PROFILE: &str = "boofcv-blurred";
+pub const BOOFCV_BRIGHTNESS_PROFILE: &str = "boofcv-brightness";
+pub const BOOFCV_BRIGHT_SPOTS_PROFILE: &str = "boofcv-bright-spots";
+pub const BOOFCV_CLOSE_PROFILE: &str = "boofcv-close";
+pub const BOOFCV_CURVED_PROFILE: &str = "boofcv-curved";
+pub const BOOFCV_DAMAGED_PROFILE: &str = "boofcv-damaged";
+pub const BOOFCV_GLARE_PROFILE: &str = "boofcv-glare";
+pub const BOOFCV_HIGH_VERSION_PROFILE: &str = "boofcv-high-version";
+pub const BOOFCV_LOTS_PROFILE: &str = "boofcv-lots";
+pub const BOOFCV_MONITOR_PROFILE: &str = "boofcv-monitor";
+pub const BOOFCV_NOMINAL_PROFILE: &str = "boofcv-nominal";
+pub const BOOFCV_NONCOMPLIANT_PROFILE: &str = "boofcv-noncompliant";
+pub const BOOFCV_PATHOLOGICAL_PROFILE: &str = "boofcv-pathological";
+pub const BOOFCV_PERSPECTIVE_PROFILE: &str = "boofcv-perspective";
+pub const BOOFCV_ROTATIONS_PROFILE: &str = "boofcv-rotations";
+pub const BOOFCV_SHADOWS_PROFILE: &str = "boofcv-shadows";
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp"];
 
@@ -25,6 +42,23 @@ pub enum ReadingRateCommand {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadingRateProfile {
+    BoofcvAll,
+    BoofcvBlurred,
+    BoofcvBrightness,
+    BoofcvBrightSpots,
+    BoofcvClose,
+    BoofcvCurved,
+    BoofcvDamaged,
+    BoofcvGlare,
+    BoofcvHighVersion,
+    BoofcvLots,
+    BoofcvMonitor,
+    BoofcvNominal,
+    BoofcvNoncompliant,
+    BoofcvPathological,
+    BoofcvPerspective,
+    BoofcvRotations,
+    BoofcvShadows,
     MonitorSmoke,
     NominalSmoke,
     PayloadValidated,
@@ -33,12 +67,52 @@ pub enum ReadingRateProfile {
 impl ReadingRateProfile {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::BoofcvAll => BOOFCV_ALL_PROFILE,
+            Self::BoofcvBlurred => BOOFCV_BLURRED_PROFILE,
+            Self::BoofcvBrightness => BOOFCV_BRIGHTNESS_PROFILE,
+            Self::BoofcvBrightSpots => BOOFCV_BRIGHT_SPOTS_PROFILE,
+            Self::BoofcvClose => BOOFCV_CLOSE_PROFILE,
+            Self::BoofcvCurved => BOOFCV_CURVED_PROFILE,
+            Self::BoofcvDamaged => BOOFCV_DAMAGED_PROFILE,
+            Self::BoofcvGlare => BOOFCV_GLARE_PROFILE,
+            Self::BoofcvHighVersion => BOOFCV_HIGH_VERSION_PROFILE,
+            Self::BoofcvLots => BOOFCV_LOTS_PROFILE,
+            Self::BoofcvMonitor => BOOFCV_MONITOR_PROFILE,
+            Self::BoofcvNominal => BOOFCV_NOMINAL_PROFILE,
+            Self::BoofcvNoncompliant => BOOFCV_NONCOMPLIANT_PROFILE,
+            Self::BoofcvPathological => BOOFCV_PATHOLOGICAL_PROFILE,
+            Self::BoofcvPerspective => BOOFCV_PERSPECTIVE_PROFILE,
+            Self::BoofcvRotations => BOOFCV_ROTATIONS_PROFILE,
+            Self::BoofcvShadows => BOOFCV_SHADOWS_PROFILE,
             Self::MonitorSmoke => MONITOR_SMOKE_PROFILE,
             Self::NominalSmoke => NOMINAL_SMOKE_PROFILE,
             Self::PayloadValidated => PAYLOAD_VALIDATED_PROFILE,
         }
     }
 }
+
+#[cfg(test)]
+#[allow(dead_code)] // Referenced by integration harness tests via #[path]-included module.
+pub const ALL_READING_RATE_PROFILES: &[ReadingRateProfile] = &[
+    ReadingRateProfile::BoofcvAll,
+    ReadingRateProfile::BoofcvBlurred,
+    ReadingRateProfile::BoofcvBrightness,
+    ReadingRateProfile::BoofcvBrightSpots,
+    ReadingRateProfile::BoofcvClose,
+    ReadingRateProfile::BoofcvCurved,
+    ReadingRateProfile::BoofcvDamaged,
+    ReadingRateProfile::BoofcvGlare,
+    ReadingRateProfile::BoofcvHighVersion,
+    ReadingRateProfile::BoofcvLots,
+    ReadingRateProfile::BoofcvMonitor,
+    ReadingRateProfile::BoofcvNominal,
+    ReadingRateProfile::BoofcvNoncompliant,
+    ReadingRateProfile::BoofcvPathological,
+    ReadingRateProfile::BoofcvPerspective,
+    ReadingRateProfile::BoofcvRotations,
+    ReadingRateProfile::BoofcvShadows,
+    ReadingRateProfile::PayloadValidated,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadingRateArgs {
@@ -121,17 +195,61 @@ pub struct ReadingRateReport {
 
 pub fn parse_reading_rate_profile(raw: &str) -> Result<ReadingRateProfile, String> {
     match raw {
+        BOOFCV_ALL_PROFILE => Ok(ReadingRateProfile::BoofcvAll),
+        BOOFCV_BLURRED_PROFILE => Ok(ReadingRateProfile::BoofcvBlurred),
+        BOOFCV_BRIGHTNESS_PROFILE => Ok(ReadingRateProfile::BoofcvBrightness),
+        BOOFCV_BRIGHT_SPOTS_PROFILE => Ok(ReadingRateProfile::BoofcvBrightSpots),
+        BOOFCV_CLOSE_PROFILE => Ok(ReadingRateProfile::BoofcvClose),
+        BOOFCV_CURVED_PROFILE => Ok(ReadingRateProfile::BoofcvCurved),
+        BOOFCV_DAMAGED_PROFILE => Ok(ReadingRateProfile::BoofcvDamaged),
+        BOOFCV_GLARE_PROFILE => Ok(ReadingRateProfile::BoofcvGlare),
+        BOOFCV_HIGH_VERSION_PROFILE => Ok(ReadingRateProfile::BoofcvHighVersion),
+        BOOFCV_LOTS_PROFILE => Ok(ReadingRateProfile::BoofcvLots),
+        BOOFCV_MONITOR_PROFILE => Ok(ReadingRateProfile::BoofcvMonitor),
+        BOOFCV_NOMINAL_PROFILE => Ok(ReadingRateProfile::BoofcvNominal),
+        BOOFCV_NONCOMPLIANT_PROFILE => Ok(ReadingRateProfile::BoofcvNoncompliant),
+        BOOFCV_PATHOLOGICAL_PROFILE => Ok(ReadingRateProfile::BoofcvPathological),
+        BOOFCV_PERSPECTIVE_PROFILE => Ok(ReadingRateProfile::BoofcvPerspective),
+        BOOFCV_ROTATIONS_PROFILE => Ok(ReadingRateProfile::BoofcvRotations),
+        BOOFCV_SHADOWS_PROFILE => Ok(ReadingRateProfile::BoofcvShadows),
+        // Backward compatible aliases.
         MONITOR_SMOKE_PROFILE => Ok(ReadingRateProfile::MonitorSmoke),
         NOMINAL_SMOKE_PROFILE => Ok(ReadingRateProfile::NominalSmoke),
         PAYLOAD_VALIDATED_PROFILE => Ok(ReadingRateProfile::PayloadValidated),
         _ => Err(format!(
-            "unknown --profile value: {raw}; expected one of: {MONITOR_SMOKE_PROFILE}, {NOMINAL_SMOKE_PROFILE}, {PAYLOAD_VALIDATED_PROFILE}"
+            "unknown --profile value: {raw}; use a supported profile such as {BOOFCV_ALL_PROFILE}, {BOOFCV_ROTATIONS_PROFILE}, or {PAYLOAD_VALIDATED_PROFILE}"
         )),
     }
 }
 
 pub fn reading_rate_profile_dataset_root(profile: ReadingRateProfile) -> PathBuf {
     match profile {
+        ReadingRateProfile::BoofcvAll => PathBuf::from("benches/images/boofcv"),
+        ReadingRateProfile::BoofcvBlurred => PathBuf::from("benches/images/boofcv/blurred"),
+        ReadingRateProfile::BoofcvBrightness => PathBuf::from("benches/images/boofcv/brightness"),
+        ReadingRateProfile::BoofcvBrightSpots => {
+            PathBuf::from("benches/images/boofcv/bright_spots")
+        }
+        ReadingRateProfile::BoofcvClose => PathBuf::from("benches/images/boofcv/close"),
+        ReadingRateProfile::BoofcvCurved => PathBuf::from("benches/images/boofcv/curved"),
+        ReadingRateProfile::BoofcvDamaged => PathBuf::from("benches/images/boofcv/damaged"),
+        ReadingRateProfile::BoofcvGlare => PathBuf::from("benches/images/boofcv/glare"),
+        ReadingRateProfile::BoofcvHighVersion => {
+            PathBuf::from("benches/images/boofcv/high_version")
+        }
+        ReadingRateProfile::BoofcvLots => PathBuf::from("benches/images/boofcv/lots"),
+        ReadingRateProfile::BoofcvMonitor => PathBuf::from("benches/images/boofcv/monitor"),
+        ReadingRateProfile::BoofcvNominal => PathBuf::from("benches/images/boofcv/nominal"),
+        ReadingRateProfile::BoofcvNoncompliant => {
+            PathBuf::from("benches/images/boofcv/noncompliant")
+        }
+        ReadingRateProfile::BoofcvPathological => {
+            PathBuf::from("benches/images/boofcv/pathological")
+        }
+        ReadingRateProfile::BoofcvPerspective => PathBuf::from("benches/images/boofcv/perspective"),
+        ReadingRateProfile::BoofcvRotations => PathBuf::from("benches/images/boofcv/rotations"),
+        ReadingRateProfile::BoofcvShadows => PathBuf::from("benches/images/boofcv/shadows"),
+        // Backward compatible aliases.
         ReadingRateProfile::MonitorSmoke => PathBuf::from("benches/images/boofcv/monitor"),
         ReadingRateProfile::NominalSmoke => PathBuf::from("benches/images/boofcv/nominal"),
         ReadingRateProfile::PayloadValidated => PathBuf::from("benches/images/custom/decoding"),
@@ -223,7 +341,7 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
 }
 
 pub fn reading_rate_usage() -> &'static str {
-    "usage: qrtool reading-rate [--profile monitor-smoke|nominal-smoke|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+    "usage: qrtool reading-rate [--profile boofcv-all|boofcv-<category>|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
 }
 
 pub fn discover_label_cases(

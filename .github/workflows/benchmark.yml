@@ -4,13 +4,29 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: "Smoke profile to run when dataset_root is empty"
+        description: "Profile to run when dataset_root is empty (`all-profiles` runs everything)"
         required: false
         type: choice
-        default: monitor-smoke
+        default: all-profiles
         options:
-          - monitor-smoke
-          - nominal-smoke
+          - all-profiles
+          - boofcv-all
+          - boofcv-blurred
+          - boofcv-brightness
+          - boofcv-bright-spots
+          - boofcv-close
+          - boofcv-curved
+          - boofcv-damaged
+          - boofcv-glare
+          - boofcv-high-version
+          - boofcv-lots
+          - boofcv-monitor
+          - boofcv-nominal
+          - boofcv-noncompliant
+          - boofcv-pathological
+          - boofcv-perspective
+          - boofcv-rotations
+          - boofcv-shadows
           - payload-validated
       dataset_root:
         description: "Optional dataset root override path"
@@ -44,7 +60,7 @@ permissions:
 jobs:
   reading_rate:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,33 +72,81 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run reading-rate benchmark
+        id: run_benchmark
         shell: bash
         run: |
           set -euo pipefail
 
-          artifact_path="${{ github.event.inputs.artifact_path }}"
-          mkdir -p "$(dirname "$artifact_path")"
+          profile_input="${{ github.event.inputs.profile }}"
+          dataset_root_input="${{ github.event.inputs.dataset_root }}"
+          artifact_path_input="${{ github.event.inputs.artifact_path }}"
+          limit_input="${{ github.event.inputs.limit }}"
+          max_working_dim_input="${{ github.event.inputs.max_working_dim }}"
+          emergency_cutoff_ms_input="${{ github.event.inputs.emergency_cutoff_ms }}"
 
-          args=(reading-rate --artifact "$artifact_path")
-          if [[ -n "${{ github.event.inputs.dataset_root }}" ]]; then
-            args+=(--dataset-root "${{ github.event.inputs.dataset_root }}")
+          run_one() {
+            local artifact_path="$1"
+            shift
+            local args=(reading-rate --artifact "$artifact_path" "$@")
+            if [[ "$limit_input" != "0" ]]; then
+              args+=(--limit "$limit_input")
+            fi
+            args+=(--max-working-dim "$max_working_dim_input")
+            args+=(--emergency-cutoff-ms "$emergency_cutoff_ms_input")
+
+            mkdir -p "$(dirname "$artifact_path")"
+            echo "Running: cargo run --locked --bin qrtool -- ${args[*]}"
+            cargo run --locked --bin qrtool -- "${args[@]}"
+          }
+
+          if [[ -n "$dataset_root_input" ]]; then
+            run_one "$artifact_path_input" --dataset-root "$dataset_root_input"
+            artifact_upload_path="$artifact_path_input"
+          elif [[ "$profile_input" == "all-profiles" ]]; then
+            artifact_dir="$artifact_path_input"
+            if [[ "$artifact_dir" == *.json ]]; then
+              artifact_dir="$(dirname "$artifact_dir")"
+            fi
+            if [[ -z "$artifact_dir" || "$artifact_dir" == "." ]]; then
+              artifact_dir="benchmark/all_profiles"
+            fi
+            mkdir -p "$artifact_dir"
+
+            profiles=(
+              boofcv-all
+              boofcv-blurred
+              boofcv-brightness
+              boofcv-bright-spots
+              boofcv-close
+              boofcv-curved
+              boofcv-damaged
+              boofcv-glare
+              boofcv-high-version
+              boofcv-lots
+              boofcv-monitor
+              boofcv-nominal
+              boofcv-noncompliant
+              boofcv-pathological
+              boofcv-perspective
+              boofcv-rotations
+              boofcv-shadows
+              payload-validated
+            )
+
+            for profile in "${profiles[@]}"; do
+              run_one "$artifact_dir/reading_rate_${profile}.json" --profile "$profile"
+            done
+            artifact_upload_path="$artifact_dir"
           else
-            args+=(--profile "${{ github.event.inputs.profile }}")
+            run_one "$artifact_path_input" --profile "$profile_input"
+            artifact_upload_path="$artifact_path_input"
           fi
 
-          if [[ "${{ github.event.inputs.limit }}" != "0" ]]; then
-            args+=(--limit "${{ github.event.inputs.limit }}")
-          fi
-
-          args+=(--max-working-dim "${{ github.event.inputs.max_working_dim }}")
-          args+=(--emergency-cutoff-ms "${{ github.event.inputs.emergency_cutoff_ms }}")
-
-          echo "Running: cargo run --locked --bin qrtool -- ${args[*]}"
-          cargo run --locked --bin qrtool -- "${args[@]}"
+          echo "artifact_upload_path=$artifact_upload_path" >> "$GITHUB_OUTPUT"
 
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
           name: reading-rate-${{ github.run_id }}
-          path: ${{ github.event.inputs.artifact_path }}
+          path: ${{ steps.run_benchmark.outputs.artifact_upload_path }}
           if-no-files-found: error
