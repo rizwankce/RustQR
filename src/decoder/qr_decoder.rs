@@ -244,41 +244,12 @@ impl QrDecoder {
                     DECODE_COUNTERS.with(|c| c.borrow_mut().hv_subpixel_attempts += 1);
                 }
 
-                // Only jitter if timing patterns don't validate (not on decode failure)
-                let timing_valid = orientation::validate_timing_patterns(&qr_matrix);
-                if !timing_valid {
-                    if allow_heavy_recovery && !budget_exhausted() {
-                        let jitter_offsets: [(f32, f32); 4] =
-                            [(0.25, 0.0), (-0.25, 0.0), (0.0, 0.25), (0.0, -0.25)];
-                        for &(jx, jy) in &jitter_offsets {
-                            if budget_exhausted() {
-                                break;
-                            }
-                            let jittered_transform =
-                                transform.translated(jx * module_size, jy * module_size);
-                            let (jit_matrix, jit_conf) =
-                                Self::extract_qr_region_gray_with_transform_and_confidence(
-                                    gray,
-                                    width,
-                                    height,
-                                    &jittered_transform,
-                                    dimension,
-                                );
-                            if !orientation::validate_timing_patterns(&jit_matrix) {
-                                continue;
-                            }
-                            if let Some(qr) = Self::decode_from_matrix_with_confidence(
-                                &jit_matrix,
-                                version_num,
-                                &jit_conf,
-                            ) {
-                                return Some(qr);
-                            }
-                        }
-                    }
+                // Stage 1: Skip transforms with invalid timing patterns
+                if !orientation::validate_timing_patterns(&qr_matrix) {
                     continue;
                 }
 
+                // Stage 2: Try decode without jitter (normal path)
                 if let Some(qr) = Self::decode_from_matrix_with_confidence(
                     &qr_matrix,
                     version_num,
@@ -287,6 +258,7 @@ impl QrDecoder {
                     return Some(qr);
                 }
 
+                // Stage 3: Try inverted matrix
                 let inverted = orientation::invert_matrix(&qr_matrix);
                 if let Some(qr) = Self::decode_from_matrix_with_confidence(
                     &inverted,
@@ -294,6 +266,37 @@ impl QrDecoder {
                     &module_confidence,
                 ) {
                     return Some(qr);
+                }
+
+                // Stage 4: Jitter as fallback when timing is valid but decode failed
+                if allow_heavy_recovery && !budget_exhausted() {
+                    let jitter_offsets: [(f32, f32); 4] =
+                        [(0.25, 0.0), (-0.25, 0.0), (0.0, 0.25), (0.0, -0.25)];
+                    for &(jx, jy) in &jitter_offsets {
+                        if budget_exhausted() {
+                            break;
+                        }
+                        let jittered_transform =
+                            transform.translated(jx * module_size, jy * module_size);
+                        let (jit_matrix, jit_conf) =
+                            Self::extract_qr_region_gray_with_transform_and_confidence(
+                                gray,
+                                width,
+                                height,
+                                &jittered_transform,
+                                dimension,
+                            );
+                        if !orientation::validate_timing_patterns(&jit_matrix) {
+                            continue;
+                        }
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                            &jit_matrix,
+                            version_num,
+                            &jit_conf,
+                        ) {
+                            return Some(qr);
+                        }
+                    }
                 }
 
                 let _should_scale_retry = module_size <= 2.4 || version_num >= 7 || dimension >= 85;
