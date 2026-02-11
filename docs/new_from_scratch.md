@@ -40,17 +40,23 @@
 - Done: `WP-010` (real decode backend via `quircs`, no synthetic payload runtime path)
 - Done: `WP-011` (decode + multi reserve lanes under stage over-budget)
 - Done: `WP-012` (reading-rate smoke profiles for monitor/nominal)
+- Done: `WP-013` (strict payload-validated benchmark lane)
 
 Current harness supports benchmark reporting via:
 - `cargo run --bin qrtool -- reading-rate --limit N --artifact <path>`
 - `cargo run --bin qrtool -- reading-rate --profile monitor-smoke --artifact <path>`
 - `cargo run --bin qrtool -- reading-rate --profile nominal-smoke --limit N --artifact <path>`
+- `cargo run --bin qrtool -- reading-rate --profile payload-validated --artifact <path>`
 - It runs real `pipeline::detect_with_config` evaluation per image and writes schema `wp007-reading-rate-v1`.
 - Runtime knobs: `--max-working-dim N`, `--emergency-cutoff-ms N`.
+- Label semantics:
+- `boofcv/*` uses annotation labels (any decode counts as matched).
+- `custom/decoding` uses strict expected payload labels (exact payload match required).
 
 Current sample smoke baselines (2026-02-11):
 - `monitor-smoke`: rate `1.0000` (17/17), median `3905.864 ms`
 - `nominal-smoke --limit 20`: rate `0.5000` (10/20), median `667.834 ms`
+- `payload-validated`: rate `1.0000` (26/26), median `149.876 ms`
 
 ## Proposed Architecture
 

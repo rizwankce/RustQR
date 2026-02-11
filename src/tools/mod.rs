@@ -13,6 +13,7 @@ pub const IMAGE_LOAD_FAILURE_SIGNATURE: &str = "image-load-fail";
 pub const PAYLOAD_MISMATCH_SIGNATURE: &str = "payload-mismatch";
 pub const MONITOR_SMOKE_PROFILE: &str = "monitor-smoke";
 pub const NOMINAL_SMOKE_PROFILE: &str = "nominal-smoke";
+pub const PAYLOAD_VALIDATED_PROFILE: &str = "payload-validated";
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp"];
 
@@ -26,6 +27,7 @@ pub enum ReadingRateCommand {
 pub enum ReadingRateProfile {
     MonitorSmoke,
     NominalSmoke,
+    PayloadValidated,
 }
 
 impl ReadingRateProfile {
@@ -33,6 +35,7 @@ impl ReadingRateProfile {
         match self {
             Self::MonitorSmoke => MONITOR_SMOKE_PROFILE,
             Self::NominalSmoke => NOMINAL_SMOKE_PROFILE,
+            Self::PayloadValidated => PAYLOAD_VALIDATED_PROFILE,
         }
     }
 }
@@ -120,8 +123,9 @@ pub fn parse_reading_rate_profile(raw: &str) -> Result<ReadingRateProfile, Strin
     match raw {
         MONITOR_SMOKE_PROFILE => Ok(ReadingRateProfile::MonitorSmoke),
         NOMINAL_SMOKE_PROFILE => Ok(ReadingRateProfile::NominalSmoke),
+        PAYLOAD_VALIDATED_PROFILE => Ok(ReadingRateProfile::PayloadValidated),
         _ => Err(format!(
-            "unknown --profile value: {raw}; expected one of: {MONITOR_SMOKE_PROFILE}, {NOMINAL_SMOKE_PROFILE}"
+            "unknown --profile value: {raw}; expected one of: {MONITOR_SMOKE_PROFILE}, {NOMINAL_SMOKE_PROFILE}, {PAYLOAD_VALIDATED_PROFILE}"
         )),
     }
 }
@@ -130,6 +134,7 @@ pub fn reading_rate_profile_dataset_root(profile: ReadingRateProfile) -> PathBuf
     match profile {
         ReadingRateProfile::MonitorSmoke => PathBuf::from("benches/images/boofcv/monitor"),
         ReadingRateProfile::NominalSmoke => PathBuf::from("benches/images/boofcv/nominal"),
+        ReadingRateProfile::PayloadValidated => PathBuf::from("benches/images/custom/decoding"),
     }
 }
 
@@ -218,7 +223,7 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
 }
 
 pub fn reading_rate_usage() -> &'static str {
-    "usage: qrtool reading-rate [--profile monitor-smoke|nominal-smoke] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+    "usage: qrtool reading-rate [--profile monitor-smoke|nominal-smoke|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
 }
 
 pub fn discover_label_cases(
@@ -476,7 +481,7 @@ pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateRe
 
     let mut notes = vec![
         "reading-rate mode: real image decode + payload match evaluation".to_string(),
-        "decode core is still scaffold quality; benchmark rate is expected to be low until real decoder lands".to_string(),
+        "pipeline rebuild is in progress; compare strict payload and BoofCV annotation lanes separately".to_string(),
     ];
     if let Some(profile) = args.profile {
         notes.push(format!(

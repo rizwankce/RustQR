@@ -159,3 +159,16 @@ Status:
 - Current sample baselines:
 - `monitor-smoke`: 17/17 matched (1.0000), median 3905.864 ms.
 - `nominal-smoke --limit 20`: 10/20 matched (0.5000), median 667.834 ms.
+
+[x] WP-013 Payload-Validated Strict Benchmark Lane
+Goal: Track strict payload correctness separately from annotation-based any-decode success.
+Deliverables:
+- Add `reading-rate --profile payload-validated`
+- Resolve dataset root to true-payload labels (`benches/images/custom/decoding`)
+- Cover profile parse/usage and strict-label assumptions with harness tests
+Acceptance:
+- Strict payload profile resolves and runs via CLI/workflow without custom flags
+- Test coverage verifies profile mapping and non-annotation label assumptions
+Status:
+- Completed on 2026-02-11 in `src/tools/mod.rs`, `src/bin/qrtool.rs`, `.github/workflows/benchmark.yml`, and `tests/wp007_benchmark_harness_tests.rs`.
+- Sample baseline (`2026-02-11`): `payload-validated` 26/26 matched (1.0000), median 149.876 ms.

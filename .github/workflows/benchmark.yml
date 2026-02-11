@@ -11,6 +11,7 @@ on:
         options:
           - monitor-smoke
           - nominal-smoke
+          - payload-validated
       dataset_root:
         description: "Optional dataset root override path"
         required: false

@@ -92,6 +92,7 @@ fn parse_reading_rate_rejects_invalid_args() {
 fn reading_rate_usage_mentions_runtime_knobs() {
     let usage = tools::reading_rate_usage();
     assert!(usage.contains("--profile"));
+    assert!(usage.contains("payload-validated"));
     assert!(usage.contains("--max-working-dim"));
     assert!(usage.contains("--emergency-cutoff-ms"));
 }
@@ -132,6 +133,24 @@ fn parse_reading_rate_profile_resolves_dataset_root() {
     assert_eq!(
         parsed_nominal.dataset_root,
         PathBuf::from("benches/images/boofcv/nominal")
+    );
+
+    let payload_args = vec![
+        "--profile".to_string(),
+        tools::PAYLOAD_VALIDATED_PROFILE.to_string(),
+    ];
+    let parsed_payload =
+        tools::parse_reading_rate_args(&payload_args).expect("payload profile should parse");
+    let tools::ReadingRateCommand::Run(parsed_payload) = parsed_payload else {
+        panic!("expected run command");
+    };
+    assert_eq!(
+        parsed_payload.profile,
+        Some(tools::ReadingRateProfile::PayloadValidated)
+    );
+    assert_eq!(
+        parsed_payload.dataset_root,
+        PathBuf::from("benches/images/custom/decoding")
     );
 }
 
@@ -401,6 +420,30 @@ fn reading_rate_report_includes_profile_metadata_note() {
     assert!(report.notes.iter().any(|note| {
         note.contains("profile=monitor-smoke")
             && note.contains(&format!("resolved_dataset_root={}", temp.display()))
+    }));
+}
+
+#[test]
+fn payload_validated_profile_has_strict_labels() {
+    let root =
+        tools::reading_rate_profile_dataset_root(tools::ReadingRateProfile::PayloadValidated);
+    let cases = tools::discover_label_cases(&root, Some(8)).expect("discover payload cases");
+    assert!(!cases.is_empty());
+    assert!(
+        cases
+            .iter()
+            .all(|case| !case.expected_payload.trim().is_empty())
+    );
+    assert!(
+        cases
+            .iter()
+            .all(|case| !case.expected_payload.contains("hand selected 2D points"))
+    );
+    assert!(cases.iter().all(|case| {
+        !case
+            .expected_payload
+            .lines()
+            .any(|line| line.trim() == "SETS")
     }));
 }
 
