@@ -29,3 +29,16 @@ Files:
 Summary:
 - Created compile-ready baseline crate with stage-wired pipeline skeleton
 - Added deterministic smoke tests and minimal CLI entrypoint
+
+[x] CP-004 Semantic Pipeline Naming Applied
+Files:
+- src/pipeline/proposal_ensemble.rs
+- src/pipeline/hypothesis_search.rs
+- src/pipeline/geometry_refinement.rs
+- src/pipeline/decode_engine.rs
+- src/pipeline/multi_qr_iteration.rs
+- src/telemetry.rs
+- src/config.rs
+Summary:
+- Replaced temporary `stage_a..stage_e` naming with semantic module names
+- Updated telemetry/report fields and tests to match semantic naming

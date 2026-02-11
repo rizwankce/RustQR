@@ -1,9 +1,9 @@
 #[derive(Debug, Clone)]
 pub struct DetectConfig {
-    pub stage_a_budget_ms: u64,
-    pub stage_bc_budget_ms: u64,
-    pub stage_d_budget_ms: u64,
-    pub stage_e_budget_ms: u64,
+    pub proposal_ensemble_budget_ms: u64,
+    pub hypothesis_and_refinement_budget_ms: u64,
+    pub decode_budget_ms: u64,
+    pub multi_qr_budget_ms: u64,
     pub emergency_cutoff_ms: u64,
     pub max_proposals: usize,
     pub max_hypotheses: usize,
@@ -16,10 +16,10 @@ pub struct DetectConfig {
 impl Default for DetectConfig {
     fn default() -> Self {
         Self {
-            stage_a_budget_ms: 120,
-            stage_bc_budget_ms: 320,
-            stage_d_budget_ms: 420,
-            stage_e_budget_ms: 120,
+            proposal_ensemble_budget_ms: 120,
+            hypothesis_and_refinement_budget_ms: 320,
+            decode_budget_ms: 420,
+            multi_qr_budget_ms: 120,
             emergency_cutoff_ms: 1200,
             max_proposals: 256,
             max_hypotheses: 64,

@@ -28,7 +28,15 @@
 
 ## Proposed Architecture
 
-## Stage A: Preprocess + Proposal Ensemble (fast, parallel)
+Canonical implementation naming (source-of-truth):
+
+- Stage A -> `proposal_ensemble`
+- Stage B -> `hypothesis_search`
+- Stage C -> `geometry_refinement`
+- Stage D -> `decode_engine`
+- Stage E -> `multi_qr_iteration`
+
+## Proposal Ensemble (Stage A, `proposal_ensemble`)
 
 - Build 3-4 binary views in parallel:
   - Otsu/global
@@ -40,7 +48,7 @@
 
 **Why:** maximize recall early with bounded extra cost.
 
-## Stage B: Graph-Based Candidate Search (replace O(n^3) triplets)
+## Hypothesis Search (Stage B, `hypothesis_search`)
 
 - Build a finder graph:
   - Nodes: finder candidates
@@ -55,7 +63,7 @@
 
 **Why:** removes early order bias and combinatorial explosion.
 
-## Stage C: Geometry Refinement Loop (critical)
+## Geometry Refinement (Stage C, `geometry_refinement`)
 
 - For each hypothesis:
   - Initialize homography
@@ -66,7 +74,7 @@
 
 **Why:** directly attacks current dominant `format-fail`.
 
-## Stage D: Robust Decode (multi-hypothesis but bounded)
+## Decode Engine (Stage D, `decode_engine`)
 
 - For each refined grid:
   - Sample with subpixel interpolation
@@ -77,7 +85,7 @@
 
 **Why:** high-version and distorted cases need robust, confidence-aware decode.
 
-## Stage E: Multi-QR Iterative Scene Decode (`lots` unlock)
+## Multi-QR Iteration (Stage E, `multi_qr_iteration`)
 
 - Decode strongest QR first.
 - Mask/discount its region and nearby proposals.
@@ -88,9 +96,10 @@
 ## Runtime Controller (to hit <=1s median)
 
 - Replace one global hard deadline with staged budgets:
-  - Stage A budget
-  - Stage B+C budget
-  - Stage D budget
+  - `proposal_ensemble` budget
+  - `hypothesis_search` + `geometry_refinement` budget
+  - `decode_engine` budget
+  - `multi_qr_iteration` budget
   - Reserve budget for one last high-value retry lane
 - Early accept for high confidence decodes.
 - Early stop when marginal utility is low.
@@ -173,4 +182,3 @@ Mitigations:
 ---
 
 This plan intentionally prioritizes architecture changes over incremental tuning because the current bottleneck is structural, not parameter-level.
-

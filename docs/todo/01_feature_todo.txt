@@ -7,7 +7,7 @@ Legend:
 - [~] IN PROGRESS
 - [x] DONE
 
-[ ] WP-001 Stage-A Proposal Ensemble
+[x] WP-001 Stage-A Proposal Ensemble
 Goal: Build parallel preprocessing + proposal generation (otsu/adaptive/sauvola/glare-aware).
 Deliverables:
 - Proposal generator interface + scoring normalization
@@ -16,6 +16,8 @@ Deliverables:
 Acceptance:
 - No regressions in input validation
 - Stage A runtime budget compliance telemetry
+Status:
+- Completed on 2026-02-11 in scaffold implementation (`src/pipeline/proposal_ensemble.rs` + telemetry/tests).
 
 [ ] WP-002 Finder Graph + Bounded Hypothesis Search
 Goal: Replace O(n^3) triplets with graph-based bounded search.
@@ -86,3 +88,15 @@ Deliverables:
 Acceptance:
 - Median <=1000ms on benchmark platform profile
 - No accuracy regression on primary categories
+
+[x] WP-009 Pipeline Naming Refactor (Stage Labels -> Semantic Modules)
+Goal: Replace temporary stage-based module names with stable semantic names.
+Deliverables:
+- Rename stage modules/files to semantic names
+- Rename telemetry fields and report structures accordingly
+- Update docs to keep source-of-truth terminology aligned
+Acceptance:
+- No remaining `stage_a`..`stage_e` module references in runtime code
+- Tests updated and passing
+Status:
+- Completed on 2026-02-11 (`proposal_ensemble`, `hypothesis_search`, `geometry_refinement`, `decode_engine`, `multi_qr_iteration`).

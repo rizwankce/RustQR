@@ -24,7 +24,30 @@ impl QrCode {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Proposal {
     pub id: usize,
+    pub view: ProposalView,
+    pub x: usize,
+    pub y: usize,
     pub score: f32,
+    pub raw_score: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ProposalView {
+    Otsu,
+    Adaptive,
+    Sauvola,
+    GlareSuppressed,
+}
+
+impl ProposalView {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Otsu => "otsu",
+            Self::Adaptive => "adaptive",
+            Self::Sauvola => "sauvola",
+            Self::GlareSuppressed => "glare_suppressed",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

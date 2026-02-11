@@ -1,14 +1,14 @@
-mod stage_a;
-mod stage_b;
-mod stage_c;
-mod stage_d;
-mod stage_e;
+mod decode_engine;
+mod geometry_refinement;
+mod hypothesis_search;
+mod multi_qr_iteration;
+mod proposal_ensemble;
 mod state;
 
 use std::time::Instant;
 
 use crate::config::DetectConfig;
-use crate::telemetry::{DetectionRunReport, StageCounters, StageTiming};
+use crate::telemetry::{DetectionRunReport, ProposalEnsembleReport, StageCounters, StageTiming};
 
 pub fn detect_with_config(
     image: &[u8],
@@ -24,6 +24,9 @@ pub fn detect_with_config(
             codes: Vec::new(),
             stage_timings: timings,
             counters: StageCounters::zero(),
+            proposal_ensemble: ProposalEnsembleReport::empty_with_budget(
+                config.proposal_ensemble_budget_ms,
+            ),
             failure_signature: Some("invalid-input".to_string()),
             total_elapsed_ms: global_start.elapsed().as_secs_f64() * 1_000.0,
         };
@@ -32,37 +35,37 @@ pub fn detect_with_config(
     let mut state = state::PipelineState::new(width, height);
 
     let t0 = Instant::now();
-    stage_a::run(image, &mut state, config);
+    let proposal_ensemble_report = proposal_ensemble::run(image, &mut state, config);
     timings.push(StageTiming::new(
-        "stage_a_preprocess_and_proposal",
+        "proposal_ensemble",
         t0.elapsed().as_secs_f64() * 1_000.0,
     ));
 
     let t1 = Instant::now();
-    stage_b::run(&mut state, config);
+    hypothesis_search::run(&mut state, config);
     timings.push(StageTiming::new(
-        "stage_b_graph_search",
+        "hypothesis_search",
         t1.elapsed().as_secs_f64() * 1_000.0,
     ));
 
     let t2 = Instant::now();
-    stage_c::run(&mut state, config);
+    geometry_refinement::run(&mut state, config);
     timings.push(StageTiming::new(
-        "stage_c_geometry_refinement",
+        "geometry_refinement",
         t2.elapsed().as_secs_f64() * 1_000.0,
     ));
 
     let t3 = Instant::now();
-    stage_d::run(&mut state, config);
+    decode_engine::run(&mut state, config);
     timings.push(StageTiming::new(
-        "stage_d_decode",
+        "decode_engine",
         t3.elapsed().as_secs_f64() * 1_000.0,
     ));
 
     let t4 = Instant::now();
-    stage_e::run(&mut state, config);
+    multi_qr_iteration::run(&mut state, config);
     timings.push(StageTiming::new(
-        "stage_e_multi_qr_iteration",
+        "multi_qr_iteration",
         t4.elapsed().as_secs_f64() * 1_000.0,
     ));
 
@@ -82,6 +85,7 @@ pub fn detect_with_config(
             decode_candidates: state.decode_candidates.len(),
             accepted: state.accepted_count,
         },
+        proposal_ensemble: proposal_ensemble_report,
         failure_signature,
         total_elapsed_ms: global_start.elapsed().as_secs_f64() * 1_000.0,
     }

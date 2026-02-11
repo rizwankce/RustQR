@@ -6,7 +6,11 @@ fn main() {
         Some("smoke") => {
             let image = vec![0u8; 3 * 4 * 4];
             let report = detect_with_report(&image, 4, 4);
-            println!("codes={} failure={:?}", report.codes.len(), report.failure_signature);
+            println!(
+                "codes={} failure={:?}",
+                report.codes.len(),
+                report.failure_signature
+            );
         }
         _ => {
             eprintln!("RustQR scaffold CLI");
