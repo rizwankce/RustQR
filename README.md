@@ -1,8 +1,68 @@
-# RustQR (Rebuild in Progress)
+# RustQR
 
-This repository is being rebuilt from scratch.
+RustQR is an in-progress QR decoder rebuild focused on measurable reading-rate gains on the BoofCV benchmark set.
 
-## BoofCV Reading Rate Benchmark Baseline
+## Project Status
+
+- Rebuild branch is active; architecture and benchmark harness are implemented and evolving.
+- Current goal: push BoofCV reading rate toward `>=90%` with median scan time `<=1s`.
+- Main source-of-truth plan: `docs/new_from_scratch.md`.
+
+## Quick Start
+
+Requirements:
+- Rust stable toolchain (`rustup` + `cargo`)
+
+Build and test:
+
+```bash
+cargo build
+cargo test
+```
+
+Run smoke command:
+
+```bash
+cargo run --bin qrtool -- smoke
+```
+
+## Reading-Rate Benchmark
+
+Run a benchmark and write an artifact:
+
+```bash
+cargo run --bin qrtool -- reading-rate --profile boofcv-all --artifact target/reading_rate_boofcv_all.json
+```
+
+Run strict payload-validation lane:
+
+```bash
+cargo run --bin qrtool -- reading-rate --profile payload-validated --artifact target/reading_rate_payload_validated.json
+```
+
+Important label semantics:
+- `boofcv-*` profiles use annotation labels, so match means "decode found" (not strict payload equality).
+- `payload-validated` uses expected payload labels with exact payload matching.
+
+Available profile families:
+- `boofcv-all`
+- `boofcv-<category>` where category is one of: `blurred`, `brightness`, `bright-spots`, `close`, `curved`, `damaged`, `glare`, `high-version`, `lots`, `monitor`, `nominal`, `noncompliant`, `pathological`, `perspective`, `rotations`, `shadows`
+- `payload-validated`
+
+Legacy aliases kept for compatibility:
+- `monitor-smoke` -> `boofcv-monitor`
+- `nominal-smoke` -> `boofcv-nominal`
+
+## GitHub Actions
+
+- `CI`: build + test on push/PR.
+- `Benchmark`: manual workflow dispatch with configurable inputs.
+  - Use `profile=all-profiles` to run every benchmark lane in one run.
+  - Artifacts are uploaded for offline comparison and tracking.
+
+## BoofCV Reading Rate Baseline (Reference Table)
+
+This table is the current rebuild baseline reference. `RustQR` values remain `0.00%` until the refreshed full-baseline report is published.
 
 | Category | Images | Dynamsoft | BoofCV | ZBar | RustQR |
 |----------|--------|-----------|--------|------|--------|
@@ -23,3 +83,31 @@ This repository is being rebuilt from scratch.
 | rotations | 44 | 99.25% | 96.24% | 48.87% | 0.00% |
 | shadows | 14 | 100.00% | 85.00% | 90.00% | 0.00% |
 | total | 536 | 83.29% | 60.69% | 38.95% | 0.00% |
+
+## Documentation
+
+- Strategy and architecture: `docs/new_from_scratch.md`
+- Lessons from the old code path: `docs/learnings_from_old_code_base_try.md`
+- Active work packets: `docs/todo/01_feature_todo.txt`
+- Completed work packets: `docs/completed/01_feature.todo.txt`
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+Before opening a PR, run:
+
+```bash
+cargo fmt -- --check
+cargo test
+```
+
+For benchmark-impacting changes, attach benchmark artifact(s) and summarize deltas.
+
+## License
+
+Licensed under either:
+- MIT license
+- Apache License, Version 2.0
+
+See `Cargo.toml` (`MIT OR Apache-2.0`).
