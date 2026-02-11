@@ -42,3 +42,32 @@ Files:
 Summary:
 - Replaced temporary `stage_a..stage_e` naming with semantic module names
 - Updated telemetry/report fields and tests to match semantic naming
+
+[x] CP-005 WP-002 Finder Graph + Bounded Hypothesis Search
+Files:
+- src/pipeline/hypothesis_search.rs
+- src/pipeline/mod.rs
+- tests/wp002_hypothesis_search_tests.rs
+Summary:
+- Added finder-node graph construction with bounded neighbor fan-out and L-shape scoring
+- Added deterministic top-H beam retention with proposal fallback
+- Verified bounded and deterministic behavior through integration tests
+
+[x] CP-006 WP-006 Runtime Controller + Budgeting
+Files:
+- src/pipeline/mod.rs
+- tests/wp006_runtime_budget_tests.rs
+Summary:
+- Added stage budget and emergency cutoff skip paths with explicit stage timing signatures
+- Added failure signature mapping for `over-budget` and `emergency-cutoff`
+- Added regression tests for zero-budget and cutoff fail-safe behavior
+
+[x] CP-007 WP-007 Benchmark Harness + KPI Artifact Scaffold
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+Summary:
+- Added `qrtool reading-rate` CLI with dataset discovery, category summaries, and artifact output
+- Defined JSON artifact scaffold with KPI placeholder fields and per-case outcomes
+- Added parser/discovery/summary test coverage for harness stability

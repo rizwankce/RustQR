@@ -19,7 +19,7 @@ Acceptance:
 Status:
 - Completed on 2026-02-11 in scaffold implementation (`src/pipeline/proposal_ensemble.rs` + telemetry/tests).
 
-[ ] WP-002 Finder Graph + Bounded Hypothesis Search
+[x] WP-002 Finder Graph + Bounded Hypothesis Search
 Goal: Replace O(n^3) triplets with graph-based bounded search.
 Deliverables:
 - Finder graph representation
@@ -28,6 +28,8 @@ Deliverables:
 Acceptance:
 - Hypothesis count remains bounded by config
 - Deterministic outputs for fixed image/config
+Status:
+- Completed on 2026-02-11 in `src/pipeline/hypothesis_search.rs` with integration tests in `tests/wp002_hypothesis_search_tests.rs`.
 
 [ ] WP-003 Geometry Refinement Loop
 Goal: Add iterative homography refinement before decode.
@@ -59,7 +61,7 @@ Acceptance:
 - Can return >1 code per image
 - Loop bounded by max_multi_qr + time budgets
 
-[ ] WP-006 Runtime Controller + Budgeting
+[x] WP-006 Runtime Controller + Budgeting
 Goal: Stage-level budgets with emergency cutoff.
 Deliverables:
 - Per-stage budget checks
@@ -68,8 +70,10 @@ Deliverables:
 Acceptance:
 - Median runtime KPI pipeline fields populated
 - Budget-failure signatures tracked
+Status:
+- Completed on 2026-02-11 in `src/pipeline/mod.rs` with regression coverage in `tests/wp006_runtime_budget_tests.rs`.
 
-[ ] WP-007 Benchmark Harness + KPI Gates
+[x] WP-007 Benchmark Harness + KPI Gates
 Goal: Ensure measurement and gating stay stable while rebuilding.
 Deliverables:
 - Reading-rate runner scaffold command
@@ -78,6 +82,8 @@ Deliverables:
 Acceptance:
 - Artifact format documented
 - KPI gate script path reserved
+Status:
+- Completed on 2026-02-11 via `src/tools/mod.rs`, CLI wiring in `src/bin/qrtool.rs`, and harness tests in `tests/wp007_benchmark_harness_tests.rs`.
 
 [ ] WP-008 Quality and Throughput Optimization
 Goal: Reach <=1s median while preserving accuracy.

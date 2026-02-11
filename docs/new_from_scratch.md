@@ -26,6 +26,22 @@
 3. Use feedback loops: decode confidence should improve geometry, not only accept/reject it.
 4. Optimize for worst leverage categories first (`lots`, `rotations`, `high_version`).
 
+## Execution Status (Current)
+
+- Done: `WP-001 proposal_ensemble`
+- Done: `WP-002 hypothesis_search` (finder graph + bounded L-shape beam)
+- Pending: `WP-003 geometry_refinement` (true subpixel loop not implemented yet)
+- Pending: `WP-004 decode_engine` (confidence-aware retries not implemented yet)
+- Pending: `WP-005 multi_qr_iteration` (residual decode loop not implemented yet)
+- Done: `WP-006 runtime controller + budgeting`
+- Done: `WP-007 benchmark harness + KPI artifact scaffold`
+- Pending: `WP-008 throughput optimization`
+- Done: `WP-009 semantic naming refactor`
+
+Current scaffold supports fast benchmark reporting via:
+- `cargo run --bin qrtool -- reading-rate --limit N --artifact <path>`
+- Output schema: `wp007-reading-rate-v1` with global/category/case breakdown and KPI placeholders.
+
 ## Proposed Architecture
 
 Canonical implementation naming (source-of-truth):
