@@ -31,7 +31,7 @@ Acceptance:
 Status:
 - Completed on 2026-02-11 in `src/pipeline/hypothesis_search.rs` with integration tests in `tests/wp002_hypothesis_search_tests.rs`.
 
-[ ] WP-003 Geometry Refinement Loop
+[x] WP-003 Geometry Refinement Loop
 Goal: Add iterative homography refinement before decode.
 Deliverables:
 - Subpixel corner refinement
@@ -40,8 +40,10 @@ Deliverables:
 Acceptance:
 - Refinement convergence telemetry available
 - Failure signature split includes geometry/refine misses
+Status:
+- Completed on 2026-02-11 in scaffold form with deterministic 3-pass refinement in `src/pipeline/geometry_refinement.rs` and integration tests in `tests/wp003_geometry_refinement_tests.rs`.
 
-[ ] WP-004 Robust Decode Core
+[x] WP-004 Robust Decode Core
 Goal: Implement bounded decode with confidence-aware sampling/retries.
 Deliverables:
 - Soft module confidence model
@@ -50,8 +52,10 @@ Deliverables:
 Acceptance:
 - Decode retry count bounded by config
 - Format/version recovery telemetry emitted
+Status:
+- Completed on 2026-02-11 in scaffold form with bounded confidence-aware candidate generation/retry behavior in `src/pipeline/decode_engine.rs` and tests in `tests/wp004_decode_engine_tests.rs`.
 
-[ ] WP-005 Multi-QR Iterative Residual Decode
+[x] WP-005 Multi-QR Iterative Residual Decode
 Goal: Unlock dense scene decode (`lots`) via iterative strongest-first decode.
 Deliverables:
 - Region suppression/masking after accepted decode
@@ -60,6 +64,8 @@ Deliverables:
 Acceptance:
 - Can return >1 code per image
 - Loop bounded by max_multi_qr + time budgets
+Status:
+- Completed on 2026-02-11 in scaffold form with strongest-first bounded acceptance + payload dedupe in `src/pipeline/multi_qr_iteration.rs` and tests in `tests/wp005_multi_qr_iteration_tests.rs`.
 
 [x] WP-006 Runtime Controller + Budgeting
 Goal: Stage-level budgets with emergency cutoff.

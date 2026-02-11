@@ -71,3 +71,30 @@ Summary:
 - Added `qrtool reading-rate` CLI with dataset discovery, category summaries, and artifact output
 - Defined JSON artifact scaffold with KPI placeholder fields and per-case outcomes
 - Added parser/discovery/summary test coverage for harness stability
+
+[x] CP-008 WP-003 Geometry Refinement Loop (Scaffold)
+Files:
+- src/pipeline/geometry_refinement.rs
+- tests/wp003_geometry_refinement_tests.rs
+Summary:
+- Replaced placeholder passthrough with deterministic capped 3-pass score refinement
+- Added bounded top-K refinement ordering and score clamping
+- Added integration coverage for determinism, bounds, ordering, and empty input behavior
+
+[x] CP-009 WP-004 Decode Engine (Scaffold)
+Files:
+- src/pipeline/decode_engine.rs
+- tests/wp004_decode_engine_tests.rs
+Summary:
+- Replaced placeholder decode stage with bounded candidate generation from refined hypotheses
+- Added confidence-aware retry variant generation under global max decode bound
+- Added deterministic candidate ordering and score/confidence calibration tests
+
+[x] CP-010 WP-005 Multi-QR Iterative Stage (Scaffold)
+Files:
+- src/pipeline/multi_qr_iteration.rs
+- tests/wp005_multi_qr_iteration_tests.rs
+Summary:
+- Replaced placeholder multi-QR stage with strongest-first acceptance loop
+- Added confidence thresholding and payload-level dedupe with max_multi_qr bound
+- Added integration tests for dedupe, bounded count, and deterministic acceptance order

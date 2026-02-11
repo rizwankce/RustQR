@@ -30,9 +30,9 @@
 
 - Done: `WP-001 proposal_ensemble`
 - Done: `WP-002 hypothesis_search` (finder graph + bounded L-shape beam)
-- Pending: `WP-003 geometry_refinement` (true subpixel loop not implemented yet)
-- Pending: `WP-004 decode_engine` (confidence-aware retries not implemented yet)
-- Pending: `WP-005 multi_qr_iteration` (residual decode loop not implemented yet)
+- Done: `WP-003 geometry_refinement` (scaffold deterministic 3-pass refinement loop)
+- Done: `WP-004 decode_engine` (scaffold bounded confidence-aware candidate + retry manager)
+- Done: `WP-005 multi_qr_iteration` (scaffold strongest-first bounded acceptance + payload dedupe)
 - Done: `WP-006 runtime controller + budgeting`
 - Done: `WP-007 benchmark harness + KPI artifact scaffold`
 - Pending: `WP-008 throughput optimization`
