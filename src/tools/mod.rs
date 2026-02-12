@@ -35,8 +35,11 @@ pub const BOOFCV_SHADOWS_PROFILE: &str = "boofcv-shadows";
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp"];
 const MAX_BENCHDIFF_HIGHLIGHTS: usize = 5;
+const ROTATIONS_CATEGORY: &str = "rotations";
+const HIGH_VERSION_CATEGORY: &str = "high_version";
+const KPI_GATE_EPSILON: f64 = 1e-9;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ReadingRateCommand {
     Help,
     Run(ReadingRateArgs),
@@ -116,7 +119,7 @@ pub const ALL_READING_RATE_PROFILES: &[ReadingRateProfile] = &[
     ReadingRateProfile::PayloadValidated,
 ];
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReadingRateArgs {
     pub dataset_root: PathBuf,
     pub profile: Option<ReadingRateProfile>,
@@ -124,6 +127,10 @@ pub struct ReadingRateArgs {
     pub limit: Option<usize>,
     pub max_working_dim: Option<usize>,
     pub emergency_cutoff_ms: Option<u64>,
+    pub gate_global_rate_min: Option<f64>,
+    pub gate_rotations_rate_min: Option<f64>,
+    pub gate_high_version_rate_min: Option<f64>,
+    pub gate_median_runtime_ms_max: Option<f64>,
 }
 
 impl Default for ReadingRateArgs {
@@ -135,6 +142,10 @@ impl Default for ReadingRateArgs {
             limit: None,
             max_working_dim: None,
             emergency_cutoff_ms: None,
+            gate_global_rate_min: None,
+            gate_rotations_rate_min: None,
+            gate_high_version_rate_min: None,
+            gate_median_runtime_ms_max: None,
         }
     }
 }
@@ -178,10 +189,29 @@ pub struct GlobalSummary {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct KpiGatePlaceholders {
-    pub global_rate: f64,
-    pub median_runtime_ms: f64,
-    pub top_failure_signature: Option<String>,
+pub struct KpiGateMetric {
+    pub value: f64,
+    pub threshold_min: Option<f64>,
+    pub threshold_max: Option<f64>,
+    pub pass: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KpiGateFailureSignature {
+    pub value: Option<String>,
+    pub blocked_signatures: Vec<String>,
+    pub pass: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KpiGateEvaluation {
+    pub global_rate: KpiGateMetric,
+    pub rotations_rate: KpiGateMetric,
+    pub high_version_rate: KpiGateMetric,
+    pub median_runtime_ms: KpiGateMetric,
+    pub top_failure_signature: KpiGateFailureSignature,
+    pub pass: Option<bool>,
+    pub failures: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -190,7 +220,7 @@ pub struct ReadingRateReport {
     pub generated_at_unix_ms: u128,
     pub categories: Vec<CategorySummary>,
     pub global: GlobalSummary,
-    pub kpi_gate: KpiGatePlaceholders,
+    pub kpi_gate: KpiGateEvaluation,
     pub notes: Vec<String>,
     pub cases: Vec<CaseOutcome>,
 }
@@ -440,6 +470,42 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
                     .map_err(|_| format!("invalid --emergency-cutoff-ms value: {value}"))?;
                 parsed.emergency_cutoff_ms = Some(parsed_cutoff);
             }
+            "--gate-global-rate-min" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--gate-global-rate-min requires a value".to_string())?;
+                parsed.gate_global_rate_min =
+                    Some(parse_probability_flag("--gate-global-rate-min", value)?);
+            }
+            "--gate-rotations-rate-min" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--gate-rotations-rate-min requires a value".to_string())?;
+                parsed.gate_rotations_rate_min =
+                    Some(parse_probability_flag("--gate-rotations-rate-min", value)?);
+            }
+            "--gate-high-version-rate-min" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--gate-high-version-rate-min requires a value".to_string())?;
+                parsed.gate_high_version_rate_min = Some(parse_probability_flag(
+                    "--gate-high-version-rate-min",
+                    value,
+                )?);
+            }
+            "--gate-median-runtime-ms-max" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--gate-median-runtime-ms-max requires a value".to_string())?;
+                parsed.gate_median_runtime_ms_max = Some(parse_non_negative_f64_flag(
+                    "--gate-median-runtime-ms-max",
+                    value,
+                )?);
+            }
             unknown => {
                 return Err(format!(
                     "unknown argument for reading-rate: {unknown}\n{}",
@@ -461,7 +527,31 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
 }
 
 pub fn reading_rate_usage() -> &'static str {
-    "usage: qrtool reading-rate [--profile boofcv-all|boofcv-<category>|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+    "usage: qrtool reading-rate [--profile boofcv-all|boofcv-<category>|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N] [--gate-global-rate-min F64] [--gate-rotations-rate-min F64] [--gate-high-version-rate-min F64] [--gate-median-runtime-ms-max F64]"
+}
+
+fn parse_probability_flag(flag: &str, value: &str) -> Result<f64, String> {
+    let parsed = value
+        .parse::<f64>()
+        .map_err(|_| format!("invalid {flag} value: {value}"))?;
+    if !parsed.is_finite() || !(0.0..=1.0).contains(&parsed) {
+        return Err(format!(
+            "invalid {flag} value: {value}; expected finite value in [0.0, 1.0]"
+        ));
+    }
+    Ok(parsed)
+}
+
+fn parse_non_negative_f64_flag(flag: &str, value: &str) -> Result<f64, String> {
+    let parsed = value
+        .parse::<f64>()
+        .map_err(|_| format!("invalid {flag} value: {value}"))?;
+    if !parsed.is_finite() || parsed < 0.0 {
+        return Err(format!(
+            "invalid {flag} value: {value}; expected finite value >= 0.0"
+        ));
+    }
+    Ok(parsed)
 }
 
 pub fn parse_benchdiff_args(args: &[String]) -> Result<BenchdiffCommand, String> {
@@ -751,6 +841,157 @@ pub fn summarize_outcomes(outcomes: &[CaseOutcome]) -> (Vec<CategorySummary>, Gl
     (categories, global)
 }
 
+fn category_reading_rate(categories: &[CategorySummary], category: &str) -> Option<f64> {
+    categories
+        .iter()
+        .find(|row| row.category == category)
+        .map(|row| row.reading_rate)
+}
+
+fn evaluate_min_gate_metric(
+    metric_name: &str,
+    value: f64,
+    threshold_min: Option<f64>,
+    failures: &mut Vec<String>,
+) -> KpiGateMetric {
+    let pass = threshold_min.map(|threshold| {
+        let passed = value + KPI_GATE_EPSILON >= threshold;
+        if !passed {
+            failures.push(format!(
+                "{metric_name} value={value:.4} threshold_min={threshold:.4}"
+            ));
+        }
+        passed
+    });
+
+    KpiGateMetric {
+        value,
+        threshold_min,
+        threshold_max: None,
+        pass,
+    }
+}
+
+fn evaluate_max_gate_metric(
+    metric_name: &str,
+    value: f64,
+    threshold_max: Option<f64>,
+    failures: &mut Vec<String>,
+) -> KpiGateMetric {
+    let pass = threshold_max.map(|threshold| {
+        let passed = value <= threshold + KPI_GATE_EPSILON;
+        if !passed {
+            failures.push(format!(
+                "{metric_name} value={value:.3} threshold_max={threshold:.3}"
+            ));
+        }
+        passed
+    });
+
+    KpiGateMetric {
+        value,
+        threshold_min: None,
+        threshold_max,
+        pass,
+    }
+}
+
+fn evaluate_category_min_gate_metric(
+    metric_name: &str,
+    category: &str,
+    categories: &[CategorySummary],
+    threshold_min: Option<f64>,
+    failures: &mut Vec<String>,
+) -> KpiGateMetric {
+    let value = category_reading_rate(categories, category).unwrap_or(0.0);
+    let pass = match threshold_min {
+        None => None,
+        Some(threshold) => match category_reading_rate(categories, category) {
+            Some(category_rate) => {
+                let passed = category_rate + KPI_GATE_EPSILON >= threshold;
+                if !passed {
+                    failures.push(format!(
+                        "{metric_name} value={category_rate:.4} threshold_min={threshold:.4}"
+                    ));
+                }
+                Some(passed)
+            }
+            None => {
+                failures.push(format!(
+                    "{metric_name} missing category summary `{category}` for KPI gate evaluation"
+                ));
+                Some(false)
+            }
+        },
+    };
+
+    KpiGateMetric {
+        value,
+        threshold_min,
+        threshold_max: None,
+        pass,
+    }
+}
+
+fn evaluate_kpi_gate(
+    args: &ReadingRateArgs,
+    categories: &[CategorySummary],
+    global: &GlobalSummary,
+) -> KpiGateEvaluation {
+    let mut failures = Vec::new();
+
+    let global_rate = evaluate_min_gate_metric(
+        "global_rate",
+        global.reading_rate,
+        args.gate_global_rate_min,
+        &mut failures,
+    );
+    let rotations_rate = evaluate_category_min_gate_metric(
+        "rotations_rate",
+        ROTATIONS_CATEGORY,
+        categories,
+        args.gate_rotations_rate_min,
+        &mut failures,
+    );
+    let high_version_rate = evaluate_category_min_gate_metric(
+        "high_version_rate",
+        HIGH_VERSION_CATEGORY,
+        categories,
+        args.gate_high_version_rate_min,
+        &mut failures,
+    );
+    let median_runtime_ms = evaluate_max_gate_metric(
+        "median_runtime_ms",
+        global.median_runtime_ms,
+        args.gate_median_runtime_ms_max,
+        &mut failures,
+    );
+
+    let thresholds_configured = args.gate_global_rate_min.is_some()
+        || args.gate_rotations_rate_min.is_some()
+        || args.gate_high_version_rate_min.is_some()
+        || args.gate_median_runtime_ms_max.is_some();
+    let pass = if thresholds_configured {
+        Some(failures.is_empty())
+    } else {
+        None
+    };
+
+    KpiGateEvaluation {
+        global_rate,
+        rotations_rate,
+        high_version_rate,
+        median_runtime_ms,
+        top_failure_signature: KpiGateFailureSignature {
+            value: global.top_failure_signature.clone(),
+            blocked_signatures: Vec::new(),
+            pass: None,
+        },
+        pass,
+        failures,
+    }
+}
+
 pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateReport, String> {
     let cases = discover_label_cases(&args.dataset_root, args.limit)
         .map_err(|err| format!("failed to discover label cases: {err}"))?;
@@ -764,11 +1005,7 @@ pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateRe
         .map(|duration| duration.as_millis())
         .unwrap_or(0);
 
-    let kpi_gate = KpiGatePlaceholders {
-        global_rate: global.reading_rate,
-        median_runtime_ms: global.median_runtime_ms,
-        top_failure_signature: global.top_failure_signature.clone(),
-    };
+    let kpi_gate = evaluate_kpi_gate(args, &categories, &global);
 
     let mut notes = vec![
         "reading-rate mode: real image decode + payload match evaluation".to_string(),
@@ -776,6 +1013,14 @@ pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateRe
     ];
     let (kpi_lane, lane_semantics) = reading_rate_lane_semantics(args);
     notes.push(format!("kpi_lane={kpi_lane} semantics={lane_semantics}"));
+    notes.push(match kpi_gate.pass {
+        Some(true) => "kpi_gate_status=pass".to_string(),
+        Some(false) => "kpi_gate_status=fail".to_string(),
+        None => "kpi_gate_status=not-configured".to_string(),
+    });
+    for failure in &kpi_gate.failures {
+        notes.push(format!("kpi_gate_failure={failure}"));
+    }
     if let Some(profile) = args.profile {
         notes.push(format!(
             "reading-rate profile={} resolved_dataset_root={}",
@@ -1662,6 +1907,22 @@ pub fn render_console_summary(report: &ReadingRateReport) -> String {
         ));
     }
 
+    lines.push(format!(
+        "kpi_gate pass={} global_rate={:.4} rotations_rate={:.4} high_version_rate={:.4} median_runtime_ms={:.3}",
+        report
+            .kpi_gate
+            .pass
+            .map(|value| if value { "pass" } else { "fail" })
+            .unwrap_or("not-configured"),
+        report.kpi_gate.global_rate.value,
+        report.kpi_gate.rotations_rate.value,
+        report.kpi_gate.high_version_rate.value,
+        report.kpi_gate.median_runtime_ms.value,
+    ));
+    for failure in &report.kpi_gate.failures {
+        lines.push(format!("kpi_gate_failure={failure}"));
+    }
+
     for note in &report.notes {
         lines.push(format!("note={note}"));
     }
@@ -1699,6 +1960,21 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         match value {
             Some(v) => quoted(v),
             None => "null".to_string(),
+        }
+    }
+
+    fn optional_number(value: Option<f64>) -> String {
+        match value {
+            Some(number) => format!("{number:.6}"),
+            None => "null".to_string(),
+        }
+    }
+
+    fn optional_bool(value: Option<bool>) -> &'static str {
+        match value {
+            Some(true) => "true",
+            Some(false) => "false",
+            None => "null",
         }
     }
 
@@ -1748,6 +2024,23 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         .collect::<Vec<_>>()
         .join(",");
 
+    let blocked_signatures_json = report
+        .kpi_gate
+        .top_failure_signature
+        .blocked_signatures
+        .iter()
+        .map(|signature| quoted(signature))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let gate_failures_json = report
+        .kpi_gate
+        .failures
+        .iter()
+        .map(|failure| quoted(failure))
+        .collect::<Vec<_>>()
+        .join(",");
+
     format!(
         concat!(
             "{{",
@@ -1763,9 +2056,13 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
             "}},",
             "\"categories\":[{}],",
             "\"kpi_gate\":{{",
-            "\"global_rate\":{{\"value\":{:.6},\"threshold_min\":null,\"pass\":null}},",
-            "\"median_runtime_ms\":{{\"value\":{:.6},\"threshold_max\":null,\"pass\":null}},",
-            "\"top_failure_signature\":{{\"value\":{},\"blocked_signatures\":[],\"pass\":null}}",
+            "\"global_rate\":{{\"value\":{:.6},\"threshold_min\":{},\"pass\":{}}},",
+            "\"rotations_rate\":{{\"value\":{:.6},\"threshold_min\":{},\"pass\":{}}},",
+            "\"high_version_rate\":{{\"value\":{:.6},\"threshold_min\":{},\"pass\":{}}},",
+            "\"median_runtime_ms\":{{\"value\":{:.6},\"threshold_max\":{},\"pass\":{}}},",
+            "\"top_failure_signature\":{{\"value\":{},\"blocked_signatures\":[{}],\"pass\":{}}},",
+            "\"pass\":{},",
+            "\"failures\":[{}]",
             "}},",
             "\"notes\":[{}],",
             "\"cases\":[{}]",
@@ -1779,9 +2076,23 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         report.global.median_runtime_ms,
         optional_string(&report.global.top_failure_signature),
         categories_json,
-        report.kpi_gate.global_rate,
-        report.kpi_gate.median_runtime_ms,
-        optional_string(&report.kpi_gate.top_failure_signature),
+        report.kpi_gate.global_rate.value,
+        optional_number(report.kpi_gate.global_rate.threshold_min),
+        optional_bool(report.kpi_gate.global_rate.pass),
+        report.kpi_gate.rotations_rate.value,
+        optional_number(report.kpi_gate.rotations_rate.threshold_min),
+        optional_bool(report.kpi_gate.rotations_rate.pass),
+        report.kpi_gate.high_version_rate.value,
+        optional_number(report.kpi_gate.high_version_rate.threshold_min),
+        optional_bool(report.kpi_gate.high_version_rate.pass),
+        report.kpi_gate.median_runtime_ms.value,
+        optional_number(report.kpi_gate.median_runtime_ms.threshold_max),
+        optional_bool(report.kpi_gate.median_runtime_ms.pass),
+        optional_string(&report.kpi_gate.top_failure_signature.value),
+        blocked_signatures_json,
+        optional_bool(report.kpi_gate.top_failure_signature.pass),
+        optional_bool(report.kpi_gate.pass),
+        gate_failures_json,
         notes_json,
         cases_json,
     )

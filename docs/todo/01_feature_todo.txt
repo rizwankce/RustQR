@@ -173,7 +173,7 @@ Status:
 - Completed on 2026-02-11 in `src/tools/mod.rs`, `src/bin/qrtool.rs`, `.github/workflows/benchmark.yml`, and `tests/wp007_benchmark_harness_tests.rs`.
 - Sample baseline (`2026-02-11`): `payload-validated` 26/26 matched (1.0000), median 149.876 ms.
 
-[ ] WP-014 Locked BoofCV Baseline Artifact
+[x] WP-014 Locked BoofCV Baseline Artifact
 Goal: Freeze a reproducible full-dataset baseline before further tuning.
 Deliverables:
 - Capture full `boofcv` reading-rate artifact with fixed runtime knobs
@@ -183,7 +183,18 @@ Acceptance:
 - Baseline artifact can be regenerated with the same command and settings
 - Baseline summary is documented and referenced by subsequent workpackets
 Status:
-- Pending.
+- Completed on 2026-02-12 using GitHub Actions run `21927167412` (`Benchmark`, `profile=all-profiles`).
+- Locked baseline artifact:
+- `benchmark/baselines/gh_run_21927167412/reading_rate_boofcv-all.json`
+- Repro command (local equivalent for settings parity):
+- `cargo run --locked --bin qrtool -- reading-rate --profile boofcv-all --max-working-dim 1024 --emergency-cutoff-ms 1400 --artifact benchmark/baselines/reading_rate_boofcv-all_baseline_<date>_w1024_c1400.json`
+- Baseline summary (run `21927167412`, generated 2026-02-12):
+- global: 223/536 matched (0.4160), median 1908.431 ms, top failure `over-budget` (313 unmatched cases)
+- rotations: 20/44 matched (0.4545), median 2036.378 ms, top failure `over-budget`
+- high_version: 3/33 matched (0.0909), median 2272.108 ms, top failure `over-budget`
+- lots: 0/7 matched (0.0000), median 5807.901 ms, top failure `over-budget`
+- Baseline naming convention reserved for diffs:
+- `benchmark/baselines/gh_run_<run_id>/reading_rate_<profile>.json`
 
 [x] WP-015 Benchmark Artifact Diff Tool (`benchdiff`)
 Goal: Make benchmark changes explainable between any two runs.
@@ -229,7 +240,7 @@ Acceptance:
 Status:
 - Pending.
 
-[ ] WP-018 Benchmark Workflow KPI Gates
+[x] WP-018 Benchmark Workflow KPI Gates
 Goal: Convert benchmark runs into actionable pass/fail quality gates.
 Deliverables:
 - Add configurable thresholds for:
@@ -242,7 +253,15 @@ Acceptance:
 - Workflow dispatch reports gate status and failing metrics explicitly
 - Thresholds are configurable without code edits
 Status:
-- Pending.
+- Completed on 2026-02-12.
+- Added configurable `reading-rate` gate flags in `src/tools/mod.rs`:
+- `--gate-global-rate-min`, `--gate-rotations-rate-min`, `--gate-high-version-rate-min`, `--gate-median-runtime-ms-max`
+- Gate evaluation is emitted in report JSON (`kpi_gate.pass` + per-metric `pass` + `failures`) and console summary.
+- `qrtool reading-rate` now exits with code `3` when configured gates fail, after writing the artifact.
+- Benchmark workflow dispatch now exposes threshold inputs and applies them to `boofcv-all` runs:
+- `.github/workflows/benchmark.yml` inputs: `gate_global_rate_min`, `gate_rotations_rate_min`, `gate_high_version_rate_min`, `gate_median_runtime_ms_max`
+- Threshold values are configurable from workflow inputs (no code edits required).
+- Added integration coverage for parsing/validation and gate-failure reporting in `tests/wp007_benchmark_harness_tests.rs`.
 
 [x] WP-019 Full ReadingRateProfile Coverage + All-Profiles Benchmark Dispatch
 Goal: Expose all BoofCV categories as first-class profiles and allow one-run full sweep.

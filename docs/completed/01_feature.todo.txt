@@ -202,3 +202,27 @@ Summary:
 - Added explicit lane-semantics notes in `reading-rate` reports (`kpi_lane=boofcv` vs `kpi_lane=payload-validated`)
 - Added benchmark workflow dispatch mode `profile=dual-kpi` to run the two official KPI lanes in one pass
 - Added regression coverage to ensure lane semantics remain explicit for both annotation and strict payload profiles
+
+[x] CP-020 WP-014 Locked BoofCV Baseline Artifact
+Files:
+- benchmark/baselines/gh_run_21927167412/reading_rate_boofcv-all.json
+- docs/new_from_scratch.md
+- docs/todo/01_feature_todo.txt
+Summary:
+- Locked the full-dataset `boofcv-all` baseline artifact from GitHub Actions run `21927167412`
+- Recorded reproducible command/settings parity (`--profile boofcv-all`, `--max-working-dim 1024`, `--emergency-cutoff-ms 1400`)
+- Documented baseline summary and naming convention `benchmark/baselines/gh_run_<run_id>/reading_rate_<profile>.json` for future `benchdiff`
+
+[x] CP-021 WP-018 Benchmark Workflow KPI Gates
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- .github/workflows/benchmark.yml
+- tests/wp007_benchmark_harness_tests.rs
+- README.md
+- docs/new_from_scratch.md
+- docs/todo/01_feature_todo.txt
+Summary:
+- Added configurable KPI gate flags to `reading-rate` (`--gate-global-rate-min`, `--gate-rotations-rate-min`, `--gate-high-version-rate-min`, `--gate-median-runtime-ms-max`)
+- Added per-metric gate evaluation and failure reporting to console and JSON artifact (`kpi_gate.pass` + `kpi_gate.failures`)
+- Added non-zero process exit on gate failure and workflow inputs to configure thresholds without code edits

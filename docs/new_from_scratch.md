@@ -41,11 +41,11 @@
 - Done: `WP-011` (decode + multi reserve lanes under stage over-budget)
 - Done: `WP-012` (reading-rate smoke profiles for monitor/nominal)
 - Done: `WP-013` (strict payload-validated benchmark lane)
-- Planned: `WP-014` (locked full BoofCV baseline artifact)
+- Done: `WP-014` (locked full BoofCV baseline artifact from GH run `21927167412`)
 - Done: `WP-015` (`benchdiff` artifact comparator)
 - Done: `WP-016` (dual KPI lanes: annotation vs strict payload)
 - Planned: `WP-017` (category uplift: rotations/high_version/lots)
-- Planned: `WP-018` (workflow KPI gates + threshold enforcement)
+- Done: `WP-018` (workflow KPI gates + threshold enforcement)
 - Done: `WP-019` (full BoofCV profile coverage + all-profiles benchmark dispatch)
 
 Current harness supports benchmark reporting via:
@@ -55,12 +55,14 @@ Current harness supports benchmark reporting via:
 - `cargo run --bin qrtool -- reading-rate --profile boofcv-all --artifact <path>`
 - `cargo run --bin qrtool -- reading-rate --profile boofcv-rotations --artifact <path>`
 - `cargo run --bin qrtool -- reading-rate --profile payload-validated --artifact <path>`
+- `cargo run --bin qrtool -- reading-rate --profile boofcv-all --gate-global-rate-min <f64> --gate-rotations-rate-min <f64> --gate-high-version-rate-min <f64> --gate-median-runtime-ms-max <f64> --artifact <path>`
 - `cargo run --bin qrtool -- benchdiff --base <base.json> --candidate <candidate.json> --artifact <diff.json>`
 - It runs real `pipeline::detect_with_config` evaluation per image and writes schema `wp007-reading-rate-v1`.
 - Runtime knobs: `--max-working-dim N`, `--emergency-cutoff-ms N`.
 - Profiles now cover all BoofCV categories (`boofcv-*`) plus `payload-validated`.
 - Benchmark workflow supports `profile=all-profiles` to run every lane in one dispatch.
 - Benchmark workflow also supports `profile=dual-kpi` to run official KPI lanes only (`boofcv-all` + `payload-validated`) in one dispatch.
+- Benchmark workflow now supports configurable KPI gate thresholds (`gate_global_rate_min`, `gate_rotations_rate_min`, `gate_high_version_rate_min`, `gate_median_runtime_ms_max`) and fails when configured thresholds are violated.
 - Label semantics:
 - `boofcv/*` uses annotation labels (any decode counts as matched).
 - `custom/decoding` uses strict expected payload labels (exact payload match required).
@@ -69,6 +71,11 @@ Current sample smoke baselines (2026-02-11):
 - `monitor-smoke`: rate `1.0000` (17/17), median `3905.864 ms`
 - `nominal-smoke --limit 20`: rate `0.5000` (10/20), median `667.834 ms`
 - `payload-validated`: rate `1.0000` (26/26), median `149.876 ms`
+
+Locked full BoofCV baseline (2026-02-12):
+- Source run: GitHub Actions `Benchmark` run `21927167412` (`profile=all-profiles`, branch `scratch_from_scratch_rebuild`)
+- Locked artifact: `benchmark/baselines/gh_run_21927167412/reading_rate_boofcv-all.json`
+- Summary: `223/536` matched (`0.4160`), median `1908.431 ms`, top failure `over-budget`
 
 ## Proposed Architecture
 

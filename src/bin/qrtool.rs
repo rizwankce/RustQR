@@ -43,6 +43,13 @@ fn main() {
                     }
 
                     println!("artifact={}", parsed.artifact_path.display());
+                    if report.kpi_gate.pass == Some(false) {
+                        eprintln!("reading-rate KPI gate failed:");
+                        for failure in &report.kpi_gate.failures {
+                            eprintln!("kpi-gate-failure: {failure}");
+                        }
+                        std::process::exit(3);
+                    }
                 }
                 Err(err) => {
                     eprintln!("reading-rate error: {err}");
@@ -89,7 +96,7 @@ fn main() {
             eprintln!("RustQR scaffold CLI");
             eprintln!("usage: qrtool smoke");
             eprintln!(
-                "       qrtool reading-rate [--profile boofcv-all|boofcv-<category>|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+                "       qrtool reading-rate [--profile boofcv-all|boofcv-<category>|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N] [--gate-global-rate-min F64] [--gate-rotations-rate-min F64] [--gate-high-version-rate-min F64] [--gate-median-runtime-ms-max F64]"
             );
             eprintln!("       qrtool benchdiff --base PATH --candidate PATH [--artifact PATH]");
             std::process::exit(2);

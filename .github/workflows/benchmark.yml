@@ -49,6 +49,26 @@ on:
         required: false
         type: string
         default: "1400"
+      gate_global_rate_min:
+        description: "KPI gate minimum global reading rate (applies to boofcv-all lane)"
+        required: false
+        type: string
+        default: "0.4000"
+      gate_rotations_rate_min:
+        description: "KPI gate minimum rotations reading rate (applies to boofcv-all lane)"
+        required: false
+        type: string
+        default: "0.4500"
+      gate_high_version_rate_min:
+        description: "KPI gate minimum high_version reading rate (applies to boofcv-all lane)"
+        required: false
+        type: string
+        default: "0.0900"
+      gate_median_runtime_ms_max:
+        description: "KPI gate maximum median runtime in ms (set to 1000 to enforce target)"
+        required: false
+        type: string
+        default: "1000"
       artifact_path:
         description: "Output artifact JSON path"
         required: false
@@ -84,9 +104,15 @@ jobs:
           limit_input="${{ github.event.inputs.limit }}"
           max_working_dim_input="${{ github.event.inputs.max_working_dim }}"
           emergency_cutoff_ms_input="${{ github.event.inputs.emergency_cutoff_ms }}"
+          gate_global_rate_min_input="${{ github.event.inputs.gate_global_rate_min }}"
+          gate_rotations_rate_min_input="${{ github.event.inputs.gate_rotations_rate_min }}"
+          gate_high_version_rate_min_input="${{ github.event.inputs.gate_high_version_rate_min }}"
+          gate_median_runtime_ms_max_input="${{ github.event.inputs.gate_median_runtime_ms_max }}"
 
           run_one() {
             local artifact_path="$1"
+            local with_kpi_gate="$2"
+            shift
             shift
             local args=(reading-rate --artifact "$artifact_path" "$@")
             if [[ "$limit_input" != "0" ]]; then
@@ -94,6 +120,12 @@ jobs:
             fi
             args+=(--max-working-dim "$max_working_dim_input")
             args+=(--emergency-cutoff-ms "$emergency_cutoff_ms_input")
+            if [[ "$with_kpi_gate" == "1" ]]; then
+              args+=(--gate-global-rate-min "$gate_global_rate_min_input")
+              args+=(--gate-rotations-rate-min "$gate_rotations_rate_min_input")
+              args+=(--gate-high-version-rate-min "$gate_high_version_rate_min_input")
+              args+=(--gate-median-runtime-ms-max "$gate_median_runtime_ms_max_input")
+            fi
 
             mkdir -p "$(dirname "$artifact_path")"
             echo "Running: cargo run --locked --bin qrtool -- ${args[*]}"
@@ -101,7 +133,7 @@ jobs:
           }
 
           if [[ -n "$dataset_root_input" ]]; then
-            run_one "$artifact_path_input" --dataset-root "$dataset_root_input"
+            run_one "$artifact_path_input" "0" --dataset-root "$dataset_root_input"
             artifact_upload_path="$artifact_path_input"
           elif [[ "$profile_input" == "all-profiles" ]]; then
             artifact_dir="$artifact_path_input"
@@ -135,7 +167,11 @@ jobs:
             )
 
             for profile in "${profiles[@]}"; do
-              run_one "$artifact_dir/reading_rate_${profile}.json" --profile "$profile"
+              if [[ "$profile" == "boofcv-all" ]]; then
+                run_one "$artifact_dir/reading_rate_${profile}.json" "1" --profile "$profile"
+              else
+                run_one "$artifact_dir/reading_rate_${profile}.json" "0" --profile "$profile"
+              fi
             done
             artifact_upload_path="$artifact_dir"
           elif [[ "$profile_input" == "dual-kpi" ]]; then
@@ -148,11 +184,15 @@ jobs:
             fi
             mkdir -p "$artifact_dir"
 
-            run_one "$artifact_dir/reading_rate_boofcv-all.json" --profile "boofcv-all"
-            run_one "$artifact_dir/reading_rate_payload-validated.json" --profile "payload-validated"
+            run_one "$artifact_dir/reading_rate_boofcv-all.json" "1" --profile "boofcv-all"
+            run_one "$artifact_dir/reading_rate_payload-validated.json" "0" --profile "payload-validated"
             artifact_upload_path="$artifact_dir"
           else
-            run_one "$artifact_path_input" --profile "$profile_input"
+            if [[ "$profile_input" == "boofcv-all" ]]; then
+              run_one "$artifact_path_input" "1" --profile "$profile_input"
+            else
+              run_one "$artifact_path_input" "0" --profile "$profile_input"
+            fi
             artifact_upload_path="$artifact_path_input"
           fi
 

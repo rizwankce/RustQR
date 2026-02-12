@@ -59,6 +59,14 @@ cargo run --bin qrtool -- smoke
 
 # reading-rate
 cargo run --bin qrtool -- reading-rate --profile boofcv-all --artifact target/reading_rate_boofcv_all.json
+
+# reading-rate with KPI gate thresholds
+cargo run --bin qrtool -- reading-rate --profile boofcv-all \
+  --gate-global-rate-min 0.40 \
+  --gate-rotations-rate-min 0.45 \
+  --gate-high-version-rate-min 0.09 \
+  --gate-median-runtime-ms-max 1000 \
+  --artifact target/reading_rate_boofcv_all_gated.json
 ```
 
 ## Benchmarking
@@ -73,6 +81,7 @@ Run full sweep (all profiles) in GitHub Actions:
 
 - Workflow: `Benchmark`
 - Dispatch input: `profile=all-profiles`
+- KPI gate inputs (`gate_global_rate_min`, `gate_rotations_rate_min`, `gate_high_version_rate_min`, `gate_median_runtime_ms_max`) are evaluated on the `boofcv-all` lane and fail the job when violated.
 
 Profile families:
 - `boofcv-all`

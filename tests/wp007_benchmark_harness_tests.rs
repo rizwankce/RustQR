@@ -29,6 +29,10 @@ fn parse_reading_rate_defaults() {
     assert_eq!(parsed.limit, None);
     assert_eq!(parsed.max_working_dim, None);
     assert_eq!(parsed.emergency_cutoff_ms, None);
+    assert_eq!(parsed.gate_global_rate_min, None);
+    assert_eq!(parsed.gate_rotations_rate_min, None);
+    assert_eq!(parsed.gate_high_version_rate_min, None);
+    assert_eq!(parsed.gate_median_runtime_ms_max, None);
 }
 
 #[test]
@@ -44,6 +48,14 @@ fn parse_reading_rate_overrides_and_help() {
         "640".to_string(),
         "--emergency-cutoff-ms".to_string(),
         "250".to_string(),
+        "--gate-global-rate-min".to_string(),
+        "0.9".to_string(),
+        "--gate-rotations-rate-min".to_string(),
+        "0.7".to_string(),
+        "--gate-high-version-rate-min".to_string(),
+        "0.4".to_string(),
+        "--gate-median-runtime-ms-max".to_string(),
+        "1000".to_string(),
     ];
 
     let parsed = tools::parse_reading_rate_args(&args).expect("parse should succeed");
@@ -57,6 +69,10 @@ fn parse_reading_rate_overrides_and_help() {
     assert_eq!(parsed.limit, Some(5));
     assert_eq!(parsed.max_working_dim, Some(640));
     assert_eq!(parsed.emergency_cutoff_ms, Some(250));
+    assert_eq!(parsed.gate_global_rate_min, Some(0.9));
+    assert_eq!(parsed.gate_rotations_rate_min, Some(0.7));
+    assert_eq!(parsed.gate_high_version_rate_min, Some(0.4));
+    assert_eq!(parsed.gate_median_runtime_ms_max, Some(1000.0));
 
     let help_args = vec!["--help".to_string()];
     let parsed_help = tools::parse_reading_rate_args(&help_args).expect("help should parse");
@@ -79,6 +95,29 @@ fn parse_reading_rate_rejects_invalid_args() {
         tools::parse_reading_rate_args(&bad_cutoff).expect_err("expected parse error");
     assert!(bad_cutoff_err.contains("invalid --emergency-cutoff-ms value"));
 
+    let bad_global_gate = vec!["--gate-global-rate-min".to_string(), "1.1".to_string()];
+    let bad_global_gate_err =
+        tools::parse_reading_rate_args(&bad_global_gate).expect_err("expected parse error");
+    assert!(bad_global_gate_err.contains("invalid --gate-global-rate-min value"));
+
+    let bad_rotations_gate = vec!["--gate-rotations-rate-min".to_string(), "abc".to_string()];
+    let bad_rotations_gate_err =
+        tools::parse_reading_rate_args(&bad_rotations_gate).expect_err("expected parse error");
+    assert!(bad_rotations_gate_err.contains("invalid --gate-rotations-rate-min value"));
+
+    let bad_high_version_gate = vec![
+        "--gate-high-version-rate-min".to_string(),
+        "-0.1".to_string(),
+    ];
+    let bad_high_version_gate_err =
+        tools::parse_reading_rate_args(&bad_high_version_gate).expect_err("expected parse error");
+    assert!(bad_high_version_gate_err.contains("invalid --gate-high-version-rate-min value"));
+
+    let bad_runtime_gate = vec!["--gate-median-runtime-ms-max".to_string(), "-1".to_string()];
+    let bad_runtime_gate_err =
+        tools::parse_reading_rate_args(&bad_runtime_gate).expect_err("expected parse error");
+    assert!(bad_runtime_gate_err.contains("invalid --gate-median-runtime-ms-max value"));
+
     let bad_profile = vec!["--profile".to_string(), "bad-smoke".to_string()];
     let bad_profile_err =
         tools::parse_reading_rate_args(&bad_profile).expect_err("expected parse error");
@@ -97,6 +136,10 @@ fn reading_rate_usage_mentions_runtime_knobs() {
     assert!(usage.contains("payload-validated"));
     assert!(usage.contains("--max-working-dim"));
     assert!(usage.contains("--emergency-cutoff-ms"));
+    assert!(usage.contains("--gate-global-rate-min"));
+    assert!(usage.contains("--gate-rotations-rate-min"));
+    assert!(usage.contains("--gate-high-version-rate-min"));
+    assert!(usage.contains("--gate-median-runtime-ms-max"));
 }
 
 #[test]
@@ -384,6 +427,10 @@ fn reading_rate_report_flags_image_decode_failures() {
         limit: None,
         max_working_dim: None,
         emergency_cutoff_ms: None,
+        gate_global_rate_min: None,
+        gate_rotations_rate_min: None,
+        gate_high_version_rate_min: None,
+        gate_median_runtime_ms_max: None,
     };
     let report = tools::build_reading_rate_report(&args).expect("build report");
 
@@ -436,6 +483,10 @@ fn reading_rate_report_applies_emergency_cutoff_override() {
         limit: None,
         max_working_dim: None,
         emergency_cutoff_ms: Some(0),
+        gate_global_rate_min: None,
+        gate_rotations_rate_min: None,
+        gate_high_version_rate_min: None,
+        gate_median_runtime_ms_max: None,
     };
     let report = tools::build_reading_rate_report(&args).expect("build report");
 
@@ -462,6 +513,10 @@ fn reading_rate_report_includes_profile_metadata_note() {
         limit: Some(1),
         max_working_dim: None,
         emergency_cutoff_ms: None,
+        gate_global_rate_min: None,
+        gate_rotations_rate_min: None,
+        gate_high_version_rate_min: None,
+        gate_median_runtime_ms_max: None,
     };
     let report = tools::build_reading_rate_report(&args).expect("build report");
 
@@ -486,6 +541,10 @@ fn reading_rate_report_includes_kpi_lane_semantics_note() {
         limit: Some(1),
         max_working_dim: None,
         emergency_cutoff_ms: None,
+        gate_global_rate_min: None,
+        gate_rotations_rate_min: None,
+        gate_high_version_rate_min: None,
+        gate_median_runtime_ms_max: None,
     };
     let boofcv_report =
         tools::build_reading_rate_report(&boofcv_args).expect("build boofcv report");
@@ -503,6 +562,10 @@ fn reading_rate_report_includes_kpi_lane_semantics_note() {
         limit: Some(1),
         max_working_dim: None,
         emergency_cutoff_ms: None,
+        gate_global_rate_min: None,
+        gate_rotations_rate_min: None,
+        gate_high_version_rate_min: None,
+        gate_median_runtime_ms_max: None,
     };
     let strict_report =
         tools::build_reading_rate_report(&strict_args).expect("build strict report");
@@ -536,6 +599,68 @@ fn payload_validated_profile_has_strict_labels() {
             .lines()
             .any(|line| line.trim() == "SETS")
     }));
+}
+
+#[test]
+fn reading_rate_report_evaluates_kpi_gate_failures() {
+    let temp = temp_dir("kpi_gate_failures");
+    let rotations_dir = temp.join("rotations");
+    let high_version_dir = temp.join("high_version");
+    fs::create_dir_all(&rotations_dir).expect("create rotations dir");
+    fs::create_dir_all(&high_version_dir).expect("create high_version dir");
+
+    let rot_label = rotations_dir.join("image001.txt");
+    let rot_image = rotations_dir.join("image001.jpg");
+    fs::write(&rot_label, "expected-rot").expect("write rotations label");
+    fs::write(&rot_image, "invalid-image-bytes").expect("write rotations image");
+
+    let hv_label = high_version_dir.join("image001.txt");
+    let hv_image = high_version_dir.join("image001.jpg");
+    fs::write(&hv_label, "expected-hv").expect("write high_version label");
+    fs::write(&hv_image, "invalid-image-bytes").expect("write high_version image");
+
+    let args = tools::ReadingRateArgs {
+        dataset_root: temp,
+        profile: None,
+        artifact_path: PathBuf::from("unused"),
+        limit: None,
+        max_working_dim: None,
+        emergency_cutoff_ms: None,
+        gate_global_rate_min: Some(0.5),
+        gate_rotations_rate_min: Some(0.2),
+        gate_high_version_rate_min: Some(0.2),
+        gate_median_runtime_ms_max: Some(10_000.0),
+    };
+    let report = tools::build_reading_rate_report(&args).expect("build report");
+
+    assert_eq!(report.kpi_gate.pass, Some(false));
+    assert!(
+        report
+            .kpi_gate
+            .failures
+            .iter()
+            .any(|failure| failure.contains("global_rate"))
+    );
+    assert!(
+        report
+            .kpi_gate
+            .failures
+            .iter()
+            .any(|failure| failure.contains("rotations_rate"))
+    );
+    assert!(
+        report
+            .kpi_gate
+            .failures
+            .iter()
+            .any(|failure| failure.contains("high_version_rate"))
+    );
+
+    let json = tools::report_to_json(&report);
+    assert!(json.contains("\"rotations_rate\":{\"value\":"));
+    assert!(json.contains("\"high_version_rate\":{\"value\":"));
+    assert!(json.contains("\"pass\":false"));
+    assert!(json.contains("\"failures\":["));
 }
 
 fn write_checkerboard_image(path: &Path, width: u32, height: u32) {
