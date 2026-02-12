@@ -1,47 +1,22 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/lib.rs`: public API (`detect`, `Detector`) and pipeline orchestration.
-- `src/detector/`: finder, alignment, timing, transform, and pyramid detection logic.
-- `src/decoder/`: format/version parsing, Reed-Solomon, mode decoding, and bitstream handling.
-- `src/models/` and `src/utils/`: core data types and low-level image/math helpers.
-- `src/bin/qrtool.rs` and `src/tools/`: CLI + benchmark helpers (enabled with `tools` feature).
-- `tests/`: integration/regression tests using real images.
-- `benches/`: Criterion benchmarks; datasets live under `benches/images/`.
-- `docs/`: roadmap, optimization notes, spec references, and changelog.
+`src/lib.rs` is the public library entry point and exports the decode API. Core pipeline stages live in `src/pipeline/` (`hypothesis_search`, `geometry_refinement`, `decode_engine`, `multi_qr_iteration`, and shared `state`). CLI entry points are in `src/bin/`, with `qrtool` exposing `smoke` and `reading-rate` commands. Benchmark and dataset tooling is centralized in `src/tools/mod.rs`.  
+Integration tests are in `tests/` and are organized by work packet (`wp002_...`, `wp010_...`). Benchmark datasets and labels are in `benches/images/boofcv` and `benches/images/custom/decoding`. Design notes and active/completed work packets are in `docs/`.
 
 ## Build, Test, and Development Commands
-- `cargo build`: build the library.
-- `cargo test`: run unit + integration tests.
-- `cargo test --lib --release`: match CI’s release-library test pass.
-- `cargo fmt -- --check`: enforce formatting (CI-gated).
-- `cargo clippy --all-targets --all-features`: lint checks before opening PRs.
-- `cargo bench -- qr_detect`: run a focused synthetic benchmark.
-- `cargo bench --features tools --bench real_qr_images`: run real-image benchmark.
-- `cargo run --features tools --bin qrtool -- reading-rate --limit 3`: quick reading-rate smoke run.
+- `cargo build --locked`: build with dependency lockfile parity (matches CI).
+- `cargo test --locked`: run full integration/unit test suite.
+- `cargo fmt -- --check`: enforce formatting before PR.
+- `cargo run --bin qrtool -- smoke`: quick local scaffold sanity check.
+- `cargo run --bin qrtool -- reading-rate --profile boofcv-all --artifact target/reading_rate_boofcv_all.json`: run benchmark lane and write JSON artifact.
+- `cargo test --test wp010_decode_backend_tests`: run one integration suite while iterating.
 
 ## Coding Style & Naming Conventions
-- Rust edition: 2024; format with `rustfmt` defaults (4-space indentation).
-- Use `snake_case` for functions/modules/files, `PascalCase` for structs/enums, `SCREAMING_SNAKE_CASE` for constants.
-- Keep modules focused by stage (`detector`, `decoder`, `utils`) and prefer small, testable functions.
-- Avoid broad `allow` attributes; add narrowly scoped exceptions with a short reason.
+Use Rust 2024 idioms and keep code `rustfmt`-clean (4-space indentation, default style). File/module/function names are `snake_case`; structs/enums/traits are `CamelCase`; constants are `SCREAMING_SNAKE_CASE`. Preserve deterministic, budget-aware behavior in pipeline code and avoid introducing nondeterministic ordering. Unsafe code is disallowed (`#![forbid(unsafe_code)]`).
 
 ## Testing Guidelines
-- Place integration regressions in `tests/*_tests.rs`; name tests by scenario (for example, `test_decode_rotated`).
-- Use deterministic assertions on decoded content/metadata when possible.
-- Real-image tests may be tuned with env vars:
-  - `QR_MAX_DIM=1024` is the default recommendation for benchmark/CI parity.
-  - `QR_MAX_DIM=800` for faster local iteration.
-  - `QR_MAX_DIM=1200` for occasional deep validation.
-  - `QR_MAX_DIM=0` disables downscaling.
-  - `QR_DEBUG=1` enables debug logs.
-- Run targeted tests during iteration, then `cargo test` before commit.
+Add integration coverage in `tests/` for any behavior change, especially pipeline bounds, determinism, and benchmark argument parsing. Prefer descriptive test names that state behavior (for example, `decode_candidate_count_is_globally_bounded`). Keep fixtures and dataset assumptions explicit in the test body. For benchmark-impacting changes, generate an artifact under `target/` and summarize KPI deltas in the PR.
 
 ## Commit & Pull Request Guidelines
-- Recent history favors concise, imperative subjects; optional prefixes are common: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
-- Keep commits scoped (one logical change each) and include benchmark/test updates when behavior changes.
-- PRs should include:
-  - clear summary and motivation,
-  - linked issue/task (if available),
-  - commands run locally (test/lint/bench),
-  - before/after metrics for performance-sensitive changes.
+Follow the existing Conventional Commit style seen in history: `feat:`, `fix:`, `perf:`, `bench:`, `docs:`, `ci:`, `chore:`. Keep subjects imperative and scoped to one change. PRs should include: what changed, why, commands run (`cargo fmt -- --check`, `cargo test --locked`), and benchmark artifacts/delta notes when reading-rate behavior is affected.

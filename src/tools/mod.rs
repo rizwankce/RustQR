@@ -1,475 +1,901 @@
-#![allow(clippy::items_after_test_module)]
-
-use crate::models::BitMatrix;
-use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
-use crate::utils::grayscale::rgb_to_grayscale;
-use crate::{QRCode, detect};
-use image::GenericImageView;
-use std::env;
+use image::{DynamicImage, imageops::FilterType, io::Reader as ImageReader};
+use rust_qr::{DetectConfig, pipeline};
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::fs;
-use std::hash::Hasher;
+use std::io;
 use std::path::{Path, PathBuf};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-fn max_dim_from_env() -> Option<u32> {
-    match env::var("QR_MAX_DIM") {
-        Ok(value) => match value.trim().parse::<u32>() {
-            Ok(0) => None,
-            Ok(v) => Some(v),
-            Err(_) => None,
-        },
-        Err(_) => None,
+pub const DEFAULT_DATASET_ROOT: &str = "benches/images/boofcv";
+pub const DEFAULT_ARTIFACT_PATH: &str = "target/reading_rate_report.json";
+pub const IMAGE_LOAD_FAILURE_SIGNATURE: &str = "image-load-fail";
+pub const PAYLOAD_MISMATCH_SIGNATURE: &str = "payload-mismatch";
+pub const MONITOR_SMOKE_PROFILE: &str = "monitor-smoke";
+pub const NOMINAL_SMOKE_PROFILE: &str = "nominal-smoke";
+pub const PAYLOAD_VALIDATED_PROFILE: &str = "payload-validated";
+pub const BOOFCV_ALL_PROFILE: &str = "boofcv-all";
+pub const BOOFCV_BLURRED_PROFILE: &str = "boofcv-blurred";
+pub const BOOFCV_BRIGHTNESS_PROFILE: &str = "boofcv-brightness";
+pub const BOOFCV_BRIGHT_SPOTS_PROFILE: &str = "boofcv-bright-spots";
+pub const BOOFCV_CLOSE_PROFILE: &str = "boofcv-close";
+pub const BOOFCV_CURVED_PROFILE: &str = "boofcv-curved";
+pub const BOOFCV_DAMAGED_PROFILE: &str = "boofcv-damaged";
+pub const BOOFCV_GLARE_PROFILE: &str = "boofcv-glare";
+pub const BOOFCV_HIGH_VERSION_PROFILE: &str = "boofcv-high-version";
+pub const BOOFCV_LOTS_PROFILE: &str = "boofcv-lots";
+pub const BOOFCV_MONITOR_PROFILE: &str = "boofcv-monitor";
+pub const BOOFCV_NOMINAL_PROFILE: &str = "boofcv-nominal";
+pub const BOOFCV_NONCOMPLIANT_PROFILE: &str = "boofcv-noncompliant";
+pub const BOOFCV_PATHOLOGICAL_PROFILE: &str = "boofcv-pathological";
+pub const BOOFCV_PERSPECTIVE_PROFILE: &str = "boofcv-perspective";
+pub const BOOFCV_ROTATIONS_PROFILE: &str = "boofcv-rotations";
+pub const BOOFCV_SHADOWS_PROFILE: &str = "boofcv-shadows";
+
+const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp"];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReadingRateCommand {
+    Help,
+    Run(ReadingRateArgs),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadingRateProfile {
+    BoofcvAll,
+    BoofcvBlurred,
+    BoofcvBrightness,
+    BoofcvBrightSpots,
+    BoofcvClose,
+    BoofcvCurved,
+    BoofcvDamaged,
+    BoofcvGlare,
+    BoofcvHighVersion,
+    BoofcvLots,
+    BoofcvMonitor,
+    BoofcvNominal,
+    BoofcvNoncompliant,
+    BoofcvPathological,
+    BoofcvPerspective,
+    BoofcvRotations,
+    BoofcvShadows,
+    MonitorSmoke,
+    NominalSmoke,
+    PayloadValidated,
+}
+
+impl ReadingRateProfile {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::BoofcvAll => BOOFCV_ALL_PROFILE,
+            Self::BoofcvBlurred => BOOFCV_BLURRED_PROFILE,
+            Self::BoofcvBrightness => BOOFCV_BRIGHTNESS_PROFILE,
+            Self::BoofcvBrightSpots => BOOFCV_BRIGHT_SPOTS_PROFILE,
+            Self::BoofcvClose => BOOFCV_CLOSE_PROFILE,
+            Self::BoofcvCurved => BOOFCV_CURVED_PROFILE,
+            Self::BoofcvDamaged => BOOFCV_DAMAGED_PROFILE,
+            Self::BoofcvGlare => BOOFCV_GLARE_PROFILE,
+            Self::BoofcvHighVersion => BOOFCV_HIGH_VERSION_PROFILE,
+            Self::BoofcvLots => BOOFCV_LOTS_PROFILE,
+            Self::BoofcvMonitor => BOOFCV_MONITOR_PROFILE,
+            Self::BoofcvNominal => BOOFCV_NOMINAL_PROFILE,
+            Self::BoofcvNoncompliant => BOOFCV_NONCOMPLIANT_PROFILE,
+            Self::BoofcvPathological => BOOFCV_PATHOLOGICAL_PROFILE,
+            Self::BoofcvPerspective => BOOFCV_PERSPECTIVE_PROFILE,
+            Self::BoofcvRotations => BOOFCV_ROTATIONS_PROFILE,
+            Self::BoofcvShadows => BOOFCV_SHADOWS_PROFILE,
+            Self::MonitorSmoke => MONITOR_SMOKE_PROFILE,
+            Self::NominalSmoke => NOMINAL_SMOKE_PROFILE,
+            Self::PayloadValidated => PAYLOAD_VALIDATED_PROFILE,
+        }
     }
 }
 
-/// Load an image as RGB bytes along with its dimensions.
-pub fn load_rgb<P: AsRef<Path>>(path: P) -> Result<(Vec<u8>, usize, usize), image::ImageError> {
-    let img = image::open(path)?;
-    let rgb = if let Some(max_dim) = max_dim_from_env() {
-        let (orig_w, orig_h) = img.dimensions();
-        let max_side = orig_w.max(orig_h);
-        if max_side > max_dim {
-            let resized = img.resize(max_dim, max_dim, image::imageops::FilterType::Triangle);
-            resized.to_rgb8()
-        } else {
-            img.to_rgb8()
+#[cfg(test)]
+#[allow(dead_code)] // Referenced by integration harness tests via #[path]-included module.
+pub const ALL_READING_RATE_PROFILES: &[ReadingRateProfile] = &[
+    ReadingRateProfile::BoofcvAll,
+    ReadingRateProfile::BoofcvBlurred,
+    ReadingRateProfile::BoofcvBrightness,
+    ReadingRateProfile::BoofcvBrightSpots,
+    ReadingRateProfile::BoofcvClose,
+    ReadingRateProfile::BoofcvCurved,
+    ReadingRateProfile::BoofcvDamaged,
+    ReadingRateProfile::BoofcvGlare,
+    ReadingRateProfile::BoofcvHighVersion,
+    ReadingRateProfile::BoofcvLots,
+    ReadingRateProfile::BoofcvMonitor,
+    ReadingRateProfile::BoofcvNominal,
+    ReadingRateProfile::BoofcvNoncompliant,
+    ReadingRateProfile::BoofcvPathological,
+    ReadingRateProfile::BoofcvPerspective,
+    ReadingRateProfile::BoofcvRotations,
+    ReadingRateProfile::BoofcvShadows,
+    ReadingRateProfile::PayloadValidated,
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadingRateArgs {
+    pub dataset_root: PathBuf,
+    pub profile: Option<ReadingRateProfile>,
+    pub artifact_path: PathBuf,
+    pub limit: Option<usize>,
+    pub max_working_dim: Option<usize>,
+    pub emergency_cutoff_ms: Option<u64>,
+}
+
+impl Default for ReadingRateArgs {
+    fn default() -> Self {
+        Self {
+            dataset_root: PathBuf::from(DEFAULT_DATASET_ROOT),
+            profile: None,
+            artifact_path: PathBuf::from(DEFAULT_ARTIFACT_PATH),
+            limit: None,
+            max_working_dim: None,
+            emergency_cutoff_ms: None,
         }
-    } else {
-        img.to_rgb8()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LabelCase {
+    pub category: String,
+    pub label_path: PathBuf,
+    pub image_path: PathBuf,
+    pub expected_payload: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaseOutcome {
+    pub category: String,
+    pub label_path: PathBuf,
+    pub image_path: PathBuf,
+    pub expected_payload: String,
+    pub matched: bool,
+    pub runtime_ms: f64,
+    pub failure_signature: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CategorySummary {
+    pub category: String,
+    pub total_cases: usize,
+    pub matched_cases: usize,
+    pub reading_rate: f64,
+    pub median_runtime_ms: f64,
+    pub top_failure_signature: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlobalSummary {
+    pub total_cases: usize,
+    pub matched_cases: usize,
+    pub reading_rate: f64,
+    pub median_runtime_ms: f64,
+    pub top_failure_signature: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KpiGatePlaceholders {
+    pub global_rate: f64,
+    pub median_runtime_ms: f64,
+    pub top_failure_signature: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadingRateReport {
+    pub dataset_root: PathBuf,
+    pub generated_at_unix_ms: u128,
+    pub categories: Vec<CategorySummary>,
+    pub global: GlobalSummary,
+    pub kpi_gate: KpiGatePlaceholders,
+    pub notes: Vec<String>,
+    pub cases: Vec<CaseOutcome>,
+}
+
+pub fn parse_reading_rate_profile(raw: &str) -> Result<ReadingRateProfile, String> {
+    match raw {
+        BOOFCV_ALL_PROFILE => Ok(ReadingRateProfile::BoofcvAll),
+        BOOFCV_BLURRED_PROFILE => Ok(ReadingRateProfile::BoofcvBlurred),
+        BOOFCV_BRIGHTNESS_PROFILE => Ok(ReadingRateProfile::BoofcvBrightness),
+        BOOFCV_BRIGHT_SPOTS_PROFILE => Ok(ReadingRateProfile::BoofcvBrightSpots),
+        BOOFCV_CLOSE_PROFILE => Ok(ReadingRateProfile::BoofcvClose),
+        BOOFCV_CURVED_PROFILE => Ok(ReadingRateProfile::BoofcvCurved),
+        BOOFCV_DAMAGED_PROFILE => Ok(ReadingRateProfile::BoofcvDamaged),
+        BOOFCV_GLARE_PROFILE => Ok(ReadingRateProfile::BoofcvGlare),
+        BOOFCV_HIGH_VERSION_PROFILE => Ok(ReadingRateProfile::BoofcvHighVersion),
+        BOOFCV_LOTS_PROFILE => Ok(ReadingRateProfile::BoofcvLots),
+        BOOFCV_MONITOR_PROFILE => Ok(ReadingRateProfile::BoofcvMonitor),
+        BOOFCV_NOMINAL_PROFILE => Ok(ReadingRateProfile::BoofcvNominal),
+        BOOFCV_NONCOMPLIANT_PROFILE => Ok(ReadingRateProfile::BoofcvNoncompliant),
+        BOOFCV_PATHOLOGICAL_PROFILE => Ok(ReadingRateProfile::BoofcvPathological),
+        BOOFCV_PERSPECTIVE_PROFILE => Ok(ReadingRateProfile::BoofcvPerspective),
+        BOOFCV_ROTATIONS_PROFILE => Ok(ReadingRateProfile::BoofcvRotations),
+        BOOFCV_SHADOWS_PROFILE => Ok(ReadingRateProfile::BoofcvShadows),
+        // Backward compatible aliases.
+        MONITOR_SMOKE_PROFILE => Ok(ReadingRateProfile::MonitorSmoke),
+        NOMINAL_SMOKE_PROFILE => Ok(ReadingRateProfile::NominalSmoke),
+        PAYLOAD_VALIDATED_PROFILE => Ok(ReadingRateProfile::PayloadValidated),
+        _ => Err(format!(
+            "unknown --profile value: {raw}; use a supported profile such as {BOOFCV_ALL_PROFILE}, {BOOFCV_ROTATIONS_PROFILE}, or {PAYLOAD_VALIDATED_PROFILE}"
+        )),
+    }
+}
+
+pub fn reading_rate_profile_dataset_root(profile: ReadingRateProfile) -> PathBuf {
+    match profile {
+        ReadingRateProfile::BoofcvAll => PathBuf::from("benches/images/boofcv"),
+        ReadingRateProfile::BoofcvBlurred => PathBuf::from("benches/images/boofcv/blurred"),
+        ReadingRateProfile::BoofcvBrightness => PathBuf::from("benches/images/boofcv/brightness"),
+        ReadingRateProfile::BoofcvBrightSpots => {
+            PathBuf::from("benches/images/boofcv/bright_spots")
+        }
+        ReadingRateProfile::BoofcvClose => PathBuf::from("benches/images/boofcv/close"),
+        ReadingRateProfile::BoofcvCurved => PathBuf::from("benches/images/boofcv/curved"),
+        ReadingRateProfile::BoofcvDamaged => PathBuf::from("benches/images/boofcv/damaged"),
+        ReadingRateProfile::BoofcvGlare => PathBuf::from("benches/images/boofcv/glare"),
+        ReadingRateProfile::BoofcvHighVersion => {
+            PathBuf::from("benches/images/boofcv/high_version")
+        }
+        ReadingRateProfile::BoofcvLots => PathBuf::from("benches/images/boofcv/lots"),
+        ReadingRateProfile::BoofcvMonitor => PathBuf::from("benches/images/boofcv/monitor"),
+        ReadingRateProfile::BoofcvNominal => PathBuf::from("benches/images/boofcv/nominal"),
+        ReadingRateProfile::BoofcvNoncompliant => {
+            PathBuf::from("benches/images/boofcv/noncompliant")
+        }
+        ReadingRateProfile::BoofcvPathological => {
+            PathBuf::from("benches/images/boofcv/pathological")
+        }
+        ReadingRateProfile::BoofcvPerspective => PathBuf::from("benches/images/boofcv/perspective"),
+        ReadingRateProfile::BoofcvRotations => PathBuf::from("benches/images/boofcv/rotations"),
+        ReadingRateProfile::BoofcvShadows => PathBuf::from("benches/images/boofcv/shadows"),
+        // Backward compatible aliases.
+        ReadingRateProfile::MonitorSmoke => PathBuf::from("benches/images/boofcv/monitor"),
+        ReadingRateProfile::NominalSmoke => PathBuf::from("benches/images/boofcv/nominal"),
+        ReadingRateProfile::PayloadValidated => PathBuf::from("benches/images/custom/decoding"),
+    }
+}
+
+pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, String> {
+    let mut parsed = ReadingRateArgs::default();
+    let mut explicit_dataset_root: Option<PathBuf> = None;
+    let mut selected_profile: Option<ReadingRateProfile> = None;
+
+    let mut idx = 0usize;
+    while idx < args.len() {
+        match args[idx].as_str() {
+            "--help" | "-h" => return Ok(ReadingRateCommand::Help),
+            "--dataset-root" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--dataset-root requires a value".to_string())?;
+                explicit_dataset_root = Some(PathBuf::from(value));
+            }
+            "--profile" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--profile requires a value".to_string())?;
+                selected_profile = Some(parse_reading_rate_profile(value)?);
+            }
+            "--artifact" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--artifact requires a value".to_string())?;
+                parsed.artifact_path = PathBuf::from(value);
+            }
+            "--limit" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--limit requires a value".to_string())?;
+                let parsed_limit = value
+                    .parse::<usize>()
+                    .map_err(|_| format!("invalid --limit value: {value}"))?;
+                parsed.limit = if parsed_limit == 0 {
+                    None
+                } else {
+                    Some(parsed_limit)
+                };
+            }
+            "--max-working-dim" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--max-working-dim requires a value".to_string())?;
+                let parsed_dim = value
+                    .parse::<usize>()
+                    .map_err(|_| format!("invalid --max-working-dim value: {value}"))?;
+                parsed.max_working_dim = Some(parsed_dim);
+            }
+            "--emergency-cutoff-ms" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--emergency-cutoff-ms requires a value".to_string())?;
+                let parsed_cutoff = value
+                    .parse::<u64>()
+                    .map_err(|_| format!("invalid --emergency-cutoff-ms value: {value}"))?;
+                parsed.emergency_cutoff_ms = Some(parsed_cutoff);
+            }
+            unknown => {
+                return Err(format!(
+                    "unknown argument for reading-rate: {unknown}\n{}",
+                    reading_rate_usage()
+                ));
+            }
+        }
+        idx += 1;
+    }
+
+    if let Some(dataset_root) = explicit_dataset_root {
+        parsed.dataset_root = dataset_root;
+    } else if let Some(profile) = selected_profile {
+        parsed.dataset_root = reading_rate_profile_dataset_root(profile);
+    }
+    parsed.profile = selected_profile;
+
+    Ok(ReadingRateCommand::Run(parsed))
+}
+
+pub fn reading_rate_usage() -> &'static str {
+    "usage: qrtool reading-rate [--profile boofcv-all|boofcv-<category>|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+}
+
+pub fn discover_label_cases(
+    dataset_root: &Path,
+    limit: Option<usize>,
+) -> io::Result<Vec<LabelCase>> {
+    let mut label_files = Vec::new();
+    collect_label_files(dataset_root, &mut label_files)?;
+    label_files.sort();
+
+    let mut cases = Vec::new();
+    for label_path in label_files {
+        if let Some(max) = limit {
+            if cases.len() >= max {
+                break;
+            }
+        }
+
+        let Some(image_path) = paired_image_path(&label_path) else {
+            continue;
+        };
+
+        let expected_payload = fs::read_to_string(&label_path)?.trim().to_string();
+
+        cases.push(LabelCase {
+            category: category_from_label_path(dataset_root, &label_path),
+            label_path,
+            image_path,
+            expected_payload,
+        });
+    }
+
+    Ok(cases)
+}
+
+pub fn category_from_label_path(dataset_root: &Path, label_path: &Path) -> String {
+    if let Ok(relative) = label_path.strip_prefix(dataset_root) {
+        let mut components = relative.components();
+        if let Some(first) = components.next() {
+            if components.next().is_some() {
+                let first = first.as_os_str().to_string_lossy();
+                if !first.is_empty() {
+                    return first.to_string();
+                }
+            }
+        }
+    }
+
+    if let Some(name) = dataset_root.file_name().and_then(|value| value.to_str()) {
+        if !name.is_empty() {
+            return name.to_string();
+        }
+    }
+
+    "uncategorized".to_string()
+}
+
+pub fn paired_image_path(label_path: &Path) -> Option<PathBuf> {
+    for extension in IMAGE_EXTENSIONS {
+        let candidate = label_path.with_extension(extension);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+
+        let uppercase = label_path.with_extension(extension.to_ascii_uppercase());
+        if uppercase.is_file() {
+            return Some(uppercase);
+        }
+    }
+
+    None
+}
+
+pub fn evaluate_cases(
+    cases: Vec<LabelCase>,
+    detect_config: &DetectConfig,
+    decode_resize_max_dim: Option<usize>,
+) -> Vec<CaseOutcome> {
+    cases
+        .into_iter()
+        .map(|case| evaluate_case(case, detect_config, decode_resize_max_dim))
+        .collect()
+}
+
+fn evaluate_case(
+    case: LabelCase,
+    detect_config: &DetectConfig,
+    decode_resize_max_dim: Option<usize>,
+) -> CaseOutcome {
+    let case_start = Instant::now();
+    let expected_payload = normalize_payload(&case.expected_payload);
+    let annotation_label_mode = is_point_annotation_label(&case.expected_payload);
+
+    let (image, width, height) = match load_rgb_image(&case.image_path, decode_resize_max_dim) {
+        Ok(decoded) => decoded,
+        Err(_) => {
+            return CaseOutcome {
+                category: case.category,
+                label_path: case.label_path,
+                image_path: case.image_path,
+                expected_payload: case.expected_payload,
+                matched: false,
+                runtime_ms: elapsed_ms(case_start),
+                failure_signature: Some(IMAGE_LOAD_FAILURE_SIGNATURE.to_string()),
+            };
+        }
     };
+
+    let report = pipeline::detect_with_config(&image, width, height, detect_config);
+    let matched = if annotation_label_mode {
+        !report.codes.is_empty()
+    } else {
+        report
+            .codes
+            .iter()
+            .any(|code| normalize_payload(&code.payload) == expected_payload)
+    };
+
+    let failure_signature = if matched {
+        None
+    } else if report.codes.is_empty() {
+        report
+            .failure_signature
+            .or_else(|| Some("no-decode-yet".to_string()))
+    } else {
+        Some(PAYLOAD_MISMATCH_SIGNATURE.to_string())
+    };
+
+    CaseOutcome {
+        category: case.category,
+        label_path: case.label_path,
+        image_path: case.image_path,
+        expected_payload: case.expected_payload,
+        matched,
+        runtime_ms: elapsed_ms(case_start),
+        failure_signature,
+    }
+}
+
+pub fn median_runtime(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+
+    let middle = sorted.len() / 2;
+    if sorted.len() % 2 == 1 {
+        sorted[middle]
+    } else {
+        (sorted[middle - 1] + sorted[middle]) / 2.0
+    }
+}
+
+pub fn top_failure_signature<'a, I>(signatures: I) -> Option<String>
+where
+    I: Iterator<Item = &'a str>,
+{
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for signature in signatures {
+        *counts.entry(signature).or_insert(0) += 1;
+    }
+
+    counts
+        .into_iter()
+        .max_by(|(left_key, left_count), (right_key, right_count)| {
+            left_count
+                .cmp(right_count)
+                .then_with(|| right_key.cmp(left_key))
+        })
+        .map(|(value, _)| value.to_string())
+}
+
+pub fn summarize_outcomes(outcomes: &[CaseOutcome]) -> (Vec<CategorySummary>, GlobalSummary) {
+    let mut grouped: BTreeMap<&str, Vec<&CaseOutcome>> = BTreeMap::new();
+    for outcome in outcomes {
+        grouped
+            .entry(outcome.category.as_str())
+            .or_default()
+            .push(outcome);
+    }
+
+    let categories = grouped
+        .into_iter()
+        .map(|(category, rows)| {
+            let total_cases = rows.len();
+            let matched_cases = rows.iter().filter(|row| row.matched).count();
+            let reading_rate = if total_cases == 0 {
+                0.0
+            } else {
+                matched_cases as f64 / total_cases as f64
+            };
+            let runtimes: Vec<f64> = rows.iter().map(|row| row.runtime_ms).collect();
+            let top_failure_signature = top_failure_signature(
+                rows.iter()
+                    .filter_map(|row| row.failure_signature.as_deref()),
+            );
+
+            CategorySummary {
+                category: category.to_string(),
+                total_cases,
+                matched_cases,
+                reading_rate,
+                median_runtime_ms: median_runtime(&runtimes),
+                top_failure_signature,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let total_cases = outcomes.len();
+    let matched_cases = outcomes.iter().filter(|row| row.matched).count();
+    let reading_rate = if total_cases == 0 {
+        0.0
+    } else {
+        matched_cases as f64 / total_cases as f64
+    };
+    let all_runtimes: Vec<f64> = outcomes.iter().map(|row| row.runtime_ms).collect();
+
+    let global = GlobalSummary {
+        total_cases,
+        matched_cases,
+        reading_rate,
+        median_runtime_ms: median_runtime(&all_runtimes),
+        top_failure_signature: top_failure_signature(
+            outcomes
+                .iter()
+                .filter_map(|row| row.failure_signature.as_deref()),
+        ),
+    };
+
+    (categories, global)
+}
+
+pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateReport, String> {
+    let cases = discover_label_cases(&args.dataset_root, args.limit)
+        .map_err(|err| format!("failed to discover label cases: {err}"))?;
+
+    let detect_config = reading_rate_detect_config(args);
+    let outcomes = evaluate_cases(cases, &detect_config, args.max_working_dim);
+    let (categories, global) = summarize_outcomes(&outcomes);
+
+    let generated_at_unix_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0);
+
+    let kpi_gate = KpiGatePlaceholders {
+        global_rate: global.reading_rate,
+        median_runtime_ms: global.median_runtime_ms,
+        top_failure_signature: global.top_failure_signature.clone(),
+    };
+
+    let mut notes = vec![
+        "reading-rate mode: real image decode + payload match evaluation".to_string(),
+        "pipeline rebuild is in progress; compare strict payload and BoofCV annotation lanes separately".to_string(),
+    ];
+    if let Some(profile) = args.profile {
+        notes.push(format!(
+            "reading-rate profile={} resolved_dataset_root={}",
+            profile.as_str(),
+            args.dataset_root.display()
+        ));
+    }
+
+    Ok(ReadingRateReport {
+        dataset_root: args.dataset_root.clone(),
+        generated_at_unix_ms,
+        categories,
+        global,
+        kpi_gate,
+        notes,
+        cases: outcomes,
+    })
+}
+
+fn reading_rate_detect_config(args: &ReadingRateArgs) -> DetectConfig {
+    let mut config = DetectConfig::default();
+    if let Some(max_working_dim) = args.max_working_dim {
+        config.max_working_dim = max_working_dim;
+    }
+    if let Some(emergency_cutoff_ms) = args.emergency_cutoff_ms {
+        config.emergency_cutoff_ms = emergency_cutoff_ms;
+    }
+    config
+}
+
+pub(crate) fn load_rgb_image(
+    path: &Path,
+    decode_resize_max_dim: Option<usize>,
+) -> Result<(Vec<u8>, usize, usize), String> {
+    let reader = ImageReader::open(path)
+        .map_err(|err| format!("failed to open image {}: {err}", path.display()))?;
+    let decoded = reader
+        .decode()
+        .map_err(|err| format!("failed to decode image {}: {err}", path.display()))?;
+    let resized = maybe_resize_decoded_image(decoded, decode_resize_max_dim);
+    let rgb = resized.to_rgb8();
     let (width, height) = rgb.dimensions();
     Ok((rgb.into_raw(), width as usize, height as usize))
 }
 
-/// Convert RGB bytes into grayscale.
-pub fn to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
-    rgb_to_grayscale(rgb, width, height)
-}
-
-/// Binarize a grayscale image using the same policy as detection.
-pub fn binarize(gray: &[u8], width: usize, height: usize) -> BitMatrix {
-    if width >= 800 || height >= 800 {
-        adaptive_binarize(gray, width, height, 31)
-    } else {
-        otsu_binarize(gray, width, height)
-    }
-}
-
-/// Binarize a grayscale image using Otsu's method.
-pub fn binarize_otsu(gray: &[u8], width: usize, height: usize) -> BitMatrix {
-    otsu_binarize(gray, width, height)
-}
-
-/// Detect QR codes in an RGB image.
-pub fn detect_qr(rgb: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    detect(rgb, width, height)
-}
-
-/// Summary statistics for grayscale data.
-#[derive(Debug, Clone, Copy)]
-pub struct GrayStats {
-    /// Minimum grayscale value.
-    pub min: u8,
-    /// Maximum grayscale value.
-    pub max: u8,
-    /// Average grayscale value.
-    pub avg: u8,
-}
-
-/// Summary statistics for a binary matrix.
-#[derive(Debug, Clone, Copy)]
-pub struct BinaryStats {
-    /// Count of black pixels.
-    pub black_pixels: usize,
-    /// Total pixels in the matrix.
-    pub total_pixels: usize,
-    /// Ratio of black pixels to total pixels.
-    pub black_ratio: f64,
-}
-
-/// Compute min/max/avg for grayscale values.
-pub fn grayscale_stats(gray: &[u8]) -> GrayStats {
-    let mut min = u8::MAX;
-    let mut max = u8::MIN;
-    let mut sum: u64 = 0;
-    for &v in gray {
-        min = min.min(v);
-        max = max.max(v);
-        sum += v as u64;
-    }
-    let avg = if gray.is_empty() {
-        0
-    } else {
-        (sum / gray.len() as u64) as u8
+fn maybe_resize_decoded_image(
+    image: DynamicImage,
+    decode_resize_max_dim: Option<usize>,
+) -> DynamicImage {
+    let Some(limit) = decode_resize_max_dim else {
+        return image;
     };
-    GrayStats { min, max, avg }
+    if limit == 0 {
+        return image;
+    }
+
+    let width = image.width();
+    let height = image.height();
+    let source_max_dim = width.max(height) as usize;
+    if source_max_dim <= limit {
+        return image;
+    }
+
+    let scale = limit as f64 / source_max_dim as f64;
+    let resized_width = ((width as f64) * scale).round().max(1.0) as u32;
+    let resized_height = ((height as f64) * scale).round().max(1.0) as u32;
+    image.resize_exact(resized_width, resized_height, FilterType::Triangle)
 }
 
-/// Compute black pixel stats for a binary matrix.
-pub fn binary_stats(binary: &BitMatrix) -> BinaryStats {
-    let mut black = 0usize;
-    for y in 0..binary.height() {
-        for x in 0..binary.width() {
-            if binary.get(x, y) {
-                black += 1;
-            }
-        }
-    }
-    let total = binary.width() * binary.height();
-    let ratio = if total == 0 {
-        0.0
-    } else {
-        black as f64 / total as f64
-    };
-    BinaryStats {
-        black_pixels: black,
-        total_pixels: total,
-        black_ratio: ratio,
-    }
+fn normalize_payload(payload: &str) -> String {
+    payload.trim().replace("\r\n", "\n")
 }
 
-/// Default dataset root from environment variables.
-pub fn dataset_root_from_env() -> PathBuf {
-    env::var("QR_DATASET_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("benches/images/boofcv"))
+fn is_point_annotation_label(raw: &str) -> bool {
+    let normalized = normalize_payload(raw);
+    if normalized.is_empty() {
+        return false;
+    }
+    if normalized
+        .lines()
+        .any(|line| line.trim().eq_ignore_ascii_case("SETS"))
+    {
+        return true;
+    }
+    normalized
+        .lines()
+        .next()
+        .map(|line| {
+            line.to_ascii_lowercase()
+                .contains("hand selected 2d points")
+        })
+        .unwrap_or(false)
 }
 
-/// Deterministic fingerprint of dataset contents for benchmark provenance.
-///
-/// The fingerprint includes every file path and file bytes under `root`.
-/// It is intended for change detection and traceability, not cryptographic use.
-pub fn dataset_fingerprint<P: AsRef<Path>>(root: P) -> String {
-    struct Fnv1a64(u64);
+fn elapsed_ms(start: Instant) -> f64 {
+    start.elapsed().as_secs_f64() * 1_000.0
+}
 
-    impl Fnv1a64 {
-        const OFFSET: u64 = 0xcbf29ce484222325;
-        const PRIME: u64 = 0x100000001b3;
+pub fn render_console_summary(report: &ReadingRateReport) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "reading-rate dataset_root={} cases={} matched={} rate={:.4} median_runtime_ms={:.3} top_failure_signature={}",
+        report.dataset_root.display(),
+        report.global.total_cases,
+        report.global.matched_cases,
+        report.global.reading_rate,
+        report.global.median_runtime_ms,
+        report
+            .global
+            .top_failure_signature
+            .as_deref()
+            .unwrap_or("none")
+    ));
+
+    for category in &report.categories {
+        lines.push(format!(
+            "category={} cases={} matched={} rate={:.4} median_runtime_ms={:.3} top_failure_signature={}",
+            category.category,
+            category.total_cases,
+            category.matched_cases,
+            category.reading_rate,
+            category.median_runtime_ms,
+            category
+                .top_failure_signature
+                .as_deref()
+                .unwrap_or("none")
+        ));
     }
 
-    impl Default for Fnv1a64 {
-        fn default() -> Self {
-            Self(Self::OFFSET)
-        }
+    for note in &report.notes {
+        lines.push(format!("note={note}"));
     }
 
-    impl Hasher for Fnv1a64 {
-        fn write(&mut self, bytes: &[u8]) {
-            for b in bytes {
-                self.0 ^= u64::from(*b);
-                self.0 = self.0.wrapping_mul(Self::PRIME);
-            }
-        }
+    lines.join("\n")
+}
 
-        fn finish(&self) -> u64 {
-            self.0
-        }
-    }
-
-    fn collect_files(root: &Path) -> Vec<PathBuf> {
-        let mut stack = vec![root.to_path_buf()];
-        let mut files = Vec::new();
-
-        while let Some(dir) = stack.pop() {
-            let entries = match fs::read_dir(&dir) {
-                Ok(entries) => entries,
-                Err(_) => continue,
-            };
-
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    stack.push(path);
-                } else if path.is_file() {
-                    files.push(path);
+pub fn report_to_json(report: &ReadingRateReport) -> String {
+    fn escape_json(raw: &str) -> String {
+        let mut escaped = String::with_capacity(raw.len());
+        for ch in raw.chars() {
+            match ch {
+                '"' => escaped.push_str("\\\""),
+                '\\' => escaped.push_str("\\\\"),
+                '\n' => escaped.push_str("\\n"),
+                '\r' => escaped.push_str("\\r"),
+                '\t' => escaped.push_str("\\t"),
+                c if c <= '\u{1F}' => {
+                    let _ = std::fmt::Write::write_fmt(
+                        &mut escaped,
+                        format_args!("\\u{:04X}", c as u32),
+                    );
                 }
+                c => escaped.push(c),
             }
         }
-
-        files.sort();
-        files
+        escaped
     }
 
-    let root = root.as_ref();
-    if !root.exists() {
-        return "missing".to_string();
+    fn quoted(value: &str) -> String {
+        format!("\"{}\"", escape_json(value))
     }
 
-    let mut hasher = Fnv1a64::default();
-    for path in collect_files(root) {
-        let rel = path
-            .strip_prefix(root)
-            .ok()
-            .map(|p| p.to_string_lossy().replace('\\', "/"))
-            .unwrap_or_else(|| path.to_string_lossy().replace('\\', "/"));
-        hasher.write(rel.as_bytes());
-        hasher.write(&[0]);
-
-        if let Ok(meta) = fs::metadata(&path) {
-            hasher.write(&meta.len().to_le_bytes());
-        }
-        if let Ok(bytes) = fs::read(&path) {
-            hasher.write(&bytes);
-        }
-        hasher.write(&[0xff]);
-    }
-
-    format!("{:016x}", hasher.finish())
-}
-
-/// Default bench limit from environment variables.
-///
-/// Returns `None` (full dataset) when `QR_BENCH_LIMIT` is unset or set to `0`.
-/// Previously defaulted to 5 when unset, which silently sampled only a tiny
-/// subset and produced misleading reading-rate numbers.
-pub fn bench_limit_from_env() -> Option<usize> {
-    match env::var("QR_BENCH_LIMIT") {
-        Ok(value) => value
-            .parse::<usize>()
-            .ok()
-            .and_then(|v| if v == 0 { None } else { Some(v) }),
-        Err(_) => None,
-    }
-}
-
-/// Count the number of expected QR codes from a BoofCV-format label file.
-///
-/// Supports both label layouts found in this dataset:
-/// - Modern layout: header + `SETS`, then one line per QR with 8 floats.
-/// - Legacy layout: no `SETS`, one corner point per line (2 floats), 4 lines per QR.
-///
-/// Returns `0` if the file cannot be read or parsed.
-pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
-    let content = match fs::read_to_string(txt_path) {
-        Ok(c) => c,
-        Err(_) => return 0,
-    };
-
-    fn parse_numeric_token_count(line: &str) -> Option<usize> {
-        let mut count = 0usize;
-        for token in line.split_whitespace() {
-            token.parse::<f64>().ok()?;
-            count += 1;
-        }
-        if count == 0 { None } else { Some(count) }
-    }
-
-    let mut saw_sets = false;
-    let mut post_sets_qr_lines = 0usize;
-    let mut pre_sets_qr_lines = 0usize;
-    let mut pre_sets_corner_lines = 0usize;
-
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-
-        if trimmed.eq_ignore_ascii_case("SETS") {
-            saw_sets = true;
-            continue;
-        }
-
-        let Some(token_count) = parse_numeric_token_count(trimmed) else {
-            continue;
-        };
-
-        if saw_sets {
-            if token_count >= 8 {
-                post_sets_qr_lines += 1;
-            }
-        } else if token_count >= 8 {
-            pre_sets_qr_lines += 1;
-        } else if token_count == 2 {
-            pre_sets_corner_lines += 1;
+    fn optional_string(value: &Option<String>) -> String {
+        match value {
+            Some(v) => quoted(v),
+            None => "null".to_string(),
         }
     }
 
-    if saw_sets {
-        post_sets_qr_lines
-    } else {
-        let legacy_qrs = pre_sets_corner_lines / 4;
-        if pre_sets_qr_lines > 0 {
-            pre_sets_qr_lines
-        } else {
-            legacy_qrs
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{dataset_fingerprint, parse_expected_qr_count};
-    use std::fs::{self, create_dir_all};
-    use std::path::PathBuf;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn write_temp_file(contents: &str) -> PathBuf {
-        let mut path = std::env::temp_dir();
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock before UNIX epoch")
-            .as_nanos();
-        let sequence = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
-        path.push(format!("rustqr_expected_qr_count_{nanos}_{sequence}.txt"));
-        fs::write(&path, contents).expect("failed to write temp label file");
-        path
+    fn format_path(path: &Path) -> String {
+        path.to_string_lossy().into_owned()
     }
 
-    #[test]
-    fn parse_expected_qr_count_supports_sets_layout() {
-        let path = write_temp_file(
-            "# list of hand selected 2D points\n\
-             SETS\n\
-             1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0\n\
-             9.0 10.0 11.0 12.0 13.0 14.0 15.0 16.0\n",
-        );
-        assert_eq!(parse_expected_qr_count(&path), 2);
-        let _ = fs::remove_file(path);
-    }
+    let categories_json = report
+        .categories
+        .iter()
+        .map(|category| {
+            format!(
+                "{{\"category\":{},\"total_cases\":{},\"matched_cases\":{},\"reading_rate\":{:.6},\"median_runtime_ms\":{:.6},\"top_failure_signature\":{}}}",
+                quoted(&category.category),
+                category.total_cases,
+                category.matched_cases,
+                category.reading_rate,
+                category.median_runtime_ms,
+                optional_string(&category.top_failure_signature),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
 
-    #[test]
-    fn parse_expected_qr_count_supports_legacy_corner_layout() {
-        let path = write_temp_file(
-            "# list of hand selected 2D points\n\
-             10.0 20.0\n\
-             30.0 40.0\n\
-             50.0 60.0\n\
-             70.0 80.0\n\
-             11.0 21.0\n\
-             31.0 41.0\n\
-             51.0 61.0\n\
-             71.0 81.0\n",
-        );
-        assert_eq!(parse_expected_qr_count(&path), 2);
-        let _ = fs::remove_file(path);
-    }
+    let notes_json = report
+        .notes
+        .iter()
+        .map(|note| quoted(note))
+        .collect::<Vec<_>>()
+        .join(",");
 
-    #[test]
-    fn parse_expected_qr_count_returns_zero_for_invalid_content() {
-        let path = write_temp_file("foo bar baz\n# comment only\n");
-        assert_eq!(parse_expected_qr_count(&path), 0);
-        let _ = fs::remove_file(path);
-    }
+    let cases_json = report
+        .cases
+        .iter()
+        .map(|case| {
+            format!(
+                "{{\"category\":{},\"label_path\":{},\"image_path\":{},\"expected_payload\":{},\"matched\":{},\"runtime_ms\":{:.6},\"failure_signature\":{}}}",
+                quoted(&case.category),
+                quoted(&format_path(&case.label_path)),
+                quoted(&format_path(&case.image_path)),
+                quoted(&case.expected_payload),
+                case.matched,
+                case.runtime_ms,
+                optional_string(&case.failure_signature),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
 
-    #[test]
-    fn dataset_fingerprint_changes_when_dataset_changes() {
-        let mut root = std::env::temp_dir();
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock before UNIX epoch")
-            .as_nanos();
-        root.push(format!("rustqr_dataset_fingerprint_{nanos}"));
-        create_dir_all(root.join("nominal")).expect("failed to create temp dataset");
-        fs::write(root.join("nominal").join("a.png"), b"abc").expect("failed to write file");
-
-        let before = dataset_fingerprint(&root);
-        fs::write(root.join("nominal").join("b.txt"), b"label").expect("failed to write file");
-        let after = dataset_fingerprint(&root);
-
-        assert_ne!(before, after);
-        let _ = fs::remove_dir_all(root);
-    }
-}
-
-/// Smoke test flag from environment variables.
-pub fn smoke_from_env() -> bool {
-    matches!(
-        env::var("QR_SMOKE").as_deref(),
-        Ok("1") | Ok("true") | Ok("TRUE") | Ok("yes") | Ok("YES")
+    format!(
+        concat!(
+            "{{",
+            "\"schema_version\":\"wp007-reading-rate-v1\",",
+            "\"generated_at_unix_ms\":{},",
+            "\"dataset_root\":{},",
+            "\"global\":{{",
+            "\"total_cases\":{},",
+            "\"matched_cases\":{},",
+            "\"reading_rate\":{:.6},",
+            "\"median_runtime_ms\":{:.6},",
+            "\"top_failure_signature\":{}",
+            "}},",
+            "\"categories\":[{}],",
+            "\"kpi_gate\":{{",
+            "\"global_rate\":{{\"value\":{:.6},\"threshold_min\":null,\"pass\":null}},",
+            "\"median_runtime_ms\":{{\"value\":{:.6},\"threshold_max\":null,\"pass\":null}},",
+            "\"top_failure_signature\":{{\"value\":{},\"blocked_signatures\":[],\"pass\":null}}",
+            "}},",
+            "\"notes\":[{}],",
+            "\"cases\":[{}]",
+            "}}"
+        ),
+        report.generated_at_unix_ms,
+        quoted(&format_path(&report.dataset_root)),
+        report.global.total_cases,
+        report.global.matched_cases,
+        report.global.reading_rate,
+        report.global.median_runtime_ms,
+        optional_string(&report.global.top_failure_signature),
+        categories_json,
+        report.kpi_gate.global_rate,
+        report.kpi_gate.median_runtime_ms,
+        optional_string(&report.kpi_gate.top_failure_signature),
+        notes_json,
+        cases_json,
     )
 }
 
-/// Iterate dataset image paths with optional smoke list and limit.
-pub fn dataset_iter<P: AsRef<Path>>(
-    root: P,
-    limit: Option<usize>,
-    smoke: bool,
-) -> impl Iterator<Item = PathBuf> {
-    let root = root.as_ref();
-    let mut images = if smoke {
-        load_smoke_list(root).unwrap_or_else(|| collect_images(root))
-    } else {
-        collect_images(root)
-    };
-
-    images.sort();
-    if let Some(limit) = limit {
-        images.truncate(limit);
+pub fn write_report_json(artifact_path: &Path, json: &str) -> io::Result<()> {
+    if let Some(parent) = artifact_path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
     }
-    images.into_iter()
+
+    fs::write(artifact_path, json)
 }
 
-fn load_smoke_list(root: &Path) -> Option<Vec<PathBuf>> {
-    let smoke_path = root.join("_smoke.txt");
-    let contents = fs::read_to_string(&smoke_path).ok()?;
-    let mut paths = Vec::new();
-    for line in contents.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
+fn collect_label_files(root: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
+    let mut entries = fs::read_dir(root)?.collect::<Result<Vec<_>, _>>()?;
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_label_files(&path, out)?;
             continue;
         }
-        let candidate = Path::new(line);
-        let path = if candidate.is_absolute() {
-            candidate.to_path_buf()
-        } else {
-            root.join(candidate)
-        };
-        if path.exists() {
-            paths.push(path);
+
+        let is_txt = path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.eq_ignore_ascii_case("txt"))
+            .unwrap_or(false);
+
+        if !is_txt {
+            continue;
         }
-    }
-    if paths.is_empty() { None } else { Some(paths) }
-}
 
-fn collect_images(root: &Path) -> Vec<PathBuf> {
-    let mut stack = vec![root.to_path_buf()];
-    let mut images = Vec::new();
+        let is_control_file = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.starts_with('_'))
+            .unwrap_or(false);
 
-    while let Some(dir) = stack.pop() {
-        let entries = match fs::read_dir(&dir) {
-            Ok(entries) => entries,
-            Err(_) => continue,
-        };
-
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push(path);
-                continue;
-            }
-            if let Some(ext) = path.extension() {
-                let ext = ext.to_string_lossy().to_lowercase();
-                if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "bmp" {
-                    images.push(path);
-                }
-            }
+        if is_control_file {
+            continue;
         }
+
+        out.push(path);
     }
 
-    images
-}
-
-#[cfg(test)]
-mod timing_tests {
-    use std::time::Instant;
-
-    #[test]
-    fn test_image_load_timing() {
-        for i in 1..=10 {
-            let path = format!("benches/images/boofcv/pathological/image{:03}.png", i);
-            let start = Instant::now();
-            let img = image::open(&path).unwrap();
-            let rgb = img.to_rgb8();
-            let elapsed = start.elapsed();
-            println!(
-                "Image {:03}: load+to_rgb8={:.2}ms, dims={:?}",
-                i,
-                elapsed.as_secs_f64() * 1000.0,
-                rgb.dimensions()
-            );
-        }
-    }
+    Ok(())
 }

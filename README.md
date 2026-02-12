@@ -1,184 +1,144 @@
 # RustQR
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/rizwankce/RustQR/actions)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
-[![Rust Version](https://img.shields.io/badge/rust-1.70%2B-orange)](https://www.rust-lang.org)
+[![CI](https://github.com/rizwankce/RustQR/actions/workflows/ci.yml/badge.svg)](https://github.com/rizwankce/RustQR/actions/workflows/ci.yml)
+[![Benchmark](https://github.com/rizwankce/RustQR/actions/workflows/benchmark.yml/badge.svg)](https://github.com/rizwankce/RustQR/actions/workflows/benchmark.yml)
+[![License](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue)](Cargo.toml)
+[![Rust](https://img.shields.io/badge/rust-stable-orange)](https://www.rust-lang.org)
 
-**The world's fastest QR code scanning library written in pure Rust.**
+Fast QR detection/decoding rebuild in Rust, with benchmark-driven development against BoofCV image sets.
 
-RustQR is a high-performance, cross-platform QR code detection and decoding library with zero third-party dependencies. Designed for speed and efficiency, it aims to be the fastest QR scanner available while maintaining a clean, safe Rust implementation.
+## Status
+
+- Active rebuild branch: `scratch_from_scratch_rebuild`
+- Current target: `>=90%` reading rate with median runtime `<=1000 ms/image` on BoofCV benchmarks
+- Source-of-truth plan: `docs/new_from_scratch.md`
+
+The pipeline is functional end-to-end and benchmark automation is live. The project is not API-stable yet.
 
 ## Features
 
-- **Blazing Fast**: Target <5ms for 1MP images
-- **Pure Rust**: Zero unsafe code, zero external dependencies
-- **Cross-Platform**: Works on Linux, macOS, Windows, WASM, iOS, Android
-- **No-Std Compatible**: Suitable for embedded systems
-- **Complete Standards Support**:
-  - QR Code Model 1 & 2 (versions 1-40)
-  - Micro QR Code (M1-M4)
-  - All error correction levels (L, M, Q, H)
-  - All mask patterns (0-7)
-  - Numeric, Alphanumeric, Byte modes
-
-## Performance
-
-| Image Size | Time | Status |
-|------------|------|--------|
-| 100x100 RGB | ~114 µs | Excellent |
-| 640x480 RGB | ~1.9 ms | Target met |
-| 1920x1080 RGB | ~12.5 ms | Optimizing |
-| Real QR images | 8-45 ms | Optimizing |
-
-**Target**: <5ms for 1MP images to beat BoofCV (~15-20ms) and ZBar (~10-15ms)
-
-See [docs/optimize.md](docs/optimize.md) for detailed optimization roadmap.
+- Pure Rust codebase with `#![forbid(unsafe_code)]`
+- Multi-stage QR pipeline:
+  - `proposal_ensemble`
+  - `hypothesis_search`
+  - `geometry_refinement`
+  - `decode_engine`
+  - `multi_qr_iteration`
+- Real image decode path with telemetry and stage timing
+- Reading-rate harness with profile-based dataset selection
+- GitHub Actions support for CI and on-demand benchmark runs
 
 ## Installation
 
-Add this to your `Cargo.toml`:
+This rebuild is currently branch-first. Add via git dependency:
 
 ```toml
 [dependencies]
-rust_qr = { git = "https://github.com/rizwankce/RustQR" }
+rust_qr = { git = "https://github.com/rizwankce/RustQR", branch = "scratch_from_scratch_rebuild" }
 ```
 
 ## Usage
 
-### Basic Detection
+Library API:
 
 ```rust
 use rust_qr::detect;
 
-let image_data: Vec<u8> = load_image(); // Your image loading code
-let width = 640;
-let height = 480;
-
-let qr_codes = detect(&image_data, width, height);
-
-for qr in qr_codes {
-    println!("Found QR: {}", qr.content);
+let image_rgb: Vec<u8> = vec![0; 640 * 480 * 3];
+let codes = detect(&image_rgb, 640, 480);
+for code in codes {
+    println!("{}", code.payload);
 }
 ```
 
-### Using the Detector Struct
-
-```rust
-use rust_qr::Detector;
-
-let detector = Detector::new();
-let qr_codes = detector.detect(&image_data, width, height);
-
-// Or detect just the first QR code (faster)
-if let Some(qr) = detector.detect_single(&image_data, width, height) {
-    println!("QR Content: {}", qr.content);
-}
-```
-
-## Testing
-
-Run the test suite:
+CLI:
 
 ```bash
-cargo test
+# smoke
+cargo run --bin qrtool -- smoke
+
+# reading-rate
+cargo run --bin qrtool -- reading-rate --profile boofcv-all --artifact target/reading_rate_boofcv_all.json
 ```
 
-Real-image test tuning:
+## Benchmarking
 
-- `QR_MAX_DIM` sets the max image dimension for real-image tests and `qrtool` runs.
-- Recommended values:
-  - `1024` for benchmark/CI default (best speed/reading-rate balance)
-  - `800` for faster local iteration
-  - `1200` for occasional deep validation runs
-  - `0` to disable downscaling
-- `QR_DEBUG=1` enables debug logging in detection/decoder paths (off by default).
-
-Example:
+Run one profile:
 
 ```bash
-# Disable downscaling and enable debug logs for real-image tests
-QR_MAX_DIM=0 QR_DEBUG=1 cargo test test_decode_monitor_image001 -- --nocapture
+cargo run --bin qrtool -- reading-rate --profile boofcv-rotations --artifact target/rr_rotations.json
 ```
 
-Tooling note:
+Run full sweep (all profiles) in GitHub Actions:
 
-- CI benchmark workflow default uses `QR_MAX_DIM=1024`.
+- Workflow: `Benchmark`
+- Dispatch input: `profile=all-profiles`
 
-Run benchmarks:
+Profile families:
+- `boofcv-all`
+- `boofcv-<category>` where category is one of:
+  - `blurred`, `brightness`, `bright-spots`, `close`, `curved`, `damaged`, `glare`, `high-version`, `lots`, `monitor`, `nominal`, `noncompliant`, `pathological`, `perspective`, `rotations`, `shadows`
+- `payload-validated` (strict payload match set)
 
-```bash
-# Synthetic benchmarks
-cargo bench -- qr_detect
+Legacy aliases:
+- `monitor-smoke` -> `boofcv-monitor`
+- `nominal-smoke` -> `boofcv-nominal`
 
-# Real QR image benchmarks
-cargo bench --features tools --bench real_qr_images
-```
+Semantics note:
+- `boofcv-*` profiles are annotation-label based ("any decode" counts as matched).
+- `payload-validated` is strict payload equality.
 
-Quick reading-rate runs (limit the dataset):
+## Reading Rate Snapshot
 
-```bash
-# Limit to 3 images (also supports QR_BENCH_LIMIT env var)
-cargo run --features tools --bin qrtool -- reading-rate --limit 3
-```
+Latest RustQR values below are from GitHub Actions run `21927167412` on `scratch_from_scratch_rebuild` (completed on `2026-02-12`).
+
+| Category | Images | Dynamsoft | BoofCV | ZBar | RustQR |
+|----------|--------|-----------|--------|------|--------|
+| blurred | 45 | 66.15% | 38.46% | 35.38% | **31.11%** |
+| brightness | 28 | 81.18% | 78.82% | 50.59% | **25.00%** |
+| bright_spots | 32 | 43.30% | 27.84% | 19.59% | **0.00%** |
+| close | 40 | 95.00% | 100.00% | 12.50% | **97.50%** |
+| curved | 50 | 70.00% | 56.67% | 35.00% | **26.00%** |
+| damaged | 37 | 51.16% | 16.28% | 25.58% | **21.62%** |
+| glare | 50 | 84.91% | 32.08% | 35.85% | **20.00%** |
+| high_version | 33 | 97.30% | 40.54% | 27.03% | **9.09%** |
+| lots | 7 | 100.00% | 99.76% | 18.10% | **0.00%** |
+| monitor | 17 | 100.00% | 82.35% | 0.00% | **94.12%** |
+| nominal | 65 | 93.59% | 89.74% | 66.67% | **73.85%** |
+| noncompliant | 16 | 92.31% | 3.85% | 50.00% | **6.25%** |
+| pathological | 23 | 95.65% | 43.48% | 65.22% | **56.52%** |
+| perspective | 35 | 62.86% | 80.00% | 42.86% | **74.29%** |
+| rotations | 44 | 99.25% | 96.24% | 48.87% | **45.45%** |
+| shadows | 14 | 100.00% | 85.00% | 90.00% | **35.71%** |
+| total | 536 | 83.29% | 60.69% | 38.95% | **41.60%** |
+
+Run-level summary:
+- `boofcv-all`: `223 / 536` matched, median `1908.431 ms/image`
+- `payload-validated`: `26 / 26` matched, median `156.693 ms/image`
+
+## Documentation
+
+- Rebuild strategy: `docs/new_from_scratch.md`
+- Lessons learned: `docs/learnings_from_old_code_base_try.md`
+- TODO workpackets: `docs/todo/01_feature_todo.txt`
+- Completed workpackets: `docs/completed/01_feature.todo.txt`
 
 ## Contributing
 
-We welcome contributions! Areas we need help with:
+Issues and pull requests are welcome.
 
-- Performance: SIMD optimizations, parallel processing
-- Algorithms: Faster finder pattern detection
-- Platforms: WASM, mobile bindings
-- Documentation: Examples, tutorials
+Before opening a PR:
 
-See [docs/optimize.md](docs/optimize.md) for optimization opportunities.
+```bash
+cargo fmt -- --check
+cargo test
+```
 
-## Benchmarks
-
-Reading rate comparison across different QR code image categories (based on [Dynamsoft benchmark](https://www.dynamsoft.com/codepool/qr-code-reading-benchmark-and-comparison.html) using the BoofCV dataset with 536 images containing 1232 QR codes):
-
-| Category | Images | Dynamsoft | BoofCV | ZBar | **RustQR** |
-|----------|--------|-----------|--------|------|------------|
-| blurred | 45 | 66.15% | 38.46% | 35.38% | **36.92%** |
-| brightness | 28 | 81.18% | 78.82% | 50.59% | **8.24%** |
-| bright_spots | 32 | 43.30% | 27.84% | 19.59% | **2.06%** |
-| close | 40 | 95.00% | 100.00% | 12.50% | **27.50%** |
-| curved | 50 | 70.00% | 56.67% | 35.00% | **38.33%** |
-| damaged | 37 | 51.16% | 16.28% | 25.58% | **30.23%** |
-| glare | 50 | 84.91% | 32.08% | 35.85% | **41.51%** |
-| high_version | 33 | 97.30% | 40.54% | 27.03% | **0.00%** |
-| lots | 7 | 100.00% | 99.76% | 18.10% | **0.24%** |
-| monitor | 17 | 100.00% | 82.35% | 0.00% | **100.00%** |
-| nominal | 65 | 93.59% | 89.74% | 66.67% | **74.36%** |
-| noncompliant | 16 | 92.31% | 3.85% | 50.00% | **30.77%** |
-| pathological | 23 | 95.65% | 43.48% | 65.22% | **86.96%** |
-| perspective | 35 | 62.86% | 80.00% | 42.86% | **34.29%** |
-| rotations | 44 | 99.25% | 96.24% | 48.87% | **1.50%** |
-| shadows | 14 | 100.00% | 85.00% | 90.00% | **25.00%** |
-| **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **18.26%** |
-
-> **Note:** RustQR values above are from GitHub Actions run `21837108650` on `macos-latest` with commit `f26d7e8` (dataset fingerprint `ba96d1300e9f787b`).
->
-> - 536 images, median `820.08 ms/image` (mean 1189.64 ms/image)
->
-> Run the benchmark:
-> ```bash
-> cargo run --features tools --bin qrtool --release -- reading-rate
-> ```
+For benchmark-impacting changes, include:
+- commands run
+- artifact path(s)
+- before/after rate + runtime deltas
 
 ## License
 
-This project is dual-licensed under MIT and Apache 2.0. You may choose either license.
-
-## Acknowledgments
-
-- Inspired by BoofCV, ZXing, and ZBar
-- Benchmark test images from BoofCV dataset
-- QR Code specification: ISO/IEC 18004:2015
-
-## Built With AI
-
-This project was developed using:
-- **Kimi K2.5** - Large language model by Moonshot AI
-- **OpenCode** - AI coding agent CLI
-
-The entire library was written through collaborative AI-assisted development.
+Dual-licensed under MIT or Apache-2.0 (`MIT OR Apache-2.0` in `Cargo.toml`).

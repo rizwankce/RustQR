@@ -1,0 +1,180 @@
+RUSTQR REBUILD - FEATURE WORKPACKETS (COMPLETED)
+Source Plan: docs/new_from_scratch.md
+Last Updated: 2026-02-11
+
+[x] CP-001 Repository Reset for Scratch Rebuild
+Summary:
+- Preserved benchmark images under benches/images
+- Removed legacy codebase and legacy docs
+- Kept only new strategic docs and baseline README table
+
+[x] CP-002 Strategic Design Docs Added
+Files:
+- docs/learnings_from_old_code_base_try.md
+- docs/new_from_scratch.md
+Summary:
+- Captured lessons from prior architecture
+- Defined from-scratch target architecture and phased plan
+
+[x] CP-003 Fresh Rust Scaffold Bootstrapped
+Files:
+- Cargo.toml
+- src/lib.rs
+- src/config.rs
+- src/types.rs
+- src/telemetry.rs
+- src/pipeline/*
+- src/bin/qrtool.rs
+- tests/scaffold_smoke_tests.rs
+Summary:
+- Created compile-ready baseline crate with stage-wired pipeline skeleton
+- Added deterministic smoke tests and minimal CLI entrypoint
+
+[x] CP-004 Semantic Pipeline Naming Applied
+Files:
+- src/pipeline/proposal_ensemble.rs
+- src/pipeline/hypothesis_search.rs
+- src/pipeline/geometry_refinement.rs
+- src/pipeline/decode_engine.rs
+- src/pipeline/multi_qr_iteration.rs
+- src/telemetry.rs
+- src/config.rs
+Summary:
+- Replaced temporary `stage_a..stage_e` naming with semantic module names
+- Updated telemetry/report fields and tests to match semantic naming
+
+[x] CP-005 WP-002 Finder Graph + Bounded Hypothesis Search
+Files:
+- src/pipeline/hypothesis_search.rs
+- src/pipeline/mod.rs
+- tests/wp002_hypothesis_search_tests.rs
+Summary:
+- Added finder-node graph construction with bounded neighbor fan-out and L-shape scoring
+- Added deterministic top-H beam retention with proposal fallback
+- Verified bounded and deterministic behavior through integration tests
+
+[x] CP-006 WP-006 Runtime Controller + Budgeting
+Files:
+- src/pipeline/mod.rs
+- tests/wp006_runtime_budget_tests.rs
+Summary:
+- Added stage budget and emergency cutoff skip paths with explicit stage timing signatures
+- Added failure signature mapping for `over-budget` and `emergency-cutoff`
+- Added regression tests for zero-budget and cutoff fail-safe behavior
+
+[x] CP-007 WP-007 Benchmark Harness + KPI Artifact Scaffold
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+Summary:
+- Added `qrtool reading-rate` CLI with dataset discovery, category summaries, and artifact output
+- Defined JSON artifact scaffold with KPI placeholder fields and per-case outcomes
+- Added parser/discovery/summary test coverage for harness stability
+
+[x] CP-008 WP-003 Geometry Refinement Loop (Scaffold)
+Files:
+- src/pipeline/geometry_refinement.rs
+- tests/wp003_geometry_refinement_tests.rs
+Summary:
+- Replaced placeholder passthrough with deterministic capped 3-pass score refinement
+- Added bounded top-K refinement ordering and score clamping
+- Added integration coverage for determinism, bounds, ordering, and empty input behavior
+
+[x] CP-009 WP-004 Decode Engine (Scaffold)
+Files:
+- src/pipeline/decode_engine.rs
+- tests/wp004_decode_engine_tests.rs
+Summary:
+- Replaced placeholder decode stage with bounded candidate generation from refined hypotheses
+- Added confidence-aware retry variant generation under global max decode bound
+- Added deterministic candidate ordering and score/confidence calibration tests
+
+[x] CP-010 WP-005 Multi-QR Iterative Stage (Scaffold)
+Files:
+- src/pipeline/multi_qr_iteration.rs
+- tests/wp005_multi_qr_iteration_tests.rs
+Summary:
+- Replaced placeholder multi-QR stage with strongest-first acceptance loop
+- Added confidence thresholding and payload-level dedupe with max_multi_qr bound
+- Added integration tests for dedupe, bounded count, and deterministic acceptance order
+
+[x] CP-011 WP-008 Quality + Throughput Optimization Pass
+Files:
+- src/config.rs
+- src/pipeline/proposal_ensemble.rs
+- tests/wp008_quality_throughput_tests.rs
+Summary:
+- Added `max_working_dim` config to cap working resolution on large inputs for faster proposal generation
+- Added source-coordinate remapping from working grid to original image bounds
+- Reused integral images across adaptive/sauvola binarizers to remove duplicate heavy passes
+- Added regression tests for determinism, bounds safety, and per-view kept-count consistency
+
+[x] CP-012 Reading-Rate Harness Runtime Controls + Proposal In-Stage Cutoffs
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+- src/pipeline/proposal_ensemble.rs
+- tests/wp008_quality_throughput_tests.rs
+Summary:
+- Added `reading-rate` runtime flags: `--max-working-dim` and `--emergency-cutoff-ms`
+- Wired flags into `DetectConfig` for per-run tuning
+- Added decode-time image resize path in harness loader (includes PNG/JPEG coverage)
+- Added proposal-stage in-loop budget cutoffs so view/scanning work can stop early under tight budgets
+- Added regression tests for new CLI/runtime behavior and cutoff consistency
+
+[x] CP-013 WP-010 Real Decode Backend (Stage D De-Scaffold)
+Files:
+- Cargo.toml
+- src/pipeline/decode_engine.rs
+- tests/wp004_decode_engine_tests.rs
+- tests/wp010_decode_backend_tests.rs
+Summary:
+- Replaced synthetic payload/corner generation with `quircs`-backed runtime decode candidates
+- Kept bounded candidate count and deterministic ordering behavior
+- Added runtime regression tests that assert non-synthetic decode outputs
+
+[x] CP-014 WP-011 Decode Reserve Lane + Stage Coupling
+Files:
+- src/pipeline/mod.rs
+- tests/wp010_decode_backend_tests.rs
+Summary:
+- Added reserve-stage execution path for decode and multi-QR acceptance when earlier stages overrun budgets
+- Added stage timing labels `decode_engine:reserve` and `multi_qr_iteration:reserve`
+- Preserved fail-safe behavior for explicit zero-budget stage skips
+
+[x] CP-015 WP-012 Real Reading-Rate Smoke Profiles
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+- docs/new_from_scratch.md
+Summary:
+- Added `reading-rate --profile monitor-smoke|nominal-smoke` with dataset resolution and metadata notes
+- Updated harness matching for BoofCV annotation-style labels (`SETS`/2D point files) to count decode success appropriately
+- Established initial smoke baselines with nonzero real decode rates
+
+[x] CP-016 WP-013 Payload-Validated Strict Benchmark Lane
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- .github/workflows/benchmark.yml
+- tests/wp007_benchmark_harness_tests.rs
+- docs/new_from_scratch.md
+Summary:
+- Added `reading-rate --profile payload-validated` mapped to `benches/images/custom/decoding`
+- Exposed strict payload lane in benchmark workflow dispatch profile choices
+- Added harness coverage for payload profile parsing/mapping and strict-label assumptions
+
+[x] CP-017 WP-019 Full ReadingRateProfile Coverage + All-Profiles Dispatch
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp007_benchmark_harness_tests.rs
+- .github/workflows/benchmark.yml
+- docs/new_from_scratch.md
+Summary:
+- Added first-class profiles for full BoofCV set (`boofcv-all` + `boofcv-<category>`) while preserving legacy monitor/nominal aliases
+- Added benchmark workflow `profile=all-profiles` mode to run every profile and upload a full artifact bundle
+- Expanded harness tests to validate canonical profile mapping and dataset-root existence coverage

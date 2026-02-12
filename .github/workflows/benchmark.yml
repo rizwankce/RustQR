@@ -1,148 +1,152 @@
-name: Full Benchmark
+name: Benchmark
 
 on:
   workflow_dispatch:
     inputs:
-      bench_limit:
-        description: 'Number of images to benchmark (0 = all 536)'
+      profile:
+        description: "Profile to run when dataset_root is empty (`all-profiles` runs everything)"
         required: false
-        default: '0'
-        type: string
-      baseline_artifact:
-        description: 'Optional baseline artifact JSON path for regression gates'
+        type: choice
+        default: all-profiles
+        options:
+          - all-profiles
+          - boofcv-all
+          - boofcv-blurred
+          - boofcv-brightness
+          - boofcv-bright-spots
+          - boofcv-close
+          - boofcv-curved
+          - boofcv-damaged
+          - boofcv-glare
+          - boofcv-high-version
+          - boofcv-lots
+          - boofcv-monitor
+          - boofcv-nominal
+          - boofcv-noncompliant
+          - boofcv-pathological
+          - boofcv-perspective
+          - boofcv-rotations
+          - boofcv-shadows
+          - payload-validated
+      dataset_root:
+        description: "Optional dataset root override path"
         required: false
-        default: ''
         type: string
-      max_rate_drop_pp:
-        description: 'Max allowed weighted-global drop (percentage points)'
+        default: ""
+      limit:
+        description: "Case limit (0 means all cases)"
         required: false
-        default: '1.0'
         type: string
-      max_median_runtime_regression_pct:
-        description: 'Max allowed median runtime regression (%)'
+        default: "0"
+      max_working_dim:
+        description: "Pipeline max working dimension"
         required: false
-        default: '15.0'
         type: string
-      category_gates:
-        description: 'Per-category max drops (comma-separated NAME=PP)'
+        default: "1024"
+      emergency_cutoff_ms:
+        description: "Per-image emergency cutoff milliseconds"
         required: false
-        default: 'lots=2.0,rotations=2.0,nominal=1.5,high_version=1.5'
         type: string
+        default: "1400"
+      artifact_path:
+        description: "Output artifact JSON path"
+        required: false
+        type: string
+        default: benchmark/reading_rate.json
 
-env:
-  CARGO_TERM_COLOR: always
-  QR_MAX_DIM: "1024"
+permissions:
+  contents: read
 
 jobs:
-  benchmark:
-    name: Benchmark on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            platform: linux
-          - os: macos-latest
-            platform: macos
-          - os: windows-latest
-            platform: windows
-
+  reading_rate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-bench-
-            ${{ runner.os }}-cargo-
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
 
-      - name: Build release (with tools)
-        run: cargo build --release --features tools
-
-      - name: Run reading rate benchmark
-        env:
-          QR_BENCH_LIMIT: ${{ inputs.bench_limit }}
-        run: |
-          echo "## Reading Rate Results - ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
-          echo "Command: \`cargo run --features tools --bin qrtool --release -- reading-rate --non-interactive --artifact-json reading_rate_${{ matrix.platform }}.json\`" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cargo run --features tools --bin qrtool --release -- \
-            reading-rate \
-            --non-interactive \
-            --artifact-json "reading_rate_${{ matrix.platform }}.json" \
-            2>&1 | tee "reading_rate_${{ matrix.platform }}.txt"
-          cat reading_rate_${{ matrix.platform }}.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+      - name: Run reading-rate benchmark
+        id: run_benchmark
         shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Upload benchmark results
+          profile_input="${{ github.event.inputs.profile }}"
+          dataset_root_input="${{ github.event.inputs.dataset_root }}"
+          artifact_path_input="${{ github.event.inputs.artifact_path }}"
+          limit_input="${{ github.event.inputs.limit }}"
+          max_working_dim_input="${{ github.event.inputs.max_working_dim }}"
+          emergency_cutoff_ms_input="${{ github.event.inputs.emergency_cutoff_ms }}"
+
+          run_one() {
+            local artifact_path="$1"
+            shift
+            local args=(reading-rate --artifact "$artifact_path" "$@")
+            if [[ "$limit_input" != "0" ]]; then
+              args+=(--limit "$limit_input")
+            fi
+            args+=(--max-working-dim "$max_working_dim_input")
+            args+=(--emergency-cutoff-ms "$emergency_cutoff_ms_input")
+
+            mkdir -p "$(dirname "$artifact_path")"
+            echo "Running: cargo run --locked --bin qrtool -- ${args[*]}"
+            cargo run --locked --bin qrtool -- "${args[@]}"
+          }
+
+          if [[ -n "$dataset_root_input" ]]; then
+            run_one "$artifact_path_input" --dataset-root "$dataset_root_input"
+            artifact_upload_path="$artifact_path_input"
+          elif [[ "$profile_input" == "all-profiles" ]]; then
+            artifact_dir="$artifact_path_input"
+            if [[ "$artifact_dir" == *.json ]]; then
+              artifact_dir="$(dirname "$artifact_dir")"
+            fi
+            if [[ -z "$artifact_dir" || "$artifact_dir" == "." ]]; then
+              artifact_dir="benchmark/all_profiles"
+            fi
+            mkdir -p "$artifact_dir"
+
+            profiles=(
+              boofcv-all
+              boofcv-blurred
+              boofcv-brightness
+              boofcv-bright-spots
+              boofcv-close
+              boofcv-curved
+              boofcv-damaged
+              boofcv-glare
+              boofcv-high-version
+              boofcv-lots
+              boofcv-monitor
+              boofcv-nominal
+              boofcv-noncompliant
+              boofcv-pathological
+              boofcv-perspective
+              boofcv-rotations
+              boofcv-shadows
+              payload-validated
+            )
+
+            for profile in "${profiles[@]}"; do
+              run_one "$artifact_dir/reading_rate_${profile}.json" --profile "$profile"
+            done
+            artifact_upload_path="$artifact_dir"
+          else
+            run_one "$artifact_path_input" --profile "$profile_input"
+            artifact_upload_path="$artifact_path_input"
+          fi
+
+          echo "artifact_upload_path=$artifact_upload_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results-${{ matrix.platform }}
-          path: |
-            reading_rate_*.txt
-            reading_rate_*.json
-            reading_rate_contribution_*.json
-          retention-days: 30
-
-      - name: Regression gate (macOS reading-rate)
-        if: ${{ matrix.platform == 'macos' && inputs.baseline_artifact != '' }}
-        run: |
-          IFS=',' read -ra CATEGORY_GATES <<< "${{ inputs.category_gates }}"
-          CATEGORY_ARGS=()
-          for gate in "${CATEGORY_GATES[@]}"; do
-            gate_trimmed="$(echo "$gate" | xargs)"
-            if [ -n "$gate_trimmed" ]; then
-              CATEGORY_ARGS+=("--category-max-drop-pp" "$gate_trimmed")
-            fi
-          done
-          python3 scripts/compare_reading_rate_artifacts.py \
-            --baseline "${{ inputs.baseline_artifact }}" \
-            --candidate "reading_rate_${{ matrix.platform }}.json" \
-            --max-rate-drop-pp "${{ inputs.max_rate_drop_pp }}" \
-            --max-median-runtime-regression-pct "${{ inputs.max_median_runtime_regression_pct }}" \
-            --contribution-report "reading_rate_contribution_${{ matrix.platform }}.json" \
-            "${CATEGORY_ARGS[@]}"
-        shell: bash
-
-  summary:
-    name: Aggregate Results
-    needs: benchmark
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: results
-
-      - name: Create summary
-        run: |
-          echo "# Benchmark Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Reading Rate Comparison" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          for platform in linux macos windows; do
-            if [ -f "results/benchmark-results-$platform/reading_rate_$platform.txt" ]; then
-              echo "### $platform" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              grep -E "(Rate:|total|===|/[0-9])" "results/benchmark-results-$platform/reading_rate_$platform.txt" >> $GITHUB_STEP_SUMMARY || true
-              echo '```' >> $GITHUB_STEP_SUMMARY
-            fi
-          done
-
-          if [ -f "results/benchmark-results-linux/reading_rate_linux.json" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Artifact Compare Command" >> $GITHUB_STEP_SUMMARY
-            echo "\`python3 scripts/compare_reading_rate_artifacts.py --baseline <baseline.json> --candidate results/benchmark-results-linux/reading_rate_linux.json\`" >> $GITHUB_STEP_SUMMARY
-          fi
+          name: reading-rate-${{ github.run_id }}
+          path: ${{ steps.run_benchmark.outputs.artifact_upload_path }}
+          if-no-files-found: error

@@ -1,0 +1,252 @@
+RUSTQR REBUILD - FEATURE WORKPACKETS (TODO)
+Source Plan: docs/new_from_scratch.md
+Last Updated: 2026-02-11
+
+Legend:
+- [ ] TODO
+- [~] IN PROGRESS
+- [x] DONE
+
+[x] WP-001 Stage-A Proposal Ensemble
+Goal: Build parallel preprocessing + proposal generation (otsu/adaptive/sauvola/glare-aware).
+Deliverables:
+- Proposal generator interface + scoring normalization
+- Per-view proposal telemetry
+- Top-K proposal retention with deterministic ordering
+Acceptance:
+- No regressions in input validation
+- Stage A runtime budget compliance telemetry
+Status:
+- Completed on 2026-02-11 in scaffold implementation (`src/pipeline/proposal_ensemble.rs` + telemetry/tests).
+
+[x] WP-002 Finder Graph + Bounded Hypothesis Search
+Goal: Replace O(n^3) triplets with graph-based bounded search.
+Deliverables:
+- Finder graph representation
+- L-shape hypothesis builder with K-neighborhood constraints
+- Beam/heap top-H retention
+Acceptance:
+- Hypothesis count remains bounded by config
+- Deterministic outputs for fixed image/config
+Status:
+- Completed on 2026-02-11 in `src/pipeline/hypothesis_search.rs` with integration tests in `tests/wp002_hypothesis_search_tests.rs`.
+
+[x] WP-003 Geometry Refinement Loop
+Goal: Add iterative homography refinement before decode.
+Deliverables:
+- Subpixel corner refinement
+- Timing phase consistency scoring
+- 2-3 iteration capped optimizer loop
+Acceptance:
+- Refinement convergence telemetry available
+- Failure signature split includes geometry/refine misses
+Status:
+- Completed on 2026-02-11 in scaffold form with deterministic 3-pass refinement in `src/pipeline/geometry_refinement.rs` and integration tests in `tests/wp003_geometry_refinement_tests.rs`.
+
+[x] WP-004 Robust Decode Core
+Goal: Implement bounded decode with confidence-aware sampling/retries.
+Deliverables:
+- Soft module confidence model
+- BCH/RS candidate manager with bounded retries
+- Decode confidence calibration
+Acceptance:
+- Decode retry count bounded by config
+- Format/version recovery telemetry emitted
+Status:
+- Completed on 2026-02-11 in scaffold form with bounded confidence-aware candidate generation/retry behavior in `src/pipeline/decode_engine.rs` and tests in `tests/wp004_decode_engine_tests.rs`.
+
+[x] WP-005 Multi-QR Iterative Residual Decode
+Goal: Unlock dense scene decode (`lots`) via iterative strongest-first decode.
+Deliverables:
+- Region suppression/masking after accepted decode
+- Residual loop with stop conditions
+- Multi-QR acceptance dedupe rules
+Acceptance:
+- Can return >1 code per image
+- Loop bounded by max_multi_qr + time budgets
+Status:
+- Completed on 2026-02-11 in scaffold form with strongest-first bounded acceptance + payload dedupe in `src/pipeline/multi_qr_iteration.rs` and tests in `tests/wp005_multi_qr_iteration_tests.rs`.
+
+[x] WP-006 Runtime Controller + Budgeting
+Goal: Stage-level budgets with emergency cutoff.
+Deliverables:
+- Per-stage budget checks
+- High-value retry reserve lane
+- Pathological emergency cutoff handling
+Acceptance:
+- Median runtime KPI pipeline fields populated
+- Budget-failure signatures tracked
+Status:
+- Completed on 2026-02-11 in `src/pipeline/mod.rs` with regression coverage in `tests/wp006_runtime_budget_tests.rs`.
+
+[x] WP-007 Benchmark Harness + KPI Gates
+Goal: Ensure measurement and gating stay stable while rebuilding.
+Deliverables:
+- Reading-rate runner scaffold command
+- Stage failure cluster outputs
+- KPI gate report format (rate + median runtime)
+Acceptance:
+- Artifact format documented
+- KPI gate script path reserved
+Status:
+- Completed on 2026-02-11 via `src/tools/mod.rs`, CLI wiring in `src/bin/qrtool.rs`, and harness tests in `tests/wp007_benchmark_harness_tests.rs`.
+
+[x] WP-008 Quality and Throughput Optimization
+Goal: Reach <=1s median while preserving accuracy.
+Deliverables:
+- Hotspot profiling and remediation
+- SIMD/parallel plan + rollout
+- Cache-friendly memory/layout improvements
+Acceptance:
+- Median <=1000ms on benchmark platform profile
+- No accuracy regression on primary categories
+Status:
+- Completed on 2026-02-11 in scaffold optimization pass:
+- Added working-resolution cap (`max_working_dim`) and source-coordinate remapping in `src/pipeline/proposal_ensemble.rs`.
+- Removed duplicate integral-image computation by reusing shared integrals across adaptive/sauvola views.
+- Added throughput/consistency regression tests in `tests/wp008_quality_throughput_tests.rs`.
+
+[x] WP-009 Pipeline Naming Refactor (Stage Labels -> Semantic Modules)
+Goal: Replace temporary stage-based module names with stable semantic names.
+Deliverables:
+- Rename stage modules/files to semantic names
+- Rename telemetry fields and report structures accordingly
+- Update docs to keep source-of-truth terminology aligned
+Acceptance:
+- No remaining `stage_a`..`stage_e` module references in runtime code
+- Tests updated and passing
+Status:
+- Completed on 2026-02-11 (`proposal_ensemble`, `hypothesis_search`, `geometry_refinement`, `decode_engine`, `multi_qr_iteration`).
+
+[x] WP-010 Real Decode Backend (De-Scaffold Stage D)
+Goal: Replace synthetic decode outputs with real payload extraction from image data.
+Deliverables:
+- Decode engine returns true decoded payloads (no synthetic strings)
+- Real corner data propagation into `QrCode`
+- Deterministic ranking + bounded candidate retention
+Acceptance:
+- No `wp004-hypothesis-*` synthetic payloads in runtime decode path
+- At least one clean benchmark subset case decodes to expected label
+- Existing pipeline tests remain green
+Status:
+- Completed on 2026-02-11 with `quircs`-backed decode path in `src/pipeline/decode_engine.rs`.
+- Added runtime regression tests in `tests/wp004_decode_engine_tests.rs` and `tests/wp010_decode_backend_tests.rs`.
+
+[x] WP-011 Stage Coupling + Decode Reserve Lane
+Goal: Ensure decode can still run in bounded form when earlier stages overrun budget.
+Deliverables:
+- Runtime-controller reserve path for decode
+- Stage timing/labels updated for reserve execution
+- Failure signatures differentiate cutoff vs reserve decode miss
+Acceptance:
+- `reading-rate` on monitor subset no longer dominated by proposal-stage skip
+- Budget regression tests updated and passing
+Status:
+- Completed on 2026-02-11 in `src/pipeline/mod.rs` with `decode_engine:reserve` and `multi_qr_iteration:reserve` lanes.
+- Covered by runtime tests including reserve-lane assertion in `tests/wp010_decode_backend_tests.rs`.
+
+[x] WP-012 Real Reading-Rate Gate (Monitor/Nominal Smoke)
+Goal: Start tracking actual, non-scaffold read-rate movement while rebuilding.
+Deliverables:
+- Smoke gate command profile for monitor/nominal subsets
+- Artifact fields for nonzero decode tracking
+- Workpacket report update with current baseline
+Acceptance:
+- Monitor or nominal subset reports real decode attempts and stable metrics
+- Command documented in source-of-truth doc
+Status:
+- Completed on 2026-02-11 with `--profile monitor-smoke|nominal-smoke` in `src/tools/mod.rs` and `src/bin/qrtool.rs`.
+- Current sample baselines:
+- `monitor-smoke`: 17/17 matched (1.0000), median 3905.864 ms.
+- `nominal-smoke --limit 20`: 10/20 matched (0.5000), median 667.834 ms.
+
+[x] WP-013 Payload-Validated Strict Benchmark Lane
+Goal: Track strict payload correctness separately from annotation-based any-decode success.
+Deliverables:
+- Add `reading-rate --profile payload-validated`
+- Resolve dataset root to true-payload labels (`benches/images/custom/decoding`)
+- Cover profile parse/usage and strict-label assumptions with harness tests
+Acceptance:
+- Strict payload profile resolves and runs via CLI/workflow without custom flags
+- Test coverage verifies profile mapping and non-annotation label assumptions
+Status:
+- Completed on 2026-02-11 in `src/tools/mod.rs`, `src/bin/qrtool.rs`, `.github/workflows/benchmark.yml`, and `tests/wp007_benchmark_harness_tests.rs`.
+- Sample baseline (`2026-02-11`): `payload-validated` 26/26 matched (1.0000), median 149.876 ms.
+
+[ ] WP-014 Locked BoofCV Baseline Artifact
+Goal: Freeze a reproducible full-dataset baseline before further tuning.
+Deliverables:
+- Capture full `boofcv` reading-rate artifact with fixed runtime knobs
+- Record command, artifact path, and top failure signatures in docs
+- Reserve baseline artifact naming convention for future diffs
+Acceptance:
+- Baseline artifact can be regenerated with the same command and settings
+- Baseline summary is documented and referenced by subsequent workpackets
+Status:
+- Pending.
+
+[ ] WP-015 Benchmark Artifact Diff Tool (`benchdiff`)
+Goal: Make benchmark changes explainable between any two runs.
+Deliverables:
+- Add `qrtool benchdiff --base <json> --candidate <json>` command
+- Report global and per-category deltas (rate, median runtime, failures)
+- Emit machine-readable diff artifact for CI comments/gates
+Acceptance:
+- Tool surfaces top regressions/improvements without manual JSON inspection
+- Integration tests cover parsing and delta math edge cases
+Status:
+- Pending.
+
+[ ] WP-016 Dual KPI Lanes (Annotation vs Strict Payload)
+Goal: Track pipeline robustness and strict decode correctness as separate KPIs.
+Deliverables:
+- Define official KPI lanes:
+- `boofcv` (annotation-style any-decode)
+- `payload-validated` (strict payload match)
+- Add lane-specific summary notes in benchmark outputs
+- Ensure workflow dispatch can run both lanes reliably
+Acceptance:
+- KPI reporting always distinguishes lane semantics clearly
+- Docs and workflow usage examples include both lane commands
+Status:
+- Pending.
+
+[ ] WP-017 High-Leverage Category Uplift (`rotations`, `high_version`, `lots`)
+Goal: Target categories with highest impact on global reading rate.
+Deliverables:
+- Rotation robustness pass (angle normalization + candidate expansion)
+- High-version decode robustness pass (sampling/version recovery retries)
+- Dense-scene multi-QR improvements (`lots`) with better suppression/dedupe
+Acceptance:
+- Category-level reading-rate improvement is measurable via `benchdiff`
+- No regression in median runtime gate after each category-focused change
+Status:
+- Pending.
+
+[ ] WP-018 Benchmark Workflow KPI Gates
+Goal: Convert benchmark runs into actionable pass/fail quality gates.
+Deliverables:
+- Add configurable thresholds for:
+- global reading rate
+- `rotations` reading rate
+- `high_version` reading rate
+- median runtime (`<=1000 ms`)
+- Fail workflow on threshold violations with clear failure reasons
+Acceptance:
+- Workflow dispatch reports gate status and failing metrics explicitly
+- Thresholds are configurable without code edits
+Status:
+- Pending.
+
+[x] WP-019 Full ReadingRateProfile Coverage + All-Profiles Benchmark Dispatch
+Goal: Expose all BoofCV categories as first-class profiles and allow one-run full sweep.
+Deliverables:
+- Add profile mappings for all BoofCV categories and full dataset (`boofcv-all`)
+- Keep backward-compatible profile aliases (`monitor-smoke`, `nominal-smoke`)
+- Update benchmark workflow with `all-profiles` mode that runs every profile and uploads all artifacts
+Acceptance:
+- `reading-rate --profile boofcv-<category>` resolves each category dataset root
+- `Benchmark` workflow dispatch can run `all-profiles` without per-category manual reruns
+- Harness tests validate profile mapping for canonical + alias paths
+Status:
+- Completed on 2026-02-11 in `src/tools/mod.rs`, `tests/wp007_benchmark_harness_tests.rs`, `src/bin/qrtool.rs`, and `.github/workflows/benchmark.yml`.
