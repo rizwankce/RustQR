@@ -325,6 +325,71 @@ fn benchdiff_json_schema_is_machine_readable() {
     assert!(json.contains("\"top_regressions\":[]"));
 }
 
+#[test]
+fn build_benchdiff_report_matches_raw_utf8_and_escaped_unicode_category_names() {
+    let temp = temp_dir("utf8_category_names");
+    let base_path = temp.join("base.json");
+    let candidate_path = temp.join("candidate.json");
+
+    write_reading_rate_artifact(
+        &base_path,
+        GlobalFixture {
+            total_cases: 2,
+            matched_cases: 1,
+            reading_rate: 0.50,
+            median_runtime_ms: 100.0,
+            top_failure_signature: Some("x"),
+        },
+        &[CategoryFixture {
+            category: "café",
+            total_cases: 2,
+            matched_cases: 1,
+            reading_rate: 0.50,
+            median_runtime_ms: 100.0,
+            top_failure_signature: Some("x"),
+        }],
+    );
+
+    let candidate_json = concat!(
+        "{",
+        "\"global\":{",
+        "\"total_cases\":2,",
+        "\"matched_cases\":2,",
+        "\"reading_rate\":1.0,",
+        "\"median_runtime_ms\":90.0,",
+        "\"top_failure_signature\":null",
+        "},",
+        "\"categories\":[",
+        "{",
+        "\"category\":\"caf\\u00e9\",",
+        "\"total_cases\":2,",
+        "\"matched_cases\":2,",
+        "\"reading_rate\":1.0,",
+        "\"median_runtime_ms\":90.0,",
+        "\"top_failure_signature\":null",
+        "}",
+        "]",
+        "}"
+    );
+    fs::write(&candidate_path, candidate_json).expect("write candidate artifact");
+
+    let report = tools::build_benchdiff_report(&tools::BenchdiffArgs {
+        base_path,
+        candidate_path,
+        artifact_path: temp.join("diff.json"),
+    })
+    .expect("build benchdiff report");
+
+    assert_eq!(report.categories.len(), 1);
+    assert_eq!(report.categories[0].category, "café");
+    assert!(
+        report
+            .notes
+            .iter()
+            .all(|note| !note.contains("category added") && !note.contains("category missing"))
+    );
+}
+
 fn write_reading_rate_artifact(
     path: &Path,
     global: GlobalFixture<'_>,

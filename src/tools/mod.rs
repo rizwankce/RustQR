@@ -1244,13 +1244,7 @@ impl<'a> JsonParser<'a> {
                         b'r' => parsed.push('\r'),
                         b't' => parsed.push('\t'),
                         b'u' => {
-                            let code_point = self.parse_hex_code_point()?;
-                            let Some(ch) = char::from_u32(code_point) else {
-                                return Err(format!(
-                                    "invalid unicode escape \\u{code_point:04X} at byte {}",
-                                    self.cursor
-                                ));
-                            };
+                            let ch = self.parse_unicode_escape_char()?;
                             parsed.push(ch);
                         }
                         other => {
@@ -1267,10 +1261,81 @@ impl<'a> JsonParser<'a> {
                         self.cursor.saturating_sub(1)
                     ));
                 }
-                ascii => parsed.push(ascii as char),
+                ascii if ascii < 0x80 => parsed.push(ascii as char),
+                non_ascii => {
+                    let start = self.cursor.saturating_sub(1);
+                    let Some(width) = utf8_sequence_width(non_ascii) else {
+                        return Err(format!(
+                            "invalid utf-8 leading byte 0x{non_ascii:02X} at byte {start}"
+                        ));
+                    };
+                    let end = start + width;
+                    let bytes = self.raw.get(start..end).ok_or_else(|| {
+                        format!("unterminated utf-8 sequence starting at byte {start}")
+                    })?;
+                    let text = std::str::from_utf8(bytes).map_err(|err| {
+                        format!("invalid utf-8 sequence at bytes {start}..{end}: {err}")
+                    })?;
+                    parsed.push_str(text);
+                    self.cursor = end;
+                }
             }
         }
         Err("unterminated string literal".to_string())
+    }
+
+    fn parse_unicode_escape_char(&mut self) -> Result<char, String> {
+        let first = self.parse_hex_code_point()?;
+        if (0xD800..=0xDBFF).contains(&first) {
+            let slash = self.next_byte().ok_or_else(|| {
+                format!(
+                    "unterminated unicode surrogate pair after \\u{first:04X} at byte {}",
+                    self.cursor
+                )
+            })?;
+            if slash != b'\\' {
+                return Err(format!(
+                    "expected '\\' after high surrogate \\u{first:04X} at byte {}",
+                    self.cursor.saturating_sub(1)
+                ));
+            }
+            let u = self.next_byte().ok_or_else(|| {
+                format!(
+                    "unterminated unicode surrogate pair after \\u{first:04X} at byte {}",
+                    self.cursor
+                )
+            })?;
+            if u != b'u' {
+                return Err(format!(
+                    "expected 'u' after high surrogate \\u{first:04X} at byte {}",
+                    self.cursor.saturating_sub(1)
+                ));
+            }
+
+            let second = self.parse_hex_code_point()?;
+            if !(0xDC00..=0xDFFF).contains(&second) {
+                return Err(format!(
+                    "invalid low surrogate \\u{second:04X} after high surrogate \\u{first:04X}"
+                ));
+            }
+            let code_point = 0x10000 + ((first - 0xD800) << 10) + (second - 0xDC00);
+            return char::from_u32(code_point).ok_or_else(|| {
+                format!("invalid unicode code point from surrogate pair: U+{code_point:04X}")
+            });
+        }
+
+        if (0xDC00..=0xDFFF).contains(&first) {
+            return Err(format!(
+                "unexpected low surrogate without preceding high surrogate: \\u{first:04X}"
+            ));
+        }
+
+        char::from_u32(first).ok_or_else(|| {
+            format!(
+                "invalid unicode escape \\u{first:04X} at byte {}",
+                self.cursor
+            )
+        })
     }
 
     fn parse_hex_code_point(&mut self) -> Result<u32, String> {
@@ -1406,6 +1471,16 @@ impl<'a> JsonParser<'a> {
         let byte = self.peek()?;
         self.cursor += 1;
         Some(byte)
+    }
+}
+
+fn utf8_sequence_width(first_byte: u8) -> Option<usize> {
+    match first_byte {
+        0x00..=0x7F => Some(1),
+        0xC2..=0xDF => Some(2),
+        0xE0..=0xEF => Some(3),
+        0xF0..=0xF4 => Some(4),
+        _ => None,
     }
 }
 
