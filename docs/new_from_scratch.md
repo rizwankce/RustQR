@@ -42,8 +42,8 @@
 - Done: `WP-012` (reading-rate smoke profiles for monitor/nominal)
 - Done: `WP-013` (strict payload-validated benchmark lane)
 - Planned: `WP-014` (locked full BoofCV baseline artifact)
-- Planned: `WP-015` (`benchdiff` artifact comparator)
-- Planned: `WP-016` (dual KPI lanes: annotation vs strict payload)
+- Done: `WP-015` (`benchdiff` artifact comparator)
+- Done: `WP-016` (dual KPI lanes: annotation vs strict payload)
 - Planned: `WP-017` (category uplift: rotations/high_version/lots)
 - Planned: `WP-018` (workflow KPI gates + threshold enforcement)
 - Done: `WP-019` (full BoofCV profile coverage + all-profiles benchmark dispatch)
@@ -55,10 +55,12 @@ Current harness supports benchmark reporting via:
 - `cargo run --bin qrtool -- reading-rate --profile boofcv-all --artifact <path>`
 - `cargo run --bin qrtool -- reading-rate --profile boofcv-rotations --artifact <path>`
 - `cargo run --bin qrtool -- reading-rate --profile payload-validated --artifact <path>`
+- `cargo run --bin qrtool -- benchdiff --base <base.json> --candidate <candidate.json> --artifact <diff.json>`
 - It runs real `pipeline::detect_with_config` evaluation per image and writes schema `wp007-reading-rate-v1`.
 - Runtime knobs: `--max-working-dim N`, `--emergency-cutoff-ms N`.
 - Profiles now cover all BoofCV categories (`boofcv-*`) plus `payload-validated`.
 - Benchmark workflow supports `profile=all-profiles` to run every lane in one dispatch.
+- Benchmark workflow also supports `profile=dual-kpi` to run official KPI lanes only (`boofcv-all` + `payload-validated`) in one dispatch.
 - Label semantics:
 - `boofcv/*` uses annotation labels (any decode counts as matched).
 - `custom/decoding` uses strict expected payload labels (exact payload match required).

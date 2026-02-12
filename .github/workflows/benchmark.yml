@@ -4,12 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: "Profile to run when dataset_root is empty (`all-profiles` runs everything)"
+        description: "Profile to run when dataset_root is empty (`all-profiles` runs everything, `dual-kpi` runs boofcv-all + payload-validated)"
         required: false
         type: choice
         default: all-profiles
         options:
           - all-profiles
+          - dual-kpi
           - boofcv-all
           - boofcv-blurred
           - boofcv-brightness
@@ -136,6 +137,19 @@ jobs:
             for profile in "${profiles[@]}"; do
               run_one "$artifact_dir/reading_rate_${profile}.json" --profile "$profile"
             done
+            artifact_upload_path="$artifact_dir"
+          elif [[ "$profile_input" == "dual-kpi" ]]; then
+            artifact_dir="$artifact_path_input"
+            if [[ "$artifact_dir" == *.json ]]; then
+              artifact_dir="$(dirname "$artifact_dir")"
+            fi
+            if [[ -z "$artifact_dir" || "$artifact_dir" == "." ]]; then
+              artifact_dir="benchmark/dual_kpi"
+            fi
+            mkdir -p "$artifact_dir"
+
+            run_one "$artifact_dir/reading_rate_boofcv-all.json" --profile "boofcv-all"
+            run_one "$artifact_dir/reading_rate_payload-validated.json" --profile "payload-validated"
             artifact_upload_path="$artifact_dir"
           else
             run_one "$artifact_path_input" --profile "$profile_input"

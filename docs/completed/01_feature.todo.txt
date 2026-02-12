@@ -178,3 +178,27 @@ Summary:
 - Added first-class profiles for full BoofCV set (`boofcv-all` + `boofcv-<category>`) while preserving legacy monitor/nominal aliases
 - Added benchmark workflow `profile=all-profiles` mode to run every profile and upload a full artifact bundle
 - Expanded harness tests to validate canonical profile mapping and dataset-root existence coverage
+
+[x] CP-018 WP-015 Benchmark Artifact Diff Tool (`benchdiff`)
+Files:
+- src/tools/mod.rs
+- src/bin/qrtool.rs
+- tests/wp015_benchdiff_tests.rs
+- docs/new_from_scratch.md
+- docs/todo/01_feature_todo.txt
+Summary:
+- Added `qrtool benchdiff --base <json> --candidate <json> [--artifact <path>]` command parsing and execution
+- Added global/per-category delta reporting (reading rate, median runtime, top failure signatures)
+- Added machine-readable diff artifact schema `wp015-benchdiff-v1` and integration tests covering parse/delta edge cases
+
+[x] CP-019 WP-016 Dual KPI Lanes (Annotation vs Strict Payload)
+Files:
+- src/tools/mod.rs
+- tests/wp007_benchmark_harness_tests.rs
+- .github/workflows/benchmark.yml
+- docs/new_from_scratch.md
+- docs/todo/01_feature_todo.txt
+Summary:
+- Added explicit lane-semantics notes in `reading-rate` reports (`kpi_lane=boofcv` vs `kpi_lane=payload-validated`)
+- Added benchmark workflow dispatch mode `profile=dual-kpi` to run the two official KPI lanes in one pass
+- Added regression coverage to ensure lane semantics remain explicit for both annotation and strict payload profiles
