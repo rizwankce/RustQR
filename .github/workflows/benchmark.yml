@@ -109,6 +109,31 @@ jobs:
           gate_high_version_rate_min_input="${{ github.event.inputs.gate_high_version_rate_min }}"
           gate_median_runtime_ms_max_input="${{ github.event.inputs.gate_median_runtime_ms_max }}"
 
+          # Emit upload path before running benchmarks so downstream upload can
+          # still resolve an artifact location if this step exits early.
+          if [[ -n "$dataset_root_input" ]]; then
+            artifact_upload_path="$artifact_path_input"
+          elif [[ "$profile_input" == "all-profiles" ]]; then
+            artifact_upload_path="$artifact_path_input"
+            if [[ "$artifact_upload_path" == *.json ]]; then
+              artifact_upload_path="$(dirname "$artifact_upload_path")"
+            fi
+            if [[ -z "$artifact_upload_path" || "$artifact_upload_path" == "." ]]; then
+              artifact_upload_path="benchmark/all_profiles"
+            fi
+          elif [[ "$profile_input" == "dual-kpi" ]]; then
+            artifact_upload_path="$artifact_path_input"
+            if [[ "$artifact_upload_path" == *.json ]]; then
+              artifact_upload_path="$(dirname "$artifact_upload_path")"
+            fi
+            if [[ -z "$artifact_upload_path" || "$artifact_upload_path" == "." ]]; then
+              artifact_upload_path="benchmark/dual_kpi"
+            fi
+          else
+            artifact_upload_path="$artifact_path_input"
+          fi
+          echo "artifact_upload_path=$artifact_upload_path" >> "$GITHUB_OUTPUT"
+
           run_one() {
             local artifact_path="$1"
             local with_kpi_gate="$2"
@@ -134,15 +159,8 @@ jobs:
 
           if [[ -n "$dataset_root_input" ]]; then
             run_one "$artifact_path_input" "0" --dataset-root "$dataset_root_input"
-            artifact_upload_path="$artifact_path_input"
           elif [[ "$profile_input" == "all-profiles" ]]; then
-            artifact_dir="$artifact_path_input"
-            if [[ "$artifact_dir" == *.json ]]; then
-              artifact_dir="$(dirname "$artifact_dir")"
-            fi
-            if [[ -z "$artifact_dir" || "$artifact_dir" == "." ]]; then
-              artifact_dir="benchmark/all_profiles"
-            fi
+            artifact_dir="$artifact_upload_path"
             mkdir -p "$artifact_dir"
 
             profiles=(
@@ -173,32 +191,22 @@ jobs:
                 run_one "$artifact_dir/reading_rate_${profile}.json" "0" --profile "$profile"
               fi
             done
-            artifact_upload_path="$artifact_dir"
           elif [[ "$profile_input" == "dual-kpi" ]]; then
-            artifact_dir="$artifact_path_input"
-            if [[ "$artifact_dir" == *.json ]]; then
-              artifact_dir="$(dirname "$artifact_dir")"
-            fi
-            if [[ -z "$artifact_dir" || "$artifact_dir" == "." ]]; then
-              artifact_dir="benchmark/dual_kpi"
-            fi
+            artifact_dir="$artifact_upload_path"
             mkdir -p "$artifact_dir"
 
             run_one "$artifact_dir/reading_rate_boofcv-all.json" "1" --profile "boofcv-all"
             run_one "$artifact_dir/reading_rate_payload-validated.json" "0" --profile "payload-validated"
-            artifact_upload_path="$artifact_dir"
           else
             if [[ "$profile_input" == "boofcv-all" ]]; then
               run_one "$artifact_path_input" "1" --profile "$profile_input"
             else
               run_one "$artifact_path_input" "0" --profile "$profile_input"
             fi
-            artifact_upload_path="$artifact_path_input"
           fi
 
-          echo "artifact_upload_path=$artifact_upload_path" >> "$GITHUB_OUTPUT"
-
       - name: Upload benchmark artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: reading-rate-${{ github.run_id }}
