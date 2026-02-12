@@ -1,7 +1,7 @@
 use image::{DynamicImage, imageops::FilterType, io::Reader as ImageReader};
 use rust_qr::{DetectConfig, pipeline};
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -9,6 +9,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub const DEFAULT_DATASET_ROOT: &str = "benches/images/boofcv";
 pub const DEFAULT_ARTIFACT_PATH: &str = "target/reading_rate_report.json";
+pub const DEFAULT_BENCHDIFF_ARTIFACT_PATH: &str = "target/benchdiff_report.json";
 pub const IMAGE_LOAD_FAILURE_SIGNATURE: &str = "image-load-fail";
 pub const PAYLOAD_MISMATCH_SIGNATURE: &str = "payload-mismatch";
 pub const MONITOR_SMOKE_PROFILE: &str = "monitor-smoke";
@@ -33,6 +34,7 @@ pub const BOOFCV_ROTATIONS_PROFILE: &str = "boofcv-rotations";
 pub const BOOFCV_SHADOWS_PROFILE: &str = "boofcv-shadows";
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp"];
+const MAX_BENCHDIFF_HIGHLIGHTS: usize = 5;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadingRateCommand {
@@ -193,6 +195,124 @@ pub struct ReadingRateReport {
     pub cases: Vec<CaseOutcome>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BenchdiffCommand {
+    Help,
+    Run(BenchdiffArgs),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BenchdiffArgs {
+    pub base_path: PathBuf,
+    pub candidate_path: PathBuf,
+    pub artifact_path: PathBuf,
+}
+
+impl Default for BenchdiffArgs {
+    fn default() -> Self {
+        Self {
+            base_path: PathBuf::new(),
+            candidate_path: PathBuf::new(),
+            artifact_path: PathBuf::from(DEFAULT_BENCHDIFF_ARTIFACT_PATH),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchDiffMetric {
+    pub base: f64,
+    pub candidate: f64,
+    pub delta: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BenchDiffFailureSignature {
+    pub base: Option<String>,
+    pub candidate: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchDiffGlobalSummary {
+    pub total_cases_base: usize,
+    pub total_cases_candidate: usize,
+    pub matched_cases_base: usize,
+    pub matched_cases_candidate: usize,
+    pub reading_rate: BenchDiffMetric,
+    pub median_runtime_ms: BenchDiffMetric,
+    pub top_failure_signature: BenchDiffFailureSignature,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchDiffCategorySummary {
+    pub category: String,
+    pub total_cases_base: usize,
+    pub total_cases_candidate: usize,
+    pub matched_cases_base: usize,
+    pub matched_cases_candidate: usize,
+    pub reading_rate: BenchDiffMetric,
+    pub median_runtime_ms: BenchDiffMetric,
+    pub top_failure_signature: BenchDiffFailureSignature,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchDiffHighlight {
+    pub category: String,
+    pub reading_rate_delta: f64,
+    pub median_runtime_delta_ms: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchDiffReport {
+    pub generated_at_unix_ms: u128,
+    pub base_artifact_path: PathBuf,
+    pub candidate_artifact_path: PathBuf,
+    pub global: BenchDiffGlobalSummary,
+    pub categories: Vec<BenchDiffCategorySummary>,
+    pub top_improvements: Vec<BenchDiffHighlight>,
+    pub top_regressions: Vec<BenchDiffHighlight>,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ReadingRateArtifactInput {
+    global: ArtifactGlobalInput,
+    categories: Vec<ArtifactCategoryInput>,
+}
+
+#[derive(Debug, Clone)]
+struct ArtifactGlobalInput {
+    total_cases: usize,
+    matched_cases: usize,
+    reading_rate: f64,
+    median_runtime_ms: f64,
+    top_failure_signature: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ArtifactCategoryInput {
+    category: String,
+    total_cases: usize,
+    matched_cases: usize,
+    reading_rate: f64,
+    median_runtime_ms: f64,
+    top_failure_signature: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+enum JsonValue {
+    Null,
+    Bool,
+    Number(f64),
+    String(String),
+    Array(Vec<JsonValue>),
+    Object(BTreeMap<String, JsonValue>),
+}
+
+struct JsonParser<'a> {
+    raw: &'a [u8],
+    cursor: usize,
+}
+
 pub fn parse_reading_rate_profile(raw: &str) -> Result<ReadingRateProfile, String> {
     match raw {
         BOOFCV_ALL_PROFILE => Ok(ReadingRateProfile::BoofcvAll),
@@ -342,6 +462,61 @@ pub fn parse_reading_rate_args(args: &[String]) -> Result<ReadingRateCommand, St
 
 pub fn reading_rate_usage() -> &'static str {
     "usage: qrtool reading-rate [--profile boofcv-all|boofcv-<category>|payload-validated] [--dataset-root PATH] [--artifact PATH] [--limit N] [--max-working-dim N] [--emergency-cutoff-ms N]"
+}
+
+pub fn parse_benchdiff_args(args: &[String]) -> Result<BenchdiffCommand, String> {
+    let mut parsed = BenchdiffArgs::default();
+
+    let mut idx = 0usize;
+    while idx < args.len() {
+        match args[idx].as_str() {
+            "--help" | "-h" => return Ok(BenchdiffCommand::Help),
+            "--base" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--base requires a value".to_string())?;
+                parsed.base_path = PathBuf::from(value);
+            }
+            "--candidate" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--candidate requires a value".to_string())?;
+                parsed.candidate_path = PathBuf::from(value);
+            }
+            "--artifact" => {
+                idx += 1;
+                let value = args
+                    .get(idx)
+                    .ok_or_else(|| "--artifact requires a value".to_string())?;
+                parsed.artifact_path = PathBuf::from(value);
+            }
+            unknown => {
+                return Err(format!(
+                    "unknown argument for benchdiff: {unknown}\n{}",
+                    benchdiff_usage()
+                ));
+            }
+        }
+        idx += 1;
+    }
+
+    if parsed.base_path.as_os_str().is_empty() {
+        return Err(format!("missing required --base\n{}", benchdiff_usage()));
+    }
+    if parsed.candidate_path.as_os_str().is_empty() {
+        return Err(format!(
+            "missing required --candidate\n{}",
+            benchdiff_usage()
+        ));
+    }
+
+    Ok(BenchdiffCommand::Run(parsed))
+}
+
+pub fn benchdiff_usage() -> &'static str {
+    "usage: qrtool benchdiff --base PATH --candidate PATH [--artifact PATH]"
 }
 
 pub fn discover_label_cases(
@@ -599,6 +774,8 @@ pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateRe
         "reading-rate mode: real image decode + payload match evaluation".to_string(),
         "pipeline rebuild is in progress; compare strict payload and BoofCV annotation lanes separately".to_string(),
     ];
+    let (kpi_lane, lane_semantics) = reading_rate_lane_semantics(args);
+    notes.push(format!("kpi_lane={kpi_lane} semantics={lane_semantics}"));
     if let Some(profile) = args.profile {
         notes.push(format!(
             "reading-rate profile={} resolved_dataset_root={}",
@@ -616,6 +793,688 @@ pub fn build_reading_rate_report(args: &ReadingRateArgs) -> Result<ReadingRateRe
         notes,
         cases: outcomes,
     })
+}
+
+fn reading_rate_lane_semantics(args: &ReadingRateArgs) -> (&'static str, &'static str) {
+    match args.profile {
+        Some(ReadingRateProfile::PayloadValidated) => ("payload-validated", "strict-payload-match"),
+        Some(_) => ("boofcv", "annotation-any-decode"),
+        None => {
+            let normalized = args.dataset_root.to_string_lossy().replace('\\', "/");
+            if normalized.ends_with("benches/images/custom/decoding") {
+                ("payload-validated", "strict-payload-match")
+            } else if normalized.contains("benches/images/boofcv") {
+                ("boofcv", "annotation-any-decode")
+            } else {
+                ("custom", "dataset-dependent")
+            }
+        }
+    }
+}
+
+pub fn build_benchdiff_report(args: &BenchdiffArgs) -> Result<BenchDiffReport, String> {
+    let ReadingRateArtifactInput {
+        global: base_global,
+        categories: base_categories_raw,
+    } = load_reading_rate_artifact(&args.base_path)?;
+    let ReadingRateArtifactInput {
+        global: candidate_global,
+        categories: candidate_categories_raw,
+    } = load_reading_rate_artifact(&args.candidate_path)?;
+
+    let base_categories = categories_by_name(base_categories_raw, &args.base_path)?;
+    let candidate_categories = categories_by_name(candidate_categories_raw, &args.candidate_path)?;
+
+    let category_names: BTreeSet<String> = base_categories
+        .keys()
+        .chain(candidate_categories.keys())
+        .cloned()
+        .collect();
+
+    let mut notes = Vec::new();
+    let mut categories = Vec::with_capacity(category_names.len());
+    for category in category_names {
+        let base_row = base_categories.get(&category);
+        let candidate_row = candidate_categories.get(&category);
+
+        if base_row.is_none() {
+            notes.push(format!("category added in candidate artifact: {category}"));
+        }
+        if candidate_row.is_none() {
+            notes.push(format!(
+                "category missing in candidate artifact: {category}"
+            ));
+        }
+
+        categories.push(BenchDiffCategorySummary {
+            category,
+            total_cases_base: base_row.map(|row| row.total_cases).unwrap_or(0),
+            total_cases_candidate: candidate_row.map(|row| row.total_cases).unwrap_or(0),
+            matched_cases_base: base_row.map(|row| row.matched_cases).unwrap_or(0),
+            matched_cases_candidate: candidate_row.map(|row| row.matched_cases).unwrap_or(0),
+            reading_rate: bench_metric_delta(
+                base_row.map(|row| row.reading_rate).unwrap_or(0.0),
+                candidate_row.map(|row| row.reading_rate).unwrap_or(0.0),
+            ),
+            median_runtime_ms: bench_metric_delta(
+                base_row.map(|row| row.median_runtime_ms).unwrap_or(0.0),
+                candidate_row
+                    .map(|row| row.median_runtime_ms)
+                    .unwrap_or(0.0),
+            ),
+            top_failure_signature: BenchDiffFailureSignature {
+                base: base_row.and_then(|row| row.top_failure_signature.clone()),
+                candidate: candidate_row.and_then(|row| row.top_failure_signature.clone()),
+            },
+        });
+    }
+
+    let top_improvements = rank_benchdiff_highlights(&categories, true);
+    let top_regressions = rank_benchdiff_highlights(&categories, false);
+
+    let generated_at_unix_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0);
+
+    Ok(BenchDiffReport {
+        generated_at_unix_ms,
+        base_artifact_path: args.base_path.clone(),
+        candidate_artifact_path: args.candidate_path.clone(),
+        global: BenchDiffGlobalSummary {
+            total_cases_base: base_global.total_cases,
+            total_cases_candidate: candidate_global.total_cases,
+            matched_cases_base: base_global.matched_cases,
+            matched_cases_candidate: candidate_global.matched_cases,
+            reading_rate: bench_metric_delta(
+                base_global.reading_rate,
+                candidate_global.reading_rate,
+            ),
+            median_runtime_ms: bench_metric_delta(
+                base_global.median_runtime_ms,
+                candidate_global.median_runtime_ms,
+            ),
+            top_failure_signature: BenchDiffFailureSignature {
+                base: base_global.top_failure_signature,
+                candidate: candidate_global.top_failure_signature,
+            },
+        },
+        categories,
+        top_improvements,
+        top_regressions,
+        notes,
+    })
+}
+
+fn load_reading_rate_artifact(path: &Path) -> Result<ReadingRateArtifactInput, String> {
+    let raw = fs::read_to_string(path)
+        .map_err(|err| format!("failed to read artifact {}: {err}", path.display()))?;
+    parse_reading_rate_artifact(&raw, path)
+}
+
+fn parse_reading_rate_artifact(
+    raw: &str,
+    artifact_path: &Path,
+) -> Result<ReadingRateArtifactInput, String> {
+    let root = JsonParser::new(raw).parse().map_err(|err| {
+        format!(
+            "failed to parse artifact {}: {err}",
+            artifact_path.display()
+        )
+    })?;
+    let root_object = as_object(&root, "artifact root", artifact_path)?;
+
+    let global = root_object
+        .get("global")
+        .ok_or_else(|| format!("artifact {} missing field: global", artifact_path.display()))
+        .and_then(|value| parse_artifact_global(value, artifact_path))?;
+
+    let categories = match root_object.get("categories") {
+        Some(value) => parse_artifact_categories(value, artifact_path)?,
+        None => Vec::new(),
+    };
+
+    Ok(ReadingRateArtifactInput { global, categories })
+}
+
+fn parse_artifact_global(
+    value: &JsonValue,
+    artifact_path: &Path,
+) -> Result<ArtifactGlobalInput, String> {
+    let object = as_object(value, "global", artifact_path)?;
+    Ok(ArtifactGlobalInput {
+        total_cases: required_usize_field(object, "total_cases", "global", artifact_path)?,
+        matched_cases: required_usize_field(object, "matched_cases", "global", artifact_path)?,
+        reading_rate: required_number_field(object, "reading_rate", "global", artifact_path)?,
+        median_runtime_ms: required_number_field(
+            object,
+            "median_runtime_ms",
+            "global",
+            artifact_path,
+        )?,
+        top_failure_signature: optional_string_field(
+            object,
+            "top_failure_signature",
+            "global",
+            artifact_path,
+        )?,
+    })
+}
+
+fn parse_artifact_categories(
+    value: &JsonValue,
+    artifact_path: &Path,
+) -> Result<Vec<ArtifactCategoryInput>, String> {
+    let rows = as_array(value, "categories", artifact_path)?;
+    let mut categories = Vec::with_capacity(rows.len());
+    for (idx, row) in rows.iter().enumerate() {
+        let context = format!("categories[{idx}]");
+        let object = as_object(row, &context, artifact_path)?;
+        categories.push(ArtifactCategoryInput {
+            category: required_string_field(object, "category", &context, artifact_path)?,
+            total_cases: required_usize_field(object, "total_cases", &context, artifact_path)?,
+            matched_cases: required_usize_field(object, "matched_cases", &context, artifact_path)?,
+            reading_rate: required_number_field(object, "reading_rate", &context, artifact_path)?,
+            median_runtime_ms: required_number_field(
+                object,
+                "median_runtime_ms",
+                &context,
+                artifact_path,
+            )?,
+            top_failure_signature: optional_string_field(
+                object,
+                "top_failure_signature",
+                &context,
+                artifact_path,
+            )?,
+        });
+    }
+    Ok(categories)
+}
+
+fn as_object<'a>(
+    value: &'a JsonValue,
+    context: &str,
+    artifact_path: &Path,
+) -> Result<&'a BTreeMap<String, JsonValue>, String> {
+    match value {
+        JsonValue::Object(object) => Ok(object),
+        other => Err(format!(
+            "artifact {} expected object for {} but found {}",
+            artifact_path.display(),
+            context,
+            json_type_name(other)
+        )),
+    }
+}
+
+fn as_array<'a>(
+    value: &'a JsonValue,
+    context: &str,
+    artifact_path: &Path,
+) -> Result<&'a [JsonValue], String> {
+    match value {
+        JsonValue::Array(items) => Ok(items),
+        other => Err(format!(
+            "artifact {} expected array for {} but found {}",
+            artifact_path.display(),
+            context,
+            json_type_name(other)
+        )),
+    }
+}
+
+fn required_number_field(
+    object: &BTreeMap<String, JsonValue>,
+    field: &str,
+    context: &str,
+    artifact_path: &Path,
+) -> Result<f64, String> {
+    let value = object.get(field).ok_or_else(|| {
+        format!(
+            "artifact {} missing field {} in {}",
+            artifact_path.display(),
+            field,
+            context
+        )
+    })?;
+    match value {
+        JsonValue::Number(number) => Ok(*number),
+        other => Err(format!(
+            "artifact {} expected numeric {} in {} but found {}",
+            artifact_path.display(),
+            field,
+            context,
+            json_type_name(other)
+        )),
+    }
+}
+
+fn required_usize_field(
+    object: &BTreeMap<String, JsonValue>,
+    field: &str,
+    context: &str,
+    artifact_path: &Path,
+) -> Result<usize, String> {
+    let value = required_number_field(object, field, context, artifact_path)?;
+    if value < 0.0 || value.fract() != 0.0 || value > usize::MAX as f64 {
+        return Err(format!(
+            "artifact {} expected non-negative integer {} in {} but found {}",
+            artifact_path.display(),
+            field,
+            context,
+            value
+        ));
+    }
+    Ok(value as usize)
+}
+
+fn required_string_field(
+    object: &BTreeMap<String, JsonValue>,
+    field: &str,
+    context: &str,
+    artifact_path: &Path,
+) -> Result<String, String> {
+    let value = object.get(field).ok_or_else(|| {
+        format!(
+            "artifact {} missing field {} in {}",
+            artifact_path.display(),
+            field,
+            context
+        )
+    })?;
+    match value {
+        JsonValue::String(parsed) => Ok(parsed.clone()),
+        other => Err(format!(
+            "artifact {} expected string {} in {} but found {}",
+            artifact_path.display(),
+            field,
+            context,
+            json_type_name(other)
+        )),
+    }
+}
+
+fn optional_string_field(
+    object: &BTreeMap<String, JsonValue>,
+    field: &str,
+    context: &str,
+    artifact_path: &Path,
+) -> Result<Option<String>, String> {
+    let Some(value) = object.get(field) else {
+        return Ok(None);
+    };
+
+    match value {
+        JsonValue::Null => Ok(None),
+        JsonValue::String(parsed) => Ok(Some(parsed.clone())),
+        other => Err(format!(
+            "artifact {} expected string|null {} in {} but found {}",
+            artifact_path.display(),
+            field,
+            context,
+            json_type_name(other)
+        )),
+    }
+}
+
+fn json_type_name(value: &JsonValue) -> &'static str {
+    match value {
+        JsonValue::Null => "null",
+        JsonValue::Bool => "bool",
+        JsonValue::Number(_) => "number",
+        JsonValue::String(_) => "string",
+        JsonValue::Array(_) => "array",
+        JsonValue::Object(_) => "object",
+    }
+}
+
+impl<'a> JsonParser<'a> {
+    fn new(raw: &'a str) -> Self {
+        Self {
+            raw: raw.as_bytes(),
+            cursor: 0,
+        }
+    }
+
+    fn parse(mut self) -> Result<JsonValue, String> {
+        self.skip_whitespace();
+        let value = self.parse_value()?;
+        self.skip_whitespace();
+        if self.cursor != self.raw.len() {
+            return Err(format!(
+                "unexpected trailing characters at byte {}",
+                self.cursor
+            ));
+        }
+        Ok(value)
+    }
+
+    fn parse_value(&mut self) -> Result<JsonValue, String> {
+        self.skip_whitespace();
+        match self.peek() {
+            Some(b'{') => self.parse_object(),
+            Some(b'[') => self.parse_array(),
+            Some(b'"') => self.parse_string().map(JsonValue::String),
+            Some(b'-' | b'0'..=b'9') => self.parse_number(),
+            Some(b't') => self.parse_literal(b"true", JsonValue::Bool),
+            Some(b'f') => self.parse_literal(b"false", JsonValue::Bool),
+            Some(b'n') => self.parse_literal(b"null", JsonValue::Null),
+            Some(other) => Err(format!(
+                "unexpected byte '{}' at position {}",
+                other as char, self.cursor
+            )),
+            None => Err("unexpected end of input".to_string()),
+        }
+    }
+
+    fn parse_object(&mut self) -> Result<JsonValue, String> {
+        self.expect_byte(b'{')?;
+        self.skip_whitespace();
+        let mut object = BTreeMap::new();
+        if self.try_consume_byte(b'}') {
+            return Ok(JsonValue::Object(object));
+        }
+
+        loop {
+            let key = self.parse_string()?;
+            self.skip_whitespace();
+            self.expect_byte(b':')?;
+            let value = self.parse_value()?;
+            if object.insert(key.clone(), value).is_some() {
+                return Err(format!(
+                    "duplicate object key {key:?} at byte {}",
+                    self.cursor
+                ));
+            }
+
+            self.skip_whitespace();
+            if self.try_consume_byte(b',') {
+                self.skip_whitespace();
+                continue;
+            }
+
+            self.expect_byte(b'}')?;
+            break;
+        }
+
+        Ok(JsonValue::Object(object))
+    }
+
+    fn parse_array(&mut self) -> Result<JsonValue, String> {
+        self.expect_byte(b'[')?;
+        self.skip_whitespace();
+        let mut array = Vec::new();
+        if self.try_consume_byte(b']') {
+            return Ok(JsonValue::Array(array));
+        }
+
+        loop {
+            array.push(self.parse_value()?);
+            self.skip_whitespace();
+            if self.try_consume_byte(b',') {
+                self.skip_whitespace();
+                continue;
+            }
+
+            self.expect_byte(b']')?;
+            break;
+        }
+
+        Ok(JsonValue::Array(array))
+    }
+
+    fn parse_string(&mut self) -> Result<String, String> {
+        self.expect_byte(b'"')?;
+        let mut parsed = String::new();
+        while let Some(byte) = self.next_byte() {
+            match byte {
+                b'"' => return Ok(parsed),
+                b'\\' => {
+                    let escaped = self
+                        .next_byte()
+                        .ok_or_else(|| "unterminated escape sequence".to_string())?;
+                    match escaped {
+                        b'"' => parsed.push('"'),
+                        b'\\' => parsed.push('\\'),
+                        b'/' => parsed.push('/'),
+                        b'b' => parsed.push('\u{0008}'),
+                        b'f' => parsed.push('\u{000C}'),
+                        b'n' => parsed.push('\n'),
+                        b'r' => parsed.push('\r'),
+                        b't' => parsed.push('\t'),
+                        b'u' => {
+                            let code_point = self.parse_hex_code_point()?;
+                            let Some(ch) = char::from_u32(code_point) else {
+                                return Err(format!(
+                                    "invalid unicode escape \\u{code_point:04X} at byte {}",
+                                    self.cursor
+                                ));
+                            };
+                            parsed.push(ch);
+                        }
+                        other => {
+                            return Err(format!(
+                                "unsupported escape sequence \\{} at byte {}",
+                                other as char, self.cursor
+                            ));
+                        }
+                    }
+                }
+                control if control < 0x20 => {
+                    return Err(format!(
+                        "control character in string at byte {}",
+                        self.cursor.saturating_sub(1)
+                    ));
+                }
+                ascii => parsed.push(ascii as char),
+            }
+        }
+        Err("unterminated string literal".to_string())
+    }
+
+    fn parse_hex_code_point(&mut self) -> Result<u32, String> {
+        let mut code_point = 0u32;
+        for _ in 0..4 {
+            let byte = self
+                .next_byte()
+                .ok_or_else(|| "unterminated unicode escape".to_string())?;
+            let digit = match byte {
+                b'0'..=b'9' => byte - b'0',
+                b'a'..=b'f' => 10 + (byte - b'a'),
+                b'A'..=b'F' => 10 + (byte - b'A'),
+                _ => {
+                    return Err(format!(
+                        "invalid unicode escape digit '{}' at byte {}",
+                        byte as char,
+                        self.cursor.saturating_sub(1)
+                    ));
+                }
+            };
+            code_point = (code_point << 4) | digit as u32;
+        }
+        Ok(code_point)
+    }
+
+    fn parse_number(&mut self) -> Result<JsonValue, String> {
+        let start = self.cursor;
+
+        if self.peek() == Some(b'-') {
+            self.cursor += 1;
+        }
+
+        match self.peek() {
+            Some(b'0') => {
+                self.cursor += 1;
+            }
+            Some(b'1'..=b'9') => {
+                self.cursor += 1;
+                while matches!(self.peek(), Some(b'0'..=b'9')) {
+                    self.cursor += 1;
+                }
+            }
+            _ => return Err(format!("invalid number at byte {}", self.cursor)),
+        }
+
+        if self.peek() == Some(b'.') {
+            self.cursor += 1;
+            if !self.consume_digits() {
+                return Err(format!("invalid fractional number at byte {}", self.cursor));
+            }
+        }
+
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.cursor += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.cursor += 1;
+            }
+            if !self.consume_digits() {
+                return Err(format!(
+                    "invalid scientific notation at byte {}",
+                    self.cursor
+                ));
+            }
+        }
+
+        let literal = std::str::from_utf8(&self.raw[start..self.cursor])
+            .map_err(|err| format!("invalid utf-8 in number literal: {err}"))?;
+        let parsed = literal
+            .parse::<f64>()
+            .map_err(|err| format!("invalid number literal {literal:?}: {err}"))?;
+        Ok(JsonValue::Number(parsed))
+    }
+
+    fn consume_digits(&mut self) -> bool {
+        let start = self.cursor;
+        while matches!(self.peek(), Some(b'0'..=b'9')) {
+            self.cursor += 1;
+        }
+        self.cursor > start
+    }
+
+    fn parse_literal(&mut self, literal: &[u8], value: JsonValue) -> Result<JsonValue, String> {
+        if self
+            .raw
+            .get(self.cursor..)
+            .map(|slice| slice.starts_with(literal))
+            .unwrap_or(false)
+        {
+            self.cursor += literal.len();
+            Ok(value)
+        } else {
+            let literal = std::str::from_utf8(literal).unwrap_or("literal");
+            Err(format!("expected {literal} at byte {}", self.cursor))
+        }
+    }
+
+    fn skip_whitespace(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\n' | b'\r' | b'\t')) {
+            self.cursor += 1;
+        }
+    }
+
+    fn expect_byte(&mut self, expected: u8) -> Result<(), String> {
+        match self.next_byte() {
+            Some(actual) if actual == expected => Ok(()),
+            Some(actual) => Err(format!(
+                "expected byte '{}' at position {} but found '{}'",
+                expected as char,
+                self.cursor.saturating_sub(1),
+                actual as char
+            )),
+            None => Err(format!(
+                "expected byte '{}' at end of input",
+                expected as char
+            )),
+        }
+    }
+
+    fn try_consume_byte(&mut self, expected: u8) -> bool {
+        if self.peek() == Some(expected) {
+            self.cursor += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn peek(&self) -> Option<u8> {
+        self.raw.get(self.cursor).copied()
+    }
+
+    fn next_byte(&mut self) -> Option<u8> {
+        let byte = self.peek()?;
+        self.cursor += 1;
+        Some(byte)
+    }
+}
+
+fn categories_by_name(
+    categories: Vec<ArtifactCategoryInput>,
+    artifact_path: &Path,
+) -> Result<BTreeMap<String, ArtifactCategoryInput>, String> {
+    let mut by_name = BTreeMap::new();
+    for category in categories {
+        let category_name = category.category.clone();
+        if by_name.insert(category_name.clone(), category).is_some() {
+            return Err(format!(
+                "artifact {} contains duplicate category summary: {category_name}",
+                artifact_path.display()
+            ));
+        }
+    }
+    Ok(by_name)
+}
+
+fn bench_metric_delta(base: f64, candidate: f64) -> BenchDiffMetric {
+    BenchDiffMetric {
+        base,
+        candidate,
+        delta: candidate - base,
+    }
+}
+
+fn rank_benchdiff_highlights(
+    categories: &[BenchDiffCategorySummary],
+    improvements: bool,
+) -> Vec<BenchDiffHighlight> {
+    let mut highlights = categories
+        .iter()
+        .filter_map(|category| {
+            let delta = category.reading_rate.delta;
+            let selected = if improvements {
+                delta > 0.0
+            } else {
+                delta < 0.0
+            };
+            if !selected {
+                return None;
+            }
+
+            Some(BenchDiffHighlight {
+                category: category.category.clone(),
+                reading_rate_delta: delta,
+                median_runtime_delta_ms: category.median_runtime_ms.delta,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    highlights.sort_by(|left, right| {
+        let primary = if improvements {
+            right
+                .reading_rate_delta
+                .partial_cmp(&left.reading_rate_delta)
+                .unwrap_or(Ordering::Equal)
+        } else {
+            left.reading_rate_delta
+                .partial_cmp(&right.reading_rate_delta)
+                .unwrap_or(Ordering::Equal)
+        };
+
+        primary.then_with(|| left.category.cmp(&right.category))
+    });
+    highlights.truncate(MAX_BENCHDIFF_HIGHLIGHTS);
+    highlights
 }
 
 fn reading_rate_detect_config(args: &ReadingRateArgs) -> DetectConfig {
@@ -850,6 +1709,251 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         optional_string(&report.kpi_gate.top_failure_signature),
         notes_json,
         cases_json,
+    )
+}
+
+pub fn render_benchdiff_console_summary(report: &BenchDiffReport) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "benchdiff base_artifact={} candidate_artifact={} global_rate={:.4}->{:.4} delta={:+.4} global_median_runtime_ms={:.3}->{:.3} delta={:+.3} top_failure_signature={}=>{}",
+        report.base_artifact_path.display(),
+        report.candidate_artifact_path.display(),
+        report.global.reading_rate.base,
+        report.global.reading_rate.candidate,
+        report.global.reading_rate.delta,
+        report.global.median_runtime_ms.base,
+        report.global.median_runtime_ms.candidate,
+        report.global.median_runtime_ms.delta,
+        report
+            .global
+            .top_failure_signature
+            .base
+            .as_deref()
+            .unwrap_or("none"),
+        report
+            .global
+            .top_failure_signature
+            .candidate
+            .as_deref()
+            .unwrap_or("none"),
+    ));
+
+    for category in &report.categories {
+        lines.push(format!(
+            "category={} cases={}=>{} matched={}=>{} rate={:.4}->{:.4} delta={:+.4} median_runtime_ms={:.3}->{:.3} delta={:+.3} top_failure_signature={}=>{}",
+            category.category,
+            category.total_cases_base,
+            category.total_cases_candidate,
+            category.matched_cases_base,
+            category.matched_cases_candidate,
+            category.reading_rate.base,
+            category.reading_rate.candidate,
+            category.reading_rate.delta,
+            category.median_runtime_ms.base,
+            category.median_runtime_ms.candidate,
+            category.median_runtime_ms.delta,
+            category
+                .top_failure_signature
+                .base
+                .as_deref()
+                .unwrap_or("none"),
+            category
+                .top_failure_signature
+                .candidate
+                .as_deref()
+                .unwrap_or("none"),
+        ));
+    }
+
+    if report.top_improvements.is_empty() {
+        lines.push("top_improvements=none".to_string());
+    } else {
+        for improvement in &report.top_improvements {
+            lines.push(format!(
+                "top_improvement category={} rate_delta={:+.4} median_runtime_delta_ms={:+.3}",
+                improvement.category,
+                improvement.reading_rate_delta,
+                improvement.median_runtime_delta_ms
+            ));
+        }
+    }
+
+    if report.top_regressions.is_empty() {
+        lines.push("top_regressions=none".to_string());
+    } else {
+        for regression in &report.top_regressions {
+            lines.push(format!(
+                "top_regression category={} rate_delta={:+.4} median_runtime_delta_ms={:+.3}",
+                regression.category,
+                regression.reading_rate_delta,
+                regression.median_runtime_delta_ms
+            ));
+        }
+    }
+
+    for note in &report.notes {
+        lines.push(format!("note={note}"));
+    }
+
+    lines.join("\n")
+}
+
+pub fn benchdiff_to_json(report: &BenchDiffReport) -> String {
+    fn escape_json(raw: &str) -> String {
+        let mut escaped = String::with_capacity(raw.len());
+        for ch in raw.chars() {
+            match ch {
+                '"' => escaped.push_str("\\\""),
+                '\\' => escaped.push_str("\\\\"),
+                '\n' => escaped.push_str("\\n"),
+                '\r' => escaped.push_str("\\r"),
+                '\t' => escaped.push_str("\\t"),
+                c if c <= '\u{1F}' => {
+                    let _ = std::fmt::Write::write_fmt(
+                        &mut escaped,
+                        format_args!("\\u{:04X}", c as u32),
+                    );
+                }
+                c => escaped.push(c),
+            }
+        }
+        escaped
+    }
+
+    fn quoted(value: &str) -> String {
+        format!("\"{}\"", escape_json(value))
+    }
+
+    fn optional_string(value: &Option<String>) -> String {
+        match value {
+            Some(v) => quoted(v),
+            None => "null".to_string(),
+        }
+    }
+
+    fn signed_delta(candidate: usize, base: usize) -> i128 {
+        candidate as i128 - base as i128
+    }
+
+    let categories_json = report
+        .categories
+        .iter()
+        .map(|category| {
+            format!(
+                concat!(
+                    "{{",
+                    "\"category\":{},",
+                    "\"total_cases\":{{\"base\":{},\"candidate\":{},\"delta\":{}}},",
+                    "\"matched_cases\":{{\"base\":{},\"candidate\":{},\"delta\":{}}},",
+                    "\"reading_rate\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
+                    "\"median_runtime_ms\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
+                    "\"top_failure_signature\":{{\"base\":{},\"candidate\":{}}}",
+                    "}}"
+                ),
+                quoted(&category.category),
+                category.total_cases_base,
+                category.total_cases_candidate,
+                signed_delta(category.total_cases_candidate, category.total_cases_base),
+                category.matched_cases_base,
+                category.matched_cases_candidate,
+                signed_delta(
+                    category.matched_cases_candidate,
+                    category.matched_cases_base
+                ),
+                category.reading_rate.base,
+                category.reading_rate.candidate,
+                category.reading_rate.delta,
+                category.median_runtime_ms.base,
+                category.median_runtime_ms.candidate,
+                category.median_runtime_ms.delta,
+                optional_string(&category.top_failure_signature.base),
+                optional_string(&category.top_failure_signature.candidate),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let top_improvements_json = report
+        .top_improvements
+        .iter()
+        .map(|improvement| {
+            format!(
+                "{{\"category\":{},\"reading_rate_delta\":{:.6},\"median_runtime_delta_ms\":{:.6}}}",
+                quoted(&improvement.category),
+                improvement.reading_rate_delta,
+                improvement.median_runtime_delta_ms,
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let top_regressions_json = report
+        .top_regressions
+        .iter()
+        .map(|regression| {
+            format!(
+                "{{\"category\":{},\"reading_rate_delta\":{:.6},\"median_runtime_delta_ms\":{:.6}}}",
+                quoted(&regression.category),
+                regression.reading_rate_delta,
+                regression.median_runtime_delta_ms,
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let notes_json = report
+        .notes
+        .iter()
+        .map(|note| quoted(note))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        concat!(
+            "{{",
+            "\"schema_version\":\"wp015-benchdiff-v1\",",
+            "\"generated_at_unix_ms\":{},",
+            "\"base_artifact_path\":{},",
+            "\"candidate_artifact_path\":{},",
+            "\"global\":{{",
+            "\"total_cases\":{{\"base\":{},\"candidate\":{},\"delta\":{}}},",
+            "\"matched_cases\":{{\"base\":{},\"candidate\":{},\"delta\":{}}},",
+            "\"reading_rate\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
+            "\"median_runtime_ms\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
+            "\"top_failure_signature\":{{\"base\":{},\"candidate\":{}}}",
+            "}},",
+            "\"categories\":[{}],",
+            "\"top_improvements\":[{}],",
+            "\"top_regressions\":[{}],",
+            "\"notes\":[{}]",
+            "}}"
+        ),
+        report.generated_at_unix_ms,
+        quoted(&report.base_artifact_path.to_string_lossy()),
+        quoted(&report.candidate_artifact_path.to_string_lossy()),
+        report.global.total_cases_base,
+        report.global.total_cases_candidate,
+        signed_delta(
+            report.global.total_cases_candidate,
+            report.global.total_cases_base
+        ),
+        report.global.matched_cases_base,
+        report.global.matched_cases_candidate,
+        signed_delta(
+            report.global.matched_cases_candidate,
+            report.global.matched_cases_base
+        ),
+        report.global.reading_rate.base,
+        report.global.reading_rate.candidate,
+        report.global.reading_rate.delta,
+        report.global.median_runtime_ms.base,
+        report.global.median_runtime_ms.candidate,
+        report.global.median_runtime_ms.delta,
+        optional_string(&report.global.top_failure_signature.base),
+        optional_string(&report.global.top_failure_signature.candidate),
+        categories_json.join(","),
+        top_improvements_json,
+        top_regressions_json,
+        notes_json,
     )
 }
 

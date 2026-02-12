@@ -1,6 +1,6 @@
 RUSTQR REBUILD - FEATURE WORKPACKETS (TODO)
 Source Plan: docs/new_from_scratch.md
-Last Updated: 2026-02-11
+Last Updated: 2026-02-12
 
 Legend:
 - [ ] TODO
@@ -185,7 +185,7 @@ Acceptance:
 Status:
 - Pending.
 
-[ ] WP-015 Benchmark Artifact Diff Tool (`benchdiff`)
+[x] WP-015 Benchmark Artifact Diff Tool (`benchdiff`)
 Goal: Make benchmark changes explainable between any two runs.
 Deliverables:
 - Add `qrtool benchdiff --base <json> --candidate <json>` command
@@ -195,9 +195,12 @@ Acceptance:
 - Tool surfaces top regressions/improvements without manual JSON inspection
 - Integration tests cover parsing and delta math edge cases
 Status:
-- Pending.
+- Completed on 2026-02-12 with:
+- `qrtool benchdiff --base <json> --candidate <json> [--artifact <path>]` in `src/bin/qrtool.rs` + `src/tools/mod.rs`.
+- Console summary with global/per-category deltas plus top improvements/regressions.
+- Machine-readable artifact schema `wp015-benchdiff-v1` and integration coverage in `tests/wp015_benchdiff_tests.rs`.
 
-[ ] WP-016 Dual KPI Lanes (Annotation vs Strict Payload)
+[x] WP-016 Dual KPI Lanes (Annotation vs Strict Payload)
 Goal: Track pipeline robustness and strict decode correctness as separate KPIs.
 Deliverables:
 - Define official KPI lanes:
@@ -209,7 +212,10 @@ Acceptance:
 - KPI reporting always distinguishes lane semantics clearly
 - Docs and workflow usage examples include both lane commands
 Status:
-- Pending.
+- Completed on 2026-02-12 with:
+- Official lane notes emitted in reading-rate artifacts/console (`kpi_lane=boofcv` vs `kpi_lane=payload-validated`) via `src/tools/mod.rs`.
+- Workflow dispatch supports `profile=dual-kpi` to run both official lanes in one run (`.github/workflows/benchmark.yml`).
+- Added regression coverage for lane-note semantics in `tests/wp007_benchmark_harness_tests.rs`.
 
 [ ] WP-017 High-Leverage Category Uplift (`rotations`, `high_version`, `lots`)
 Goal: Target categories with highest impact on global reading rate.

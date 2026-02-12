@@ -472,6 +472,49 @@ fn reading_rate_report_includes_profile_metadata_note() {
 }
 
 #[test]
+fn reading_rate_report_includes_kpi_lane_semantics_note() {
+    let temp = temp_dir("kpi_lane_note");
+    let label = temp.join("image001.txt");
+    let image = temp.join("image001.jpg");
+    fs::write(&label, "expected").expect("write label");
+    fs::write(&image, "not-a-real-image").expect("write invalid image");
+
+    let boofcv_args = tools::ReadingRateArgs {
+        dataset_root: temp.clone(),
+        profile: Some(tools::ReadingRateProfile::MonitorSmoke),
+        artifact_path: temp.join("boofcv.json"),
+        limit: Some(1),
+        max_working_dim: None,
+        emergency_cutoff_ms: None,
+    };
+    let boofcv_report =
+        tools::build_reading_rate_report(&boofcv_args).expect("build boofcv report");
+    assert!(
+        boofcv_report
+            .notes
+            .iter()
+            .any(|note| note == "kpi_lane=boofcv semantics=annotation-any-decode")
+    );
+
+    let strict_args = tools::ReadingRateArgs {
+        dataset_root: temp,
+        profile: Some(tools::ReadingRateProfile::PayloadValidated),
+        artifact_path: PathBuf::from("unused"),
+        limit: Some(1),
+        max_working_dim: None,
+        emergency_cutoff_ms: None,
+    };
+    let strict_report =
+        tools::build_reading_rate_report(&strict_args).expect("build strict report");
+    assert!(
+        strict_report
+            .notes
+            .iter()
+            .any(|note| note == "kpi_lane=payload-validated semantics=strict-payload-match")
+    );
+}
+
+#[test]
 fn payload_validated_profile_has_strict_labels() {
     let root =
         tools::reading_rate_profile_dataset_root(tools::ReadingRateProfile::PayloadValidated);
