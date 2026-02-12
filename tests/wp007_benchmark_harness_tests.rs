@@ -4,6 +4,7 @@ mod tools;
 
 use image::{Rgb, RgbImage};
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -299,6 +300,21 @@ fn discover_label_cases_skips_control_files_and_unpaired_labels() {
 
     let limited = tools::discover_label_cases(&temp, Some(1)).expect("discover limited");
     assert_eq!(limited.len(), 1);
+}
+
+#[test]
+fn discover_label_cases_propagates_label_read_errors() {
+    let temp = temp_dir("discover_label_read_error");
+    let category_dir = temp.join("nominal");
+    fs::create_dir_all(&category_dir).expect("create category");
+
+    let label = category_dir.join("image001.txt");
+    let image = category_dir.join("image001.jpg");
+    fs::write(&image, "fake").expect("write image");
+    fs::write(&label, [0xFF]).expect("write invalid utf8 label");
+
+    let err = tools::discover_label_cases(&temp, None).expect_err("expected read error");
+    assert_eq!(err.kind(), io::ErrorKind::InvalidData);
 }
 
 #[test]

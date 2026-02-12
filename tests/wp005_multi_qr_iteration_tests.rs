@@ -44,6 +44,28 @@ fn dedupes_payloads_and_skips_low_confidence_candidates() {
 }
 
 #[test]
+fn allows_identical_payloads_for_distinct_positions() {
+    let config = DetectConfig {
+        max_multi_qr: 8,
+        ..DetectConfig::default()
+    };
+    let mut state = state_with_candidates(vec![
+        candidate_with_corners("same", 0.96, 0.95, corners()),
+        candidate_with_corners("same", 0.94, 0.92, shifted_corners(20.0, 5.0)),
+        candidate_with_corners("same", 0.92, 0.90, shifted_corners(0.4, 0.3)),
+    ]);
+
+    run(&mut state, &config);
+
+    assert_eq!(state.accepted.len(), 2);
+    assert_eq!(state.accepted_count, 2);
+    assert_eq!(state.accepted[0].payload, "same");
+    assert_eq!(state.accepted[1].payload, "same");
+    assert_eq!(state.accepted[0].corners, corners());
+    assert_eq!(state.accepted[1].corners, shifted_corners(20.0, 5.0));
+}
+
+#[test]
 fn respects_max_multi_qr_bound() {
     let config = DetectConfig {
         max_multi_qr: 2,
@@ -99,9 +121,18 @@ fn state_with_candidates(candidates: Vec<DecodeCandidate>) -> PipelineState {
 }
 
 fn candidate(payload: &str, score: f32, confidence: f32) -> DecodeCandidate {
+    candidate_with_corners(payload, score, confidence, corners())
+}
+
+fn candidate_with_corners(
+    payload: &str,
+    score: f32,
+    confidence: f32,
+    corners: [Point; 4],
+) -> DecodeCandidate {
     DecodeCandidate {
         score,
-        qr: QrCode::new(payload.to_string(), confidence, corners()),
+        qr: QrCode::new(payload.to_string(), confidence, corners),
     }
 }
 
@@ -111,6 +142,27 @@ fn corners() -> [Point; 4] {
         Point { x: 1.0, y: 0.0 },
         Point { x: 1.0, y: 1.0 },
         Point { x: 0.0, y: 1.0 },
+    ]
+}
+
+fn shifted_corners(dx: f32, dy: f32) -> [Point; 4] {
+    [
+        Point {
+            x: 0.0 + dx,
+            y: 0.0 + dy,
+        },
+        Point {
+            x: 1.0 + dx,
+            y: 0.0 + dy,
+        },
+        Point {
+            x: 1.0 + dx,
+            y: 1.0 + dy,
+        },
+        Point {
+            x: 0.0 + dx,
+            y: 1.0 + dy,
+        },
     ]
 }
 

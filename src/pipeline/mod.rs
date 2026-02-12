@@ -90,6 +90,10 @@ fn cutoff_reached(global_start: Instant, config: &DetectConfig) -> bool {
     elapsed_ms(global_start) >= config.emergency_cutoff_ms as f64
 }
 
+fn expected_rgb_len(width: usize, height: usize) -> Option<usize> {
+    width.checked_mul(height)?.checked_mul(3)
+}
+
 pub fn detect_with_config(
     image: &[u8],
     width: usize,
@@ -99,7 +103,16 @@ pub fn detect_with_config(
     let global_start = Instant::now();
     let mut timings = Vec::with_capacity(5);
 
-    if width == 0 || height == 0 || image.is_empty() || image.len() != width * height * 3 {
+    let invalid_input = if width == 0 || height == 0 || image.is_empty() {
+        true
+    } else {
+        match expected_rgb_len(width, height) {
+            Some(expected_len) => image.len() != expected_len,
+            None => true,
+        }
+    };
+
+    if invalid_input {
         return DetectionRunReport {
             codes: Vec::new(),
             stage_timings: timings,

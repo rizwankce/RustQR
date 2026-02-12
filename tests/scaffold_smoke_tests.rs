@@ -7,6 +7,15 @@ fn empty_or_invalid_input_returns_no_codes() {
 }
 
 #[test]
+fn oversized_dimensions_return_invalid_input_without_panicking() {
+    let image = [7u8, 8u8, 9u8];
+    let report = detect_with_report(&image, usize::MAX, 2);
+
+    assert!(report.codes.is_empty());
+    assert_eq!(report.failure_signature.as_deref(), Some("invalid-input"));
+}
+
+#[test]
 fn report_contains_pipeline_stage_timings() {
     let image = vec![0u8; 3 * 8 * 8];
     let report = detect_with_report(&image, 8, 8);

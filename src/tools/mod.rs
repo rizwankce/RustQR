@@ -364,9 +364,7 @@ pub fn discover_label_cases(
             continue;
         };
 
-        let expected_payload = fs::read_to_string(&label_path)
-            .map(|s| s.trim().to_string())
-            .unwrap_or_default();
+        let expected_payload = fs::read_to_string(&label_path)?.trim().to_string();
 
         cases.push(LabelCase {
             category: category_from_label_path(dataset_root, &label_path),
