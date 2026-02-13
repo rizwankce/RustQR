@@ -24,9 +24,8 @@ pub(crate) fn run(state: &mut PipelineState, config: &DetectConfig) {
     } else {
         ranked
             .into_iter()
-            .enumerate()
-            .map(|(id, hypothesis)| Hypothesis {
-                id,
+            .map(|hypothesis| Hypothesis {
+                id: hypothesis.anchor_id,
                 score: hypothesis.score,
             })
             .collect()
@@ -37,6 +36,7 @@ const MAX_NEIGHBORS: usize = 8;
 const MIN_EDGE_DISTANCE_PX: f32 = 4.0;
 const MAX_EDGE_DIAGONAL_RATIO: f32 = 0.75;
 const MIN_RIGHT_ANGLE_SCORE: f32 = 0.20;
+const ANGLE_BUCKETS: usize = 8;
 
 #[derive(Clone, Copy)]
 struct FinderNode {
@@ -114,18 +114,67 @@ fn build_finder_graph(nodes: &[FinderNode], width: usize, height: usize) -> Find
                 continue;
             }
 
-            edges.push((dist_sq, other.id, j));
+            edges.push((dist_sq, other.id, angle_bucket(dx, dy), j));
         }
 
         edges.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
-        neighbors[i] = edges
-            .into_iter()
-            .take(max_neighbors)
-            .map(|(_, _, idx)| idx)
-            .collect();
+        neighbors[i] = select_directional_neighbors(&edges, max_neighbors);
     }
 
     FinderGraph { neighbors }
+}
+
+fn angle_bucket(dx: f32, dy: f32) -> usize {
+    let angle = dy.atan2(dx);
+    let normalized = if angle < 0.0 {
+        angle + std::f32::consts::TAU
+    } else {
+        angle
+    };
+    let bucket = ((normalized / std::f32::consts::TAU) * ANGLE_BUCKETS as f32).floor() as usize;
+    bucket.min(ANGLE_BUCKETS.saturating_sub(1))
+}
+
+fn select_directional_neighbors(
+    edges: &[(f32, usize, usize, usize)],
+    max_neighbors: usize,
+) -> Vec<usize> {
+    if max_neighbors == 0 {
+        return Vec::new();
+    }
+
+    let mut selected = Vec::with_capacity(max_neighbors);
+    let mut bucket_used = [false; ANGLE_BUCKETS];
+    let mut chosen = vec![false; edges.len()];
+
+    for (edge_pos, edge) in edges.iter().enumerate() {
+        if selected.len() >= max_neighbors {
+            break;
+        }
+
+        let bucket = edge.2;
+        if bucket_used[bucket] {
+            continue;
+        }
+
+        bucket_used[bucket] = true;
+        chosen[edge_pos] = true;
+        selected.push(edge.3);
+    }
+
+    if selected.len() < max_neighbors {
+        for (edge_pos, edge) in edges.iter().enumerate() {
+            if selected.len() >= max_neighbors {
+                break;
+            }
+            if chosen[edge_pos] {
+                continue;
+            }
+            selected.push(edge.3);
+        }
+    }
+
+    selected
 }
 
 fn generate_ranked_hypotheses(
@@ -264,7 +313,7 @@ fn fallback_from_proposals(proposals: &[Proposal], max_hypotheses: usize) -> Vec
 
 #[cfg(test)]
 mod tests {
-    use super::run;
+    use super::{FinderNode, MAX_NEIGHBORS, build_finder_graph, run};
     use crate::config::DetectConfig;
     use crate::pipeline::state::PipelineState;
     use crate::types::{Proposal, ProposalView};
@@ -323,6 +372,60 @@ mod tests {
         assert_eq!(state.hypotheses.len(), 2);
         assert_eq!(state.hypotheses[0].id, 12);
         assert!(state.hypotheses[0].score >= state.hypotheses[1].score);
+    }
+
+    #[test]
+    fn finder_graph_keeps_directional_coverage_when_one_direction_is_dense() {
+        let mut proposals = vec![proposal(0, 64, 64, 0.99)];
+
+        for offset in 0..10usize {
+            proposals.push(proposal(10 + offset, 70 + offset, 64, 0.60));
+        }
+        proposals.push(proposal(200, 64, 34, 0.80));
+
+        let nodes = proposals
+            .iter()
+            .copied()
+            .map(FinderNode::from)
+            .collect::<Vec<_>>();
+        let graph = build_finder_graph(&nodes, 256, 256);
+
+        let north_idx = nodes
+            .iter()
+            .position(|node| node.id == 200)
+            .expect("north node should exist");
+        assert_eq!(graph.neighbors[0].len(), MAX_NEIGHBORS);
+        assert!(
+            graph.neighbors[0].contains(&north_idx),
+            "directional coverage should include north neighbor even when east is denser"
+        );
+    }
+
+    #[test]
+    fn ranked_hypotheses_keep_anchor_proposal_ids() {
+        let config = DetectConfig {
+            max_hypotheses: 8,
+            ..DetectConfig::default()
+        };
+        let mut state = PipelineState::new(128, 128);
+        state.proposals = vec![
+            proposal(40, 52, 52, 0.97),
+            proposal(41, 86, 52, 0.90),
+            proposal(42, 52, 86, 0.89),
+            proposal(77, 18, 18, 0.40),
+        ];
+
+        run(&mut state, &config);
+        assert!(!state.hypotheses.is_empty());
+        assert!(
+            state.hypotheses.iter().all(|hypothesis| {
+                hypothesis.id == 40
+                    || hypothesis.id == 41
+                    || hypothesis.id == 42
+                    || hypothesis.id == 77
+            }),
+            "ranked hypotheses should preserve proposal ids for downstream proposal lookups"
+        );
     }
 
     fn proposal(id: usize, x: usize, y: usize, score: f32) -> Proposal {

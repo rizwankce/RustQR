@@ -114,6 +114,47 @@ fn acceptance_order_is_deterministic_and_strongest_first() {
     assert!(state_a.accepted_count <= config.max_multi_qr);
 }
 
+#[test]
+fn allows_identical_payloads_for_same_center_when_scale_differs() {
+    let config = DetectConfig {
+        max_multi_qr: 8,
+        ..DetectConfig::default()
+    };
+    let mut state = state_with_candidates(vec![
+        candidate_with_corners("same", 0.96, 0.95, corners()),
+        candidate_with_corners("same", 0.94, 0.93, scaled_corners(10.0)),
+        candidate_with_corners("same", 0.92, 0.91, shifted_corners(0.2, 0.2)),
+    ]);
+
+    run(&mut state, &config);
+
+    assert_eq!(state.accepted.len(), 2);
+    assert_eq!(state.accepted[0].corners, corners());
+    assert_eq!(state.accepted[1].corners, scaled_corners(10.0));
+}
+
+#[test]
+fn dense_scene_lowers_min_confidence_for_candidate_acceptance() {
+    let config = DetectConfig {
+        max_multi_qr: 4,
+        ..DetectConfig::default()
+    };
+    let mut candidates = Vec::new();
+    for idx in 0..24usize {
+        candidates.push(candidate_with_corners(
+            &format!("payload-{idx}"),
+            0.80,
+            0.15,
+            shifted_corners(idx as f32 * 4.0, 0.0),
+        ));
+    }
+    let mut state = state_with_candidates(candidates);
+
+    run(&mut state, &config);
+
+    assert_eq!(state.accepted_count, config.max_multi_qr);
+}
+
 fn state_with_candidates(candidates: Vec<DecodeCandidate>) -> PipelineState {
     let mut state = PipelineState::new(128, 128);
     state.decode_candidates = candidates;
@@ -162,6 +203,28 @@ fn shifted_corners(dx: f32, dy: f32) -> [Point; 4] {
         Point {
             x: 0.0 + dx,
             y: 1.0 + dy,
+        },
+    ]
+}
+
+fn scaled_corners(scale: f32) -> [Point; 4] {
+    let half = scale / 2.0;
+    [
+        Point {
+            x: 0.5 - half,
+            y: 0.5 - half,
+        },
+        Point {
+            x: 0.5 + half,
+            y: 0.5 - half,
+        },
+        Point {
+            x: 0.5 + half,
+            y: 0.5 + half,
+        },
+        Point {
+            x: 0.5 - half,
+            y: 0.5 + half,
         },
     ]
 }

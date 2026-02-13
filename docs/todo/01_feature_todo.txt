@@ -231,14 +231,17 @@ Status:
 [ ] WP-017 High-Leverage Category Uplift (`rotations`, `high_version`, `lots`)
 Goal: Target categories with highest impact on global reading rate.
 Deliverables:
-- Rotation robustness pass (angle normalization + candidate expansion)
-- High-version decode robustness pass (sampling/version recovery retries)
-- Dense-scene multi-QR improvements (`lots`) with better suppression/dedupe
+- Slice A (`rotations`): angle-robust hypothesis neighborhood + rotation-oriented decode fallback
+- Slice B (`high_version`): stronger local decode retries (sampling/contrast/version recovery)
+- Slice C (`lots`): dense-scene multi-QR acceptance/dedupe tuning
 Acceptance:
 - Category-level reading-rate improvement is measurable via `benchdiff`
 - No regression in median runtime gate after each category-focused change
 Status:
-- Pending.
+- In progress. Split into 3 small slices for iterative validation:
+- [x] Slice A (`rotations`) complete + `benchdiff` verified (`target/wp017_slice_a_rotations_diff_v13_cutoff_finalize.json`)
+- [x] Slice B (`high_version`) complete + `benchdiff` verified (`target/wp017_slice_b_high_version_diff_v13_cutoff_finalize.json`)
+- [x] Slice C (`lots`) complete + `benchdiff` verified (`target/wp017_slice_c_lots_diff_v13_cutoff_finalize.json`)
 
 [x] WP-018 Benchmark Workflow KPI Gates
 Goal: Convert benchmark runs into actionable pass/fail quality gates.

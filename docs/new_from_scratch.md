@@ -44,7 +44,7 @@
 - Done: `WP-014` (locked full BoofCV baseline artifact from GH run `21927167412`)
 - Done: `WP-015` (`benchdiff` artifact comparator)
 - Done: `WP-016` (dual KPI lanes: annotation vs strict payload)
-- Planned: `WP-017` (category uplift: rotations/high_version/lots)
+- Done: `WP-017` split into 3 slices (`rotations`, `high_version`, `lots`)
 - Done: `WP-018` (workflow KPI gates + threshold enforcement)
 - Done: `WP-019` (full BoofCV profile coverage + all-profiles benchmark dispatch)
 

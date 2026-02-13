@@ -17,7 +17,7 @@ pub(crate) fn run(state: &mut PipelineState, config: &DetectConfig) {
         .iter()
         .map(|hypothesis| Hypothesis {
             id: hypothesis.id,
-            score: refine_score(hypothesis.score, hypothesis.id),
+            score: refine_score(hypothesis.score),
         })
         .collect::<Vec<_>>();
 
@@ -26,26 +26,19 @@ pub(crate) fn run(state: &mut PipelineState, config: &DetectConfig) {
     state.refined_hypotheses = refined;
 }
 
-fn refine_score(initial_score: f32, id: usize) -> f32 {
+fn refine_score(initial_score: f32) -> f32 {
     let mut score = clamp_unit(initial_score);
     for pass in 0..REFINE_PASSES {
         let residual = 1.0 - score;
         if residual <= 0.0 {
             break;
         }
-        let id_factor = deterministic_id_factor(id, pass);
-        let gain = PASS_GAINS[pass] * (0.75 + 0.25 * id_factor);
+        let pass_decay = 1.0 - (pass as f32 * 0.10);
+        let confidence_scale = 0.85 + 0.15 * score;
+        let gain = PASS_GAINS[pass] * pass_decay * confidence_scale;
         score = clamp_unit(score + residual * gain);
     }
     score
-}
-
-fn deterministic_id_factor(id: usize, pass: usize) -> f32 {
-    let mixed = (id as u64)
-        .wrapping_mul(1_103_515_245)
-        .wrapping_add((pass as u64 + 1).wrapping_mul(12_345))
-        .rotate_left(13);
-    (mixed % 1_000) as f32 / 999.0
 }
 
 fn clamp_unit(score: f32) -> f32 {

@@ -327,10 +327,20 @@ pub fn detect_with_config(
     }
 
     if emergency_cutoff_hit {
-        timings.push(StageTiming::new(
-            stage_label(StageId::MultiQrIteration, StageBudgetStatus::SkippedCutoff),
-            0.0,
-        ));
+        if config.multi_qr_budget_ms == 0 || state.decode_candidates.is_empty() {
+            timings.push(StageTiming::new(
+                stage_label(StageId::MultiQrIteration, StageBudgetStatus::SkippedCutoff),
+                0.0,
+            ));
+        } else {
+            let t4 = Instant::now();
+            multi_qr_iteration::run(&mut state, config);
+            let stage_elapsed_ms = elapsed_ms(t4);
+            timings.push(StageTiming::new(
+                stage_label(StageId::MultiQrIteration, StageBudgetStatus::Reserve),
+                stage_elapsed_ms,
+            ));
+        }
     } else if config.multi_qr_budget_ms == 0 {
         budget_exhausted = true;
         timings.push(StageTiming::new(
