@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::time::Instant;
 
 use crate::config::DetectConfig;
 use crate::types::{DecodeCandidate, Hypothesis, Point, Proposal, QrCode};
@@ -36,7 +37,17 @@ struct FallbackPolicy {
     allow_full_image_variants: bool,
 }
 
+#[allow(dead_code)]
 pub(crate) fn run(image: &[u8], state: &mut PipelineState, config: &DetectConfig) {
+    run_with_deadline(image, state, config, None);
+}
+
+pub(crate) fn run_with_deadline(
+    image: &[u8],
+    state: &mut PipelineState,
+    config: &DetectConfig,
+    fallback_deadline: Option<Instant>,
+) {
     state.decode_candidates.clear();
 
     let max_candidates = config.max_decode_hypotheses;
@@ -61,9 +72,10 @@ pub(crate) fn run(image: &[u8], state: &mut PipelineState, config: &DetectConfig
         state.width,
         state.height,
         max_candidates,
-    ) {
+    ) && !fallback_deadline_reached(fallback_deadline)
+    {
         let fallback_policy = fallback_policy(state.width, state.height);
-        if fallback_policy.max_hypotheses > 0 {
+        if fallback_policy.max_hypotheses > 0 && !fallback_deadline_reached(fallback_deadline) {
             decoded.extend(decode_from_hypothesis_crops(
                 &grayscale,
                 state.width,
@@ -71,46 +83,65 @@ pub(crate) fn run(image: &[u8], state: &mut PipelineState, config: &DetectConfig
                 &ranked_hypotheses,
                 &state.proposals,
                 fallback_policy,
+                fallback_deadline,
             ));
         }
-        decoded.extend(decode_from_proposal_crops(
-            &grayscale,
-            state.width,
-            state.height,
-            &state.proposals,
-            fallback_policy,
-        ));
+        if !fallback_deadline_reached(fallback_deadline) {
+            decoded.extend(decode_from_proposal_crops(
+                &grayscale,
+                state.width,
+                state.height,
+                &state.proposals,
+                fallback_policy,
+                fallback_deadline,
+            ));
+        }
 
-        if decoded.is_empty() && state.width.saturating_mul(state.height) <= GRID_RESCUE_MAX_PIXELS
+        if decoded.is_empty()
+            && state.width.saturating_mul(state.height) <= GRID_RESCUE_MAX_PIXELS
+            && !fallback_deadline_reached(fallback_deadline)
         {
             decoded.extend(decode_from_grid_crops(
                 &grayscale,
                 state.width,
                 state.height,
+                fallback_deadline,
             ));
         }
         if decoded.is_empty()
             && state.width.saturating_mul(state.height) <= CHANNEL_RESCUE_MAX_PIXELS
+            && !fallback_deadline_reached(fallback_deadline)
         {
-            decoded.extend(decode_from_rgb_channels(image, state.width, state.height));
+            decoded.extend(decode_from_rgb_channels(
+                image,
+                state.width,
+                state.height,
+                fallback_deadline,
+            ));
         }
         if decoded.is_empty()
             && state.width.saturating_mul(state.height) <= UPSCALE_RESCUE_MAX_PIXELS
+            && !fallback_deadline_reached(fallback_deadline)
         {
             decoded.extend(decode_from_upscaled_full_image(
                 &grayscale,
                 state.width,
                 state.height,
                 UPSCALE_RESCUE_FACTOR,
+                fallback_deadline,
             ));
         }
 
-        if fallback_policy.allow_full_image_variants {
+        if fallback_policy.allow_full_image_variants
+            && !fallback_deadline_reached(fallback_deadline)
+        {
             let contrast = contrast_stretch_grayscale(&grayscale);
             decoded.extend(decode_from_grayscale(&contrast, state.width, state.height));
 
-            let inverted = invert_grayscale(&grayscale);
-            decoded.extend(decode_from_grayscale(&inverted, state.width, state.height));
+            if !fallback_deadline_reached(fallback_deadline) {
+                let inverted = invert_grayscale(&grayscale);
+                decoded.extend(decode_from_grayscale(&inverted, state.width, state.height));
+            }
         }
     }
 
@@ -152,6 +183,10 @@ pub(crate) fn run(image: &[u8], state: &mut PipelineState, config: &DetectConfig
     });
     candidates.truncate(max_candidates);
     state.decode_candidates = candidates;
+}
+
+fn fallback_deadline_reached(fallback_deadline: Option<Instant>) -> bool {
+    matches!(fallback_deadline, Some(deadline) if Instant::now() >= deadline)
 }
 
 fn should_run_decode_fallback(
@@ -284,6 +319,7 @@ fn decode_from_hypothesis_crops(
     ranked_hypotheses: &[Hypothesis],
     proposals: &[Proposal],
     policy: FallbackPolicy,
+    fallback_deadline: Option<Instant>,
 ) -> Vec<DecodedQr> {
     if ranked_hypotheses.is_empty() || proposals.is_empty() {
         return Vec::new();
@@ -295,6 +331,9 @@ fn decode_from_hypothesis_crops(
         .take(policy.max_hypotheses)
         .enumerate()
     {
+        if fallback_deadline_reached(fallback_deadline) {
+            return decoded;
+        }
         if normalize_score(hypothesis.score) < LOCAL_DECODE_MIN_HYPOTHESIS_SCORE {
             continue;
         }
@@ -306,6 +345,9 @@ fn decode_from_hypothesis_crops(
 
         for (center_x, center_y) in centers {
             for window_size in policy.windows {
+                if fallback_deadline_reached(fallback_deadline) {
+                    return decoded;
+                }
                 let Some((crop, crop_width, crop_height, offset_x, offset_y)) =
                     crop_grayscale_square(
                         grayscale,
@@ -374,6 +416,7 @@ fn decode_from_proposal_crops(
     height: usize,
     proposals: &[Proposal],
     policy: FallbackPolicy,
+    fallback_deadline: Option<Instant>,
 ) -> Vec<DecodedQr> {
     if proposals.is_empty() {
         return Vec::new();
@@ -391,11 +434,17 @@ fn decode_from_proposal_crops(
 
     let mut decoded = Vec::new();
     for proposal in ranked.into_iter().take(policy.max_proposals) {
+        if fallback_deadline_reached(fallback_deadline) {
+            return decoded;
+        }
         if normalize_score(proposal.score) < LOCAL_DECODE_MIN_PROPOSAL_SCORE {
             continue;
         }
 
         for window_size in policy.windows {
+            if fallback_deadline_reached(fallback_deadline) {
+                return decoded;
+            }
             let Some((crop, crop_width, crop_height, offset_x, offset_y)) = crop_grayscale_square(
                 grayscale,
                 width,
@@ -430,17 +479,31 @@ fn decode_from_proposal_crops(
     decoded
 }
 
-fn decode_from_grid_crops(grayscale: &[u8], width: usize, height: usize) -> Vec<DecodedQr> {
+fn decode_from_grid_crops(
+    grayscale: &[u8],
+    width: usize,
+    height: usize,
+    fallback_deadline: Option<Instant>,
+) -> Vec<DecodedQr> {
     if width == 0 || height == 0 {
         return Vec::new();
     }
 
     let mut decoded = Vec::new();
     for step_y in 0..GRID_RESCUE_STEPS {
+        if fallback_deadline_reached(fallback_deadline) {
+            return decoded;
+        }
         let center_y = evenly_spaced_center(height, step_y, GRID_RESCUE_STEPS);
         for step_x in 0..GRID_RESCUE_STEPS {
+            if fallback_deadline_reached(fallback_deadline) {
+                return decoded;
+            }
             let center_x = evenly_spaced_center(width, step_x, GRID_RESCUE_STEPS);
             for window_size in GRID_RESCUE_WINDOW_SIZES {
+                if fallback_deadline_reached(fallback_deadline) {
+                    return decoded;
+                }
                 let Some((crop, crop_width, crop_height, offset_x, offset_y)) =
                     crop_grayscale_square(
                         grayscale,
@@ -494,7 +557,11 @@ fn decode_from_upscaled_full_image(
     width: usize,
     height: usize,
     factor: usize,
+    fallback_deadline: Option<Instant>,
 ) -> Vec<DecodedQr> {
+    if fallback_deadline_reached(fallback_deadline) {
+        return Vec::new();
+    }
     let Some((upscaled, upscaled_width, upscaled_height)) =
         upscale_grayscale(grayscale, width, height, factor)
     else {
@@ -628,9 +695,17 @@ fn rgb_to_grayscale(image: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-fn decode_from_rgb_channels(image: &[u8], width: usize, height: usize) -> Vec<DecodedQr> {
+fn decode_from_rgb_channels(
+    image: &[u8],
+    width: usize,
+    height: usize,
+    fallback_deadline: Option<Instant>,
+) -> Vec<DecodedQr> {
     let mut decoded = Vec::new();
     for channel in 0..3usize {
+        if fallback_deadline_reached(fallback_deadline) {
+            return decoded;
+        }
         let plane = rgb_channel_plane(image, channel);
         decoded.extend(decode_from_grayscale(&plane, width, height));
     }

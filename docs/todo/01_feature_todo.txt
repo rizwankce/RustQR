@@ -228,7 +228,7 @@ Status:
 - Workflow dispatch supports `profile=dual-kpi` to run both official lanes in one run (`.github/workflows/benchmark.yml`).
 - Added regression coverage for lane-note semantics in `tests/wp007_benchmark_harness_tests.rs`.
 
-[ ] WP-017 High-Leverage Category Uplift (`rotations`, `high_version`, `lots`)
+[x] WP-017 High-Leverage Category Uplift (`rotations`, `high_version`, `lots`)
 Goal: Target categories with highest impact on global reading rate.
 Deliverables:
 - Slice A (`rotations`): angle-robust hypothesis neighborhood + rotation-oriented decode fallback
@@ -242,6 +242,25 @@ Status:
 - [x] Slice A (`rotations`) complete + `benchdiff` verified (`target/wp017_slice_a_rotations_diff_v13_cutoff_finalize.json`)
 - [x] Slice B (`high_version`) complete + `benchdiff` verified (`target/wp017_slice_b_high_version_diff_v13_cutoff_finalize.json`)
 - [x] Slice C (`lots`) complete + `benchdiff` verified (`target/wp017_slice_c_lots_diff_v13_cutoff_finalize.json`)
+
+[ ] WP-020 Decode Deadline Guardrails (Step 1)
+Goal: Enforce hard decode fallback deadlines so runtime-heavy retries stop when stage time is exhausted.
+Deliverables:
+- Add decode fallback deadline wiring from `pipeline::detect_with_config` into `decode_engine`.
+- Make fallback retries (hypothesis/proposal/grid/channel/upscale/variant retries) exit early when deadline is reached.
+- Preserve decode quality path while reducing unnecessary over-budget decode work.
+Acceptance:
+- Benchmark logs show fewer long-tail decode overruns.
+- No regression in determinism or existing decode/multi-QR test coverage.
+Status:
+- In progress.
+- [x] Step 1 complete:
+- Added decode fallback deadline wiring from `pipeline::detect_with_config` to `decode_engine`.
+- Added deadline guards across fallback retry paths (hypothesis/proposal/grid/channel/upscale/variant retries).
+- Validation snapshot:
+- `boofcv-high-version`: `3/33` (`0.0909`), median `1862.438 ms` (`target/wp020_step1_high_version_diff_v2_cutoff_deadline.json`)
+- `boofcv-rotations`: `24/44` (`0.5455`), median `1009.915 ms` (`target/wp020_step1_rotations_diff_v2_cutoff_deadline.json`)
+- `boofcv-lots`: `2/7` (`0.2857`), median `3147.393 ms` (`target/wp020_step1_lots_diff_v2_cutoff_deadline.json`)
 
 [x] WP-018 Benchmark Workflow KPI Gates
 Goal: Convert benchmark runs into actionable pass/fail quality gates.

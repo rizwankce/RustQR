@@ -5,7 +5,7 @@ mod multi_qr_iteration;
 mod proposal_ensemble;
 mod state;
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::config::DetectConfig;
 use crate::telemetry::{DetectionRunReport, ProposalEnsembleReport, StageCounters, StageTiming};
@@ -88,6 +88,27 @@ fn elapsed_ms(start: Instant) -> f64 {
 
 fn cutoff_reached(global_start: Instant, config: &DetectConfig) -> bool {
     elapsed_ms(global_start) >= config.emergency_cutoff_ms as f64
+}
+
+fn decode_fallback_deadline(
+    global_start: Instant,
+    stage_start: Instant,
+    config: &DetectConfig,
+) -> Option<Instant> {
+    const MULTI_STAGE_RESERVE_MS: f64 = 40.0;
+    let remaining_cutoff_ms =
+        (config.emergency_cutoff_ms as f64 - elapsed_ms(global_start)).max(0.0);
+    if remaining_cutoff_ms <= 0.0 {
+        return Some(stage_start);
+    }
+
+    let reserve_ms = remaining_cutoff_ms.min(MULTI_STAGE_RESERVE_MS);
+    let fallback_budget_ms = (remaining_cutoff_ms - reserve_ms).max(0.0);
+    if fallback_budget_ms <= 0.0 {
+        return Some(stage_start);
+    }
+
+    Some(stage_start + Duration::from_secs_f64(fallback_budget_ms / 1_000.0))
 }
 
 fn expected_rgb_len(width: usize, height: usize) -> Option<usize> {
@@ -284,7 +305,8 @@ pub fn detect_with_config(
         ));
     } else if budget_exhausted && decode_reserve_allowed {
         let t3 = Instant::now();
-        decode_engine::run(image, &mut state, config);
+        let fallback_deadline = decode_fallback_deadline(global_start, t3, config);
+        decode_engine::run_with_deadline(image, &mut state, config, fallback_deadline);
         let stage_elapsed_ms = elapsed_ms(t3);
         decode_executed_in_reserve_lane = true;
         timings.push(StageTiming::new(
@@ -303,7 +325,8 @@ pub fn detect_with_config(
         ));
     } else {
         let t3 = Instant::now();
-        decode_engine::run(image, &mut state, config);
+        let fallback_deadline = decode_fallback_deadline(global_start, t3, config);
+        decode_engine::run_with_deadline(image, &mut state, config, fallback_deadline);
         let stage_elapsed_ms = elapsed_ms(t3);
         let within_budget = stage_elapsed_ms <= config.decode_budget_ms as f64;
         if !within_budget {

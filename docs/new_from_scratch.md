@@ -47,6 +47,7 @@
 - Done: `WP-017` split into 3 slices (`rotations`, `high_version`, `lots`)
 - Done: `WP-018` (workflow KPI gates + threshold enforcement)
 - Done: `WP-019` (full BoofCV profile coverage + all-profiles benchmark dispatch)
+- In progress: `WP-020` (decode fallback stage deadline guardrails)
 
 Current harness supports benchmark reporting via:
 - `cargo run --bin qrtool -- reading-rate --limit N --artifact <path>`
