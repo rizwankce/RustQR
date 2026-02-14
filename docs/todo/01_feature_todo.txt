@@ -280,6 +280,19 @@ Status:
 - Pending:
 - Run KPI lane benchmarks via GH Actions and tune thresholds based on artifact deltas.
 
+[ ] WP-021 Runtime KPI Signal Split (Pipeline vs End-to-End)
+Goal: Make runtime KPI gates reflect pipeline compute time instead of image load/decode overhead.
+Deliverables:
+- Add per-case `pipeline_runtime_ms` from pipeline telemetry while preserving end-to-end `runtime_ms`.
+- Add global/category median pipeline runtime summaries in `reading-rate` report outputs and console summary.
+- Gate runtime KPI on pipeline median runtime (`median_pipeline_runtime_ms`) while retaining end-to-end runtime as an observable metric.
+- Extend `benchdiff` to compare both runtime tracks (pipeline and end-to-end).
+Acceptance:
+- A run can fail runtime gate only when pipeline runtime exceeds threshold (not due to image decode/load overhead).
+- Existing reading-rate and benchdiff tests are updated to assert both runtime metrics and gate semantics.
+Status:
+- TODO (new packet).
+
 [x] WP-018 Benchmark Workflow KPI Gates
 Goal: Convert benchmark runs into actionable pass/fail quality gates.
 Deliverables:
