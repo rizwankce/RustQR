@@ -370,6 +370,7 @@ fn summary_helpers_compute_rates_medians_and_top_failure() {
             expected_payload: "one".to_string(),
             matched: true,
             runtime_ms: 10.0,
+            pipeline_runtime_ms: 1.0,
             failure_signature: None,
         },
         tools::CaseOutcome {
@@ -379,6 +380,7 @@ fn summary_helpers_compute_rates_medians_and_top_failure() {
             expected_payload: "two".to_string(),
             matched: false,
             runtime_ms: 30.0,
+            pipeline_runtime_ms: 7.0,
             failure_signature: Some("x".to_string()),
         },
         tools::CaseOutcome {
@@ -388,6 +390,7 @@ fn summary_helpers_compute_rates_medians_and_top_failure() {
             expected_payload: "three".to_string(),
             matched: false,
             runtime_ms: 5.0,
+            pipeline_runtime_ms: 2.0,
             failure_signature: Some("y".to_string()),
         },
     ];
@@ -403,12 +406,14 @@ fn summary_helpers_compute_rates_medians_and_top_failure() {
     assert_eq!(cat_a.matched_cases, 1);
     assert!((cat_a.reading_rate - 0.5).abs() < 1e-9);
     assert!((cat_a.median_runtime_ms - 20.0).abs() < 1e-9);
+    assert!((cat_a.median_pipeline_runtime_ms - 4.0).abs() < 1e-9);
     assert_eq!(cat_a.top_failure_signature.as_deref(), Some("x"));
 
     assert_eq!(global.total_cases, 3);
     assert_eq!(global.matched_cases, 1);
     assert!((global.reading_rate - (1.0 / 3.0)).abs() < 1e-9);
     assert!((global.median_runtime_ms - 10.0).abs() < 1e-9);
+    assert!((global.median_pipeline_runtime_ms - 2.0).abs() < 1e-9);
     assert_eq!(global.top_failure_signature.as_deref(), Some("x"));
 }
 
@@ -444,6 +449,38 @@ fn reading_rate_report_flags_image_decode_failures() {
     assert_eq!(
         report.cases[0].failure_signature.as_deref(),
         Some(tools::IMAGE_LOAD_FAILURE_SIGNATURE)
+    );
+}
+
+#[test]
+fn reading_rate_runtime_gate_uses_pipeline_runtime_metric() {
+    let temp = temp_dir("pipeline_runtime_gate");
+    let label = temp.join("image001.txt");
+    let image = temp.join("image001.jpg");
+    fs::write(&label, "expected").expect("write label");
+    fs::write(&image, "not-a-real-image").expect("write invalid image");
+
+    let args = tools::ReadingRateArgs {
+        dataset_root: temp,
+        profile: None,
+        artifact_path: PathBuf::from("unused"),
+        limit: None,
+        max_working_dim: None,
+        emergency_cutoff_ms: None,
+        gate_global_rate_min: None,
+        gate_rotations_rate_min: None,
+        gate_high_version_rate_min: None,
+        gate_median_runtime_ms_max: Some(0.0),
+    };
+    let report = tools::build_reading_rate_report(&args).expect("build report");
+
+    assert_eq!(report.kpi_gate.pass, Some(true));
+    assert!(report.kpi_gate.failures.is_empty());
+    assert_eq!(report.global.median_pipeline_runtime_ms, 0.0);
+    assert_eq!(report.kpi_gate.median_pipeline_runtime_ms.value, 0.0);
+    assert!(
+        report.global.median_runtime_ms >= report.global.median_pipeline_runtime_ms,
+        "end-to-end runtime should include pipeline runtime"
     );
 }
 

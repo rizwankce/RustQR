@@ -320,7 +320,7 @@ fn benchdiff_json_schema_is_machine_readable() {
         "\"categories\":[{\"category\":\"nominal\",\"total_cases\":{\"base\":10,\"candidate\":10,\"delta\":0}"
     ));
     assert!(json.contains(
-        "\"top_improvements\":[{\"category\":\"nominal\",\"reading_rate_delta\":0.200000,\"median_runtime_delta_ms\":-50.000000}]"
+        "\"top_improvements\":[{\"category\":\"nominal\",\"reading_rate_delta\":0.200000,\"median_runtime_delta_ms\":-50.000000,\"median_pipeline_runtime_delta_ms\":-50.000000}]"
     ));
     assert!(json.contains("\"top_regressions\":[]"));
 }

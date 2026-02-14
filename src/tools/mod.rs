@@ -166,6 +166,7 @@ pub struct CaseOutcome {
     pub expected_payload: String,
     pub matched: bool,
     pub runtime_ms: f64,
+    pub pipeline_runtime_ms: f64,
     pub failure_signature: Option<String>,
 }
 
@@ -176,6 +177,7 @@ pub struct CategorySummary {
     pub matched_cases: usize,
     pub reading_rate: f64,
     pub median_runtime_ms: f64,
+    pub median_pipeline_runtime_ms: f64,
     pub top_failure_signature: Option<String>,
 }
 
@@ -185,6 +187,7 @@ pub struct GlobalSummary {
     pub matched_cases: usize,
     pub reading_rate: f64,
     pub median_runtime_ms: f64,
+    pub median_pipeline_runtime_ms: f64,
     pub top_failure_signature: Option<String>,
 }
 
@@ -208,6 +211,7 @@ pub struct KpiGateEvaluation {
     pub global_rate: KpiGateMetric,
     pub rotations_rate: KpiGateMetric,
     pub high_version_rate: KpiGateMetric,
+    pub median_pipeline_runtime_ms: KpiGateMetric,
     pub median_runtime_ms: KpiGateMetric,
     pub top_failure_signature: KpiGateFailureSignature,
     pub pass: Option<bool>,
@@ -269,6 +273,7 @@ pub struct BenchDiffGlobalSummary {
     pub matched_cases_candidate: usize,
     pub reading_rate: BenchDiffMetric,
     pub median_runtime_ms: BenchDiffMetric,
+    pub median_pipeline_runtime_ms: BenchDiffMetric,
     pub top_failure_signature: BenchDiffFailureSignature,
 }
 
@@ -281,6 +286,7 @@ pub struct BenchDiffCategorySummary {
     pub matched_cases_candidate: usize,
     pub reading_rate: BenchDiffMetric,
     pub median_runtime_ms: BenchDiffMetric,
+    pub median_pipeline_runtime_ms: BenchDiffMetric,
     pub top_failure_signature: BenchDiffFailureSignature,
 }
 
@@ -289,6 +295,7 @@ pub struct BenchDiffHighlight {
     pub category: String,
     pub reading_rate_delta: f64,
     pub median_runtime_delta_ms: f64,
+    pub median_pipeline_runtime_delta_ms: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -315,6 +322,7 @@ struct ArtifactGlobalInput {
     matched_cases: usize,
     reading_rate: f64,
     median_runtime_ms: f64,
+    median_pipeline_runtime_ms: f64,
     top_failure_signature: Option<String>,
 }
 
@@ -325,6 +333,7 @@ struct ArtifactCategoryInput {
     matched_cases: usize,
     reading_rate: f64,
     median_runtime_ms: f64,
+    median_pipeline_runtime_ms: f64,
     top_failure_signature: Option<String>,
 }
 
@@ -710,6 +719,7 @@ fn evaluate_case(
                 expected_payload: case.expected_payload,
                 matched: false,
                 runtime_ms: elapsed_ms(case_start),
+                pipeline_runtime_ms: 0.0,
                 failure_signature: Some(IMAGE_LOAD_FAILURE_SIGNATURE.to_string()),
             };
         }
@@ -742,6 +752,7 @@ fn evaluate_case(
         expected_payload: case.expected_payload,
         matched,
         runtime_ms: elapsed_ms(case_start),
+        pipeline_runtime_ms: report.total_elapsed_ms,
         failure_signature,
     }
 }
@@ -801,6 +812,8 @@ pub fn summarize_outcomes(outcomes: &[CaseOutcome]) -> (Vec<CategorySummary>, Gl
                 matched_cases as f64 / total_cases as f64
             };
             let runtimes: Vec<f64> = rows.iter().map(|row| row.runtime_ms).collect();
+            let pipeline_runtimes: Vec<f64> =
+                rows.iter().map(|row| row.pipeline_runtime_ms).collect();
             let top_failure_signature = top_failure_signature(
                 rows.iter()
                     .filter_map(|row| row.failure_signature.as_deref()),
@@ -812,6 +825,7 @@ pub fn summarize_outcomes(outcomes: &[CaseOutcome]) -> (Vec<CategorySummary>, Gl
                 matched_cases,
                 reading_rate,
                 median_runtime_ms: median_runtime(&runtimes),
+                median_pipeline_runtime_ms: median_runtime(&pipeline_runtimes),
                 top_failure_signature,
             }
         })
@@ -825,12 +839,15 @@ pub fn summarize_outcomes(outcomes: &[CaseOutcome]) -> (Vec<CategorySummary>, Gl
         matched_cases as f64 / total_cases as f64
     };
     let all_runtimes: Vec<f64> = outcomes.iter().map(|row| row.runtime_ms).collect();
+    let all_pipeline_runtimes: Vec<f64> =
+        outcomes.iter().map(|row| row.pipeline_runtime_ms).collect();
 
     let global = GlobalSummary {
         total_cases,
         matched_cases,
         reading_rate,
         median_runtime_ms: median_runtime(&all_runtimes),
+        median_pipeline_runtime_ms: median_runtime(&all_pipeline_runtimes),
         top_failure_signature: top_failure_signature(
             outcomes
                 .iter()
@@ -960,10 +977,16 @@ fn evaluate_kpi_gate(
         args.gate_high_version_rate_min,
         &mut failures,
     );
+    let median_pipeline_runtime_ms = evaluate_max_gate_metric(
+        "median_pipeline_runtime_ms",
+        global.median_pipeline_runtime_ms,
+        args.gate_median_runtime_ms_max,
+        &mut failures,
+    );
     let median_runtime_ms = evaluate_max_gate_metric(
         "median_runtime_ms",
         global.median_runtime_ms,
-        args.gate_median_runtime_ms_max,
+        None,
         &mut failures,
     );
 
@@ -981,6 +1004,7 @@ fn evaluate_kpi_gate(
         global_rate,
         rotations_rate,
         high_version_rate,
+        median_pipeline_runtime_ms,
         median_runtime_ms,
         top_failure_signature: KpiGateFailureSignature {
             value: global.top_failure_signature.clone(),
@@ -1107,6 +1131,18 @@ pub fn build_benchdiff_report(args: &BenchdiffArgs) -> Result<BenchDiffReport, S
                     .map(|row| row.median_runtime_ms)
                     .unwrap_or(0.0),
             ),
+            median_pipeline_runtime_ms: bench_metric_delta(
+                base_row
+                    .map(|row| row.median_pipeline_runtime_ms)
+                    .unwrap_or(base_row.map(|row| row.median_runtime_ms).unwrap_or(0.0)),
+                candidate_row
+                    .map(|row| row.median_pipeline_runtime_ms)
+                    .unwrap_or(
+                        candidate_row
+                            .map(|row| row.median_runtime_ms)
+                            .unwrap_or(0.0),
+                    ),
+            ),
             top_failure_signature: BenchDiffFailureSignature {
                 base: base_row.and_then(|row| row.top_failure_signature.clone()),
                 candidate: candidate_row.and_then(|row| row.top_failure_signature.clone()),
@@ -1138,6 +1174,10 @@ pub fn build_benchdiff_report(args: &BenchdiffArgs) -> Result<BenchDiffReport, S
             median_runtime_ms: bench_metric_delta(
                 base_global.median_runtime_ms,
                 candidate_global.median_runtime_ms,
+            ),
+            median_pipeline_runtime_ms: bench_metric_delta(
+                base_global.median_pipeline_runtime_ms,
+                candidate_global.median_pipeline_runtime_ms,
             ),
             top_failure_signature: BenchDiffFailureSignature {
                 base: base_global.top_failure_signature,
@@ -1187,16 +1227,21 @@ fn parse_artifact_global(
     artifact_path: &Path,
 ) -> Result<ArtifactGlobalInput, String> {
     let object = as_object(value, "global", artifact_path)?;
+    let median_runtime_ms =
+        required_number_field(object, "median_runtime_ms", "global", artifact_path)?;
+    let median_pipeline_runtime_ms = optional_number_field(
+        object,
+        "median_pipeline_runtime_ms",
+        "global",
+        artifact_path,
+    )?
+    .unwrap_or(median_runtime_ms);
     Ok(ArtifactGlobalInput {
         total_cases: required_usize_field(object, "total_cases", "global", artifact_path)?,
         matched_cases: required_usize_field(object, "matched_cases", "global", artifact_path)?,
         reading_rate: required_number_field(object, "reading_rate", "global", artifact_path)?,
-        median_runtime_ms: required_number_field(
-            object,
-            "median_runtime_ms",
-            "global",
-            artifact_path,
-        )?,
+        median_runtime_ms,
+        median_pipeline_runtime_ms,
         top_failure_signature: optional_string_field(
             object,
             "top_failure_signature",
@@ -1215,17 +1260,22 @@ fn parse_artifact_categories(
     for (idx, row) in rows.iter().enumerate() {
         let context = format!("categories[{idx}]");
         let object = as_object(row, &context, artifact_path)?;
+        let median_runtime_ms =
+            required_number_field(object, "median_runtime_ms", &context, artifact_path)?;
+        let median_pipeline_runtime_ms = optional_number_field(
+            object,
+            "median_pipeline_runtime_ms",
+            &context,
+            artifact_path,
+        )?
+        .unwrap_or(median_runtime_ms);
         categories.push(ArtifactCategoryInput {
             category: required_string_field(object, "category", &context, artifact_path)?,
             total_cases: required_usize_field(object, "total_cases", &context, artifact_path)?,
             matched_cases: required_usize_field(object, "matched_cases", &context, artifact_path)?,
             reading_rate: required_number_field(object, "reading_rate", &context, artifact_path)?,
-            median_runtime_ms: required_number_field(
-                object,
-                "median_runtime_ms",
-                &context,
-                artifact_path,
-            )?,
+            median_runtime_ms,
+            median_pipeline_runtime_ms,
             top_failure_signature: optional_string_field(
                 object,
                 "top_failure_signature",
@@ -1355,6 +1405,29 @@ fn optional_string_field(
         JsonValue::String(parsed) => Ok(Some(parsed.clone())),
         other => Err(format!(
             "artifact {} expected string|null {} in {} but found {}",
+            artifact_path.display(),
+            field,
+            context,
+            json_type_name(other)
+        )),
+    }
+}
+
+fn optional_number_field(
+    object: &BTreeMap<String, JsonValue>,
+    field: &str,
+    context: &str,
+    artifact_path: &Path,
+) -> Result<Option<f64>, String> {
+    let Some(value) = object.get(field) else {
+        return Ok(None);
+    };
+
+    match value {
+        JsonValue::Null => Ok(None),
+        JsonValue::Number(number) => Ok(Some(*number)),
+        other => Err(format!(
+            "artifact {} expected number|null {} in {} but found {}",
             artifact_path.display(),
             field,
             context,
@@ -1775,6 +1848,7 @@ fn rank_benchdiff_highlights(
                 category: category.category.clone(),
                 reading_rate_delta: delta,
                 median_runtime_delta_ms: category.median_runtime_ms.delta,
+                median_pipeline_runtime_delta_ms: category.median_pipeline_runtime_ms.delta,
             })
         })
         .collect::<Vec<_>>();
@@ -1879,12 +1953,13 @@ fn elapsed_ms(start: Instant) -> f64 {
 pub fn render_console_summary(report: &ReadingRateReport) -> String {
     let mut lines = Vec::new();
     lines.push(format!(
-        "reading-rate dataset_root={} cases={} matched={} rate={:.4} median_runtime_ms={:.3} top_failure_signature={}",
+        "reading-rate dataset_root={} cases={} matched={} rate={:.4} median_runtime_ms={:.3} median_pipeline_runtime_ms={:.3} top_failure_signature={}",
         report.dataset_root.display(),
         report.global.total_cases,
         report.global.matched_cases,
         report.global.reading_rate,
         report.global.median_runtime_ms,
+        report.global.median_pipeline_runtime_ms,
         report
             .global
             .top_failure_signature
@@ -1894,12 +1969,13 @@ pub fn render_console_summary(report: &ReadingRateReport) -> String {
 
     for category in &report.categories {
         lines.push(format!(
-            "category={} cases={} matched={} rate={:.4} median_runtime_ms={:.3} top_failure_signature={}",
+            "category={} cases={} matched={} rate={:.4} median_runtime_ms={:.3} median_pipeline_runtime_ms={:.3} top_failure_signature={}",
             category.category,
             category.total_cases,
             category.matched_cases,
             category.reading_rate,
             category.median_runtime_ms,
+            category.median_pipeline_runtime_ms,
             category
                 .top_failure_signature
                 .as_deref()
@@ -1908,7 +1984,7 @@ pub fn render_console_summary(report: &ReadingRateReport) -> String {
     }
 
     lines.push(format!(
-        "kpi_gate pass={} global_rate={:.4} rotations_rate={:.4} high_version_rate={:.4} median_runtime_ms={:.3}",
+        "kpi_gate pass={} global_rate={:.4} rotations_rate={:.4} high_version_rate={:.4} median_pipeline_runtime_ms={:.3} median_runtime_ms={:.3}",
         report
             .kpi_gate
             .pass
@@ -1917,6 +1993,7 @@ pub fn render_console_summary(report: &ReadingRateReport) -> String {
         report.kpi_gate.global_rate.value,
         report.kpi_gate.rotations_rate.value,
         report.kpi_gate.high_version_rate.value,
+        report.kpi_gate.median_pipeline_runtime_ms.value,
         report.kpi_gate.median_runtime_ms.value,
     ));
     for failure in &report.kpi_gate.failures {
@@ -1987,12 +2064,13 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         .iter()
         .map(|category| {
             format!(
-                "{{\"category\":{},\"total_cases\":{},\"matched_cases\":{},\"reading_rate\":{:.6},\"median_runtime_ms\":{:.6},\"top_failure_signature\":{}}}",
+                "{{\"category\":{},\"total_cases\":{},\"matched_cases\":{},\"reading_rate\":{:.6},\"median_runtime_ms\":{:.6},\"median_pipeline_runtime_ms\":{:.6},\"top_failure_signature\":{}}}",
                 quoted(&category.category),
                 category.total_cases,
                 category.matched_cases,
                 category.reading_rate,
                 category.median_runtime_ms,
+                category.median_pipeline_runtime_ms,
                 optional_string(&category.top_failure_signature),
             )
         })
@@ -2011,13 +2089,14 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         .iter()
         .map(|case| {
             format!(
-                "{{\"category\":{},\"label_path\":{},\"image_path\":{},\"expected_payload\":{},\"matched\":{},\"runtime_ms\":{:.6},\"failure_signature\":{}}}",
+                "{{\"category\":{},\"label_path\":{},\"image_path\":{},\"expected_payload\":{},\"matched\":{},\"runtime_ms\":{:.6},\"pipeline_runtime_ms\":{:.6},\"failure_signature\":{}}}",
                 quoted(&case.category),
                 quoted(&format_path(&case.label_path)),
                 quoted(&format_path(&case.image_path)),
                 quoted(&case.expected_payload),
                 case.matched,
                 case.runtime_ms,
+                case.pipeline_runtime_ms,
                 optional_string(&case.failure_signature),
             )
         })
@@ -2052,6 +2131,7 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
             "\"matched_cases\":{},",
             "\"reading_rate\":{:.6},",
             "\"median_runtime_ms\":{:.6},",
+            "\"median_pipeline_runtime_ms\":{:.6},",
             "\"top_failure_signature\":{}",
             "}},",
             "\"categories\":[{}],",
@@ -2059,6 +2139,7 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
             "\"global_rate\":{{\"value\":{:.6},\"threshold_min\":{},\"pass\":{}}},",
             "\"rotations_rate\":{{\"value\":{:.6},\"threshold_min\":{},\"pass\":{}}},",
             "\"high_version_rate\":{{\"value\":{:.6},\"threshold_min\":{},\"pass\":{}}},",
+            "\"median_pipeline_runtime_ms\":{{\"value\":{:.6},\"threshold_max\":{},\"pass\":{}}},",
             "\"median_runtime_ms\":{{\"value\":{:.6},\"threshold_max\":{},\"pass\":{}}},",
             "\"top_failure_signature\":{{\"value\":{},\"blocked_signatures\":[{}],\"pass\":{}}},",
             "\"pass\":{},",
@@ -2074,6 +2155,7 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         report.global.matched_cases,
         report.global.reading_rate,
         report.global.median_runtime_ms,
+        report.global.median_pipeline_runtime_ms,
         optional_string(&report.global.top_failure_signature),
         categories_json,
         report.kpi_gate.global_rate.value,
@@ -2085,6 +2167,9 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
         report.kpi_gate.high_version_rate.value,
         optional_number(report.kpi_gate.high_version_rate.threshold_min),
         optional_bool(report.kpi_gate.high_version_rate.pass),
+        report.kpi_gate.median_pipeline_runtime_ms.value,
+        optional_number(report.kpi_gate.median_pipeline_runtime_ms.threshold_max),
+        optional_bool(report.kpi_gate.median_pipeline_runtime_ms.pass),
         report.kpi_gate.median_runtime_ms.value,
         optional_number(report.kpi_gate.median_runtime_ms.threshold_max),
         optional_bool(report.kpi_gate.median_runtime_ms.pass),
@@ -2101,7 +2186,7 @@ pub fn report_to_json(report: &ReadingRateReport) -> String {
 pub fn render_benchdiff_console_summary(report: &BenchDiffReport) -> String {
     let mut lines = Vec::new();
     lines.push(format!(
-        "benchdiff base_artifact={} candidate_artifact={} global_rate={:.4}->{:.4} delta={:+.4} global_median_runtime_ms={:.3}->{:.3} delta={:+.3} top_failure_signature={}=>{}",
+        "benchdiff base_artifact={} candidate_artifact={} global_rate={:.4}->{:.4} delta={:+.4} global_median_runtime_ms={:.3}->{:.3} delta={:+.3} global_median_pipeline_runtime_ms={:.3}->{:.3} delta={:+.3} top_failure_signature={}=>{}",
         report.base_artifact_path.display(),
         report.candidate_artifact_path.display(),
         report.global.reading_rate.base,
@@ -2110,6 +2195,9 @@ pub fn render_benchdiff_console_summary(report: &BenchDiffReport) -> String {
         report.global.median_runtime_ms.base,
         report.global.median_runtime_ms.candidate,
         report.global.median_runtime_ms.delta,
+        report.global.median_pipeline_runtime_ms.base,
+        report.global.median_pipeline_runtime_ms.candidate,
+        report.global.median_pipeline_runtime_ms.delta,
         report
             .global
             .top_failure_signature
@@ -2126,7 +2214,7 @@ pub fn render_benchdiff_console_summary(report: &BenchDiffReport) -> String {
 
     for category in &report.categories {
         lines.push(format!(
-            "category={} cases={}=>{} matched={}=>{} rate={:.4}->{:.4} delta={:+.4} median_runtime_ms={:.3}->{:.3} delta={:+.3} top_failure_signature={}=>{}",
+            "category={} cases={}=>{} matched={}=>{} rate={:.4}->{:.4} delta={:+.4} median_runtime_ms={:.3}->{:.3} delta={:+.3} median_pipeline_runtime_ms={:.3}->{:.3} delta={:+.3} top_failure_signature={}=>{}",
             category.category,
             category.total_cases_base,
             category.total_cases_candidate,
@@ -2138,6 +2226,9 @@ pub fn render_benchdiff_console_summary(report: &BenchDiffReport) -> String {
             category.median_runtime_ms.base,
             category.median_runtime_ms.candidate,
             category.median_runtime_ms.delta,
+            category.median_pipeline_runtime_ms.base,
+            category.median_pipeline_runtime_ms.candidate,
+            category.median_pipeline_runtime_ms.delta,
             category
                 .top_failure_signature
                 .base
@@ -2156,10 +2247,11 @@ pub fn render_benchdiff_console_summary(report: &BenchDiffReport) -> String {
     } else {
         for improvement in &report.top_improvements {
             lines.push(format!(
-                "top_improvement category={} rate_delta={:+.4} median_runtime_delta_ms={:+.3}",
+                "top_improvement category={} rate_delta={:+.4} median_runtime_delta_ms={:+.3} median_pipeline_runtime_delta_ms={:+.3}",
                 improvement.category,
                 improvement.reading_rate_delta,
-                improvement.median_runtime_delta_ms
+                improvement.median_runtime_delta_ms,
+                improvement.median_pipeline_runtime_delta_ms
             ));
         }
     }
@@ -2169,10 +2261,11 @@ pub fn render_benchdiff_console_summary(report: &BenchDiffReport) -> String {
     } else {
         for regression in &report.top_regressions {
             lines.push(format!(
-                "top_regression category={} rate_delta={:+.4} median_runtime_delta_ms={:+.3}",
+                "top_regression category={} rate_delta={:+.4} median_runtime_delta_ms={:+.3} median_pipeline_runtime_delta_ms={:+.3}",
                 regression.category,
                 regression.reading_rate_delta,
-                regression.median_runtime_delta_ms
+                regression.median_runtime_delta_ms,
+                regression.median_pipeline_runtime_delta_ms
             ));
         }
     }
@@ -2233,6 +2326,7 @@ pub fn benchdiff_to_json(report: &BenchDiffReport) -> String {
                     "\"matched_cases\":{{\"base\":{},\"candidate\":{},\"delta\":{}}},",
                     "\"reading_rate\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
                     "\"median_runtime_ms\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
+                    "\"median_pipeline_runtime_ms\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
                     "\"top_failure_signature\":{{\"base\":{},\"candidate\":{}}}",
                     "}}"
                 ),
@@ -2252,6 +2346,9 @@ pub fn benchdiff_to_json(report: &BenchDiffReport) -> String {
                 category.median_runtime_ms.base,
                 category.median_runtime_ms.candidate,
                 category.median_runtime_ms.delta,
+                category.median_pipeline_runtime_ms.base,
+                category.median_pipeline_runtime_ms.candidate,
+                category.median_pipeline_runtime_ms.delta,
                 optional_string(&category.top_failure_signature.base),
                 optional_string(&category.top_failure_signature.candidate),
             )
@@ -2263,10 +2360,11 @@ pub fn benchdiff_to_json(report: &BenchDiffReport) -> String {
         .iter()
         .map(|improvement| {
             format!(
-                "{{\"category\":{},\"reading_rate_delta\":{:.6},\"median_runtime_delta_ms\":{:.6}}}",
+                "{{\"category\":{},\"reading_rate_delta\":{:.6},\"median_runtime_delta_ms\":{:.6},\"median_pipeline_runtime_delta_ms\":{:.6}}}",
                 quoted(&improvement.category),
                 improvement.reading_rate_delta,
                 improvement.median_runtime_delta_ms,
+                improvement.median_pipeline_runtime_delta_ms,
             )
         })
         .collect::<Vec<_>>()
@@ -2277,10 +2375,11 @@ pub fn benchdiff_to_json(report: &BenchDiffReport) -> String {
         .iter()
         .map(|regression| {
             format!(
-                "{{\"category\":{},\"reading_rate_delta\":{:.6},\"median_runtime_delta_ms\":{:.6}}}",
+                "{{\"category\":{},\"reading_rate_delta\":{:.6},\"median_runtime_delta_ms\":{:.6},\"median_pipeline_runtime_delta_ms\":{:.6}}}",
                 quoted(&regression.category),
                 regression.reading_rate_delta,
                 regression.median_runtime_delta_ms,
+                regression.median_pipeline_runtime_delta_ms,
             )
         })
         .collect::<Vec<_>>()
@@ -2305,6 +2404,7 @@ pub fn benchdiff_to_json(report: &BenchDiffReport) -> String {
             "\"matched_cases\":{{\"base\":{},\"candidate\":{},\"delta\":{}}},",
             "\"reading_rate\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
             "\"median_runtime_ms\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
+            "\"median_pipeline_runtime_ms\":{{\"base\":{:.6},\"candidate\":{:.6},\"delta\":{:.6}}},",
             "\"top_failure_signature\":{{\"base\":{},\"candidate\":{}}}",
             "}},",
             "\"categories\":[{}],",
@@ -2334,6 +2434,9 @@ pub fn benchdiff_to_json(report: &BenchDiffReport) -> String {
         report.global.median_runtime_ms.base,
         report.global.median_runtime_ms.candidate,
         report.global.median_runtime_ms.delta,
+        report.global.median_pipeline_runtime_ms.base,
+        report.global.median_pipeline_runtime_ms.candidate,
+        report.global.median_pipeline_runtime_ms.delta,
         optional_string(&report.global.top_failure_signature.base),
         optional_string(&report.global.top_failure_signature.candidate),
         categories_json.join(","),
