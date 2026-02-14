@@ -15,27 +15,28 @@ const GRID_RESCUE_MAX_PIXELS: usize = 2_500_000;
 const GRID_RESCUE_MAX_RESULTS: usize = 32;
 const GRID_RESCUE_STEPS: usize = 3;
 const GRID_RESCUE_WINDOW_SIZES: [usize; 2] = [512, 768];
-const MAX_IDENTIFY_ATTEMPTS_PER_IMAGE: usize = 16;
-const RESCUE_MIN_REMAINING_MS_GRID: f64 = 280.0;
-const RESCUE_MIN_REMAINING_MS_CHANNEL: f64 = 220.0;
-const RESCUE_MIN_REMAINING_MS_UPSCALE: f64 = 260.0;
-const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS: f64 = 180.0;
+const MAX_IDENTIFY_ATTEMPTS_PER_IMAGE: usize = 10;
+const RESCUE_MIN_REMAINING_MS_GRID: f64 = 420.0;
+const RESCUE_MIN_REMAINING_MS_CHANNEL: f64 = 320.0;
+const RESCUE_MIN_REMAINING_MS_UPSCALE: f64 = 420.0;
+const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS: f64 = 480.0;
 const CHANNEL_RESCUE_MAX_PIXELS: usize = 2_500_000;
 const UPSCALE_RESCUE_MAX_PIXELS: usize = 2_000_000;
 const UPSCALE_RESCUE_FACTOR: usize = 2;
 const BASE_DECODE_MAX_PIXELS: usize = 3_000_000;
-const BASE_DECODE_MAX_DIM: usize = 1800;
-const BASE_DECODE_MAX_DIM_MEDIUM: usize = 1400;
-const BASE_DECODE_MAX_DIM_TIGHT: usize = 1100;
-const BASE_DECODE_MAX_DIM_CRITICAL: usize = 900;
-const BASE_DECODE_FORCE_RESIZE_PIXELS_TIGHT: usize = 1_600_000;
-const BASE_DECODE_REMAINING_MS_TIGHT: f64 = 260.0;
-const BASE_DECODE_REMAINING_MS_CRITICAL: f64 = 140.0;
-const LOCAL_DECODE_MAX_HYPOTHESES: usize = 8;
+const BASE_DECODE_MAX_DIM: usize = 1700;
+const BASE_DECODE_MAX_DIM_MEDIUM: usize = 1300;
+const BASE_DECODE_MAX_DIM_TIGHT: usize = 1000;
+const BASE_DECODE_MAX_DIM_CRITICAL: usize = 820;
+const BASE_DECODE_FORCE_RESIZE_PIXELS_TIGHT: usize = 1_200_000;
+const BASE_DECODE_REMAINING_MS_TIGHT: f64 = 420.0;
+const BASE_DECODE_REMAINING_MS_CRITICAL: f64 = 260.0;
+const BASE_DECODE_MIN_REMAINING_MS: f64 = 120.0;
+const LOCAL_DECODE_MAX_HYPOTHESES: usize = 6;
 const LOCAL_DECODE_MIN_HYPOTHESIS_SCORE: f32 = 0.35;
-const LOCAL_DECODE_MAX_PROPOSALS: usize = 16;
+const LOCAL_DECODE_MAX_PROPOSALS: usize = 12;
 const LOCAL_DECODE_MIN_PROPOSAL_SCORE: f32 = 0.35;
-const LOCAL_DECODE_MAX_RESULTS: usize = 64;
+const LOCAL_DECODE_MAX_RESULTS: usize = 40;
 const LOCAL_DECODE_WINDOW_SIZES_STANDARD: [usize; 3] = [224, 320, 512];
 const LOCAL_DECODE_WINDOW_SIZES_TIGHT: [usize; 2] = [224, 320];
 const LOCAL_DECODE_WINDOW_SIZES_LARGE: [usize; 2] = [256, 384];
@@ -131,82 +132,105 @@ pub(crate) fn run_with_deadline(
     ) && !guard.deadline_reached()
     {
         let fallback_policy = fallback_policy(state.width, state.height, &guard);
-        if fallback_policy.max_hypotheses > 0 && !guard.deadline_reached() {
-            decoded.extend(decode_from_hypothesis_crops(
-                &grayscale,
-                state.width,
-                state.height,
-                &ranked_hypotheses,
-                &state.proposals,
-                fallback_policy,
-                &mut guard,
-            ));
-        }
-        if !guard.deadline_reached() {
-            decoded.extend(decode_from_proposal_crops(
-                &grayscale,
-                state.width,
-                state.height,
-                &state.proposals,
-                fallback_policy,
-                &mut guard,
-            ));
-        }
-
-        if decoded.is_empty()
-            && state.width.saturating_mul(state.height) <= GRID_RESCUE_MAX_PIXELS
-            && guard.has_time(RESCUE_MIN_REMAINING_MS_GRID)
-        {
-            decoded.extend(decode_from_grid_crops(
-                &grayscale,
-                state.width,
-                state.height,
-                &mut guard,
-            ));
-        }
-        if decoded.is_empty()
-            && state.width.saturating_mul(state.height) <= CHANNEL_RESCUE_MAX_PIXELS
-            && guard.has_time(RESCUE_MIN_REMAINING_MS_CHANNEL)
-        {
-            decoded.extend(decode_from_rgb_channels(
-                image,
-                state.width,
-                state.height,
-                &mut guard,
-            ));
-        }
-        if decoded.is_empty()
-            && state.width.saturating_mul(state.height) <= UPSCALE_RESCUE_MAX_PIXELS
-            && guard.has_time(RESCUE_MIN_REMAINING_MS_UPSCALE)
-        {
-            decoded.extend(decode_from_upscaled_full_image(
-                &grayscale,
-                state.width,
-                state.height,
-                UPSCALE_RESCUE_FACTOR,
-                &mut guard,
-            ));
-        }
-
-        if fallback_policy.allow_full_image_variants
-            && guard.has_time(RESCUE_MIN_REMAINING_MS_FULL_VARIANTS)
-        {
-            let contrast = contrast_stretch_grayscale(&grayscale);
-            decoded.extend(decode_from_grayscale_with_guard(
-                &contrast,
-                state.width,
-                state.height,
-                &mut guard,
-            ));
-
+        let fallback_result_limit = fallback_policy
+            .max_results
+            .min(max_candidates.saturating_mul(2).max(4));
+        'fallback: {
+            if fallback_policy.max_hypotheses > 0 && !guard.deadline_reached() {
+                decoded.extend(decode_from_hypothesis_crops(
+                    &grayscale,
+                    state.width,
+                    state.height,
+                    &ranked_hypotheses,
+                    &state.proposals,
+                    fallback_policy,
+                    fallback_result_limit,
+                    &mut guard,
+                ));
+                if decoded.len() >= max_candidates {
+                    break 'fallback;
+                }
+            }
             if !guard.deadline_reached() {
-                let inverted = invert_grayscale(&grayscale);
-                decoded.extend(decode_from_grayscale_with_guard(
-                    &inverted,
+                decoded.extend(decode_from_proposal_crops(
+                    &grayscale,
+                    state.width,
+                    state.height,
+                    &state.proposals,
+                    fallback_policy,
+                    fallback_result_limit,
+                    &mut guard,
+                ));
+                if decoded.len() >= max_candidates {
+                    break 'fallback;
+                }
+            }
+
+            if decoded.is_empty()
+                && state.width.saturating_mul(state.height) <= GRID_RESCUE_MAX_PIXELS
+                && guard.has_time(RESCUE_MIN_REMAINING_MS_GRID)
+            {
+                decoded.extend(decode_from_grid_crops(
+                    &grayscale,
                     state.width,
                     state.height,
                     &mut guard,
                 ));
+                if decoded.len() >= max_candidates {
+                    break 'fallback;
+                }
+            }
+            if decoded.is_empty()
+                && state.width.saturating_mul(state.height) <= CHANNEL_RESCUE_MAX_PIXELS
+                && guard.has_time(RESCUE_MIN_REMAINING_MS_CHANNEL)
+            {
+                decoded.extend(decode_from_rgb_channels(
+                    image,
+                    state.width,
+                    state.height,
+                    &mut guard,
+                ));
+                if decoded.len() >= max_candidates {
+                    break 'fallback;
+                }
+            }
+            if decoded.is_empty()
+                && state.width.saturating_mul(state.height) <= UPSCALE_RESCUE_MAX_PIXELS
+                && guard.has_time(RESCUE_MIN_REMAINING_MS_UPSCALE)
+            {
+                decoded.extend(decode_from_upscaled_full_image(
+                    &grayscale,
+                    state.width,
+                    state.height,
+                    UPSCALE_RESCUE_FACTOR,
+                    &mut guard,
+                ));
+                if decoded.len() >= max_candidates {
+                    break 'fallback;
+                }
+            }
+
+            if decoded.is_empty()
+                && fallback_policy.allow_full_image_variants
+                && guard.has_time(RESCUE_MIN_REMAINING_MS_FULL_VARIANTS)
+            {
+                let contrast = contrast_stretch_grayscale(&grayscale);
+                decoded.extend(decode_from_grayscale_with_guard(
+                    &contrast,
+                    state.width,
+                    state.height,
+                    &mut guard,
+                ));
+
+                if decoded.len() < max_candidates && !guard.deadline_reached() {
+                    let inverted = invert_grayscale(&grayscale);
+                    decoded.extend(decode_from_grayscale_with_guard(
+                        &inverted,
+                        state.width,
+                        state.height,
+                        &mut guard,
+                    ));
+                }
             }
         }
     }
@@ -288,8 +312,8 @@ fn fallback_policy(width: usize, height: usize, guard: &DecodeGuard) -> Fallback
     if matches!(remaining_ms, Some(ms) if ms < RESCUE_MIN_REMAINING_MS_FULL_VARIANTS) {
         return FallbackPolicy {
             max_hypotheses: 2,
-            max_proposals: 6,
-            max_results: 24,
+            max_proposals: 4,
+            max_results: 16,
             windows: &LOCAL_DECODE_WINDOW_SIZES_TIGHT,
             allow_full_image_variants: false,
         };
@@ -298,8 +322,8 @@ fn fallback_policy(width: usize, height: usize, guard: &DecodeGuard) -> Fallback
     if pixels > 8_000_000 {
         return FallbackPolicy {
             max_hypotheses: 0,
-            max_proposals: 8,
-            max_results: 32,
+            max_proposals: 6,
+            max_results: 24,
             windows: &LOCAL_DECODE_WINDOW_SIZES_LARGE,
             allow_full_image_variants: false,
         };
@@ -308,8 +332,8 @@ fn fallback_policy(width: usize, height: usize, guard: &DecodeGuard) -> Fallback
     if pixels > FALLBACK_FULL_IMAGE_VARIANT_MAX_PIXELS {
         return FallbackPolicy {
             max_hypotheses: 4,
-            max_proposals: 12,
-            max_results: 48,
+            max_proposals: 10,
+            max_results: 32,
             windows: &LOCAL_DECODE_WINDOW_SIZES_STANDARD,
             allow_full_image_variants: false,
         };
@@ -393,6 +417,11 @@ fn decode_from_base_view(
     }
     let pixels = width.saturating_mul(height);
     let remaining_ms = guard.remaining_ms();
+    if matches!(remaining_ms, Some(ms) if ms < BASE_DECODE_MIN_REMAINING_MS)
+        && pixels > BASE_DECODE_MAX_PIXELS
+    {
+        return Vec::new();
+    }
     let force_resize_for_budget = matches!(remaining_ms, Some(ms) if ms < BASE_DECODE_REMAINING_MS_TIGHT)
         && pixels > BASE_DECODE_FORCE_RESIZE_PIXELS_TIGHT;
     if pixels <= BASE_DECODE_MAX_PIXELS && !force_resize_for_budget {
@@ -428,9 +457,10 @@ fn decode_from_hypothesis_crops(
     ranked_hypotheses: &[Hypothesis],
     proposals: &[Proposal],
     policy: FallbackPolicy,
+    result_limit: usize,
     guard: &mut DecodeGuard,
 ) -> Vec<DecodedQr> {
-    if ranked_hypotheses.is_empty() || proposals.is_empty() {
+    if ranked_hypotheses.is_empty() || proposals.is_empty() || result_limit == 0 {
         return Vec::new();
     }
 
@@ -484,7 +514,7 @@ fn decode_from_hypothesis_crops(
                             qr
                         }),
                 );
-                if decoded.len() >= policy.max_results {
+                if decoded.len() >= result_limit {
                     return decoded;
                 }
             }
@@ -525,9 +555,10 @@ fn decode_from_proposal_crops(
     height: usize,
     proposals: &[Proposal],
     policy: FallbackPolicy,
+    result_limit: usize,
     guard: &mut DecodeGuard,
 ) -> Vec<DecodedQr> {
-    if proposals.is_empty() {
+    if proposals.is_empty() || result_limit == 0 {
         return Vec::new();
     }
 
@@ -579,7 +610,7 @@ fn decode_from_proposal_crops(
                         qr
                     }),
             );
-            if decoded.len() >= policy.max_results {
+            if decoded.len() >= result_limit {
                 return decoded;
             }
         }
