@@ -16,10 +16,17 @@ const GRID_RESCUE_MAX_RESULTS: usize = 32;
 const GRID_RESCUE_STEPS: usize = 3;
 const GRID_RESCUE_WINDOW_SIZES: [usize; 2] = [512, 768];
 const MAX_IDENTIFY_ATTEMPTS_PER_IMAGE: usize = 12;
+const DENSE_SCENE_EXTRA_ATTEMPTS: usize = 2;
+const DENSE_SCENE_MIN_PROPOSALS: usize = 96;
+const DENSE_SCENE_MIN_HYPOTHESES: usize = 24;
 const RESCUE_MIN_REMAINING_MS_GRID: f64 = 340.0;
 const RESCUE_MIN_REMAINING_MS_CHANNEL: f64 = 260.0;
 const RESCUE_MIN_REMAINING_MS_UPSCALE: f64 = 340.0;
 const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS: f64 = 300.0;
+const RESCUE_MIN_REMAINING_MS_GRID_DENSE: f64 = 300.0;
+const RESCUE_MIN_REMAINING_MS_CHANNEL_DENSE: f64 = 240.0;
+const RESCUE_MIN_REMAINING_MS_UPSCALE_DENSE: f64 = 300.0;
+const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS_DENSE: f64 = 240.0;
 const CHANNEL_RESCUE_MAX_PIXELS: usize = 2_500_000;
 const UPSCALE_RESCUE_MAX_PIXELS: usize = 2_000_000;
 const UPSCALE_RESCUE_FACTOR: usize = 2;
@@ -90,6 +97,17 @@ impl DecodeGuard {
         self.attempts_remaining -= 1;
         true
     }
+
+    fn extend_attempt_budget(&mut self, extra_attempts: usize) {
+        self.attempts_remaining = self.attempts_remaining.saturating_add(extra_attempts);
+    }
+}
+
+fn dense_scene_hint(state: &PipelineState) -> bool {
+    let pixels = state.width.saturating_mul(state.height);
+    pixels <= FALLBACK_FULL_IMAGE_VARIANT_MAX_PIXELS
+        && state.proposals.len() >= DENSE_SCENE_MIN_PROPOSALS
+        && state.refined_hypotheses.len() >= DENSE_SCENE_MIN_HYPOTHESES
 }
 
 #[allow(dead_code)]
@@ -119,7 +137,11 @@ pub(crate) fn run_with_deadline(
     ranked_hypotheses.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.id.cmp(&b.id)));
 
     let grayscale = rgb_to_grayscale(image);
+    let dense_scene = dense_scene_hint(state);
     let mut guard = DecodeGuard::new(fallback_deadline);
+    if dense_scene {
+        guard.extend_attempt_budget(DENSE_SCENE_EXTRA_ATTEMPTS);
+    }
     let mut decoded = decode_from_base_view(&grayscale, state.width, state.height, &mut guard);
     if should_run_decode_fallback(
         decoded.len(),
@@ -130,10 +152,32 @@ pub(crate) fn run_with_deadline(
         max_candidates,
     ) && !guard.deadline_reached()
     {
-        let fallback_policy = fallback_policy(state.width, state.height, &guard);
-        let fallback_result_limit = fallback_policy
-            .max_results
-            .min(max_candidates.saturating_mul(2).max(6));
+        let fallback_policy = fallback_policy(state.width, state.height, dense_scene, &guard);
+        let rescue_min_grid_ms = if dense_scene {
+            RESCUE_MIN_REMAINING_MS_GRID_DENSE
+        } else {
+            RESCUE_MIN_REMAINING_MS_GRID
+        };
+        let rescue_min_channel_ms = if dense_scene {
+            RESCUE_MIN_REMAINING_MS_CHANNEL_DENSE
+        } else {
+            RESCUE_MIN_REMAINING_MS_CHANNEL
+        };
+        let rescue_min_upscale_ms = if dense_scene {
+            RESCUE_MIN_REMAINING_MS_UPSCALE_DENSE
+        } else {
+            RESCUE_MIN_REMAINING_MS_UPSCALE
+        };
+        let rescue_min_full_variants_ms = if dense_scene {
+            RESCUE_MIN_REMAINING_MS_FULL_VARIANTS_DENSE
+        } else {
+            RESCUE_MIN_REMAINING_MS_FULL_VARIANTS
+        };
+        let fallback_result_limit = fallback_policy.max_results.min(if dense_scene {
+            max_candidates.saturating_mul(3).max(8)
+        } else {
+            max_candidates.saturating_mul(2).max(6)
+        });
         'fallback: {
             if fallback_policy.max_hypotheses > 0 && !guard.deadline_reached() {
                 decoded.extend(decode_from_hypothesis_crops(
@@ -167,7 +211,7 @@ pub(crate) fn run_with_deadline(
 
             if decoded.is_empty()
                 && state.width.saturating_mul(state.height) <= GRID_RESCUE_MAX_PIXELS
-                && guard.has_time(RESCUE_MIN_REMAINING_MS_GRID)
+                && guard.has_time(rescue_min_grid_ms)
             {
                 decoded.extend(decode_from_grid_crops(
                     &grayscale,
@@ -181,7 +225,7 @@ pub(crate) fn run_with_deadline(
             }
             if decoded.is_empty()
                 && state.width.saturating_mul(state.height) <= CHANNEL_RESCUE_MAX_PIXELS
-                && guard.has_time(RESCUE_MIN_REMAINING_MS_CHANNEL)
+                && guard.has_time(rescue_min_channel_ms)
             {
                 decoded.extend(decode_from_rgb_channels(
                     image,
@@ -195,7 +239,7 @@ pub(crate) fn run_with_deadline(
             }
             if decoded.is_empty()
                 && state.width.saturating_mul(state.height) <= UPSCALE_RESCUE_MAX_PIXELS
-                && guard.has_time(RESCUE_MIN_REMAINING_MS_UPSCALE)
+                && guard.has_time(rescue_min_upscale_ms)
             {
                 decoded.extend(decode_from_upscaled_full_image(
                     &grayscale,
@@ -211,7 +255,7 @@ pub(crate) fn run_with_deadline(
 
             if decoded.len() < fallback_result_limit
                 && fallback_policy.allow_full_image_variants
-                && guard.has_time(RESCUE_MIN_REMAINING_MS_FULL_VARIANTS)
+                && guard.has_time(rescue_min_full_variants_ms)
             {
                 let contrast = contrast_stretch_grayscale(&grayscale);
                 decoded.extend(decode_from_grayscale_with_guard(
@@ -304,15 +348,20 @@ fn should_run_decode_fallback(
         .any(|proposal| normalize_score(proposal.score) >= FALLBACK_MIN_PROPOSAL_SCORE)
 }
 
-fn fallback_policy(width: usize, height: usize, guard: &DecodeGuard) -> FallbackPolicy {
+fn fallback_policy(
+    width: usize,
+    height: usize,
+    dense_scene: bool,
+    guard: &DecodeGuard,
+) -> FallbackPolicy {
     let pixels = width.saturating_mul(height);
     let remaining_ms = guard.remaining_ms();
 
     if matches!(remaining_ms, Some(ms) if ms < RESCUE_MIN_REMAINING_MS_FULL_VARIANTS) {
         return FallbackPolicy {
             max_hypotheses: 2,
-            max_proposals: 6,
-            max_results: 24,
+            max_proposals: if dense_scene { 8 } else { 6 },
+            max_results: if dense_scene { 30 } else { 24 },
             windows: &LOCAL_DECODE_WINDOW_SIZES_TIGHT,
             allow_full_image_variants: false,
         };

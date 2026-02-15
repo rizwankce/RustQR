@@ -289,6 +289,12 @@ Status:
 - Validation snapshot:
 - `cargo fmt -- --check`
 - `cargo test --locked -q --test wp004_decode_engine_tests --test wp006_runtime_budget_tests --test wp010_decode_backend_tests`
+- 2026-02-15 Step 4b tuning (dense-scene recovery micro-slice) in `src/pipeline/decode_engine.rs`:
+- added dense-scene hints (proposal+hypothesis density) to selectively relax fallback caps only for dense scenes.
+- added dense-scene-only decode attempt top-up and lower rescue thresholds for grid/channel/upscale/full-variant paths.
+- Validation snapshot:
+- `cargo fmt -- --check`
+- `cargo test --locked -q --test wp004_decode_engine_tests --test wp006_runtime_budget_tests --test wp010_decode_backend_tests`
 
 [x] WP-021 Runtime KPI Signal Split (Pipeline vs End-to-End)
 Goal: Make runtime KPI gates reflect pipeline compute time instead of image load/decode overhead.
