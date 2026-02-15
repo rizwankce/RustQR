@@ -283,6 +283,12 @@ Status:
 - relaxed attempt/rescue/base-decode caps from the over-tight Step 3 settings.
 - removed aggressive base-decode early skip under tight remaining budget.
 - allow full-image variant retries when decode count is below fallback limit (not only when empty).
+- 2026-02-15 Step 4 tuning (runtime stabilization) in `src/pipeline/decode_engine.rs`:
+- reduced identify attempt cap and fallback result limits from the prior relaxed pass.
+- raised rescue minimum remaining-ms thresholds and tightened proposal/result caps.
+- Validation snapshot:
+- `cargo fmt -- --check`
+- `cargo test --locked -q --test wp004_decode_engine_tests --test wp006_runtime_budget_tests --test wp010_decode_backend_tests`
 
 [x] WP-021 Runtime KPI Signal Split (Pipeline vs End-to-End)
 Goal: Make runtime KPI gates reflect pipeline compute time instead of image load/decode overhead.

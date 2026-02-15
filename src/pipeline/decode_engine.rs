@@ -15,11 +15,11 @@ const GRID_RESCUE_MAX_PIXELS: usize = 2_500_000;
 const GRID_RESCUE_MAX_RESULTS: usize = 32;
 const GRID_RESCUE_STEPS: usize = 3;
 const GRID_RESCUE_WINDOW_SIZES: [usize; 2] = [512, 768];
-const MAX_IDENTIFY_ATTEMPTS_PER_IMAGE: usize = 14;
-const RESCUE_MIN_REMAINING_MS_GRID: f64 = 300.0;
-const RESCUE_MIN_REMAINING_MS_CHANNEL: f64 = 240.0;
-const RESCUE_MIN_REMAINING_MS_UPSCALE: f64 = 300.0;
-const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS: f64 = 220.0;
+const MAX_IDENTIFY_ATTEMPTS_PER_IMAGE: usize = 12;
+const RESCUE_MIN_REMAINING_MS_GRID: f64 = 340.0;
+const RESCUE_MIN_REMAINING_MS_CHANNEL: f64 = 260.0;
+const RESCUE_MIN_REMAINING_MS_UPSCALE: f64 = 340.0;
+const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS: f64 = 300.0;
 const CHANNEL_RESCUE_MAX_PIXELS: usize = 2_500_000;
 const UPSCALE_RESCUE_MAX_PIXELS: usize = 2_000_000;
 const UPSCALE_RESCUE_FACTOR: usize = 2;
@@ -29,13 +29,13 @@ const BASE_DECODE_MAX_DIM_MEDIUM: usize = 1400;
 const BASE_DECODE_MAX_DIM_TIGHT: usize = 1100;
 const BASE_DECODE_MAX_DIM_CRITICAL: usize = 900;
 const BASE_DECODE_FORCE_RESIZE_PIXELS_TIGHT: usize = 1_600_000;
-const BASE_DECODE_REMAINING_MS_TIGHT: f64 = 280.0;
+const BASE_DECODE_REMAINING_MS_TIGHT: f64 = 240.0;
 const BASE_DECODE_REMAINING_MS_CRITICAL: f64 = 150.0;
 const LOCAL_DECODE_MAX_HYPOTHESES: usize = 8;
 const LOCAL_DECODE_MIN_HYPOTHESIS_SCORE: f32 = 0.35;
-const LOCAL_DECODE_MAX_PROPOSALS: usize = 16;
+const LOCAL_DECODE_MAX_PROPOSALS: usize = 14;
 const LOCAL_DECODE_MIN_PROPOSAL_SCORE: f32 = 0.35;
-const LOCAL_DECODE_MAX_RESULTS: usize = 64;
+const LOCAL_DECODE_MAX_RESULTS: usize = 52;
 const LOCAL_DECODE_WINDOW_SIZES_STANDARD: [usize; 3] = [224, 320, 512];
 const LOCAL_DECODE_WINDOW_SIZES_TIGHT: [usize; 2] = [224, 320];
 const LOCAL_DECODE_WINDOW_SIZES_LARGE: [usize; 2] = [256, 384];
@@ -133,7 +133,7 @@ pub(crate) fn run_with_deadline(
         let fallback_policy = fallback_policy(state.width, state.height, &guard);
         let fallback_result_limit = fallback_policy
             .max_results
-            .min(max_candidates.saturating_mul(3).max(6));
+            .min(max_candidates.saturating_mul(2).max(6));
         'fallback: {
             if fallback_policy.max_hypotheses > 0 && !guard.deadline_reached() {
                 decoded.extend(decode_from_hypothesis_crops(
