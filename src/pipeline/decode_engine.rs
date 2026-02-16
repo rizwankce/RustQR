@@ -26,7 +26,7 @@ const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS: f64 = 300.0;
 const RESCUE_MIN_REMAINING_MS_GRID_DENSE: f64 = 300.0;
 const RESCUE_MIN_REMAINING_MS_CHANNEL_DENSE: f64 = 240.0;
 const RESCUE_MIN_REMAINING_MS_UPSCALE_DENSE: f64 = 300.0;
-const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS_DENSE: f64 = 240.0;
+const RESCUE_MIN_REMAINING_MS_FULL_VARIANTS_DENSE: f64 = 180.0;
 const CHANNEL_RESCUE_MAX_PIXELS: usize = 2_500_000;
 const UPSCALE_RESCUE_MAX_PIXELS: usize = 2_000_000;
 const UPSCALE_RESCUE_FACTOR: usize = 2;
@@ -209,6 +209,34 @@ pub(crate) fn run_with_deadline(
                 }
             }
 
+            if dense_scene
+                && decoded.len() < fallback_result_limit
+                && fallback_policy.allow_full_image_variants
+                && guard.has_time(rescue_min_full_variants_ms)
+            {
+                let contrast = contrast_stretch_grayscale(&grayscale);
+                decoded.extend(decode_from_grayscale_with_guard(
+                    &contrast,
+                    state.width,
+                    state.height,
+                    &mut guard,
+                ));
+
+                if decoded.len() < fallback_result_limit && !guard.deadline_reached() {
+                    let inverted = invert_grayscale(&grayscale);
+                    decoded.extend(decode_from_grayscale_with_guard(
+                        &inverted,
+                        state.width,
+                        state.height,
+                        &mut guard,
+                    ));
+                }
+
+                if decoded.len() >= fallback_result_limit {
+                    break 'fallback;
+                }
+            }
+
             if decoded.is_empty()
                 && state.width.saturating_mul(state.height) <= GRID_RESCUE_MAX_PIXELS
                 && guard.has_time(rescue_min_grid_ms)
@@ -253,7 +281,8 @@ pub(crate) fn run_with_deadline(
                 }
             }
 
-            if decoded.len() < fallback_result_limit
+            if !dense_scene
+                && decoded.len() < fallback_result_limit
                 && fallback_policy.allow_full_image_variants
                 && guard.has_time(rescue_min_full_variants_ms)
             {
@@ -356,8 +385,13 @@ fn fallback_policy(
 ) -> FallbackPolicy {
     let pixels = width.saturating_mul(height);
     let remaining_ms = guard.remaining_ms();
+    let full_variants_min_remaining_ms = if dense_scene {
+        RESCUE_MIN_REMAINING_MS_FULL_VARIANTS_DENSE
+    } else {
+        RESCUE_MIN_REMAINING_MS_FULL_VARIANTS
+    };
 
-    if matches!(remaining_ms, Some(ms) if ms < RESCUE_MIN_REMAINING_MS_FULL_VARIANTS) {
+    if matches!(remaining_ms, Some(ms) if ms < full_variants_min_remaining_ms) {
         return FallbackPolicy {
             max_hypotheses: 2,
             max_proposals: if dense_scene { 8 } else { 6 },
