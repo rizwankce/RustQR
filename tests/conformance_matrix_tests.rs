@@ -1,6 +1,6 @@
 use rust_qr::BitMatrix;
 use rust_qr::decoder::qr_decoder::{MatrixDataMode, MatrixDecodeError, QrDecoder};
-use rust_qr::decoder::version::VersionInfo;
+use rust_qr::decoder::version::{VersionInfo, VersionInfoCopy};
 use rust_qr::models::{Fnc1Position, StructuredAppendInfo};
 use rust_qr::{ECLevel, Version};
 use serde_json::Value;
@@ -409,6 +409,51 @@ fn version_fixture_mutation_replaces_valid_redundant_version_information() {
 
     assert_eq!(VersionInfo::extract(&valid), Some(7));
     assert_eq!(VersionInfo::extract(&invalid), None);
+}
+
+fn flip_version_copy_bits(matrix: &mut BitMatrix, copy: VersionInfoCopy, count: usize) {
+    let size = matrix.width();
+    let coordinates: Vec<_> = match copy {
+        VersionInfoCopy::TopRight => (0..6)
+            .flat_map(|row| ((size - 11)..(size - 8)).map(move |col| (col, row)))
+            .collect(),
+        VersionInfoCopy::BottomLeft => (0..6)
+            .flat_map(|col| ((size - 11)..(size - 8)).map(move |row| (col, row)))
+            .collect(),
+    };
+    for (x, y) in coordinates.into_iter().take(count) {
+        matrix.set(x, y, !matrix.get(x, y));
+    }
+}
+
+#[test]
+fn version_information_uses_independent_bch_protected_copies() {
+    let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("conformance");
+    let valid = load_generated_matrix(&corpus.join("matrices/v07-L-m0-byte.png"), 45, 4, 4);
+
+    let clean = VersionInfo::extract_with_evidence(&valid).expect("valid v7 information");
+    assert_eq!(clean.version, 7);
+    assert_eq!(clean.distance, 0);
+
+    // More than three errors in one copy cannot be corrected from that copy,
+    // but its untouched redundant partner must still prove the version.
+    let mut one_copy_damaged = valid.clone();
+    flip_version_copy_bits(&mut one_copy_damaged, VersionInfoCopy::TopRight, 4);
+    let recovered = VersionInfo::extract_with_evidence(&one_copy_damaged)
+        .expect("the intact redundant version copy must remain usable");
+    assert_eq!(recovered.version, 7);
+    assert_eq!(recovered.distance, 0);
+    assert_eq!(recovered.copy, VersionInfoCopy::BottomLeft);
+
+    // Once both protected copies exceed the BCH radius, the strict matrix API
+    // must reject the symbol rather than trusting its caller-supplied version.
+    let mut both_copies_damaged = one_copy_damaged;
+    flip_version_copy_bits(&mut both_copies_damaged, VersionInfoCopy::BottomLeft, 4);
+    assert_eq!(VersionInfo::extract(&both_copies_damaged), None);
+    assert!(matches!(
+        QrDecoder::decode_matrix(&both_copies_damaged, 7),
+        Err(MatrixDecodeError::DecodeFailed)
+    ));
 }
 
 #[test]

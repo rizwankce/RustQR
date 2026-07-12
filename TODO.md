@@ -532,7 +532,8 @@ SIMD and pointer operations.
 
 ## WP-005: Compare main with the rebuild branch
 
-**Status:** Blocked by WP-002
+**Status:** Direction decided; normalized cross-branch v2 benchmark remains
+pending
 
 **Goal:** Decide whether to continue `main`, adopt the rebuild, or merge proven
 slices from both.
@@ -562,6 +563,37 @@ slices from both.
 - Improvements are not accepted when they hide category regressions or timeout
   work.
 - There is a concrete merge or transplant sequence with rollback points.
+
+**Progress record (2026-07-12):**
+
+- The Fast Benchmark gate cited by WP-002 completed successfully, so a local
+  comparison was run from isolated exports of `main` (`5b9b41e`), the actual
+  rebuild branch `scratch_from_scratch_rebuild` (`295b97c`), and the current
+  Model 2 branch (`4de7966`). The older packet's
+  `work_wp014_wp018_gates_2026_02_12` branch label is not the rebuild branch
+  associated with the historical benchmark evidence.
+- All three binaries used the same current-worktree image pixels at an 800-px
+  working limit over nominal, rotations, perspective, high_version, lots,
+  brightness, and bright_spots. The combined selected-image-list SHA-256 was
+  `37fdaff3033d604e9f616e671f1ab2e72adadd692f48eadeced56448163117ca`.
+  The six ordinary categories used three images and lots used one.
+- The figures cannot be made into accuracy deltas: main emits count-based
+  `rustqr.reading_rate.v1`, current emits one-to-one localization
+  `rustqr.reading_rate.v2`, and the rebuild emits per-image
+  `wp007-reading-rate-v1` (where an annotation image succeeds on any decode).
+  The v2 comparator correctly rejects main's v1 artifact. The diagnostic
+  sample and architecture decision are recorded in
+  `docs/adr/0001-wp005-branch-comparison.md`.
+- Decision: retain the current Model 2 implementation; do not merge the
+  rebuild or accept any direct transplant. Its proposal-ensemble/multi-QR
+  commits are quarantined idea sources only until they pass the current
+  evaluator and conformance gates. `cargo test --all-features --no-fail-fast`
+  passed in all three isolated exports; only the current branch has the
+  3,840-fixture conformance gate.
+- Remaining evidence gap: normalize the rebuild's predictions through the v2
+  localization evaluator (or a shared external v2 evaluator), then run the
+  same targeted categories and Fast Benchmark configuration at 1024 px before
+  accepting any slice. The ADR contains the slice-by-slice rollback sequence.
 
 ---
 
@@ -722,6 +754,20 @@ false positives.
   against the pre-slice baseline, and verify recovery recall on the targeted
   photographic categories before claiming the packet complete.
 
+**2026-07-12 version BCH update:** Consolidated QR format BCH(15,5) and
+version BCH(18,6) construction and nearest-codeword decoding in
+`src/decoder/bch.rs`, retaining the original `decode_format` API and exposing
+distance evidence for validation paths. `VersionInfo::extract_with_evidence`
+now decodes each redundant version-information copy independently and records
+which copy and BCH distance won deterministically. A generated Version 7
+matrix test proves that four damaged modules in one copy recover from the
+pristine copy, while four damaged modules in both copies are rejected by the
+strict `QrDecoder::decode_matrix` entry point. Passed:
+`cargo test --lib --all-features` (106 passed) and
+`cargo test --test conformance_matrix_tests
+version_information_uses_independent_bch_protected_copies --all-features`.
+The latency and photographic-recall acceptance work remains outstanding.
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
@@ -734,8 +780,29 @@ and `try_detect_with_options`. Library recovery defaults no longer read
 process environment variables. Optional diagnostics return `FailureStage` and
 `DetectionTelemetry`; the no-diagnostics path does not collect telemetry.
 Focused tests cover preset immutability and diagnostic/no-diagnostic detection
-misses. Remaining work is to propagate candidate and erasure budgets into
-recovery internals and replace the legacy decoder thread-local counters.
+misses. Candidate limits now propagate through the diagnostics recovery path;
+remaining work is erasure-budget propagation and replacing legacy counters.
+
+**2026-07-12 candidate-budget update:** `DecoderOptions` now carries an
+immutable candidate decode-attempt limit: Fast/Balanced/Exhaustive allocate
+16/128/512 attempts, and `with_candidate_limit` supplies an exact per-request
+override. The diagnostics pipeline consumes this shared limit across its
+brightness, binarization, contour, and ROI fallbacks; dense-scene routing can
+redistribute but cannot expand the caller's cap. A zero limit also returns
+before detection work on the no-diagnostics API path. Concurrent diagnostic
+requests have isolated returned telemetry in a four-thread test. Passed:
+
+```bash
+cargo test --lib decoder_options_presets_are_immutable_and_ordered --all-features
+cargo test --lib concurrent_diagnostic_requests_keep_telemetry_request_scoped --all-features
+cargo test --lib zero_candidate_limit_skips_work_without_diagnostics --all-features
+```
+
+The remaining WP-008 work is deliberately explicit: propagate an erasure
+attempt budget through `decoder/qr_decoder/payload.rs` and replace its global
+atomic plus legacy decoder thread-local counters with a request context. That
+requires a coordinated payload/recovery refactor and must include nonzero
+erasure concurrency fixtures; it was outside this candidate-budget slice.
 
 **Goal:** Replace global environment-driven and thread-local behavior with a
 production-quality library API.

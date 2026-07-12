@@ -1,3 +1,4 @@
+use crate::decoder::bch::BchDecoder;
 /// Format information extraction from QR code
 use crate::models::{BitMatrix, ECLevel, MaskPattern};
 
@@ -44,19 +45,14 @@ impl FormatInfo {
         for &bits_opt in &[bits_a, bits_b] {
             let Some(bits) = bits_opt else { continue };
             for &b in &[bits, Self::reverse_15(bits)] {
-                for ecl_bits in 0..4u16 {
-                    for mask in 0..8u16 {
+                for ecl_bits in 0..4u8 {
+                    for mask in 0..8u8 {
                         let combo = (ecl_bits * 8 + mask) as usize;
                         if seen[combo] {
                             continue;
                         }
                         let data = (ecl_bits << 3) | mask;
-                        let mut rem = data;
-                        for _ in 0..10 {
-                            rem = (rem << 1) ^ (((rem >> 9) & 1) * 0x537);
-                        }
-                        let candidate = ((data << 10) | rem) ^ 0x5412;
-                        let dist = (candidate ^ b).count_ones();
+                        let dist = (BchDecoder::format_codeword(data) ^ b).count_ones();
                         if dist > 3 && dist <= max_dist {
                             seen[combo] = true;
                             let ec_level = match ecl_bits {
@@ -66,7 +62,7 @@ impl FormatInfo {
                                 3 => ECLevel::Q,
                                 _ => continue,
                             };
-                            if let Some(mask_pattern) = MaskPattern::from_bits(mask as u8) {
+                            if let Some(mask_pattern) = MaskPattern::from_bits(mask) {
                                 candidates.push((
                                     Self {
                                         ec_level,
@@ -125,37 +121,21 @@ impl FormatInfo {
     }
 
     fn decode_with_distance(format_bits: u16) -> Option<(Self, u32)> {
-        let mut best: Option<(Self, u32)> = None;
-        for ecl_bits in 0..4u16 {
-            for mask in 0..8u16 {
-                let data = (ecl_bits << 3) | mask;
-                let mut rem = data;
-                for _ in 0..10 {
-                    rem = (rem << 1) ^ (((rem >> 9) & 1) * 0x537);
-                }
-                let candidate = ((data << 10) | rem) ^ 0x5412;
-                let dist = (candidate ^ format_bits).count_ones();
-                if dist <= 3 {
-                    let ec_level = match ecl_bits {
-                        0 => ECLevel::M,
-                        1 => ECLevel::L,
-                        2 => ECLevel::H,
-                        3 => ECLevel::Q,
-                        _ => continue,
-                    };
-                    let mask_pattern = MaskPattern::from_bits(mask as u8)?;
-                    let info = Self {
-                        ec_level,
-                        mask_pattern,
-                    };
-                    match best {
-                        Some((_, best_dist)) if dist >= best_dist => {}
-                        _ => best = Some((info, dist)),
-                    }
-                }
-            }
-        }
-        best
+        let decoded = BchDecoder::decode_format_with_distance(format_bits)?;
+        let ec_level = match decoded.value >> 3 {
+            0 => ECLevel::M,
+            1 => ECLevel::L,
+            2 => ECLevel::H,
+            3 => ECLevel::Q,
+            _ => return None,
+        };
+        Some((
+            Self {
+                ec_level,
+                mask_pattern: MaskPattern::from_bits(decoded.value & 0x07)?,
+            },
+            decoded.distance,
+        ))
     }
 
     fn decode_best_direction(format_bits: u16) -> Option<(Self, u32)> {

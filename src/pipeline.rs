@@ -1355,6 +1355,12 @@ fn decode_ranked_groups(
         // Keep transform and decode budgets aligned for dense scenes.
         max_transforms = max_transforms.max(max_decode_attempts).min(512);
     }
+    // A caller-supplied limit is a request-wide safety boundary. Strategy
+    // selection may redistribute that budget, but must never expand it.
+    if let Some(limit) = attempt_limit {
+        max_decode_attempts = max_decode_attempts.min(limit);
+        max_transforms = max_transforms.min(max_decode_attempts);
+    }
     if let Some(tel) = telemetry.as_mut() {
         tel.strategy_profile = strategy.as_str().to_string();
         tel.router_blur_metric = fast_signals.blur_metric;

@@ -25,9 +25,9 @@ pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
 /// Recovery effort selected for a decoding request.
 ///
-/// The presets only control the request deadline in this initial API.  They
-/// provide stable intent now while the lower-level candidate and erasure
-/// budgets are moved out of the legacy recovery implementation.
+/// Presets select both a cooperative deadline and a maximum number of image
+/// candidate decode attempts. This keeps recovery effort local to the request
+/// rather than inheriting ambient process configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DecoderPreset {
     /// Prefer a quick answer for interactive scanning.
@@ -48,20 +48,22 @@ pub enum DecoderPreset {
 pub struct DecoderOptions {
     preset: DecoderPreset,
     deadline: std::time::Duration,
+    candidate_limit: usize,
     diagnostics: bool,
 }
 
 impl DecoderOptions {
     /// Start with the named recovery preset.
     pub const fn with_preset(preset: DecoderPreset) -> Self {
-        let deadline = match preset {
-            DecoderPreset::Fast => std::time::Duration::from_millis(250),
-            DecoderPreset::Balanced => std::time::Duration::from_secs(2),
-            DecoderPreset::Exhaustive => std::time::Duration::from_secs(10),
+        let (deadline, candidate_limit) = match preset {
+            DecoderPreset::Fast => (std::time::Duration::from_millis(250), 16),
+            DecoderPreset::Balanced => (std::time::Duration::from_secs(2), 128),
+            DecoderPreset::Exhaustive => (std::time::Duration::from_secs(10), 512),
         };
         Self {
             preset,
             deadline,
+            candidate_limit,
             diagnostics: false,
         }
     }
@@ -69,6 +71,15 @@ impl DecoderOptions {
     /// Set a cooperative deadline for this request.
     pub const fn with_deadline(mut self, deadline: std::time::Duration) -> Self {
         self.deadline = deadline;
+        self
+    }
+
+    /// Set the maximum number of candidate decode attempts for this request.
+    ///
+    /// A value of zero performs no candidate decoding. This is useful for
+    /// callers that want to exercise only cheap detection stages.
+    pub const fn with_candidate_limit(mut self, candidate_limit: usize) -> Self {
+        self.candidate_limit = candidate_limit;
         self
     }
 
@@ -86,6 +97,11 @@ impl DecoderOptions {
     /// The cooperative request deadline.
     pub const fn deadline(self) -> std::time::Duration {
         self.deadline
+    }
+
+    /// Maximum candidate decode attempts available to this request.
+    pub const fn candidate_limit(self) -> usize {
+        self.candidate_limit
     }
 
     /// Whether diagnostics are collected for this request.
@@ -1148,7 +1164,7 @@ pub fn try_detect_with_options(
         let start = std::time::Instant::now();
         let deadline = start + options.deadline();
         set_global_deadline(deadline);
-        let codes = if start >= deadline {
+        let codes = if start >= deadline || options.candidate_limit() == 0 {
             Vec::new()
         } else {
             let fast = run_fast_path(&gray, width, height);
@@ -1177,8 +1193,13 @@ pub fn try_detect_with_options(
         rgb.extend_from_slice(&[value, value, value]);
     }
     let started = std::time::Instant::now();
-    let (codes, telemetry) =
-        detect_with_telemetry_budget(&rgb, width, height, Some(options.deadline()));
+    let (codes, telemetry) = detect_with_telemetry_budget(
+        &rgb,
+        width,
+        height,
+        Some(options.deadline()),
+        Some(options.candidate_limit()),
+    );
     let failure_stage = if codes.is_empty() {
         Some(if started.elapsed() >= options.deadline() {
             FailureStage::Timeout
@@ -1257,7 +1278,7 @@ pub fn detect_with_telemetry(
     width: usize,
     height: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, None)
+    detect_with_telemetry_budget(image, width, height, None, None)
 }
 
 /// Detect with telemetry while applying a caller-supplied cooperative budget.
@@ -1272,7 +1293,7 @@ pub fn detect_with_telemetry_timeout(
     height: usize,
     timeout: std::time::Duration,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, Some(timeout))
+    detect_with_telemetry_budget(image, width, height, Some(timeout), None)
 }
 
 fn detect_with_telemetry_budget(
@@ -1280,6 +1301,7 @@ fn detect_with_telemetry_budget(
     width: usize,
     height: usize,
     requested_timeout: Option<std::time::Duration>,
+    requested_candidate_limit: Option<usize>,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     if validate_input(ImageInput::new(image, width, height, PixelFormat::Rgb)).is_err() {
         return (Vec::new(), DetectionTelemetry::default());
@@ -1299,7 +1321,9 @@ fn detect_with_telemetry_budget(
         clear_global_deadline();
         return (Vec::new(), tel);
     }
-    let mut brightness_remaining = image_decode_attempt_budget();
+    let request_candidate_limit =
+        requested_candidate_limit.unwrap_or_else(image_decode_attempt_budget);
+    let mut remaining_attempts = request_candidate_limit;
 
     if is_overexposed(&gray) {
         let results = run_brightness_detection(
@@ -1307,7 +1331,7 @@ fn detect_with_telemetry_budget(
             width,
             height,
             &is_expired_tel,
-            &mut brightness_remaining,
+            &mut remaining_attempts,
         );
         if !results.is_empty() {
             tel.qr_codes_found = results.len();
@@ -1318,7 +1342,6 @@ fn detect_with_telemetry_budget(
 
     // Step 2+: strict path first, then bounded fallback binarization ensemble on miss.
     let policies = phase9_binarization_sequence(width, height);
-    let mut remaining_attempts = image_decode_attempt_budget();
     let mut results = Vec::new();
     let mut prev_policy = policies[0];
     let mut best_finder_patterns: Vec<FinderPattern> = Vec::new();
@@ -1715,9 +1738,49 @@ mod tests {
         let exhaustive = DecoderOptions::with_preset(DecoderPreset::Exhaustive);
         assert!(fast.deadline() < balanced.deadline());
         assert!(balanced.deadline() < exhaustive.deadline());
+        assert!(fast.candidate_limit() < balanced.candidate_limit());
+        assert!(balanced.candidate_limit() < exhaustive.candidate_limit());
+        assert_eq!(fast.with_candidate_limit(3).candidate_limit(), 3);
+        assert_eq!(fast.candidate_limit(), 16);
         assert!(!fast.diagnostics_enabled());
         assert!(fast.with_diagnostics(true).diagnostics_enabled());
         assert!(!fast.diagnostics_enabled());
+    }
+
+    #[test]
+    fn concurrent_diagnostic_requests_keep_telemetry_request_scoped() {
+        use std::sync::{Arc, Barrier};
+
+        let barrier = Arc::new(Barrier::new(4));
+        let mut workers = Vec::new();
+        for candidate_limit in [0, 1, 16, 128] {
+            let barrier = Arc::clone(&barrier);
+            workers.push(std::thread::spawn(move || {
+                let image = vec![255u8; 32 * 32 * 3];
+                barrier.wait();
+                let result = try_detect_with_options(
+                    ImageInput::new(&image, 32, 32, PixelFormat::Rgb),
+                    DecoderOptions::default()
+                        .with_candidate_limit(candidate_limit)
+                        .with_diagnostics(true),
+                )
+                .expect("valid RGB image");
+                let telemetry = result.diagnostics.telemetry.expect("diagnostics requested");
+                assert_eq!(
+                    result.diagnostics.failure_stage,
+                    Some(FailureStage::Detection)
+                );
+                assert_eq!(telemetry.decode_attempts, 0);
+                assert_eq!(telemetry.rs_erasure_attempts, 0);
+                telemetry
+            }));
+        }
+
+        for worker in workers {
+            let telemetry = worker.join().expect("worker should not panic");
+            assert_eq!(telemetry.qr_codes_found, 0);
+            assert_eq!(telemetry.finder_patterns_found, 0);
+        }
     }
 
     #[test]
@@ -1746,6 +1809,18 @@ mod tests {
         .expect("valid RGB image");
         assert!(result.diagnostics.telemetry.is_none());
         assert!(result.diagnostics.failure_stage.is_none());
+    }
+
+    #[test]
+    fn zero_candidate_limit_skips_work_without_diagnostics() {
+        let image = vec![255u8; 32 * 32 * 3];
+        let result = try_detect_with_options(
+            ImageInput::new(&image, 32, 32, PixelFormat::Rgb),
+            DecoderOptions::default().with_candidate_limit(0),
+        )
+        .expect("valid RGB image");
+        assert!(result.codes.is_empty());
+        assert!(result.diagnostics.telemetry.is_none());
     }
 
     #[test]
