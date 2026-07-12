@@ -16,6 +16,8 @@ pub mod connected_components;
 pub mod contour;
 /// Finder pattern detection using 1:1:3:1:1 ratio scanning
 pub mod finder;
+/// Ranked, non-maximum-suppressed finder proposals and scan-stage evidence.
+pub mod proposal;
 /// Image pyramid for multi-scale finder detection
 pub mod pyramid;
 /// Timing pattern reading between finder patterns

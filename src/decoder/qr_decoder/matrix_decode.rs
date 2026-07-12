@@ -130,21 +130,32 @@ fn decode_recovery_phase(
 
     for &v_num in corrected_versions {
         let dimension = 17 + 4 * v_num as usize;
-        for oriented in orientations {
+        let mut ranked_orientations: Vec<&BitMatrix> = orientations
+            .iter()
+            .filter(|oriented| {
+                oriented.width() == dimension
+                    && orientation::version_matches_candidate(oriented, v_num)
+                    && orientation::validate_structural_patterns(oriented, 3)
+            })
+            .collect();
+        // A candidate that is closer to the fixed ISO patterns is stronger
+        // evidence than an equally decodable but noisier orientation. Keep
+        // the source order as a deterministic tie-breaker.
+        ranked_orientations
+            .sort_by_key(|oriented| orientation::structural_mismatch_score(oriented));
+
+        for oriented in ranked_orientations {
             if super::global_deadline_expired() {
                 return None;
-            }
-            if oriented.width() != dimension
-                || !orientation::version_matches_candidate(oriented, v_num)
-                || !orientation::validate_structural_patterns(oriented, 3)
-            {
-                continue;
             }
 
             // First keep the BCH-derived format candidate, but permit only
             // non-canonical traversal hypotheses here.
             if let Some(format_info) = FormatInfo::extract(oriented) {
                 for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
+                    if super::global_deadline_expired() {
+                        return None;
+                    }
                     if let Some(qr) = payload::try_decode_single(
                         oriented,
                         v_num,
@@ -163,12 +174,18 @@ fn decode_recovery_phase(
             // Soft BCH candidates are ranked by their codeword distance in
             // FormatInfo and are only considered after the exact candidate.
             for format_info in FormatInfo::extract_soft(oriented, 6) {
+                if super::global_deadline_expired() {
+                    return None;
+                }
                 if let Some(qr) =
                     try_decode_canonical(oriented, v_num, &format_info, module_confidence)
                 {
                     return Some(qr);
                 }
                 for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
+                    if super::global_deadline_expired() {
+                        return None;
+                    }
                     if let Some(qr) = payload::try_decode_single(
                         oriented,
                         v_num,
@@ -189,22 +206,30 @@ fn decode_recovery_phase(
     let strict_version_match = strict_fallback_version_match();
     for &v_num in corrected_versions {
         let dim_check = 17 + 4 * v_num as usize;
-        for oriented in orientations {
+        let mut ranked_orientations: Vec<&BitMatrix> = orientations
+            .iter()
+            .filter(|oriented| {
+                dim_check == oriented.width()
+                    && orientation::validate_structural_patterns(oriented, 3)
+                    && (!strict_version_match
+                        || orientation::version_matches_candidate(oriented, v_num))
+            })
+            .collect();
+        ranked_orientations
+            .sort_by_key(|oriented| orientation::structural_mismatch_score(oriented));
+
+        for oriented in ranked_orientations {
             if super::global_deadline_expired() {
                 return None;
-            }
-            if dim_check != oriented.width()
-                || !orientation::validate_structural_patterns(oriented, 3)
-                || (strict_version_match
-                    && !orientation::version_matches_candidate(oriented, v_num))
-            {
-                continue;
             }
             for &ec in fallback_ec_levels() {
                 if super::global_deadline_expired() {
                     return None;
                 }
                 for mask in 0..8u8 {
+                    if super::global_deadline_expired() {
+                        return None;
+                    }
                     if let Some(mask_pattern) = MaskPattern::from_bits(mask) {
                         let info = FormatInfo {
                             ec_level: ec,
@@ -216,6 +241,9 @@ fn decode_recovery_phase(
                             return Some(qr);
                         }
                         for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
+                            if super::global_deadline_expired() {
+                                return None;
+                            }
                             if let Some(qr) = payload::try_decode_single(
                                 oriented,
                                 v_num,
@@ -256,7 +284,9 @@ fn attempt_uncertain_module_beam_repair(
     let uncertain_max = crate::decoder::config::beam_uncertain_max();
 
     let started = Instant::now();
-    let budget_exhausted = || started.elapsed().as_millis() as u64 >= time_budget_ms;
+    let budget_exhausted = || {
+        super::global_deadline_expired() || started.elapsed().as_millis() as u64 >= time_budget_ms
+    };
 
     let dim = qr_matrix.width();
     let func = FunctionMask::new(version_num);

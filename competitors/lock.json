@@ -1,0 +1,54 @@
+{
+  "schema_version": "rustqr.competitor-lock.v1",
+  "pixel_contract": {
+    "format": "binary PGM (P5), 8-bit grayscale",
+    "preprocessing": "decode source pixels once, convert RGB to ITU-R BT.601 luma, optionally downscale with Pillow Triangle, then write PGM",
+    "timing_boundary": "adapter process/API invocation only; image decoding, normalization, PGM writing, manifest generation, and report generation are excluded",
+    "threads": 1,
+    "timeout_ms": 1000
+  },
+  "adapters": {
+    "zxing_cpp": {
+      "version": "v2.3.0",
+      "source": "https://github.com/zxing-cpp/zxing-cpp.git",
+      "revision": "v2.3.0",
+      "license": "Apache-2.0",
+      "build": "cmake -S . -B build -DZXING_EXAMPLES=ON -DZXING_READERS=ON -DZXING_WRITERS=OFF -DZXING_UNIT_TESTS=OFF -DZXING_C_API=OFF && cmake --build build --config Release -j2"
+    },
+    "quirc": {
+      "version": "v1.2",
+      "source": "https://github.com/dlbeer/quirc.git",
+      "revision": "v1.2",
+      "license": "ISC",
+      "build": "make -C third_party/quirc libquirc.a && cc -O3 -std=c99 -Ithird_party/quirc competitors/adapters/quirc_decode.c third_party/quirc/libquirc.a -o competitors/bin/quirc_decode"
+    },
+    "zbar": {
+      "version": "0.23.93",
+      "source": "https://github.com/mchehab/zbar.git",
+      "revision": "0.23.93",
+      "license": "LGPL-2.1-or-later",
+      "build": "Use the distribution package that reports 0.23.93; record zbarimg --version in the artifact. Do not redistribute its binary with RustQR."
+    },
+    "boofcv": {
+      "version": "1.1.7",
+      "source": "https://github.com/lessthanoptimal/BoofCV.git",
+      "revision": "v1.1.7",
+      "license": "Apache-2.0",
+      "build": "cd competitors/adapters/boofcv && ./gradlew shadowJar; install the resulting runner as competitors/bin/boofcv_decode.jar"
+    },
+    "opencv": {
+      "version": "4.12.0",
+      "source": "https://github.com/opencv/opencv.git",
+      "revision": "4.12.0",
+      "license": "Apache-2.0",
+      "build": "Build the 4.12.0 source revision with QRCodeDetector and install its Python bindings; record cv2.__version__ in the artifact."
+    },
+    "rqrr": {
+      "version": "0.9.0",
+      "source": "https://crates.io/crates/rqrr",
+      "revision": "rqrr 0.9.0",
+      "license": "MIT",
+      "build": "cargo build --release --manifest-path competitors/adapters/rqrr/Cargo.toml && cp competitors/adapters/rqrr/target/release/rqrr_decode competitors/bin/rqrr_decode"
+    }
+  }
+}

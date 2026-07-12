@@ -357,6 +357,61 @@ pub(super) fn validate_structural_patterns(
     true
 }
 
+/// Return a stable measure of disagreement with the fixed Model 2 patterns.
+///
+/// This is deliberately separate from [`validate_structural_patterns`]: the
+/// latter is the acceptance gate, whereas recovery uses this score only to
+/// decide which already-acceptable hypothesis deserves an attempt first.  A
+/// damaged dark module is a hard structural failure and therefore ranks after
+/// every candidate with a valid dark module.
+pub(super) fn structural_mismatch_score(matrix: &BitMatrix) -> usize {
+    let dim = matrix.width();
+    if dim < 21 || matrix.height() != dim {
+        return usize::MAX;
+    }
+
+    let mut mismatches = if matrix.get(8, dim - 8) { 0 } else { 1_000 };
+    for &(origin_x, origin_y) in &[(0, 0), (dim - 7, 0), (0, dim - 7)] {
+        mismatches += (0..7)
+            .flat_map(|y| (0..7).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                let expected = x == 0
+                    || x == 6
+                    || y == 0
+                    || y == 6
+                    || ((2..=4).contains(&x) && (2..=4).contains(&y));
+                matrix.get(origin_x + x, origin_y + y) != expected
+            })
+            .count();
+    }
+    mismatches += (8..(dim - 8))
+        .filter(|&i| {
+            let expected = i % 2 == 0;
+            matrix.get(i, 6) != expected || matrix.get(6, i) != expected
+        })
+        .count();
+
+    let centers =
+        crate::decoder::function_mask::alignment_pattern_positions(((dim - 17) / 4) as u8);
+    for &center_x in &centers {
+        for &center_y in &centers {
+            let overlaps_finder = (center_x <= 8 || center_x >= dim - 9) && center_y <= 8
+                || center_x <= 8 && center_y >= dim - 9;
+            if overlaps_finder {
+                continue;
+            }
+            mismatches += (0..5)
+                .flat_map(|y| (0..5).map(move |x| (x, y)))
+                .filter(|&(x, y)| {
+                    let expected = x == 0 || x == 4 || y == 0 || y == 4 || (x == 2 && y == 2);
+                    matrix.get(center_x + x - 2, center_y + y - 2) != expected
+                })
+                .count();
+        }
+    }
+    mismatches
+}
+
 pub(super) fn version_matches_candidate(matrix: &BitMatrix, version_num: u8) -> bool {
     if matrix.width() < 45 {
         return true;
@@ -427,5 +482,16 @@ mod structural_tests {
         let mut dark_module_damaged = structural_version_two_matrix();
         dark_module_damaged.set(8, 17, false);
         assert!(!validate_structural_patterns(&dark_module_damaged, 3));
+    }
+
+    #[test]
+    fn structural_score_ranks_less_damaged_matrix_first() {
+        let clean = structural_version_two_matrix();
+        let mut damaged = clean.clone();
+        damaged.set(0, 0, false);
+        damaged.set(6, 0, false);
+
+        assert_eq!(structural_mismatch_score(&clean), 0);
+        assert!(structural_mismatch_score(&clean) < structural_mismatch_score(&damaged));
     }
 }

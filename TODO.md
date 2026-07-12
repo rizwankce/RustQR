@@ -768,6 +768,31 @@ strict `QrDecoder::decode_matrix` entry point. Passed:
 version_information_uses_independent_bch_protected_copies --all-features`.
 The latency and photographic-recall acceptance work remains outstanding.
 
+**2026-07-12 recovery ordering update:** Recovery now orders eligible
+orientations by a deterministic fixed-pattern mismatch score, retaining source
+order as the tie-breaker. Exact BCH format evidence is still tried before soft
+format evidence (which remains BCH-distance ordered), and soft traversals,
+brute-force EC/mask hypotheses, and beam repairs check the cooperative request
+deadline before every individual attempt. The beam-repair budget also stops
+when that request deadline expires. This does not relax structural acceptance:
+all ranked candidates first pass the existing tolerant structural gate.
+
+Targeted photographic regression validation at `QR_MAX_DIM=800` passed all
+seven ignored cases: monitor, blurred, high-version, rotated, damaged,
+multiple-code, and nominal. The known high-version/blurred/damaged/nominal
+limitations still report their warnings, so this is a no-regression recovery
+check rather than a recall claim. Also passed:
+
+```bash
+cargo test --lib structural_score_ranks_less_damaged_matrix_first --all-features
+cargo test --test conformance_matrix_tests --all-features
+QR_MAX_DIM=800 cargo test --test decode_regression_tests --release --all-features -- --ignored --nocapture
+```
+
+The remaining WP-007 completion evidence is a controlled before/after
+common-case matrix latency measurement; do not infer a latency reduction from
+the no-regression checks above.
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
@@ -856,7 +881,7 @@ payloads.
 
 ## WP-010: Rebuild finder detection around ranked proposals
 
-**Status:** Blocked by WP-005 architecture decision
+**Status:** In progress; initial ranked finder-proposal boundary completed
 
 **Goal:** Replace repeated global scans and fallback combinations with a fast,
 explainable proposal pipeline.
@@ -871,6 +896,24 @@ explainable proposal pipeline.
 - Use proposal-level non-maximum suppression and preserve multiple symbols.
 - Add ROI-first processing for dense scenes.
 - Measure stage-level recall and latency, not only final decoding.
+
+**2026-07-12 initial proposal slice:** `FinderDetector::detect_proposals`
+now exposes ranked, module-scale NMS'd single-finder proposals independently
+of triplet grouping and geometry. Each proposal records horizontal/vertical
+1:1:3:1:1 ratio agreement, pitch agreement, local binary contrast, and a
+weak quiet-zone signal; the report records scanline and suppression counts.
+The legacy `detect` API consumes this report, so decoder callers retain their
+existing interface while proposal-stage tests can measure evidence directly.
+This slice intentionally does not claim the full WP-010 acceptance criteria:
+the scan state machines still allocate per row/column, grouping remains in the
+legacy pipeline, and ROI-first/dense-scene stage evaluation are pending.
+
+Verified with:
+
+```bash
+cargo test --lib detector:: --all-features
+cargo clippy --all-targets --all-features -- -D warnings
+```
 
 **Acceptance criteria:**
 
@@ -933,7 +976,7 @@ not edge cases.
 
 ## WP-013: Establish the OSS competitor harness
 
-**Status:** Blocked by WP-002
+**Status:** Harness complete; pinned adapter builds remain environment setup
 
 **Goal:** Compare RustQR fairly against current open-source alternatives.
 
@@ -960,6 +1003,35 @@ not edge cases.
 - Competitor claims are locally reproducible.
 - Accuracy and latency use identical case manifests and timing boundaries.
 - Results include confidence intervals and hardware metadata.
+
+**Completion record (2026-07-12):** Added `competitors/lock.json`, locally
+authored quirc/rqrr/BoofCV adapters, `scripts/run_competitor_harness.py`, and
+`docs/competitor_harness.md`. The lock pins ZXing-C++ v2.3.0, quirc v1.2,
+ZBar 0.23.93, BoofCV v1.1.7, OpenCV 4.12.0, and rqrr 0.9.0, with source,
+revision, release build settings, licenses, and redistribution limits. The
+harness converts every selected input once to a temporary normalized PGM and
+gives byte-identical pixels, one thread, one timeout, and identical timed
+adapter invocation boundaries to every selected adapter. Reports contain the
+case manifest, image/pixel checksums, raw stdout/stderr bytes, normalized
+payload hex, explicit unavailable/version-mismatch/timeout states, bootstrap
+median confidence intervals, and hardware metadata. The intentionally thin
+CLI protocol declares adapter metadata unavailable rather than fabricating
+charset, ECI, EC-level, or geometry fields; annotation-count coverage is
+likewise labelled as non-localization/non-payload accuracy.
+
+Local setup evidence: OpenCV 4.12.0 was detected and decoded the one-image
+monitor smoke lane; locally installed ZBar 0.23.93 was detected but returned
+no decode for that image. ZXing-C++, quirc, BoofCV, and rqrr wrappers are
+recorded as unavailable until their pinned builds are placed in
+`competitors/bin/`. Passed:
+
+```bash
+python3 -m unittest scripts/tests/test_run_competitor_harness.py
+python3 scripts/run_competitor_harness.py --category monitor --limit 1 \
+  --adapter zbar --adapter opencv --timeout-ms 5000 \
+  --output /tmp/competitor-smoke.json
+git diff --check
+```
 
 ---
 

@@ -1,5 +1,6 @@
 /// Finder pattern detection using 1:1:3:1:1 ratio scanning with early termination optimizations
 use crate::detector::connected_components::find_black_regions;
+use crate::detector::proposal::{FinderProposal, rank_and_suppress};
 use crate::detector::pyramid::ImagePyramid;
 use crate::models::{BitMatrix, Point};
 
@@ -20,17 +21,51 @@ impl FinderPattern {
 
 pub struct FinderDetector;
 
+/// Scan-stage evidence which is available before grouping, geometry, or
+/// decoding.  Counts make finder recall/latency experiments independently
+/// observable without changing the public decoding result.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FinderScanTelemetry {
+    pub rows_considered: usize,
+    pub rows_skipped_low_edges: usize,
+    pub columns_considered: usize,
+    pub columns_skipped_low_edges: usize,
+    pub raw_candidates: usize,
+    pub proposals_after_nms: usize,
+}
+
+/// Result of the ranked finder-proposal stage.
+#[derive(Debug, Clone)]
+pub struct FinderProposalReport {
+    pub proposals: Vec<FinderProposal>,
+    pub telemetry: FinderScanTelemetry,
+}
+
 impl FinderDetector {
     pub fn detect(matrix: &BitMatrix) -> Vec<FinderPattern> {
+        Self::detect_proposals(matrix)
+            .proposals
+            .into_iter()
+            .map(|proposal| proposal.pattern)
+            .collect()
+    }
+
+    /// Run the scanline proposal stage and return ranked, de-duplicated finder
+    /// candidates with evidence.  This is intentionally independent of
+    /// triplet grouping and geometry refinement.
+    pub fn detect_proposals(matrix: &BitMatrix) -> FinderProposalReport {
         let width = matrix.width();
         let height = matrix.height();
         let mut candidates = Vec::new();
+        let mut telemetry = FinderScanTelemetry::default();
 
         // Scan every row - edge detection provides the speedup
         let row_step = 1;
         for y in (0..height).step_by(row_step) {
+            telemetry.rows_considered += 1;
             // Early termination 1: Skip rows with low variance (no edges)
             if !Self::has_significant_edges(matrix, y, width) {
+                telemetry.rows_skipped_low_edges += 1;
                 continue;
             }
 
@@ -40,14 +75,22 @@ impl FinderDetector {
 
         // Scan every column for vertically-oriented finder patterns (rotated QR codes)
         for x in 0..width {
+            telemetry.columns_considered += 1;
             if !Self::has_significant_edges_column(matrix, x, height) {
+                telemetry.columns_skipped_low_edges += 1;
                 continue;
             }
             let col_candidates = Self::scan_column(matrix, x, height);
             candidates.extend(col_candidates);
         }
 
-        Self::merge_candidates(candidates)
+        telemetry.raw_candidates = candidates.len();
+        let proposals = rank_and_suppress(matrix, candidates);
+        telemetry.proposals_after_nms = proposals.len();
+        FinderProposalReport {
+            proposals,
+            telemetry,
+        }
     }
 
     /// Detect finder patterns using parallel processing
@@ -961,6 +1004,40 @@ mod tests {
             "Expected pattern near ({}, {}), found: {:?}",
             expected_center, expected_center, patterns
         );
+    }
+
+    #[test]
+    fn proposal_report_exposes_ranked_stage_evidence() {
+        let mut matrix = BitMatrix::new(50, 50);
+        let u = 3;
+        let start = 5;
+        for my in 0..7 {
+            for mx in 0..7 {
+                let is_border = mx == 0 || mx == 6 || my == 0 || my == 6;
+                let is_center = (2..=4).contains(&mx) && (2..=4).contains(&my);
+                if is_border || is_center {
+                    for y in start + my * u..start + (my + 1) * u {
+                        for x in start + mx * u..start + (mx + 1) * u {
+                            matrix.set(x, y, true);
+                        }
+                    }
+                }
+            }
+        }
+
+        let report = FinderDetector::detect_proposals(&matrix);
+        assert_eq!(report.telemetry.rows_considered, matrix.height());
+        assert_eq!(report.telemetry.columns_considered, matrix.width());
+        assert!(report.telemetry.raw_candidates >= report.telemetry.proposals_after_nms);
+        assert!(!report.proposals.is_empty());
+        assert!(
+            report
+                .proposals
+                .windows(2)
+                .all(|pair| pair[0].score >= pair[1].score)
+        );
+        assert!(report.proposals[0].evidence.horizontal_ratio > 0.5);
+        assert!(report.proposals[0].evidence.vertical_ratio > 0.5);
     }
 
     #[test]
