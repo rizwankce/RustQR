@@ -23,6 +23,118 @@ pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
+/// Recovery effort selected for a decoding request.
+///
+/// The presets only control the request deadline in this initial API.  They
+/// provide stable intent now while the lower-level candidate and erasure
+/// budgets are moved out of the legacy recovery implementation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DecoderPreset {
+    /// Prefer a quick answer for interactive scanning.
+    Fast,
+    /// Use the normal recovery budget.
+    #[default]
+    Balanced,
+    /// Allow additional time for batch or archival scanning.
+    Exhaustive,
+}
+
+/// Immutable options for one decoding request.
+///
+/// Construct with a preset and use the builder methods to override only the
+/// fields relevant to that request.  Options are never read from environment
+/// variables and may be freely shared between concurrent callers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecoderOptions {
+    preset: DecoderPreset,
+    deadline: std::time::Duration,
+    diagnostics: bool,
+}
+
+impl DecoderOptions {
+    /// Start with the named recovery preset.
+    pub const fn with_preset(preset: DecoderPreset) -> Self {
+        let deadline = match preset {
+            DecoderPreset::Fast => std::time::Duration::from_millis(250),
+            DecoderPreset::Balanced => std::time::Duration::from_secs(2),
+            DecoderPreset::Exhaustive => std::time::Duration::from_secs(10),
+        };
+        Self {
+            preset,
+            deadline,
+            diagnostics: false,
+        }
+    }
+
+    /// Set a cooperative deadline for this request.
+    pub const fn with_deadline(mut self, deadline: std::time::Duration) -> Self {
+        self.deadline = deadline;
+        self
+    }
+
+    /// Request stage diagnostics in the returned result.
+    pub const fn with_diagnostics(mut self, enabled: bool) -> Self {
+        self.diagnostics = enabled;
+        self
+    }
+
+    /// The selected recovery preset.
+    pub const fn preset(self) -> DecoderPreset {
+        self.preset
+    }
+
+    /// The cooperative request deadline.
+    pub const fn deadline(self) -> std::time::Duration {
+        self.deadline
+    }
+
+    /// Whether diagnostics are collected for this request.
+    pub const fn diagnostics_enabled(self) -> bool {
+        self.diagnostics
+    }
+}
+
+impl Default for DecoderOptions {
+    fn default() -> Self {
+        Self::with_preset(DecoderPreset::Balanced)
+    }
+}
+
+/// The furthest stage reached by a request that did not decode a QR code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FailureStage {
+    /// The image description was invalid.
+    InvalidInput,
+    /// The cooperative deadline elapsed.
+    Timeout,
+    /// No finder-pattern candidate was detected.
+    Detection,
+    /// Candidates were found but no usable geometry was built.
+    Geometry,
+    /// Geometry was sampled but error correction never succeeded.
+    ReedSolomon,
+    /// Error correction succeeded but no payload could be parsed.
+    Payload,
+}
+
+/// Optional evidence collected for a request.
+#[derive(Debug, Clone)]
+pub struct RequestDiagnostics {
+    /// The final stage, absent when at least one code decoded.
+    pub failure_stage: Option<FailureStage>,
+    /// Detailed counters collected only when diagnostics were requested.
+    pub telemetry: Option<DetectionTelemetry>,
+}
+
+/// Result of [`try_detect_with_options`].
+#[derive(Debug, Clone)]
+pub struct DetectionResult {
+    /// Codes decoded from the input.
+    pub codes: Vec<QRCode>,
+    /// Optional structured diagnostic evidence.
+    pub diagnostics: RequestDiagnostics,
+}
+
 /// Per-image telemetry tracking which pipeline stages succeeded or failed.
 ///
 /// Every stage records its highest-water-mark count across all binarization
@@ -1018,6 +1130,85 @@ pub fn try_detect(input: ImageInput<'_>) -> Result<Vec<QRCode>, InputError> {
     Ok(detect_grayscale_validated(&gray, width, height))
 }
 
+/// Detect QR codes with request-scoped options and optional diagnostics.
+///
+/// This entry point is the preferred library API for applications that need a
+/// bounded request.  The deadline is cooperative: an individual inner image
+/// operation is not preempted, so callers that require a hard wall-clock cap
+/// should run the request in an isolated worker and discard late results.
+pub fn try_detect_with_options(
+    input: ImageInput<'_>,
+    options: DecoderOptions,
+) -> Result<DetectionResult, InputError> {
+    let width = input.width;
+    let height = input.height;
+    let gray = input_to_grayscale(input)?;
+
+    if !options.diagnostics_enabled() {
+        let start = std::time::Instant::now();
+        let deadline = start + options.deadline();
+        set_global_deadline(deadline);
+        let codes = if start >= deadline {
+            Vec::new()
+        } else {
+            let fast = run_fast_path(&gray, width, height);
+            if fast.is_empty() && std::time::Instant::now() < deadline {
+                run_detection_with_phase4_fallbacks(&gray, width, height, || {
+                    std::time::Instant::now() >= deadline
+                })
+            } else {
+                fast
+            }
+        };
+        clear_global_deadline();
+        return Ok(DetectionResult {
+            codes,
+            diagnostics: RequestDiagnostics {
+                failure_stage: None,
+                telemetry: None,
+            },
+        });
+    }
+
+    // The telemetry path accepts RGB; expand normalized luminance once so all
+    // image layouts share one diagnostics implementation.
+    let mut rgb = Vec::with_capacity(gray.len() * 3);
+    for value in gray {
+        rgb.extend_from_slice(&[value, value, value]);
+    }
+    let started = std::time::Instant::now();
+    let (codes, telemetry) =
+        detect_with_telemetry_budget(&rgb, width, height, Some(options.deadline()));
+    let failure_stage = if codes.is_empty() {
+        Some(if started.elapsed() >= options.deadline() {
+            FailureStage::Timeout
+        } else {
+            classify_failure_stage(&telemetry)
+        })
+    } else {
+        None
+    };
+    Ok(DetectionResult {
+        codes,
+        diagnostics: RequestDiagnostics {
+            failure_stage,
+            telemetry: Some(telemetry),
+        },
+    })
+}
+
+fn classify_failure_stage(telemetry: &DetectionTelemetry) -> FailureStage {
+    if telemetry.finder_patterns_found < 2 {
+        FailureStage::Detection
+    } else if telemetry.transforms_built == 0 {
+        FailureStage::Geometry
+    } else if telemetry.rs_decode_ok == 0 {
+        FailureStage::ReedSolomon
+    } else {
+        FailureStage::Payload
+    }
+}
+
 /// Detect QR codes in a tightly packed RGB image.
 ///
 /// # Arguments
@@ -1071,8 +1262,7 @@ pub fn detect_with_telemetry(
 
 /// Detect with telemetry while applying a caller-supplied cooperative budget.
 ///
-/// The budget is capped by the detector's configured global budget. Expensive
-/// pipeline and decoder loops observe the shared deadline, but this is not
+/// Expensive pipeline and decoder loops observe the shared deadline, but this is not
 /// preemptive cancellation: a single uninterruptible operation can return
 /// after the requested duration. Callers must measure elapsed time to classify
 /// that case as a timeout and discard its results.
@@ -1098,10 +1288,8 @@ fn detect_with_telemetry_budget(
     reset_decode_counters();
 
     let start_tel = std::time::Instant::now();
-    let configured_budget =
-        std::time::Duration::from_millis(decoder::config::global_time_budget_ms());
-    let budget_tel = requested_timeout.map_or(configured_budget, |requested| {
-        requested.min(configured_budget)
+    let budget_tel = requested_timeout.unwrap_or_else(|| {
+        std::time::Duration::from_millis(decoder::config::global_time_budget_ms())
     });
     let deadline_tel = start_tel + budget_tel;
     set_global_deadline(deadline_tel);
@@ -1519,6 +1707,46 @@ mod tests {
     use super::*;
     use image::GenericImageView;
     use std::env;
+
+    #[test]
+    fn decoder_options_presets_are_immutable_and_ordered() {
+        let fast = DecoderOptions::with_preset(DecoderPreset::Fast);
+        let balanced = DecoderOptions::default();
+        let exhaustive = DecoderOptions::with_preset(DecoderPreset::Exhaustive);
+        assert!(fast.deadline() < balanced.deadline());
+        assert!(balanced.deadline() < exhaustive.deadline());
+        assert!(!fast.diagnostics_enabled());
+        assert!(fast.with_diagnostics(true).diagnostics_enabled());
+        assert!(!fast.diagnostics_enabled());
+    }
+
+    #[test]
+    fn request_diagnostics_classify_detection_miss() {
+        let image = vec![255u8; 10 * 10 * 3];
+        let result = try_detect_with_options(
+            ImageInput::new(&image, 10, 10, PixelFormat::Rgb),
+            DecoderOptions::default().with_diagnostics(true),
+        )
+        .expect("valid RGB image");
+        assert!(result.codes.is_empty());
+        assert_eq!(
+            result.diagnostics.failure_stage,
+            Some(FailureStage::Detection)
+        );
+        assert!(result.diagnostics.telemetry.is_some());
+    }
+
+    #[test]
+    fn request_without_diagnostics_avoids_telemetry() {
+        let image = vec![255u8; 10 * 10 * 3];
+        let result = try_detect_with_options(
+            ImageInput::new(&image, 10, 10, PixelFormat::Rgb),
+            DecoderOptions::default(),
+        )
+        .expect("valid RGB image");
+        assert!(result.diagnostics.telemetry.is_none());
+        assert!(result.diagnostics.failure_stage.is_none());
+    }
 
     #[test]
     fn padded_pixel_formats_normalize_equivalently() {

@@ -11,6 +11,12 @@ fn strict_fallback_version_match() -> bool {
     crate::decoder::config::strict_fallback_version_match()
 }
 
+/// ISO/IEC 18004's sole data-module traversal: start in the bottom-right
+/// column pair and move upward, reading the right column before the left.
+/// Every other traversal ordering is a recovery hypothesis, never part of the
+/// normal matrix decode path.
+const CANONICAL_TRAVERSAL: (bool, bool) = (true, false);
+
 pub(super) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
     decode_from_matrix_internal(qr_matrix, version_num, None)
 }
@@ -54,8 +60,6 @@ fn decode_from_matrix_internal(
         vec![version_num]
     };
 
-    let traversal_opts = [(true, false), (true, true), (false, false), (false, true)];
-
     for &v_num in &corrected_versions {
         let dim_check = 17 + 4 * v_num as usize;
         if dim_check != qr_matrix.width() {
@@ -66,8 +70,105 @@ fn decode_from_matrix_internal(
             if !orientation::version_matches_candidate(oriented, v_num) {
                 continue;
             }
+            // A clean symbol must satisfy every fixed function-pattern
+            // invariant before its sole specification traversal is accepted.
+            if !orientation::validate_structural_patterns(oriented, 0) {
+                continue;
+            }
             if let Some(format_info) = FormatInfo::extract(oriented) {
-                for &(start_upward, swap_columns) in &traversal_opts {
+                if let Some(qr) =
+                    try_decode_canonical(oriented, v_num, &format_info, module_confidence)
+                {
+                    return Some(qr);
+                }
+            }
+        }
+    }
+
+    if let Some(qr) = decode_recovery_phase(&orientations, &corrected_versions, module_confidence) {
+        return Some(qr);
+    }
+
+    if let Some(conf) = module_confidence {
+        if let Some(qr) = attempt_uncertain_module_beam_repair(qr_matrix, version_num, conf) {
+            return Some(qr);
+        }
+    }
+
+    None
+}
+
+fn try_decode_canonical(
+    oriented: &BitMatrix,
+    version_num: u8,
+    format_info: &FormatInfo,
+    module_confidence: Option<&[u8]>,
+) -> Option<QRCode> {
+    let (start_upward, swap_columns) = CANONICAL_TRAVERSAL;
+    payload::try_decode_single(
+        oriented,
+        version_num,
+        format_info,
+        start_upward,
+        swap_columns,
+        true,
+        false,
+        module_confidence,
+    )
+}
+
+/// Bounded recovery is intentionally isolated from the deterministic path.
+/// A recovery result must still meet the (tolerant) function-pattern checks;
+/// format/mask/traversal hypotheses alone cannot turn arbitrary modules into a
+/// successful QR code.
+fn decode_recovery_phase(
+    orientations: &[BitMatrix],
+    corrected_versions: &[u8],
+    module_confidence: Option<&[u8]>,
+) -> Option<QRCode> {
+    const RECOVERY_TRAVERSALS: [(bool, bool); 3] = [(true, true), (false, false), (false, true)];
+
+    for &v_num in corrected_versions {
+        let dimension = 17 + 4 * v_num as usize;
+        for oriented in orientations {
+            if super::global_deadline_expired() {
+                return None;
+            }
+            if oriented.width() != dimension
+                || !orientation::version_matches_candidate(oriented, v_num)
+                || !orientation::validate_structural_patterns(oriented, 3)
+            {
+                continue;
+            }
+
+            // First keep the BCH-derived format candidate, but permit only
+            // non-canonical traversal hypotheses here.
+            if let Some(format_info) = FormatInfo::extract(oriented) {
+                for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
+                    if let Some(qr) = payload::try_decode_single(
+                        oriented,
+                        v_num,
+                        &format_info,
+                        start_upward,
+                        swap_columns,
+                        true,
+                        false,
+                        module_confidence,
+                    ) {
+                        return Some(qr);
+                    }
+                }
+            }
+
+            // Soft BCH candidates are ranked by their codeword distance in
+            // FormatInfo and are only considered after the exact candidate.
+            for format_info in FormatInfo::extract_soft(oriented, 6) {
+                if let Some(qr) =
+                    try_decode_canonical(oriented, v_num, &format_info, module_confidence)
+                {
+                    return Some(qr);
+                }
+                for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
                     if let Some(qr) = payload::try_decode_single(
                         oriented,
                         v_num,
@@ -83,46 +184,20 @@ fn decode_from_matrix_internal(
                 }
             }
         }
-
-        for oriented in &orientations {
-            if super::global_deadline_expired() {
-                return None;
-            }
-            if !orientation::version_matches_candidate(oriented, v_num) {
-                continue;
-            }
-            let soft_candidates = FormatInfo::extract_soft(oriented, 6);
-            for format_info in &soft_candidates {
-                for &(start_upward, swap_columns) in &traversal_opts {
-                    if let Some(qr) = payload::try_decode_single(
-                        oriented,
-                        v_num,
-                        format_info,
-                        start_upward,
-                        swap_columns,
-                        true,
-                        false,
-                        module_confidence,
-                    ) {
-                        return Some(qr);
-                    }
-                }
-            }
-        }
     }
 
     let strict_version_match = strict_fallback_version_match();
-    for &v_num in &corrected_versions {
+    for &v_num in corrected_versions {
         let dim_check = 17 + 4 * v_num as usize;
-        if dim_check != qr_matrix.width() {
-            continue;
-        }
-
-        for oriented in &orientations {
+        for oriented in orientations {
             if super::global_deadline_expired() {
                 return None;
             }
-            if strict_version_match && !orientation::version_matches_candidate(oriented, v_num) {
+            if dim_check != oriented.width()
+                || !orientation::validate_structural_patterns(oriented, 3)
+                || (strict_version_match
+                    && !orientation::version_matches_candidate(oriented, v_num))
+            {
                 continue;
             }
             for &ec in fallback_ec_levels() {
@@ -135,7 +210,12 @@ fn decode_from_matrix_internal(
                             ec_level: ec,
                             mask_pattern,
                         };
-                        for &(start_upward, swap_columns) in &traversal_opts {
+                        if let Some(qr) =
+                            try_decode_canonical(oriented, v_num, &info, module_confidence)
+                        {
+                            return Some(qr);
+                        }
+                        for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
                             if let Some(qr) = payload::try_decode_single(
                                 oriented,
                                 v_num,
@@ -154,13 +234,6 @@ fn decode_from_matrix_internal(
             }
         }
     }
-
-    if let Some(conf) = module_confidence {
-        if let Some(qr) = attempt_uncertain_module_beam_repair(qr_matrix, version_num, conf) {
-            return Some(qr);
-        }
-    }
-
     None
 }
 

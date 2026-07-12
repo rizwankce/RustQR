@@ -665,7 +665,7 @@ slices from both.
 
 ## WP-007: Replace brute-force decoding with a spec-first decoder
 
-**Status:** Blocked by WP-006
+**Status:** In progress; deterministic traversal/structural-validation slice complete
 
 **Goal:** Make the common decode path deterministic, fast, and resistant to
 false positives.
@@ -699,11 +699,43 @@ false positives.
 - Exact payload, segment, and metadata results match WP-006 fixtures.
 - Common-case matrix decode latency drops substantially without recall loss.
 
+**Progress record (2026-07-12):**
+
+- Made the normal matrix-decoding path specification-first: it now attempts
+  only the canonical bottom-right, upward, right-column-first data traversal
+  with an exact BCH format candidate. Alternate traversal orderings, soft
+  format candidates, brute-force EC/mask hypotheses, and uncertain-module
+  repair are isolated in the bounded recovery phase.
+- Added fixed-function validation for all three finder patterns, timing
+  patterns, alignment patterns, and the dark module. The normal path requires
+  an exact match; recovery permits at most three mismatches per pattern but
+  never accepts a candidate that fails this validation.
+- Replaced the unused even-parity `BchDecoder` placeholder with real masked
+  BCH(15,5) nearest-codeword decoding over all 32 format codewords, bounded to
+  the ISO correction radius of three bits. Tests cover the correction boundary
+  and structural-pattern damage/tolerance boundary.
+- Passed `cargo test --lib --all-features` (104 tests), `cargo test --test
+  conformance_matrix_tests --all-features` (6 passed; full 3,840-fixture gate
+  intentionally ignored), and `git diff --check`.
+- Remaining WP-007 work: make version-information placement/validation share
+  the same explicit BCH evidence path, measure common-case matrix latency
+  against the pre-slice baseline, and verify recovery recall on the targeted
+  photographic categories before claiming the packet complete.
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
 
-**Status:** Can accompany WP-007
+**Status:** In progress (2026-07-12)
+
+**Current evidence:** A public immutable `DecoderOptions` API now provides
+fast/balanced/exhaustive deadline presets, a per-request diagnostics switch,
+and `try_detect_with_options`. Library recovery defaults no longer read
+process environment variables. Optional diagnostics return `FailureStage` and
+`DetectionTelemetry`; the no-diagnostics path does not collect telemetry.
+Focused tests cover preset immutability and diagnostic/no-diagnostic detection
+misses. Remaining work is to propagate candidate and erasure budgets into
+recovery internals and replace the legacy decoder thread-local counters.
 
 **Goal:** Replace global environment-driven and thread-local behavior with a
 production-quality library API.

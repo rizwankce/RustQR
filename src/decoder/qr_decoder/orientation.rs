@@ -293,6 +293,70 @@ pub(super) fn validate_timing_patterns(matrix: &BitMatrix) -> bool {
     alternation_ratio(&h_bits) >= 0.60 && alternation_ratio(&v_bits) >= 0.60
 }
 
+/// Validate the fixed Model 2 patterns that are independent of payload and
+/// error-correction data. `max_mismatches_per_pattern` is zero on the normal
+/// specification path and bounded only for image-recovery candidates.
+pub(super) fn validate_structural_patterns(
+    matrix: &BitMatrix,
+    max_mismatches_per_pattern: usize,
+) -> bool {
+    let dim = matrix.width();
+    if dim < 21 || matrix.height() != dim || !matrix.get(8, dim - 8) {
+        return false;
+    }
+
+    for &(origin_x, origin_y) in &[(0, 0), (dim - 7, 0), (0, dim - 7)] {
+        let mismatches = (0..7)
+            .flat_map(|y| (0..7).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                let expected = x == 0
+                    || x == 6
+                    || y == 0
+                    || y == 6
+                    || ((2..=4).contains(&x) && (2..=4).contains(&y));
+                matrix.get(origin_x + x, origin_y + y) != expected
+            })
+            .count();
+        if mismatches > max_mismatches_per_pattern {
+            return false;
+        }
+    }
+
+    let timing_mismatches = (8..(dim - 8))
+        .filter(|&i| {
+            let expected = i % 2 == 0;
+            matrix.get(i, 6) != expected || matrix.get(6, i) != expected
+        })
+        .count();
+    if timing_mismatches > max_mismatches_per_pattern {
+        return false;
+    }
+
+    let centers =
+        crate::decoder::function_mask::alignment_pattern_positions(((dim - 17) / 4) as u8);
+    for &center_x in &centers {
+        for &center_y in &centers {
+            let overlaps_finder = (center_x <= 8 || center_x >= dim - 9) && center_y <= 8
+                || center_x <= 8 && center_y >= dim - 9;
+            if overlaps_finder {
+                continue;
+            }
+            let mismatches = (0..5)
+                .flat_map(|y| (0..5).map(move |x| (x, y)))
+                .filter(|&(x, y)| {
+                    let expected = x == 0 || x == 4 || y == 0 || y == 4 || (x == 2 && y == 2);
+                    matrix.get(center_x + x - 2, center_y + y - 2) != expected
+                })
+                .count();
+            if mismatches > max_mismatches_per_pattern {
+                return false;
+            }
+        }
+    }
+
+    true
+}
+
 pub(super) fn version_matches_candidate(matrix: &BitMatrix, version_num: u8) -> bool {
     if matrix.width() < 45 {
         return true;
@@ -311,4 +375,57 @@ pub(super) fn alternation_ratio(bits: &[bool]) -> f32 {
 
     let transitions = bits.windows(2).filter(|w| w[0] != w[1]).count();
     transitions as f32 / (bits.len() - 1) as f32
+}
+
+#[cfg(test)]
+mod structural_tests {
+    use super::*;
+
+    fn structural_version_two_matrix() -> BitMatrix {
+        let dim = 25;
+        let mut matrix = BitMatrix::new(dim, dim);
+        for &(origin_x, origin_y) in &[(0, 0), (dim - 7, 0), (0, dim - 7)] {
+            for y in 0..7 {
+                for x in 0..7 {
+                    let black = x == 0
+                        || x == 6
+                        || y == 0
+                        || y == 6
+                        || ((2..=4).contains(&x) && (2..=4).contains(&y));
+                    matrix.set(origin_x + x, origin_y + y, black);
+                }
+            }
+        }
+        for i in 8..(dim - 8) {
+            let black = i % 2 == 0;
+            matrix.set(i, 6, black);
+            matrix.set(6, i, black);
+        }
+        matrix.set(8, dim - 8, true);
+        for y in 0..5 {
+            for x in 0..5 {
+                let black = x == 0 || x == 4 || y == 0 || y == 4 || (x == 2 && y == 2);
+                matrix.set(18 + x - 2, 18 + y - 2, black);
+            }
+        }
+        matrix
+    }
+
+    #[test]
+    fn structural_validation_rejects_function_pattern_damage() {
+        let mut matrix = structural_version_two_matrix();
+        assert!(validate_structural_patterns(&matrix, 0));
+
+        matrix.set(8, 6, false);
+        assert!(!validate_structural_patterns(&matrix, 0));
+        assert!(validate_structural_patterns(&matrix, 1));
+
+        matrix.set(0, 0, false);
+        matrix.set(6, 0, false);
+        assert!(!validate_structural_patterns(&matrix, 1));
+
+        let mut dark_module_damaged = structural_version_two_matrix();
+        dark_module_damaged.set(8, 17, false);
+        assert!(!validate_structural_patterns(&dark_module_damaged, 3));
+    }
 }

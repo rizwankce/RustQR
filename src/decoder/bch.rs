@@ -1,35 +1,29 @@
-/// BCH error correction for QR code format and version info
+/// BCH error correction for QR Code format information.
+///
+/// Format information is a masked BCH(15,5) code. Rather than treating its
+/// parity as a generic even-parity bit, decode against all 32 valid QR format
+/// codewords and accept only the ISO-guaranteed Hamming radius of three.
 pub struct BchDecoder;
 
 impl BchDecoder {
-    /// Decode format info (BCH(15,5))
+    /// Decode a masked 15-bit QR format codeword into `(ec_level_bits, mask)`.
     pub fn decode_format(format: u16) -> Option<(u8, u8)> {
-        let corrected = Self::correct_format(format)?;
-        let data = (corrected >> 10) as u8;
-        Some(((data >> 3) & 0x03, data & 0x07))
+        (0..32u8)
+            .map(|data| (data, (Self::format_codeword(data) ^ format).count_ones()))
+            .filter(|(_, distance)| *distance <= 3)
+            .min_by_key(|(_, distance)| *distance)
+            .map(|(data, _)| ((data >> 3) & 0x03, data & 0x07))
     }
 
-    fn correct_format(codeword: u16) -> Option<u16> {
-        if codeword == 0 {
-            return None;
-        }
-        // Quick check - if syndrome is 0, no errors
-        if Self::check_format(codeword) {
-            return Some(codeword);
-        }
-        // Try correcting single bit errors
-        for i in 0..15 {
-            let test = codeword ^ (1 << i);
-            if Self::check_format(test) {
-                return Some(test);
-            }
-        }
-        None
-    }
+    fn format_codeword(data: u8) -> u16 {
+        const GENERATOR: u16 = 0x537;
+        const MASK: u16 = 0x5412;
 
-    fn check_format(codeword: u16) -> bool {
-        // Simple parity check for now
-        codeword.count_ones() % 2 == 0
+        let mut remainder = data as u16;
+        for _ in 0..10 {
+            remainder = (remainder << 1) ^ (((remainder >> 9) & 1) * GENERATOR);
+        }
+        ((data as u16) << 10) | remainder ^ MASK
     }
 }
 
@@ -38,8 +32,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_format_decode() {
-        let result = BchDecoder::decode_format(0b00101_1111001100);
-        assert!(result.is_some());
+    fn format_bch_corrects_up_to_three_bits_only() {
+        // H / mask 0 is the masked format codeword 0x1689.
+        let codeword = 0x1689;
+        assert_eq!(BchDecoder::decode_format(codeword), Some((2, 0)));
+        assert_eq!(
+            BchDecoder::decode_format(codeword ^ 0b1_0010_0000),
+            Some((2, 0))
+        );
+        assert_eq!(BchDecoder::decode_format(codeword ^ 0b1_1011_0000), None);
     }
 }
