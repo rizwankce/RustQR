@@ -233,4 +233,32 @@ mod tests {
         assert_eq!(proposals.len(), 2);
         assert!(proposals[0].score.is_finite());
     }
+
+    #[test]
+    fn controlled_dense_scenes_preserve_each_symbols_finders() {
+        // These are deliberately detector-stage scenes: each synthetic symbol
+        // contributes the three finder proposals that its QR geometry would
+        // expose. Keeping them module-scaled and close together exercises NMS
+        // without coupling this proposal contract to sampling/decoding.
+        let matrix = BitMatrix::new(704, 704);
+        for symbols in [1usize, 2, 5, 10, 25, 50, 100] {
+            let raw = (0..symbols)
+                .flat_map(|index| {
+                    let x = 16.0 + (index % 10) as f32 * 64.0;
+                    let y = 16.0 + (index / 10) as f32 * 64.0;
+                    [
+                        FinderPattern::new(x, y, 2.0),
+                        FinderPattern::new(x + 36.0, y, 2.0),
+                        FinderPattern::new(x, y + 36.0, 2.0),
+                    ]
+                })
+                .collect();
+            let proposals = rank_and_suppress(&matrix, raw);
+            assert_eq!(
+                proposals.len(),
+                symbols * 3,
+                "NMS must preserve all three finders in a {symbols}-symbol scene"
+            );
+        }
+    }
 }

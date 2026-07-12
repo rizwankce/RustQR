@@ -1,6 +1,6 @@
 use crate::DetectionTelemetry;
 use crate::decoder::format::FormatInfo;
-use crate::decoder::qr_decoder::QrDecoder;
+use crate::decoder::qr_decoder::{DecodeRequestContext, QrDecoder};
 use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
 use crate::utils::geometry::PerspectiveTransform;
@@ -832,6 +832,7 @@ fn decode_proxy_confidence(qr: &QRCode) -> f32 {
     (0.45 * bytes_component + 0.35 * content_component + 0.20 * ec_component).clamp(0.0, 1.0)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn decode_candidate(
     candidate: &RankedGroupCandidate,
     binary: &BitMatrix,
@@ -840,12 +841,13 @@ fn decode_candidate(
     height: usize,
     allow_heavy_recovery: bool,
     blur_metric: f32,
+    context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     // Skip heavy recovery for very blurry images - it's unlikely to succeed and wastes time
     let recovery_threshold = crate::decoder::config::blur_disable_recovery_threshold();
     let effective_heavy_recovery = allow_heavy_recovery && blur_metric >= recovery_threshold;
 
-    let mut qr = QrDecoder::decode_with_gray(
+    let mut qr = QrDecoder::decode_with_gray_in_context(
         binary,
         gray,
         width,
@@ -855,6 +857,7 @@ fn decode_candidate(
         &candidate.bl,
         candidate.module_size,
         effective_heavy_recovery,
+        context,
     )?;
     let proxy = decode_proxy_confidence(&qr);
     qr.confidence = (0.75 * candidate.geometry_confidence + 0.25 * proxy).clamp(0.0, 1.0);
@@ -1028,11 +1031,18 @@ fn acceptance_score(qr: &QRCode, geometry_conf: f32) -> f32 {
 fn dedupe_results(
     results: &mut Vec<QRCode>,
     accepted_geometries: &mut Vec<(f32, f32, f32, f32)>,
+    accepted_proposals: &mut HashSet<usize>,
     candidate: &RankedGroupCandidate,
     qr: QRCode,
-    dedupe_by_payload: bool,
 ) -> bool {
-    if dedupe_by_payload && results.iter().any(|r| r.content == qr.content) {
+    // A finder proposal may describe only one accepted symbol.  Do this after
+    // decoding rather than while ranking: a high-scoring false triple must not
+    // starve a valid neighbouring triple in a dense scene.
+    if candidate
+        .group
+        .iter()
+        .any(|proposal| accepted_proposals.contains(proposal))
+    {
         return false;
     }
     let geom = candidate_bbox(candidate);
@@ -1043,6 +1053,7 @@ fn dedupe_results(
         return false;
     }
     accepted_geometries.push(geom);
+    accepted_proposals.extend(candidate.group);
     results.push(qr);
     true
 }
@@ -1263,6 +1274,7 @@ fn record_lane_attempt(telemetry: &mut Option<&mut DetectionTelemetry>, lane: Co
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn decode_ranked_groups(
     binary: &BitMatrix,
     gray: &[u8],
@@ -1270,6 +1282,7 @@ fn decode_ranked_groups(
     height: usize,
     finder_patterns: &[FinderPattern],
     attempt_limit: Option<usize>,
+    context: &mut DecodeRequestContext,
     mut telemetry: Option<&mut DetectionTelemetry>,
 ) -> Vec<QRCode> {
     let saturation_ratio = global_saturation_ratio(gray);
@@ -1384,9 +1397,8 @@ fn decode_ranked_groups(
     let mut used_transforms = 0usize;
     let mut used_attempts = 0usize;
     let mut results = Vec::new();
-    let dedupe_by_payload = !matches!(strategy, StrategyProfile::MultiQrHeavy);
-    let mut accepted_payloads: HashSet<String> = HashSet::new();
     let mut accepted_geometries: Vec<(f32, f32, f32, f32)> = Vec::new();
+    let mut accepted_proposals: HashSet<usize> = HashSet::new();
 
     let first = top;
     if used_transforms < max_transforms && used_attempts < max_decode_attempts {
@@ -1416,6 +1428,7 @@ fn decode_ranked_groups(
             height,
             allow_heavy,
             fast_signals.blur_metric,
+            context,
         ) {
             let acceptance = acceptance_score(&qr, first.geometry_confidence);
             let floor = decode_acceptance_floor();
@@ -1427,15 +1440,18 @@ fn decode_ranked_groups(
                 if qr.confidence < single_qr_floor {
                     should_expand = true;
                 }
-                if dedupe_by_payload {
-                    accepted_payloads.insert(qr.content.clone());
-                }
-                accepted_geometries.push(candidate_bbox(&first));
-                results.push(qr);
-                if let Some(tel) = telemetry.as_mut() {
-                    tel.rerank_top1_successes += 1;
-                    if saturation_mask_enabled && first.saturation_coverage > 0.08 {
-                        tel.saturation_mask_decode_successes += 1;
+                if dedupe_results(
+                    &mut results,
+                    &mut accepted_geometries,
+                    &mut accepted_proposals,
+                    &first,
+                    qr,
+                ) {
+                    if let Some(tel) = telemetry.as_mut() {
+                        tel.rerank_top1_successes += 1;
+                        if saturation_mask_enabled && first.saturation_coverage > 0.08 {
+                            tel.saturation_mask_decode_successes += 1;
+                        }
                     }
                 }
                 if !should_expand && !matches!(strategy, StrategyProfile::MultiQrHeavy) {
@@ -1506,6 +1522,13 @@ fn decode_ranked_groups(
                 break;
             }
             let candidate = &candidates[idx];
+            if candidate
+                .group
+                .iter()
+                .any(|proposal| accepted_proposals.contains(proposal))
+            {
+                continue;
+            }
             let lane = confidence_lane(candidate.geometry_confidence);
             if !lane_budget.consume(lane) {
                 if let Some(tel) = telemetry.as_mut() {
@@ -1530,10 +1553,8 @@ fn decode_ranked_groups(
                 height,
                 allow_heavy,
                 fast_signals.blur_metric,
+                context,
             ) {
-                if dedupe_by_payload && accepted_payloads.contains(&qr.content) {
-                    continue;
-                }
                 let acceptance = acceptance_score(&qr, candidate.geometry_confidence);
                 if acceptance < relaxed_floor {
                     if let Some(tel) = telemetry.as_mut() {
@@ -1544,13 +1565,10 @@ fn decode_ranked_groups(
                 if dedupe_results(
                     &mut results,
                     &mut accepted_geometries,
+                    &mut accepted_proposals,
                     candidate,
-                    qr.clone(),
-                    dedupe_by_payload,
+                    qr,
                 ) {
-                    if dedupe_by_payload {
-                        accepted_payloads.insert(qr.content);
-                    }
                     if let Some(tel) = telemetry.as_mut() {
                         tel.rs_decode_ok += 1;
                         tel.payload_decoded += 1;
@@ -1574,7 +1592,17 @@ pub(crate) fn decode_groups(
     height: usize,
     finder_patterns: &[FinderPattern],
 ) -> Vec<QRCode> {
-    decode_ranked_groups(binary, gray, width, height, finder_patterns, None, None)
+    let mut context = DecodeRequestContext::default();
+    decode_ranked_groups(
+        binary,
+        gray,
+        width,
+        height,
+        finder_patterns,
+        None,
+        &mut context,
+        None,
+    )
 }
 
 /// Like `decode_groups_with_telemetry` but enforces a hard decode-attempt cap.
@@ -1586,6 +1614,29 @@ pub(crate) fn decode_groups_with_telemetry_limited(
     finder_patterns: &[FinderPattern],
     max_attempts: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
+    let mut context = DecodeRequestContext::default();
+    decode_groups_with_telemetry_limited_in_context(
+        binary,
+        gray,
+        width,
+        height,
+        finder_patterns,
+        max_attempts,
+        &mut context,
+    )
+}
+
+/// Like [`decode_groups_with_telemetry_limited`] but charges all candidate
+/// recovery work to a caller-owned request context.
+pub(crate) fn decode_groups_with_telemetry_limited_in_context(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    finder_patterns: &[FinderPattern],
+    max_attempts: usize,
+    context: &mut DecodeRequestContext,
+) -> (Vec<QRCode>, DetectionTelemetry) {
     let mut tel = DetectionTelemetry::default();
     let results = decode_ranked_groups(
         binary,
@@ -1594,7 +1645,103 @@ pub(crate) fn decode_groups_with_telemetry_limited(
         height,
         finder_patterns,
         Some(max_attempts),
+        context,
         Some(&mut tel),
     );
     (results, tel)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{MaskPattern, Version};
+
+    fn candidate(group: [usize; 3], origin_x: f32, origin_y: f32) -> RankedGroupCandidate {
+        RankedGroupCandidate {
+            group,
+            tl: Point::new(origin_x, origin_y),
+            tr: Point::new(origin_x + 40.0, origin_y),
+            bl: Point::new(origin_x, origin_y + 40.0),
+            module_size: 2.0,
+            raw_score: 1.0,
+            rerank_score: 1.0,
+            saturation_coverage: 0.0,
+            geometry_confidence: 0.9,
+        }
+    }
+
+    fn decoded(content: &str) -> QRCode {
+        QRCode::new(
+            content.as_bytes().to_vec(),
+            content.to_owned(),
+            Version::Model2(1),
+            ECLevel::M,
+            MaskPattern::Pattern0,
+        )
+    }
+
+    #[test]
+    fn accepted_symbols_keep_a_one_to_one_finder_assignment() {
+        let mut results = Vec::new();
+        let mut geometries = Vec::new();
+        let mut proposals = HashSet::new();
+
+        assert!(dedupe_results(
+            &mut results,
+            &mut geometries,
+            &mut proposals,
+            &candidate([0, 1, 2], 0.0, 0.0),
+            decoded("first"),
+        ));
+        // A different-looking triple cannot claim a finder already assigned to
+        // an accepted symbol, even if its bounding box does not overlap.
+        assert!(!dedupe_results(
+            &mut results,
+            &mut geometries,
+            &mut proposals,
+            &candidate([0, 3, 4], 120.0, 0.0),
+            decoded("spurious"),
+        ));
+        assert!(dedupe_results(
+            &mut results,
+            &mut geometries,
+            &mut proposals,
+            &candidate([3, 4, 5], 120.0, 0.0),
+            decoded("second"),
+        ));
+        assert_eq!(results.len(), 2);
+        assert_eq!(proposals.len(), 6);
+    }
+
+    #[test]
+    fn result_dedupe_preserves_distinct_symbols_with_equal_payloads() {
+        let mut results = Vec::new();
+        let mut geometries = Vec::new();
+        let mut proposals = HashSet::new();
+
+        assert!(dedupe_results(
+            &mut results,
+            &mut geometries,
+            &mut proposals,
+            &candidate([0, 1, 2], 0.0, 0.0),
+            decoded("same"),
+        ));
+        assert!(dedupe_results(
+            &mut results,
+            &mut geometries,
+            &mut proposals,
+            &candidate([3, 4, 5], 120.0, 0.0),
+            decoded("same"),
+        ));
+        // Re-decoding the same region through another detector path is still
+        // a duplicate even when it happens to use different proposal IDs.
+        assert!(!dedupe_results(
+            &mut results,
+            &mut geometries,
+            &mut proposals,
+            &candidate([6, 7, 8], 3.0, 2.0),
+            decoded("same"),
+        ));
+        assert_eq!(results.len(), 2);
+    }
 }

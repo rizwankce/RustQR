@@ -1,6 +1,5 @@
 /// Main QR code decoder - wires everything together
 use crate::models::{BitMatrix, Point, QRCode};
-use std::cell::RefCell;
 use std::time::Instant;
 
 mod geometry;
@@ -62,6 +61,68 @@ pub(crate) struct DecodeCounters {
     pub phase11_time_budget_skips: usize,
 }
 
+/// Mutable state owned by one decode request.
+///
+/// This deliberately travels with the call chain instead of residing in a
+/// process global or thread-local slot: concurrent requests must not consume
+/// each other's recovery budget or report one another's counters.
+pub(crate) struct DecodeRequestContext {
+    deadline: Option<Instant>,
+    erasure_attempts_remaining: usize,
+    counters: DecodeCounters,
+}
+
+impl DecodeRequestContext {
+    pub(crate) const fn new(erasure_attempt_limit: usize) -> Self {
+        Self {
+            deadline: None,
+            erasure_attempts_remaining: erasure_attempt_limit,
+            counters: DecodeCounters::new(),
+        }
+    }
+
+    pub(crate) const fn with_deadline(erasure_attempt_limit: usize, deadline: Instant) -> Self {
+        Self {
+            deadline: Some(deadline),
+            erasure_attempts_remaining: erasure_attempt_limit,
+            counters: DecodeCounters::new(),
+        }
+    }
+
+    pub(crate) fn deadline_expired(&self) -> bool {
+        self.deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+    }
+
+    pub(crate) const fn deadline(&self) -> Option<Instant> {
+        self.deadline
+    }
+
+    pub(crate) fn try_consume_erasure_attempt(&mut self) -> bool {
+        if self.erasure_attempts_remaining == 0 {
+            return false;
+        }
+        self.erasure_attempts_remaining -= 1;
+        true
+    }
+
+    pub(crate) fn counters(&self) -> DecodeCounters {
+        self.counters
+    }
+
+    pub(crate) fn counters_mut(&mut self) -> &mut DecodeCounters {
+        &mut self.counters
+    }
+}
+
+impl Default for DecodeRequestContext {
+    fn default() -> Self {
+        // Preserve the established non-recovery behaviour for APIs which do
+        // not opt into an options-bearing request context.
+        Self::new(0)
+    }
+}
+
 impl DecodeCounters {
     const fn new() -> Self {
         Self {
@@ -87,46 +148,6 @@ impl Default for DecodeCounters {
     fn default() -> Self {
         Self::new()
     }
-}
-
-thread_local! {
-    static DECODE_COUNTERS: RefCell<DecodeCounters> = const { RefCell::new(DecodeCounters::new()) };
-    static GLOBAL_DEADLINE: RefCell<Option<Instant>> = const { RefCell::new(None) };
-}
-
-pub(crate) fn set_global_deadline(deadline: Instant) {
-    GLOBAL_DEADLINE.with(|d| *d.borrow_mut() = Some(deadline));
-}
-
-pub(crate) fn clear_global_deadline() {
-    GLOBAL_DEADLINE.with(|d| *d.borrow_mut() = None);
-}
-
-pub(crate) fn global_deadline_expired() -> bool {
-    GLOBAL_DEADLINE.with(|d| {
-        d.borrow()
-            .map_or(false, |deadline| Instant::now() >= deadline)
-    })
-}
-
-pub(crate) fn reset_decode_counters() {
-    DECODE_COUNTERS.with(|c| *c.borrow_mut() = DecodeCounters::new());
-    payload::reset_erasure_counters();
-    payload::reset_rs_erasure_global_counter();
-}
-
-pub(crate) fn take_decode_counters() -> DecodeCounters {
-    let mut out = DecodeCounters::new();
-    DECODE_COUNTERS.with(|c| {
-        out = *c.borrow();
-        *c.borrow_mut() = DecodeCounters::new();
-    });
-    let (rs_erasure_attempts, rs_erasure_successes, rs_erasure_count_hist) =
-        payload::take_erasure_counters();
-    out.rs_erasure_attempts = rs_erasure_attempts;
-    out.rs_erasure_successes = rs_erasure_successes;
-    out.rs_erasure_count_hist = rs_erasure_count_hist;
-    out
 }
 
 impl QrDecoder {
@@ -244,6 +265,7 @@ impl QrDecoder {
         bottom_left: &Point,
         module_size: f32,
     ) -> Option<QRCode> {
+        let mut context = DecodeRequestContext::default();
         if cfg!(debug_assertions) && crate::debug::debug_enabled() {
             eprintln!("    DECODE: module_size={:.2}", module_size);
         }
@@ -280,7 +302,7 @@ impl QrDecoder {
 
         for version_num in candidates {
             if version_num >= 7 {
-                DECODE_COUNTERS.with(|c| c.borrow_mut().high_version_precision_attempts += 1);
+                context.counters_mut().high_version_precision_attempts += 1;
             }
             let dimension = 17 + 4 * version_num as usize;
             for br in &br_candidates {
@@ -307,13 +329,17 @@ impl QrDecoder {
                     continue;
                 }
 
-                if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
+                if let Some(qr) =
+                    Self::decode_from_matrix_in_context(&qr_matrix, version_num, &mut context)
+                {
                     return Some(Self::with_position(qr, &transform, dimension));
                 }
 
                 // Try inverted grid (binarization might be flipped)
                 let inverted = orientation::invert_matrix(&qr_matrix);
-                if let Some(qr) = Self::decode_from_matrix(&inverted, version_num) {
+                if let Some(qr) =
+                    Self::decode_from_matrix_in_context(&inverted, version_num, &mut context)
+                {
                     return Some(Self::with_position(qr, &transform, dimension));
                 }
             }
@@ -334,6 +360,35 @@ impl QrDecoder {
         bottom_left: &Point,
         module_size: f32,
         allow_heavy_recovery: bool,
+    ) -> Option<QRCode> {
+        let mut context = DecodeRequestContext::default();
+        Self::decode_with_gray_in_context(
+            binary,
+            gray,
+            width,
+            height,
+            top_left,
+            top_right,
+            bottom_left,
+            module_size,
+            allow_heavy_recovery,
+            &mut context,
+        )
+    }
+
+    /// Decode a sampled candidate while charging recovery work to one request.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn decode_with_gray_in_context(
+        binary: &BitMatrix,
+        gray: &[u8],
+        width: usize,
+        height: usize,
+        top_left: &Point,
+        top_right: &Point,
+        bottom_left: &Point,
+        module_size: f32,
+        allow_heavy_recovery: bool,
+        context: &mut DecodeRequestContext,
     ) -> Option<QRCode> {
         let started = Instant::now();
         let candidate_budget_ms = crate::decoder::config::candidate_time_budget_ms();
@@ -380,25 +435,27 @@ impl QrDecoder {
                         gray, width, height, &transform, dimension,
                     );
                 if version_num >= 7 {
-                    DECODE_COUNTERS.with(|c| c.borrow_mut().hv_subpixel_attempts += 1);
+                    context.counters_mut().hv_subpixel_attempts += 1;
                 }
                 if !orientation::validate_timing_patterns(&qr_matrix) {
                     continue;
                 }
 
-                if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                     &qr_matrix,
                     version_num,
                     &module_confidence,
+                    context,
                 ) {
                     return Some(Self::with_position(qr, &transform, dimension));
                 }
 
                 let inverted = orientation::invert_matrix(&qr_matrix);
-                if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                     &inverted,
                     version_num,
                     &module_confidence,
+                    context,
                 ) {
                     return Some(Self::with_position(qr, &transform, dimension));
                 }
@@ -423,10 +480,11 @@ impl QrDecoder {
                         if !orientation::validate_timing_patterns(&jit_matrix) {
                             continue;
                         }
-                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                             &jit_matrix,
                             version_num,
                             &jit_conf,
+                            context,
                         ) {
                             return Some(Self::with_position(qr, &jittered_transform, dimension));
                         }
@@ -438,10 +496,10 @@ impl QrDecoder {
                     // Scale retries disabled (0/455 success rate in benchmarks)
                     for &scale in &[1.25f32, 1.5f32] {
                         if budget_exhausted() {
-                            DECODE_COUNTERS.with(|c| c.borrow_mut().phase11_time_budget_skips += 1);
+                            context.counters_mut().phase11_time_budget_skips += 1;
                             break;
                         }
-                        DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_attempts += 1);
+                        context.counters_mut().scale_retry_attempts += 1;
                         let (scaled_matrix, scaled_conf) =
                             Self::extract_qr_region_gray_with_transform_and_confidence_scaled(
                                 gray, width, height, &transform, dimension, scale,
@@ -449,28 +507,30 @@ impl QrDecoder {
                         if !orientation::validate_timing_patterns(&scaled_matrix) {
                             continue;
                         }
-                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                             &scaled_matrix,
                             version_num,
                             &scaled_conf,
+                            context,
                         ) {
-                            DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_successes += 1);
+                            context.counters_mut().scale_retry_successes += 1;
                             return Some(Self::with_position(qr, &transform, dimension));
                         }
                         let scaled_inverted = orientation::invert_matrix(&scaled_matrix);
-                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                             &scaled_inverted,
                             version_num,
                             &scaled_conf,
+                            context,
                         ) {
-                            DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_successes += 1);
+                            context.counters_mut().scale_retry_successes += 1;
                             return Some(Self::with_position(qr, &transform, dimension));
                         }
                     }
                 }
 
                 if allow_heavy_recovery && version_num >= 7 && !budget_exhausted() {
-                    DECODE_COUNTERS.with(|c| c.borrow_mut().hv_refine_attempts += 1);
+                    context.counters_mut().hv_refine_attempts += 1;
                     if let Some(refined_hv_transform) = Self::refine_transform_with_alignment(
                         binary,
                         &transform,
@@ -491,12 +551,13 @@ impl QrDecoder {
                                 1.35,
                             );
                         if orientation::validate_timing_patterns(&hv_matrix) {
-                            if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                            if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                                 &hv_matrix,
                                 version_num,
                                 &hv_conf,
+                                context,
                             ) {
-                                DECODE_COUNTERS.with(|c| c.borrow_mut().hv_refine_successes += 1);
+                                context.counters_mut().hv_refine_successes += 1;
                                 return Some(Self::with_position(
                                     qr,
                                     &refined_hv_transform,
@@ -515,12 +576,13 @@ impl QrDecoder {
                         gray, width, height, &transform, dimension,
                     );
                     if orientation::validate_timing_patterns(&deskew_matrix) {
-                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                             &deskew_matrix,
                             version_num,
                             &deskew_conf,
+                            context,
                         ) {
-                            DECODE_COUNTERS.with(|c| c.borrow_mut().deskew_successes += 1);
+                            context.counters_mut().deskew_successes += 1;
                             return Some(Self::with_position(qr, &transform, dimension));
                         }
                     }
@@ -532,10 +594,11 @@ impl QrDecoder {
                         gray, width, height, &transform, dimension,
                     );
                     if orientation::validate_timing_patterns(&mesh_matrix) {
-                        if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                        if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                             &mesh_matrix,
                             version_num,
                             &mesh_conf,
+                            context,
                         ) {
                             return Some(Self::with_position(qr, &transform, dimension));
                         }
@@ -550,10 +613,11 @@ impl QrDecoder {
                         )
                     {
                         if orientation::validate_timing_patterns(&radial_matrix) {
-                            if let Some(qr) = Self::decode_from_matrix_with_confidence(
+                            if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
                                 &radial_matrix,
                                 version_num,
                                 &radial_conf,
+                                context,
                             ) {
                                 return Some(Self::with_position(qr, &transform, dimension));
                             }
@@ -568,8 +632,10 @@ impl QrDecoder {
                     if !orientation::validate_timing_patterns(&qr_matrix) {
                         continue;
                     }
-                    DECODE_COUNTERS.with(|c| c.borrow_mut().recovery_mode_attempts += 1);
-                    if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
+                    context.counters_mut().recovery_mode_attempts += 1;
+                    if let Some(qr) =
+                        Self::decode_from_matrix_in_context(&qr_matrix, version_num, context)
+                    {
                         return Some(Self::with_position(qr, &transform, dimension));
                     }
                 }
@@ -757,12 +823,35 @@ impl QrDecoder {
         matrix_decode::decode_from_matrix(qr_matrix, version_num)
     }
 
+    pub(crate) fn decode_from_matrix_in_context(
+        qr_matrix: &BitMatrix,
+        version_num: u8,
+        context: &mut DecodeRequestContext,
+    ) -> Option<QRCode> {
+        matrix_decode::decode_from_matrix_in_context(qr_matrix, version_num, context)
+    }
+
+    #[allow(dead_code)]
     pub(crate) fn decode_from_matrix_with_confidence(
         qr_matrix: &BitMatrix,
         version_num: u8,
         module_confidence: &[u8],
     ) -> Option<QRCode> {
         matrix_decode::decode_from_matrix_with_confidence(qr_matrix, version_num, module_confidence)
+    }
+
+    pub(crate) fn decode_from_matrix_with_confidence_in_context(
+        qr_matrix: &BitMatrix,
+        version_num: u8,
+        module_confidence: &[u8],
+        context: &mut DecodeRequestContext,
+    ) -> Option<QRCode> {
+        matrix_decode::decode_from_matrix_with_confidence_in_context(
+            qr_matrix,
+            version_num,
+            module_confidence,
+            context,
+        )
     }
 }
 

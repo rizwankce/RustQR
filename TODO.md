@@ -789,9 +789,20 @@ cargo test --test conformance_matrix_tests --all-features
 QR_MAX_DIM=800 cargo test --test decode_regression_tests --release --all-features -- --ignored --nocapture
 ```
 
-The remaining WP-007 completion evidence is a controlled before/after
-common-case matrix latency measurement; do not infer a latency reduction from
-the no-regression checks above.
+**2026-07-12 matrix-latency baseline:** Added the reproducible Criterion
+benchmark `decode_matrix/canonical_v1_m_numeric` in `benches/matrix_decode.rs`.
+It parses a checked-in clean V1-M numeric conformance matrix, checks its exact
+raw payload once, and times only the public `QrDecoder::decode_matrix` call.
+On Apple Silicon with Rust 1.85.0, `cargo bench --bench matrix_decode` reported
+a 95% interval of **6.9299–7.0763 us** over 100 samples. The workload and
+timing boundary, full command, environment, and before/after rules are in
+`docs/wp007_matrix_latency.md`. There is no valid pre-WP-007 number because
+the prior revision had no equivalent fixed-fixture benchmark; it is explicitly
+recorded as not measured rather than inferred from detector timings. This is a
+current baseline, not proof that latency dropped substantially. The remaining
+WP-007 completion evidence is a matched pre/post Criterion comparison plus
+the existing targeted photographic recovery checks; do not infer a reduction
+from the no-regression checks above.
 
 ---
 
@@ -823,11 +834,17 @@ cargo test --lib concurrent_diagnostic_requests_keep_telemetry_request_scoped --
 cargo test --lib zero_candidate_limit_skips_work_without_diagnostics --all-features
 ```
 
-The remaining WP-008 work is deliberately explicit: propagate an erasure
-attempt budget through `decoder/qr_decoder/payload.rs` and replace its global
-atomic plus legacy decoder thread-local counters with a request context. That
-requires a coordinated payload/recovery refactor and must include nonzero
-erasure concurrency fixtures; it was outside this candidate-budget slice.
+**2026-07-12 request-context update:** `DecoderOptions` now owns the bounded
+confidence-guided RS-erasure budget (Fast/Balanced/Exhaustive: 4/16/64,
+overrideable with `with_erasure_attempt_limit`). The one
+`DecodeRequestContext` for an options-bearing request carries its deadline,
+remaining erasure attempts, and all decoder/erasure counters through the
+pipeline. The legacy `RS_ERASURE_GLOBAL_ATTEMPTS`, erasure `thread_local!`,
+and decoder/deadline `thread_local!` state are removed, so concurrent requests
+cannot reset, consume, or report one another's recovery state. Focused checks
+passed: `cargo fmt -- --check`, `cargo test --lib --all-features` (113 passed),
+`cargo test --test timeout_api_tests --all-features`, and
+`cargo test --test conformance_mutation_tests --all-features`.
 
 **Goal:** Replace global environment-driven and thread-local behavior with a
 production-quality library API.
@@ -952,7 +969,7 @@ decoding without unbounded offset searches.
 
 ## WP-012: Dense multi-QR detection
 
-**Status:** Can follow WP-010 independently of WP-011
+**Status:** In progress; first proposal-assignment and result-dedupe slice
 
 **Goal:** Make the seven `lots` images and realistic dense scenes first-class,
 not edge cases.
@@ -964,6 +981,27 @@ not edge cases.
 - Add spatial indexing for finder and symbol proposals.
 - Report symbols/second and recall as scene density rises.
 - Create controlled scenes with 1, 2, 5, 10, 25, 50, and 100 symbols.
+
+**2026-07-12 initial dense-scene slice:** Accepted decoded symbols now own
+their three finder proposals, rather than allowing a later candidate triple to
+reuse any of them. Ownership is assigned only after a successful decode, so a
+false high-ranked triple cannot starve a valid neighbour. Result deduplication
+is geometry-based: duplicate observations of the same region are suppressed,
+while physically distinct symbols carrying identical payloads are retained.
+Proposal-stage controlled scenes cover 1, 2, 5, 10, 25, 50, and 100 symbols
+and assert that module-scaled NMS preserves each symbol's three finders.
+Focused checks passed:
+
+```bash
+cargo test --lib pipeline::tests --all-features
+cargo test --lib detector::proposal::tests --all-features
+```
+
+**Remaining scope:** This is not yet dense-scene completion. It still needs a
+spatial index for grouping/region routing, rasterized multi-QR end-to-end
+scenes with bipartite geometry evaluation, measured density recall/throughput,
+and explicit duplicate/false-positive budgets. The 50-code 500 ms target is
+not claimed by this slice.
 
 **Acceptance criteria:**
 

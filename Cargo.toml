@@ -46,6 +46,10 @@ harness = false
 name = "real_qr_cc"
 harness = false
 
+[[bench]]
+name = "matrix_decode"
+harness = false
+
 [[bin]]
 name = "qrtool"
 path = "src/bin/qrtool.rs"

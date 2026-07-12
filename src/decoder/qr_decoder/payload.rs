@@ -4,6 +4,7 @@ use crate::decoder::function_mask::FunctionMask;
 use crate::decoder::modes::{
     alphanumeric::AlphanumericDecoder, kanji::KanjiDecoder, numeric::NumericDecoder,
 };
+use crate::decoder::qr_decoder::DecodeRequestContext;
 use crate::decoder::reed_solomon::ReedSolomonDecoder;
 use crate::decoder::tables::ec_block_info;
 use crate::decoder::unmask::unmask;
@@ -11,72 +12,15 @@ use crate::decoder::version::VersionInfo;
 use crate::models::{
     BitMatrix, ECLevel, Fnc1Position, QRCode, QRCodeMetadata, StructuredAppendInfo, Version,
 };
-use std::cell::RefCell;
-
-#[derive(Clone, Copy, Default)]
-struct ErasureCounters {
-    attempts: usize,
-    successes: usize,
-    hist_1: usize,
-    hist_2_3: usize,
-    hist_4_6: usize,
-    hist_7_plus: usize,
-}
-
-thread_local! {
-    static ERASURE_COUNTERS: RefCell<ErasureCounters> = const { RefCell::new(ErasureCounters {
-        attempts: 0,
-        successes: 0,
-        hist_1: 0,
-        hist_2_3: 0,
-        hist_4_6: 0,
-        hist_7_plus: 0,
-    }) };
-}
-
-/// Global counter for RS erasure attempts (across all blocks in an image)
-static RS_ERASURE_GLOBAL_ATTEMPTS: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
-
-pub(crate) fn reset_rs_erasure_global_counter() {
-    RS_ERASURE_GLOBAL_ATTEMPTS.store(0, std::sync::atomic::Ordering::Relaxed);
-}
-
-pub(crate) fn get_rs_erasure_global_counter() -> usize {
-    RS_ERASURE_GLOBAL_ATTEMPTS.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-pub(crate) fn increment_rs_erasure_global_counter() -> usize {
-    RS_ERASURE_GLOBAL_ATTEMPTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-}
-
-pub(super) fn reset_erasure_counters() {
-    ERASURE_COUNTERS.with(|c| *c.borrow_mut() = ErasureCounters::default());
-}
-
-pub(super) fn take_erasure_counters() -> (usize, usize, [usize; 4]) {
-    ERASURE_COUNTERS.with(|c| {
-        let ec = *c.borrow();
-        *c.borrow_mut() = ErasureCounters::default();
-        (
-            ec.attempts,
-            ec.successes,
-            [ec.hist_1, ec.hist_2_3, ec.hist_4_6, ec.hist_7_plus],
-        )
-    })
-}
-
-fn record_erasure_hist(count: usize) {
-    ERASURE_COUNTERS.with(|c| {
-        let mut ec = c.borrow_mut();
-        match count {
-            0 => {}
-            1 => ec.hist_1 += 1,
-            2..=3 => ec.hist_2_3 += 1,
-            4..=6 => ec.hist_4_6 += 1,
-            _ => ec.hist_7_plus += 1,
-        }
-    });
+fn record_erasure_hist(context: &mut DecodeRequestContext, count: usize) {
+    let counters = context.counters_mut();
+    match count {
+        0 => {}
+        1 => counters.rs_erasure_count_hist[0] += 1,
+        2..=3 => counters.rs_erasure_count_hist[1] += 1,
+        4..=6 => counters.rs_erasure_count_hist[2] += 1,
+        _ => counters.rs_erasure_count_hist[3] += 1,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -89,6 +33,7 @@ pub(super) fn try_decode_single(
     use_msb: bool,
     reverse_stream: bool,
     module_confidence: Option<&[u8]>,
+    context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     try_decode_single_internal(
         oriented,
@@ -100,6 +45,7 @@ pub(super) fn try_decode_single(
         reverse_stream,
         module_confidence,
         false,
+        context,
     )
 }
 
@@ -110,6 +56,7 @@ pub(super) fn try_decode_single_deterministic_erasures(
     format_info: &FormatInfo,
     module_confidence: &[u8],
 ) -> Option<QRCode> {
+    let mut context = DecodeRequestContext::default();
     [(true, false), (true, true), (false, false), (false, true)]
         .into_iter()
         .find_map(|(start_upward, swap_columns)| {
@@ -123,6 +70,7 @@ pub(super) fn try_decode_single_deterministic_erasures(
                 false,
                 Some(module_confidence),
                 true,
+                &mut context,
             )
         })
 }
@@ -138,6 +86,7 @@ fn try_decode_single_internal(
     reverse_stream: bool,
     module_confidence: Option<&[u8]>,
     deterministic_erasures: bool,
+    context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     let dimension = oriented.width();
     let func = FunctionMask::new(version_num);
@@ -202,6 +151,7 @@ fn try_decode_single_internal(
             Some(&codeword_confidence)
         },
         deterministic_erasures,
+        context,
     )?;
 
     let decoded = decode_payload_strict(&data_codewords, version_num)?;
@@ -266,7 +216,14 @@ pub(super) fn deinterleave_and_correct(
     version: u8,
     ec_level: ECLevel,
 ) -> Option<Vec<u8>> {
-    deinterleave_and_correct_with_confidence(codewords, version, ec_level, None, false)
+    deinterleave_and_correct_with_confidence(
+        codewords,
+        version,
+        ec_level,
+        None,
+        false,
+        &mut DecodeRequestContext::default(),
+    )
 }
 
 pub(super) fn deinterleave_and_correct_with_confidence(
@@ -275,6 +232,7 @@ pub(super) fn deinterleave_and_correct_with_confidence(
     ec_level: ECLevel,
     codeword_confidence: Option<&[u8]>,
     deterministic_erasures: bool,
+    context: &mut DecodeRequestContext,
 ) -> Option<Vec<u8>> {
     let info = ec_block_info(version, ec_level)?;
     let total = codewords.len();
@@ -356,7 +314,7 @@ pub(super) fn deinterleave_and_correct_with_confidence(
                     corrected = if deterministic_erasures {
                         rs.decode_with_erasures(block, &erasures).is_ok()
                     } else {
-                        try_erasure_with_cap(&rs, block, &erasures)
+                        try_erasure_with_cap(&rs, block, &erasures, context)
                     };
                 }
                 let _ = conf;
@@ -434,28 +392,20 @@ fn low_confidence_positions(confidence: &[u8], threshold: u8, max_count: usize) 
 }
 
 /// Check if RS erasure should be attempted based on global cap
-fn should_attempt_erasure() -> bool {
-    let global_cap = crate::decoder::config::rs_erasure_global_cap();
-    if global_cap == 0 {
+/// Attempt RS erasure while consuming this request's bounded recovery budget.
+fn try_erasure_with_cap(
+    rs: &ReedSolomonDecoder,
+    block: &mut [u8],
+    erasures: &[usize],
+    context: &mut DecodeRequestContext,
+) -> bool {
+    if !context.try_consume_erasure_attempt() {
         return false;
     }
-    let current = get_rs_erasure_global_counter();
-    current < global_cap
-}
-
-/// Attempt RS erasure with global cap tracking
-fn try_erasure_with_cap(rs: &ReedSolomonDecoder, block: &mut [u8], erasures: &[usize]) -> bool {
-    if !should_attempt_erasure() {
-        return false;
-    }
-    let current = increment_rs_erasure_global_counter();
-    if current > crate::decoder::config::rs_erasure_global_cap() {
-        return false;
-    }
-    ERASURE_COUNTERS.with(|c| c.borrow_mut().attempts += 1);
-    record_erasure_hist(erasures.len());
+    context.counters_mut().rs_erasure_attempts += 1;
+    record_erasure_hist(context, erasures.len());
     if rs.decode_with_erasures(block, erasures).is_ok() {
-        ERASURE_COUNTERS.with(|c| c.borrow_mut().successes += 1);
+        context.counters_mut().rs_erasure_successes += 1;
         return true;
     }
     false

@@ -46,9 +46,6 @@ pub(crate) const fn image_decode_attempt_budget() -> usize {
 pub(crate) const fn blur_disable_recovery_threshold() -> f32 {
     8.0
 }
-pub(crate) const fn rs_erasure_global_cap() -> usize {
-    0
-}
 pub(crate) const fn global_time_budget_ms() -> u64 {
     2_000
 }

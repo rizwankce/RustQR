@@ -1,6 +1,6 @@
 use crate::decoder::format::FormatInfo;
 use crate::decoder::function_mask::FunctionMask;
-use crate::decoder::qr_decoder::{orientation, payload};
+use crate::decoder::qr_decoder::{DecodeRequestContext, orientation, payload};
 use crate::models::{BitMatrix, ECLevel, MaskPattern, QRCode};
 
 fn fallback_ec_levels() -> &'static [ECLevel] {
@@ -18,7 +18,15 @@ fn strict_fallback_version_match() -> bool {
 const CANONICAL_TRAVERSAL: (bool, bool) = (true, false);
 
 pub(super) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
-    decode_from_matrix_internal(qr_matrix, version_num, None)
+    decode_from_matrix_in_context(qr_matrix, version_num, &mut DecodeRequestContext::default())
+}
+
+pub(super) fn decode_from_matrix_in_context(
+    qr_matrix: &BitMatrix,
+    version_num: u8,
+    context: &mut DecodeRequestContext,
+) -> Option<QRCode> {
+    decode_from_matrix_internal(qr_matrix, version_num, None, context)
 }
 
 pub(super) fn decode_from_matrix_with_confidence(
@@ -26,13 +34,28 @@ pub(super) fn decode_from_matrix_with_confidence(
     version_num: u8,
     module_confidence: &[u8],
 ) -> Option<QRCode> {
-    decode_from_matrix_internal(qr_matrix, version_num, Some(module_confidence))
+    decode_from_matrix_with_confidence_in_context(
+        qr_matrix,
+        version_num,
+        module_confidence,
+        &mut DecodeRequestContext::default(),
+    )
+}
+
+pub(super) fn decode_from_matrix_with_confidence_in_context(
+    qr_matrix: &BitMatrix,
+    version_num: u8,
+    module_confidence: &[u8],
+    context: &mut DecodeRequestContext,
+) -> Option<QRCode> {
+    decode_from_matrix_internal(qr_matrix, version_num, Some(module_confidence), context)
 }
 
 fn decode_from_matrix_internal(
     qr_matrix: &BitMatrix,
     version_num: u8,
     module_confidence: Option<&[u8]>,
+    context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     let mut orientations = orientation::candidate_orientations(qr_matrix);
     if orientations.is_empty() {
@@ -77,7 +100,7 @@ fn decode_from_matrix_internal(
             }
             if let Some(format_info) = FormatInfo::extract(oriented) {
                 if let Some(qr) =
-                    try_decode_canonical(oriented, v_num, &format_info, module_confidence)
+                    try_decode_canonical(oriented, v_num, &format_info, module_confidence, context)
                 {
                     return Some(qr);
                 }
@@ -85,12 +108,19 @@ fn decode_from_matrix_internal(
         }
     }
 
-    if let Some(qr) = decode_recovery_phase(&orientations, &corrected_versions, module_confidence) {
+    if let Some(qr) = decode_recovery_phase(
+        &orientations,
+        &corrected_versions,
+        module_confidence,
+        context,
+    ) {
         return Some(qr);
     }
 
     if let Some(conf) = module_confidence {
-        if let Some(qr) = attempt_uncertain_module_beam_repair(qr_matrix, version_num, conf) {
+        if let Some(qr) =
+            attempt_uncertain_module_beam_repair(qr_matrix, version_num, conf, context)
+        {
             return Some(qr);
         }
     }
@@ -103,6 +133,7 @@ fn try_decode_canonical(
     version_num: u8,
     format_info: &FormatInfo,
     module_confidence: Option<&[u8]>,
+    context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     let (start_upward, swap_columns) = CANONICAL_TRAVERSAL;
     payload::try_decode_single(
@@ -114,6 +145,7 @@ fn try_decode_canonical(
         true,
         false,
         module_confidence,
+        context,
     )
 }
 
@@ -125,6 +157,7 @@ fn decode_recovery_phase(
     orientations: &[BitMatrix],
     corrected_versions: &[u8],
     module_confidence: Option<&[u8]>,
+    context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     const RECOVERY_TRAVERSALS: [(bool, bool); 3] = [(true, true), (false, false), (false, true)];
 
@@ -145,7 +178,7 @@ fn decode_recovery_phase(
             .sort_by_key(|oriented| orientation::structural_mismatch_score(oriented));
 
         for oriented in ranked_orientations {
-            if super::global_deadline_expired() {
+            if context.deadline_expired() {
                 return None;
             }
 
@@ -153,7 +186,7 @@ fn decode_recovery_phase(
             // non-canonical traversal hypotheses here.
             if let Some(format_info) = FormatInfo::extract(oriented) {
                 for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
-                    if super::global_deadline_expired() {
+                    if context.deadline_expired() {
                         return None;
                     }
                     if let Some(qr) = payload::try_decode_single(
@@ -165,6 +198,7 @@ fn decode_recovery_phase(
                         true,
                         false,
                         module_confidence,
+                        context,
                     ) {
                         return Some(qr);
                     }
@@ -174,16 +208,16 @@ fn decode_recovery_phase(
             // Soft BCH candidates are ranked by their codeword distance in
             // FormatInfo and are only considered after the exact candidate.
             for format_info in FormatInfo::extract_soft(oriented, 6) {
-                if super::global_deadline_expired() {
+                if context.deadline_expired() {
                     return None;
                 }
                 if let Some(qr) =
-                    try_decode_canonical(oriented, v_num, &format_info, module_confidence)
+                    try_decode_canonical(oriented, v_num, &format_info, module_confidence, context)
                 {
                     return Some(qr);
                 }
                 for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
-                    if super::global_deadline_expired() {
+                    if context.deadline_expired() {
                         return None;
                     }
                     if let Some(qr) = payload::try_decode_single(
@@ -195,6 +229,7 @@ fn decode_recovery_phase(
                         true,
                         false,
                         module_confidence,
+                        context,
                     ) {
                         return Some(qr);
                     }
@@ -219,15 +254,15 @@ fn decode_recovery_phase(
             .sort_by_key(|oriented| orientation::structural_mismatch_score(oriented));
 
         for oriented in ranked_orientations {
-            if super::global_deadline_expired() {
+            if context.deadline_expired() {
                 return None;
             }
             for &ec in fallback_ec_levels() {
-                if super::global_deadline_expired() {
+                if context.deadline_expired() {
                     return None;
                 }
                 for mask in 0..8u8 {
-                    if super::global_deadline_expired() {
+                    if context.deadline_expired() {
                         return None;
                     }
                     if let Some(mask_pattern) = MaskPattern::from_bits(mask) {
@@ -236,12 +271,12 @@ fn decode_recovery_phase(
                             mask_pattern,
                         };
                         if let Some(qr) =
-                            try_decode_canonical(oriented, v_num, &info, module_confidence)
+                            try_decode_canonical(oriented, v_num, &info, module_confidence, context)
                         {
                             return Some(qr);
                         }
                         for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
-                            if super::global_deadline_expired() {
+                            if context.deadline_expired() {
                                 return None;
                             }
                             if let Some(qr) = payload::try_decode_single(
@@ -253,6 +288,7 @@ fn decode_recovery_phase(
                                 true,
                                 false,
                                 module_confidence,
+                                context,
                             ) {
                                 return Some(qr);
                             }
@@ -269,6 +305,7 @@ fn attempt_uncertain_module_beam_repair(
     qr_matrix: &BitMatrix,
     version_num: u8,
     module_confidence: &[u8],
+    context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     use std::time::Instant;
 
@@ -284,8 +321,10 @@ fn attempt_uncertain_module_beam_repair(
     let uncertain_max = crate::decoder::config::beam_uncertain_max();
 
     let started = Instant::now();
+    let request_deadline = context.deadline();
     let budget_exhausted = || {
-        super::global_deadline_expired() || started.elapsed().as_millis() as u64 >= time_budget_ms
+        request_deadline.is_some_and(|deadline| Instant::now() >= deadline)
+            || started.elapsed().as_millis() as u64 >= time_budget_ms
     };
 
     let dim = qr_matrix.width();
@@ -325,7 +364,7 @@ fn attempt_uncertain_module_beam_repair(
             break;
         }
         attempts += 1;
-        if let Some(qr) = decode_with_flips(qr_matrix, version_num, &[i]) {
+        if let Some(qr) = decode_with_flips(qr_matrix, version_num, &[i], context) {
             return Some(qr);
         }
     }
@@ -336,9 +375,12 @@ fn attempt_uncertain_module_beam_repair(
                     break;
                 }
                 attempts += 1;
-                if let Some(qr) =
-                    decode_with_flips(qr_matrix, version_num, &[positions[a], positions[b]])
-                {
+                if let Some(qr) = decode_with_flips(
+                    qr_matrix,
+                    version_num,
+                    &[positions[a], positions[b]],
+                    context,
+                ) {
                     return Some(qr);
                 }
             }
@@ -359,6 +401,7 @@ fn attempt_uncertain_module_beam_repair(
                         qr_matrix,
                         version_num,
                         &[positions[a], positions[b], positions[c]],
+                        context,
                     ) {
                         return Some(qr);
                     }
@@ -376,7 +419,12 @@ fn attempt_uncertain_module_beam_repair(
     None
 }
 
-fn decode_with_flips(qr_matrix: &BitMatrix, version_num: u8, flips: &[usize]) -> Option<QRCode> {
+fn decode_with_flips(
+    qr_matrix: &BitMatrix,
+    version_num: u8,
+    flips: &[usize],
+    context: &mut DecodeRequestContext,
+) -> Option<QRCode> {
     let dim = qr_matrix.width();
     let mut mutated = qr_matrix.clone();
     for &idx in flips {
@@ -387,5 +435,5 @@ fn decode_with_flips(qr_matrix: &BitMatrix, version_num: u8, flips: &[usize]) ->
         let y = idx / dim;
         mutated.set(x, y, !mutated.get(x, y));
     }
-    decode_from_matrix_internal(&mutated, version_num, None)
+    decode_from_matrix_internal(&mutated, version_num, None, context)
 }

@@ -49,21 +49,23 @@ pub struct DecoderOptions {
     preset: DecoderPreset,
     deadline: std::time::Duration,
     candidate_limit: usize,
+    erasure_attempt_limit: usize,
     diagnostics: bool,
 }
 
 impl DecoderOptions {
     /// Start with the named recovery preset.
     pub const fn with_preset(preset: DecoderPreset) -> Self {
-        let (deadline, candidate_limit) = match preset {
-            DecoderPreset::Fast => (std::time::Duration::from_millis(250), 16),
-            DecoderPreset::Balanced => (std::time::Duration::from_secs(2), 128),
-            DecoderPreset::Exhaustive => (std::time::Duration::from_secs(10), 512),
+        let (deadline, candidate_limit, erasure_attempt_limit) = match preset {
+            DecoderPreset::Fast => (std::time::Duration::from_millis(250), 16, 4),
+            DecoderPreset::Balanced => (std::time::Duration::from_secs(2), 128, 16),
+            DecoderPreset::Exhaustive => (std::time::Duration::from_secs(10), 512, 64),
         };
         Self {
             preset,
             deadline,
             candidate_limit,
+            erasure_attempt_limit,
             diagnostics: false,
         }
     }
@@ -80,6 +82,16 @@ impl DecoderOptions {
     /// callers that want to exercise only cheap detection stages.
     pub const fn with_candidate_limit(mut self, candidate_limit: usize) -> Self {
         self.candidate_limit = candidate_limit;
+        self
+    }
+
+    /// Set the maximum number of confidence-guided Reed-Solomon erasure
+    /// recovery attempts for this request.
+    ///
+    /// The budget is shared by all candidate matrices within the request; a
+    /// value of zero disables this optional recovery path.
+    pub const fn with_erasure_attempt_limit(mut self, erasure_attempt_limit: usize) -> Self {
+        self.erasure_attempt_limit = erasure_attempt_limit;
         self
     }
 
@@ -102,6 +114,11 @@ impl DecoderOptions {
     /// Maximum candidate decode attempts available to this request.
     pub const fn candidate_limit(self) -> usize {
         self.candidate_limit
+    }
+
+    /// Maximum confidence-guided RS erasure recovery attempts for this request.
+    pub const fn erasure_attempt_limit(self) -> usize {
+        self.erasure_attempt_limit
     }
 
     /// Whether diagnostics are collected for this request.
@@ -349,9 +366,7 @@ impl DetectionTelemetry {
     }
 }
 
-use decoder::qr_decoder::{
-    clear_global_deadline, reset_decode_counters, set_global_deadline, take_decode_counters,
-};
+use decoder::qr_decoder::DecodeRequestContext;
 use detector::contour::ContourDetector;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
@@ -1161,22 +1176,18 @@ pub fn try_detect_with_options(
     let gray = input_to_grayscale(input)?;
 
     if !options.diagnostics_enabled() {
-        let start = std::time::Instant::now();
-        let deadline = start + options.deadline();
-        set_global_deadline(deadline);
-        let codes = if start >= deadline || options.candidate_limit() == 0 {
-            Vec::new()
-        } else {
-            let fast = run_fast_path(&gray, width, height);
-            if fast.is_empty() && std::time::Instant::now() < deadline {
-                run_detection_with_phase4_fallbacks(&gray, width, height, || {
-                    std::time::Instant::now() >= deadline
-                })
-            } else {
-                fast
-            }
-        };
-        clear_global_deadline();
+        let mut rgb = Vec::with_capacity(gray.len() * 3);
+        for value in gray {
+            rgb.extend_from_slice(&[value, value, value]);
+        }
+        let (codes, _) = detect_with_telemetry_budget(
+            &rgb,
+            width,
+            height,
+            Some(options.deadline()),
+            Some(options.candidate_limit()),
+            Some(options.erasure_attempt_limit()),
+        );
         return Ok(DetectionResult {
             codes,
             diagnostics: RequestDiagnostics {
@@ -1199,6 +1210,7 @@ pub fn try_detect_with_options(
         height,
         Some(options.deadline()),
         Some(options.candidate_limit()),
+        Some(options.erasure_attempt_limit()),
     );
     let failure_stage = if codes.is_empty() {
         Some(if started.elapsed() >= options.deadline() {
@@ -1249,23 +1261,17 @@ pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
 fn detect_grayscale_validated(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     let start = std::time::Instant::now();
     let budget_ms = decoder::config::global_time_budget_ms();
-    let deadline = start + std::time::Duration::from_millis(budget_ms);
-    set_global_deadline(deadline);
     let is_expired = || start.elapsed().as_millis() as u64 >= budget_ms;
 
     if is_expired() {
-        clear_global_deadline();
         return Vec::new();
     }
     let fast = run_fast_path(image, width, height);
     if !fast.is_empty() {
-        clear_global_deadline();
         return fast;
     }
 
-    let results = run_detection_with_phase4_fallbacks(image, width, height, is_expired);
-    clear_global_deadline();
-    results
+    run_detection_with_phase4_fallbacks(image, width, height, is_expired)
 }
 
 /// Detect QR codes in an RGB image, returning telemetry about which pipeline
@@ -1278,7 +1284,7 @@ pub fn detect_with_telemetry(
     width: usize,
     height: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, None, None)
+    detect_with_telemetry_budget(image, width, height, None, None, None)
 }
 
 /// Detect with telemetry while applying a caller-supplied cooperative budget.
@@ -1293,7 +1299,7 @@ pub fn detect_with_telemetry_timeout(
     height: usize,
     timeout: std::time::Duration,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, Some(timeout), None)
+    detect_with_telemetry_budget(image, width, height, Some(timeout), None, None)
 }
 
 fn detect_with_telemetry_budget(
@@ -1302,23 +1308,25 @@ fn detect_with_telemetry_budget(
     height: usize,
     requested_timeout: Option<std::time::Duration>,
     requested_candidate_limit: Option<usize>,
+    requested_erasure_attempt_limit: Option<usize>,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     if validate_input(ImageInput::new(image, width, height, PixelFormat::Rgb)).is_err() {
         return (Vec::new(), DetectionTelemetry::default());
     }
     let mut tel = DetectionTelemetry::default();
-    reset_decode_counters();
 
     let start_tel = std::time::Instant::now();
     let budget_tel = requested_timeout.unwrap_or_else(|| {
         std::time::Duration::from_millis(decoder::config::global_time_budget_ms())
     });
     let deadline_tel = start_tel + budget_tel;
-    set_global_deadline(deadline_tel);
+    let mut decode_context = DecodeRequestContext::with_deadline(
+        requested_erasure_attempt_limit.unwrap_or(0),
+        deadline_tel,
+    );
     let is_expired_tel = || start_tel.elapsed() >= budget_tel;
     let gray = rgb_to_grayscale(image, width, height);
     if is_expired_tel() {
-        clear_global_deadline();
         return (Vec::new(), tel);
     }
     let request_candidate_limit =
@@ -1335,7 +1343,6 @@ fn detect_with_telemetry_budget(
         );
         if !results.is_empty() {
             tel.qr_codes_found = results.len();
-            clear_global_deadline();
             return (results, tel);
         }
     }
@@ -1371,13 +1378,14 @@ fn detect_with_telemetry_budget(
         let too_many_patterns = finder_patterns.len() > FINDER_PATTERN_THRESHOLD;
 
         if finder_patterns.len() >= 3 && !too_many_patterns {
-            let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
+            let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited_in_context(
                 &binary,
                 &gray,
                 width,
                 height,
                 &finder_patterns,
                 remaining_attempts,
+                &mut decode_context,
             );
             remaining_attempts = remaining_attempts.saturating_sub(decode_tel.decode_attempts);
             tel.merge_high_water_from(&decode_tel);
@@ -1413,14 +1421,16 @@ fn detect_with_telemetry_budget(
         if too_many_patterns {
             let contour_patterns = ContourDetector::detect(&binary);
             if contour_patterns.len() >= 3 {
-                let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
-                    &binary,
-                    &gray,
-                    width,
-                    height,
-                    &contour_patterns,
-                    remaining_attempts,
-                );
+                let (decoded, decode_tel) =
+                    pipeline::decode_groups_with_telemetry_limited_in_context(
+                        &binary,
+                        &gray,
+                        width,
+                        height,
+                        &contour_patterns,
+                        remaining_attempts,
+                        &mut decode_context,
+                    );
                 remaining_attempts = remaining_attempts.saturating_sub(decode_tel.decode_attempts);
                 tel.merge_high_water_from(&decode_tel);
                 if !decoded.is_empty() {
@@ -1443,14 +1453,16 @@ fn detect_with_telemetry_budget(
             let binary = binarize_with_policy(&gray, width, height, policy);
             let contour_patterns = ContourDetector::detect(&binary);
             if contour_patterns.len() >= 3 && contour_patterns.len() <= FINDER_PATTERN_THRESHOLD {
-                let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
-                    &binary,
-                    &gray,
-                    width,
-                    height,
-                    &contour_patterns,
-                    remaining_attempts,
-                );
+                let (decoded, decode_tel) =
+                    pipeline::decode_groups_with_telemetry_limited_in_context(
+                        &binary,
+                        &gray,
+                        width,
+                        height,
+                        &contour_patterns,
+                        remaining_attempts,
+                        &mut decode_context,
+                    );
                 remaining_attempts = remaining_attempts.saturating_sub(decode_tel.decode_attempts);
                 tel.merge_high_water_from(&decode_tel);
                 if !decoded.is_empty() {
@@ -1476,14 +1488,16 @@ fn detect_with_telemetry_budget(
             };
             tel.finder_patterns_found = tel.finder_patterns_found.max(norm_patterns.len());
             if norm_patterns.len() >= 3 {
-                let (decoded, decode_tel) = pipeline::decode_groups_with_telemetry_limited(
-                    &norm_binary,
-                    &normalized_gray,
-                    width,
-                    height,
-                    &norm_patterns,
-                    remaining_attempts,
-                );
+                let (decoded, decode_tel) =
+                    pipeline::decode_groups_with_telemetry_limited_in_context(
+                        &norm_binary,
+                        &normalized_gray,
+                        width,
+                        height,
+                        &norm_patterns,
+                        remaining_attempts,
+                        &mut decode_context,
+                    );
                 tel.merge_high_water_from(&decode_tel);
                 if !decoded.is_empty() {
                     tel.roi_norm_successes += 1;
@@ -1498,7 +1512,7 @@ fn detect_with_telemetry_budget(
     }
 
     tel.qr_codes_found = results.len();
-    let counters = take_decode_counters();
+    let counters = decode_context.counters();
     tel.deskew_attempts = counters.deskew_attempts;
     tel.deskew_successes = counters.deskew_successes;
     tel.high_version_precision_attempts = counters.high_version_precision_attempts;
@@ -1513,7 +1527,6 @@ fn detect_with_telemetry_budget(
     tel.rs_erasure_successes = counters.rs_erasure_successes;
     tel.rs_erasure_count_hist = counters.rs_erasure_count_hist;
     tel.phase11_time_budget_skips = counters.phase11_time_budget_skips;
-    clear_global_deadline();
     (results, tel)
 }
 
@@ -1740,8 +1753,15 @@ mod tests {
         assert!(balanced.deadline() < exhaustive.deadline());
         assert!(fast.candidate_limit() < balanced.candidate_limit());
         assert!(balanced.candidate_limit() < exhaustive.candidate_limit());
+        assert!(fast.erasure_attempt_limit() < balanced.erasure_attempt_limit());
+        assert!(balanced.erasure_attempt_limit() < exhaustive.erasure_attempt_limit());
         assert_eq!(fast.with_candidate_limit(3).candidate_limit(), 3);
+        assert_eq!(
+            fast.with_erasure_attempt_limit(3).erasure_attempt_limit(),
+            3
+        );
         assert_eq!(fast.candidate_limit(), 16);
+        assert_eq!(fast.erasure_attempt_limit(), 4);
         assert!(!fast.diagnostics_enabled());
         assert!(fast.with_diagnostics(true).diagnostics_enabled());
         assert!(!fast.diagnostics_enabled());
