@@ -1146,7 +1146,8 @@ git diff --check
 
 ## WP-014: Performance engineering after correctness
 
-**Status:** Blocked by WP-007, WP-010, and trustworthy benchmarks
+**Status:** Groundwork recorded; performance changes remain blocked by WP-007,
+WP-010, a successful multi-code lane, and trustworthy matched benchmarks
 
 **Goal:** Reach OSS-leading latency without sacrificing verified correctness.
 
@@ -1168,11 +1169,26 @@ git diff --check
 - Beat the fastest tested OSS implementation, or remain within 10% while
   achieving at least three percentage points higher recall.
 
+**2026-07-12 groundwork evidence:** Added a reproducible local baseline
+collector, `scripts/collect_wp014_baseline.py`, and its allocation-aware
+Criterion probe, `benches/wp014_profiles.rs`. The probe separates loaded-RGB
+`detect` timing/allocation/throughput from fresh-process end-to-end timing and
+sampled RSS. Its fixed clean (`nominal/image005.jpg`) and hard
+(`damaged/image002.jpg`) lanes currently decode; the dense `lots/image001.jpg`
+control currently returns zero symbols and is deliberately marked as a
+negative control rather than a successful multi-code performance result. The
+allocation-only smoke (`WP014_ALLOCATION_ONLY=1 WP014_PROFILE_ITERATIONS=1
+cargo bench --bench wp014_profiles --features tools -- --noplot`) recorded
+first-call allocation counts of 13,711 (clean), 758,042 (hard), and 17,561,330
+(multi candidate). See `docs/wp014_baseline.md` for boundaries, commands, and
+remaining gates. No target claim or detector optimization is implied.
+
 ---
 
 ## WP-015: Platform and packaging roadmap
 
-**Status:** Blocked by stable API and correctness gates
+**Status:** In progress — feature separation and package metadata landed; core
+extraction and non-desktop support remain gated
 
 **Goal:** Turn the decoder into an adoptable OSS product.
 
@@ -1191,6 +1207,28 @@ git diff --check
 - Platform claims correspond to continuously tested build or runtime lanes.
 - Optional dependencies do not leak into the core configuration.
 - Bindings share conformance fixtures with the Rust API.
+
+**2026-07-12 packaging/core assessment:** The current crate cannot truthfully
+offer `no_std + alloc`: public request options, diagnostics, image pipeline,
+and decoder timing use `std`, so extracting only selected modules would not
+create a usable supported core.  Instead, the package now declares MSRV 1.85
+and separates Rayon (`parallel`), private grayscale SIMD (`simd`), and image
+loading (`image-loading`) into optional features. Default behavior remains
+`parallel + simd`; scalar fallbacks preserve the public helper APIs with
+`--no-default-features`. `tools` owns the optional image loader and CLI.
+
+CI now checks the minimal feature set and MSRV in addition to its hosted
+Linux/macOS/Windows test lanes. This is build/test evidence only: WASM, iOS,
+Android, bindings, and `no_std` remain explicitly unsupported/planned until
+dedicated extraction and continuous target lanes exist.
+
+**Validation:**
+
+```bash
+cargo test --lib --no-default-features
+cargo test --lib --all-features
+cargo clippy --all-targets --all-features -- -D warnings
+```
 
 ---
 

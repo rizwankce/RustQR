@@ -10,10 +10,10 @@
 /// - Fallback: Scalar processing with manual 8x loop unrolling
 
 // Platform-specific SIMD implementations
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use std::arch::x86_64::*;
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
 use std::arch::aarch64::*;
 
 /// Coefficients for grayscale conversion: Y = (76*R + 150*G + 29*B) >> 8
@@ -34,7 +34,7 @@ pub fn rgb_to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
     }
     let mut gray = vec![0u8; pixel_count];
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         unsafe {
             rgb_to_grayscale_sse2(rgb, &mut gray, pixel_count);
@@ -42,7 +42,7 @@ pub fn rgb_to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
         gray
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         unsafe {
             rgb_to_grayscale_neon(rgb, &mut gray, pixel_count);
@@ -50,7 +50,7 @@ pub fn rgb_to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
         gray
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(all(feature = "simd", any(target_arch = "x86_64", target_arch = "aarch64"))))]
     {
         rgb_to_grayscale_scalar_unrolled(rgb, &mut gray, pixel_count);
         gray
@@ -70,7 +70,7 @@ pub fn rgba_to_grayscale(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
     }
     let mut gray = vec![0u8; pixel_count];
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         unsafe {
             rgba_to_grayscale_sse2(rgba, &mut gray, pixel_count);
@@ -78,7 +78,7 @@ pub fn rgba_to_grayscale(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
         gray
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         unsafe {
             rgba_to_grayscale_neon(rgba, &mut gray, pixel_count);
@@ -86,7 +86,7 @@ pub fn rgba_to_grayscale(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
         gray
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(all(feature = "simd", any(target_arch = "x86_64", target_arch = "aarch64"))))]
     {
         rgba_to_grayscale_scalar_unrolled(rgba, &mut gray, pixel_count);
         gray
@@ -143,7 +143,7 @@ pub fn normalize_roi_local_contrast(
 
 // ============== x86_64 SSE2 Implementation ==============
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[target_feature(enable = "sse2")]
 /// # Safety
 ///
@@ -178,7 +178,7 @@ unsafe fn rgb_to_grayscale_sse2(rgb: &[u8], gray: &mut [u8], pixel_count: usize)
     }
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[target_feature(enable = "sse2")]
 /// # Safety
 ///
@@ -214,7 +214,7 @@ unsafe fn rgba_to_grayscale_sse2(rgba: &[u8], gray: &mut [u8], pixel_count: usiz
 }
 // ============== aarch64 NEON Implementation ==============
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
 #[target_feature(enable = "neon")]
 /// # Safety
 ///
@@ -266,7 +266,7 @@ unsafe fn rgb_to_grayscale_neon(rgb: &[u8], gray: &mut [u8], pixel_count: usize)
     }
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(feature = "simd", target_arch = "aarch64"))]
 #[target_feature(enable = "neon")]
 /// # Safety
 ///
@@ -320,7 +320,7 @@ unsafe fn rgba_to_grayscale_neon(rgba: &[u8], gray: &mut [u8], pixel_count: usiz
 
 // ============== Scalar Fallback Implementation ==============
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(all(feature = "simd", any(target_arch = "x86_64", target_arch = "aarch64"))))]
 fn rgb_to_grayscale_scalar_unrolled(rgb: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgb.as_ptr();
@@ -354,7 +354,7 @@ fn rgb_to_grayscale_scalar_unrolled(rgb: &[u8], gray: &mut [u8], pixel_count: us
     }
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(all(feature = "simd", any(target_arch = "x86_64", target_arch = "aarch64"))))]
 fn rgba_to_grayscale_scalar_unrolled(rgba: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgba.as_ptr();
@@ -390,6 +390,7 @@ fn rgba_to_grayscale_scalar_unrolled(rgba: &[u8], gray: &mut [u8], pixel_count: 
 
 // ============== Parallel Processing with Rayon ==============
 
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 /// Convert RGB to grayscale using parallel processing
@@ -401,9 +402,14 @@ pub fn rgb_to_grayscale_parallel(rgb: &[u8], width: usize, height: usize) -> Vec
     if width == 0 || rgb.len() < pixel_count.saturating_mul(3) {
         return Vec::new();
     }
+    #[cfg(not(feature = "parallel"))]
+    return rgb_to_grayscale(rgb, width, height);
+
+    #[cfg(feature = "parallel")]
     let mut gray = vec![0u8; pixel_count];
 
     // Process rows in parallel
+    #[cfg(feature = "parallel")]
     gray.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
         let row_start = y * width * 3;
         for (x, px) in row.iter_mut().enumerate().take(width) {
@@ -416,7 +422,8 @@ pub fn rgb_to_grayscale_parallel(rgb: &[u8], width: usize, height: usize) -> Vec
         }
     });
 
-    gray
+    #[cfg(feature = "parallel")]
+    return gray;
 }
 
 /// Convert RGBA to grayscale using parallel processing
@@ -427,9 +434,14 @@ pub fn rgba_to_grayscale_parallel(rgba: &[u8], width: usize, height: usize) -> V
     if width == 0 || rgba.len() < pixel_count.saturating_mul(4) {
         return Vec::new();
     }
+    #[cfg(not(feature = "parallel"))]
+    return rgba_to_grayscale(rgba, width, height);
+
+    #[cfg(feature = "parallel")]
     let mut gray = vec![0u8; pixel_count];
 
     // Process rows in parallel
+    #[cfg(feature = "parallel")]
     gray.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
         let row_start = y * width * 4;
         for (x, px) in row.iter_mut().enumerate().take(width) {
@@ -442,7 +454,8 @@ pub fn rgba_to_grayscale_parallel(rgba: &[u8], width: usize, height: usize) -> V
         }
     });
 
-    gray
+    #[cfg(feature = "parallel")]
+    return gray;
 }
 
 #[cfg(test)]
@@ -484,6 +497,21 @@ mod tests {
         let gray = rgba_to_grayscale(&rgba, 1, 1);
         assert_eq!(gray.len(), 1);
     }
+
+    #[test]
+    fn parallel_helpers_match_scalar_api() {
+        let rgb = vec![255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255];
+        assert_eq!(
+            rgb_to_grayscale_parallel(&rgb, 2, 2),
+            rgb_to_grayscale(&rgb, 2, 2)
+        );
+
+        let rgba = vec![255, 0, 0, 1, 0, 255, 0, 2, 0, 0, 255, 3, 255, 255, 255, 4];
+        assert_eq!(
+            rgba_to_grayscale_parallel(&rgba, 2, 2),
+            rgba_to_grayscale(&rgba, 2, 2)
+        );
+    }
 }
 
 /// Convert RGB to grayscale using a pre-allocated buffer (no allocation)
@@ -513,21 +541,21 @@ pub fn rgb_to_grayscale_with_buffer(
         return 0;
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         unsafe {
             rgb_to_grayscale_sse2(rgb, output, pixel_count);
         }
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         unsafe {
             rgb_to_grayscale_neon(rgb, output, pixel_count);
         }
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(all(feature = "simd", any(target_arch = "x86_64", target_arch = "aarch64"))))]
     {
         rgb_to_grayscale_scalar_unrolled(rgb, output, pixel_count);
     }
@@ -552,21 +580,21 @@ pub fn rgba_to_grayscale_with_buffer(
         return 0;
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         unsafe {
             rgba_to_grayscale_sse2(rgba, output, pixel_count);
         }
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         unsafe {
             rgba_to_grayscale_neon(rgba, output, pixel_count);
         }
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(all(feature = "simd", any(target_arch = "x86_64", target_arch = "aarch64"))))]
     {
         rgba_to_grayscale_scalar_unrolled(rgba, output, pixel_count);
     }

@@ -95,6 +95,7 @@ impl FinderDetector {
 
     /// Detect finder patterns using parallel processing
     /// Processes rows and columns in parallel for multi-core speedup
+    #[cfg(feature = "parallel")]
     pub fn detect_parallel(matrix: &BitMatrix) -> Vec<FinderPattern> {
         use rayon::prelude::*;
 
@@ -146,6 +147,13 @@ impl FinderDetector {
         }
 
         Self::merge_candidates(candidates)
+    }
+
+    /// Detect finder patterns with the same API when parallel support is not
+    /// selected. The scalar scan preserves deterministic candidate ordering.
+    #[cfg(not(feature = "parallel"))]
+    pub fn detect_parallel(matrix: &BitMatrix) -> Vec<FinderPattern> {
+        Self::detect(matrix)
     }
 
     /// Detect finder patterns using multi-scale pyramid approach

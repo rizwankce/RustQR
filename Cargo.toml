@@ -2,6 +2,7 @@
 name = "rust_qr"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 authors = ["Rizwan <rizwan@example.com>"]
 description = "Experimental QR Code Model 2 detector and decoder in Rust"
 license = "MIT OR Apache-2.0"
@@ -10,12 +11,21 @@ keywords = ["qr", "qrcode", "barcode", "scanning", "vision"]
 categories = ["computer-vision"]
 
 [dependencies]
-rayon = "1.7"
-image = "0.24"
+rayon = { version = "1.7", optional = true }
+image = { version = "0.24", optional = true }
 clap = { version = "4.5", features = ["derive"], optional = true }
 
 [features]
-tools = ["clap"]
+default = ["parallel", "simd"]
+# Multi-core scan and grayscale helpers.  The public helpers retain scalar
+# fallbacks when this feature is disabled.
+parallel = ["dep:rayon"]
+# Enables the private x86_64/AArch64 grayscale kernels.  Scalar conversion is
+# used on other architectures and whenever this feature is disabled.
+simd = []
+# File loading is deliberately kept out of the library's core byte-slice API.
+image-loading = ["dep:image"]
+tools = ["dep:clap", "image-loading"]
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -49,6 +59,11 @@ harness = false
 [[bench]]
 name = "matrix_decode"
 harness = false
+
+[[bench]]
+name = "wp014_profiles"
+harness = false
+required-features = ["tools"]
 
 [[bin]]
 name = "qrtool"

@@ -30,9 +30,9 @@ incomplete.
 | Micro QR | Unsupported | `Version::Micro` is a data-model placeholder; single-finder Micro QR detection is not implemented |
 | GS1 / FNC1 | Unsupported | FNC1 mode indicators are not parsed |
 | Structured Append | Unsupported | Structured Append mode is not parsed |
-| Linux, macOS, Windows | Tested in CI | `.github/workflows/ci.yml` builds/tests x86_64 desktop targets |
+| Linux, macOS, Windows | Tested in CI | `.github/workflows/ci.yml` runs library tests on native hosted runners; this is not mobile support |
 | WASM, iOS, Android | Planned | No build or test lane currently verifies these targets |
-| `no_std` | Unsupported | The crate uses `std`, Rayon, and `image`; no `no_std` feature or CI lane exists |
+| `no_std` | Unsupported | The crate still exposes a `std`-based public API; feature separation is not an alloc-only core |
 
 The implementation uses small, private `unsafe` SIMD kernels on x86_64 and
 AArch64. Safe public image entry points validate dimensions, format, stride,
@@ -44,6 +44,22 @@ and buffer length before those kernels are reached.
 [dependencies]
 rust_qr = { git = "https://github.com/rizwankce/RustQR" }
 ```
+
+## Features and compatibility
+
+RustQR's default features preserve the normal desktop implementation:
+
+- `parallel` enables Rayon-backed scan and grayscale helpers. Disabling it
+  keeps the same public helpers and uses scalar, deterministic fallbacks.
+- `simd` enables private x86_64/AArch64 grayscale kernels. It can be disabled
+  for a scalar build; it is not a claim of support for every CPU target.
+- `image-loading` adds the optional `image` dependency used by the CLI loader.
+- `tools` enables `qrtool` and includes `image-loading`.
+
+The minimal supported library configuration is checked in CI with
+`cargo test --lib --no-default-features`. It is still a `std` crate: a separate
+`no_std + alloc` matrix-decoding crate has not yet been extracted. The declared
+minimum supported Rust version is 1.85 and has its own CI lane.
 
 ## Usage
 

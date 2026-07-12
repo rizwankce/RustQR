@@ -49,3 +49,19 @@ jobs:
           components: clippy
       - run: cargo clippy
         continue-on-error: true
+
+  minimum-features:
+    name: Minimal feature set
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --lib --no-default-features
+
+  msrv:
+    name: MSRV (1.85)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85
+      - run: cargo test --lib
