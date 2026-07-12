@@ -44,6 +44,24 @@ def deterministic_payload(seed: str, version: int, ec_level: str, mask: int, mod
 def case_record(seed: str, version: int, ec_level: str, mask: int, mode: str) -> dict:
     payload = deterministic_payload(seed, version, ec_level, mask, mode)
     case_key = f"v{version:02}-{ec_level}-m{mask}-{mode}"
+    expected = {
+        "raw_payload_hex": payload.hex(),
+        "version": version,
+        "ec_level": ec_level,
+        "mask": mask,
+        "mode": mode,
+    }
+    # These representative symbols contain QR headers in addition to their
+    # payload segment. Keep the expected header values in the manifest so an
+    # end-to-end matrix test can assert the public decoder metadata too.
+    if mode == "eci":
+        expected["metadata"] = {"eci_assignment": 26}
+    elif mode == "gs1_fnc1":
+        expected["metadata"] = {"fnc1": {"position": "first"}}
+    elif mode == "structured_append":
+        expected["metadata"] = {
+            "structured_append": {"index": 2, "total_symbols": 4, "parity": 0xA7}
+        }
     return {
         "id": case_key,
         "seed": seed,
@@ -54,13 +72,7 @@ def case_record(seed: str, version: int, ec_level: str, mask: int, mode: str) ->
         "mode": mode,
         "capacity_boundary": "representative",
         "payload_hex": payload.hex(),
-        "expected": {
-            "raw_payload_hex": payload.hex(),
-            "version": version,
-            "ec_level": ec_level,
-            "mask": mask,
-            "mode": mode,
-        },
+        "expected": expected,
         "matrix": {
             "path": None,
             "sha256": None,
@@ -83,11 +95,12 @@ def generate_manifest(seed: str = DEFAULT_SEED, full: bool = False) -> dict:
         )
     else:
         # Cover each axis without checking in the full Cartesian product.
+        header_versions = {"gs1_fnc1": 2, "structured_append": 2}
         tuples = iter(
             sorted(
                 {(v, ec, 0, "byte") for v in versions for ec in EC_LEVELS}
                 | {(1, "L", mask, "byte") for mask in MASKS}
-                | {(1, "M", 3, mode) for mode in MODES}
+                | {(header_versions.get(mode, 1), "M", 3, mode) for mode in MODES}
             )
         )
     cases = [case_record(seed, *case) for case in tuples]

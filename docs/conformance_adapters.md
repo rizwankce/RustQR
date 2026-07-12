@@ -34,16 +34,14 @@ valid-fixture success.
 
 ## Current RustQR support gaps
 
-The present payload parser handles numeric, alphanumeric, and byte segments.
-It reconstructs Kanji Shift-JIS bytes but converts display text lossily and has
-no dedicated conformance coverage. It consumes ECI assignment numbers but
-does not apply the selected character encoding. GS1/FNC1 and Structured Append
-mode indicators return a generic decode failure. `QRCode` also has no segment,
-ECI, GS1, or Structured Append metadata fields, so those features cannot yet
-be differentially asserted beyond raw payload behavior.
+The payload parser handles numeric, alphanumeric, byte, and Kanji segments. It
+preserves Kanji Shift-JIS bytes but converts display text lossily. It records
+ECI assignment numbers, GS1/FNC1 position, and Structured Append sequence
+metadata, but intentionally does not apply ECI character-set conversion or
+reassemble Structured Append symbols. The compact corpus has end-to-end
+matrices for these headers; adapters that return only text still cannot verify
+non-UTF-8 raw bytes or RustQR metadata fields.
 
-Until WP-007 introduces explicit decoder errors, unsupported modes are not
-distinguishable from corrupt matrices through the public matrix decoder. The
-conformance harness must therefore classify those manifest cases as expected
-unsupported rather than treating a generic failure as proof of correct
-feature handling.
+The public matrix decoder reports unsupported advertised modes explicitly. The
+conformance harness treats a decoder failure as a valid outcome only for an
+artifact whose manifest expectation is rejection.

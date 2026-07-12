@@ -582,6 +582,9 @@
       "expected": {
         "ec_level": "M",
         "mask": 3,
+        "metadata": {
+          "eci_assignment": 26
+        },
         "mode": "eci",
         "raw_payload_hex": "e98e1972",
         "version": 1
@@ -589,42 +592,17 @@
       "id": "v01-M-m3-eci",
       "mask": 3,
       "matrix": {
-        "generator_backend": "python-qrcode==8.2",
-        "path": null,
-        "sha256": null,
-        "status": "unsupported_mode"
+        "generator_backend": "python-qrcode==8.2+iso-header-adapter-v1",
+        "path": "matrices/v01-M-m3-eci.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "3960cec35ba70ba8b10dcd6cbc6eac40c4c4aaaf5d2b10947598a778e2d24e92",
+        "status": "generated",
+        "symbol_dimension": 21
       },
       "mode": "eci",
       "model": 2,
       "payload_hex": "e98e1972",
-      "seed": "rustqr-model2-conformance-v1",
-      "version": 1
-    },
-    {
-      "capacity_boundary": "representative",
-      "differential": {
-        "decoders": [],
-        "status": "pending"
-      },
-      "ec_level": "M",
-      "expected": {
-        "ec_level": "M",
-        "mask": 3,
-        "mode": "gs1_fnc1",
-        "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-        "version": 1
-      },
-      "id": "v01-M-m3-gs1_fnc1",
-      "mask": 3,
-      "matrix": {
-        "generator_backend": "python-qrcode==8.2",
-        "path": null,
-        "sha256": null,
-        "status": "unsupported_mode"
-      },
-      "mode": "gs1_fnc1",
-      "model": 2,
-      "payload_hex": "303130393530313130313533303030331d3137323731323331",
       "seed": "rustqr-model2-conformance-v1",
       "version": 1
     },
@@ -645,10 +623,13 @@
       "id": "v01-M-m3-kanji",
       "mask": 3,
       "matrix": {
-        "generator_backend": "python-qrcode==8.2",
-        "path": null,
-        "sha256": null,
-        "status": "unsupported_mode"
+        "generator_backend": "python-qrcode==8.2+iso-header-adapter-v1",
+        "path": "matrices/v01-M-m3-kanji.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "dad2600e0da959cf3a72d45d1b45649c48f19f33a38c5d5ac5addb9658255643",
+        "status": "generated",
+        "symbol_dimension": 21
       },
       "mode": "kanji",
       "model": 2,
@@ -684,34 +665,6 @@
       "mode": "numeric",
       "model": 2,
       "payload_hex": "3730303036343533",
-      "seed": "rustqr-model2-conformance-v1",
-      "version": 1
-    },
-    {
-      "capacity_boundary": "representative",
-      "differential": {
-        "decoders": [],
-        "status": "pending"
-      },
-      "ec_level": "M",
-      "expected": {
-        "ec_level": "M",
-        "mask": 3,
-        "mode": "structured_append",
-        "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-        "version": 1
-      },
-      "id": "v01-M-m3-structured_append",
-      "mask": 3,
-      "matrix": {
-        "generator_backend": "python-qrcode==8.2",
-        "path": null,
-        "sha256": null,
-        "status": "unsupported_mode"
-      },
-      "mode": "structured_append",
-      "model": 2,
-      "payload_hex": "5255535451522d535452554354555245442d415050454e44",
       "seed": "rustqr-model2-conformance-v1",
       "version": 1
     },
@@ -836,6 +789,80 @@
       "mode": "byte",
       "model": 2,
       "payload_hex": "356666613366",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 2
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "metadata": {
+          "fnc1": {
+            "position": "first"
+          }
+        },
+        "mode": "gs1_fnc1",
+        "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+        "version": 2
+      },
+      "id": "v02-M-m3-gs1_fnc1",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2+iso-header-adapter-v1",
+        "path": "matrices/v02-M-m3-gs1_fnc1.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "233fcbecfaaa6b84da3e4fa287d1fc1bb89f3a784a54ea91b735c53b637ca686",
+        "status": "generated",
+        "symbol_dimension": 25
+      },
+      "mode": "gs1_fnc1",
+      "model": 2,
+      "payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 2
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "metadata": {
+          "structured_append": {
+            "index": 2,
+            "parity": 167,
+            "total_symbols": 4
+          }
+        },
+        "mode": "structured_append",
+        "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+        "version": 2
+      },
+      "id": "v02-M-m3-structured_append",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2+iso-header-adapter-v1",
+        "path": "matrices/v02-M-m3-structured_append.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "d44d5718b6a1fc1e60503427e2548426ddb3a67dc6e67942314d9b4c0768397e",
+        "status": "generated",
+        "symbol_dimension": 25
+      },
+      "mode": "structured_append",
+      "model": 2,
+      "payload_hex": "5255535451522d535452554354555245442d415050454e44",
       "seed": "rustqr-model2-conformance-v1",
       "version": 2
     },

@@ -38,11 +38,15 @@ python3 scripts/materialize_conformance_matrices.py \
   --manifest conformance/manifest.json
 ```
 
-The backend fixes Model 2 version, EC level, and mask, and generates only
-numeric, alphanumeric, and byte cases. It records the PNG SHA-256, symbol
-dimension, quiet zone, pixel scale, and backend version. It also binary-searches
-the encoder's maximum capacity for each materialized version/EC/mode tuple and
-records that the maximum is accepted and maximum-plus-one is rejected.
+The backend fixes Model 2 version, EC level, and mask. It generates numeric,
+alphanumeric, and byte cases with `python-qrcode==8.2`, and materializes the
+four compact header-mode fixtures through a small ISO segment adapter. That
+adapter writes Kanji, ECI, FNC1, and Structured Append header bits directly,
+then delegates RS coding and module placement to the pinned backend. It records
+the PNG SHA-256, symbol dimension, quiet zone, pixel scale, and backend version.
+It also binary-searches the encoder's maximum capacity for each materialized
+version/EC/mode tuple and records that the maximum is accepted and
+maximum-plus-one is rejected.
 
 Run the independent decoder adapters and reproduce `differential-report.json`
 with:
@@ -62,9 +66,11 @@ four unsupported-mode scaffolds are excluded from generated-fixture totals.
 
 Kanji payload bytes are Shift-JIS. The decoder records ECI assignment numbers,
 GS1/FNC1 position (including the second-position application indicator), and
-Structured Append sequence metadata. The four mode scaffolds remain excluded
-from generated-fixture totals until independently generated matrix fixtures are
-available for those headers.
+Structured Append sequence metadata. The compact corpus contains one valid
+matrix for each of Kanji, ECI, GS1/FNC1, and Structured Append; its integration
+test asserts the exact raw payload plus public metadata. Header fixtures are
+intentionally not included in the 3,840-case full supported-mode grid, which
+continues to measure numeric, alphanumeric, and byte coverage only.
 
 `mutation_plan.json` records deterministic corruption intent separately from
 the generated matrices. Regenerate it with:

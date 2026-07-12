@@ -1,6 +1,7 @@
 use rust_qr::BitMatrix;
 use rust_qr::decoder::qr_decoder::{MatrixDataMode, MatrixDecodeError, QrDecoder};
 use rust_qr::decoder::version::VersionInfo;
+use rust_qr::models::{Fnc1Position, StructuredAppendInfo};
 use rust_qr::{ECLevel, Version};
 use serde_json::Value;
 use std::fs;
@@ -63,6 +64,49 @@ fn ec_level(value: &str) -> ECLevel {
         "Q" => ECLevel::Q,
         "H" => ECLevel::H,
         other => panic!("unknown EC level {other}"),
+    }
+}
+
+fn assert_fixture_metadata(decoded: &rust_qr::QRCode, expected: &Value, id: &str) {
+    let Some(metadata) = expected.get("metadata") else {
+        assert_eq!(
+            decoded.metadata.eci_assignment, None,
+            "{id}: unexpected ECI"
+        );
+        assert_eq!(decoded.metadata.fnc1, None, "{id}: unexpected FNC1");
+        assert_eq!(
+            decoded.metadata.structured_append, None,
+            "{id}: unexpected Structured Append"
+        );
+        return;
+    };
+    if let Some(assignment) = metadata.get("eci_assignment") {
+        assert_eq!(
+            decoded.metadata.eci_assignment,
+            Some(assignment.as_u64().expect("ECI assignment") as u32),
+            "{id}: ECI assignment"
+        );
+    }
+    if let Some(fnc1) = metadata.get("fnc1") {
+        match fnc1["position"].as_str().expect("FNC1 position") {
+            "first" => assert_eq!(
+                decoded.metadata.fnc1,
+                Some(Fnc1Position::First),
+                "{id}: FNC1"
+            ),
+            position => panic!("{id}: unsupported FNC1 expectation {position}"),
+        }
+    }
+    if let Some(append) = metadata.get("structured_append") {
+        assert_eq!(
+            decoded.metadata.structured_append,
+            Some(StructuredAppendInfo {
+                index: append["index"].as_u64().expect("append index") as u8,
+                total_symbols: append["total_symbols"].as_u64().expect("append total") as u8,
+                parity: append["parity"].as_u64().expect("append parity") as u8,
+            }),
+            "{id}: Structured Append"
+        );
     }
 }
 
@@ -132,19 +176,24 @@ fn assert_generated_supported_corpus(root: &Path, expected_cases: Option<usize>)
             version,
             mode(fixture["mode"].as_str().expect("mode")),
         ) {
-            Ok(decoded)
-                if decoded.data == expected
-                    && decoded.version == Version::Model2(version)
+            Ok(decoded) => {
+                let matches_matrix_metadata = decoded.version == Version::Model2(version)
                     && decoded.error_correction
-                        == ec_level(
-                            fixture["expected"]["ec_level"].as_str().expect("EC level"),
-                        )
+                        == ec_level(fixture["expected"]["ec_level"].as_str().expect("EC level"))
                     && decoded.mask_pattern as u64
-                        == fixture["expected"]["mask"].as_u64().expect("mask") => {}
-            Ok(decoded) => failures.push(format!(
-                "{id}: payload {:?}, version {:?}, EC {:?}, mask {:?}",
-                decoded.data, decoded.version, decoded.error_correction, decoded.mask_pattern
-            )),
+                        == fixture["expected"]["mask"].as_u64().expect("mask");
+                if decoded.data != expected || !matches_matrix_metadata {
+                    failures.push(format!(
+                        "{id}: payload {:?}, version {:?}, EC {:?}, mask {:?}",
+                        decoded.data,
+                        decoded.version,
+                        decoded.error_correction,
+                        decoded.mask_pattern
+                    ));
+                } else {
+                    assert_fixture_metadata(&decoded, &fixture["expected"], id);
+                }
+            }
             Err(error) => failures.push(format!("{id}: {error:?}")),
         }
     }
@@ -365,7 +414,7 @@ fn version_fixture_mutation_replaces_valid_redundant_version_information() {
 #[test]
 fn generated_supported_corpus_reaches_one_hundred_percent() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("conformance");
-    assert_generated_supported_corpus(&root, Some(30));
+    assert_generated_supported_corpus(&root, Some(34));
 }
 
 #[test]

@@ -23,17 +23,18 @@ MATERIALIZER = load(MATERIALIZER_PATH, "materializer")
 
 
 class MaterializerTests(unittest.TestCase):
-    def test_materializes_supported_case_and_marks_unsupported(self):
+    def test_materializes_supported_and_header_cases(self):
         manifest = GENERATOR.generate_manifest()
         manifest["cases"] = [
             next(case for case in manifest["cases"] if case["mode"] == "byte"),
             next(case for case in manifest["cases"] if case["mode"] == "eci"),
+            next(case for case in manifest["cases"] if case["mode"] == "kanji"),
         ]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "manifest.json"
             path.write_text(json.dumps(manifest), encoding="utf-8")
             result = MATERIALIZER.materialize(path)
-            generated, unsupported = result["cases"]
+            generated, eci, kanji = result["cases"]
             self.assertEqual(generated["matrix"]["status"], "generated")
             matrix = path.parent / generated["matrix"]["path"]
             self.assertTrue(matrix.is_file())
@@ -42,7 +43,9 @@ class MaterializerTests(unittest.TestCase):
                 hashlib.sha256(matrix.read_bytes()).hexdigest(),
             )
             self.assertEqual(generated["matrix"]["generator_backend"], MATERIALIZER.BACKEND)
-            self.assertEqual(unsupported["matrix"]["status"], "unsupported_mode")
+            self.assertEqual(eci["matrix"]["status"], "generated")
+            self.assertEqual(eci["matrix"]["generator_backend"], MATERIALIZER.HEADER_BACKEND)
+            self.assertEqual(kanji["matrix"]["status"], "generated")
             self.assertGreater(result["capacity_validation"][0]["maximum_units"], 0)
             self.assertTrue(result["capacity_validation"][0]["maximum_plus_one_rejected"])
 

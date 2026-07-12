@@ -135,7 +135,7 @@ passes 100%; failures remain visible rather than being removed from the grid.
 
 #### WP-006B: Unsupported mode implementation
 
-**Status:** Decoder implementation complete locally; independent matrix fixtures pending
+**Status:** Completed locally (compact end-to-end fixtures)
 
 **Ownership:** decoder mode/payload/model files plus focused unit fixtures.
 Avoid corpus generator and benchmark evaluator files.
@@ -178,9 +178,27 @@ full-grid test ignored), and `git diff --check`. Follow-up: materialize
 independently generated ECI, GS1/FNC1, Structured Append, and Kanji matrices,
 then change their manifest statuses and add end-to-end matrix metadata checks.
 
+**Completion record (2026-07-12):** Materialized deterministic valid Kanji,
+ECI, GS1/FNC1, and Structured Append matrices in the compact foundation
+corpus. `scripts/materialize_conformance_matrices.py` now contains a narrow
+ISO header-segment adapter that writes the otherwise unsupported mode/header
+bits directly and delegates RS coding/module placement to pinned
+`python-qrcode==8.2`. The matrix integration test verifies raw payload,
+version, EC level, mask, and public metadata (ECI assignment 26, FNC1-first,
+and Structured Append index 2 of 4 with parity `0xa7`). GS1 uses a real
+alphanumeric `%` separator and asserts its decoded `0x1d` group separator.
+The header fixtures are compact representatives rather than part of the 3,840
+numeric/alphanumeric/byte full-grid gate. Passed:
+
+```bash
+python3 scripts/generate_conformance_manifest.py --output conformance/manifest.json
+python3 scripts/materialize_conformance_matrices.py --manifest conformance/manifest.json
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+cargo test --test conformance_matrix_tests --all-features
+```
+
 **Done when:** each implemented capability has deterministic valid fixtures and
-explicit metadata assertions. The parser-level portion is complete; end-to-end
-matrix fixtures remain pending an independent matrix backend.
+explicit metadata assertions. Complete for the supported scope above.
 
 #### WP-006C: Remaining block-layout mutations
 

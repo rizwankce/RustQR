@@ -26,10 +26,10 @@ repository as of 2026-07-11.
 | Alphanumeric | Tested | `test_decode_alphanumeric_mode` and mode-unit tests |
 | Byte | Tested | `test_decode_payload_byte_mode` and golden matrix decoding |
 | Mixed modes | Tested | `test_decode_mixed_modes` |
-| Kanji | Partial | Shift-JIS code units are reconstructed, but text conversion is lossy and untested |
-| ECI | Partial | Variable-length assignment numbers are consumed but ignored; no character-set conversion or dedicated test |
-| GS1 / FNC1 | Unsupported | Mode indicators 0101 and 1001 are not parsed |
-| Structured Append | Unsupported | Mode indicator 0011 is not parsed |
+| Kanji | Tested | Shift-JIS code units are reconstructed; a materialized matrix asserts the raw bytes for `漢字` |
+| ECI | Partial | All assignment-number widths are recorded as metadata; character-set conversion is intentionally not applied |
+| GS1 / FNC1 | Partial | FNC1 first/second headers and alphanumeric `%` substitution are decoded; one FNC1-first matrix is covered |
+| Structured Append | Partial | Sequence index, total count, and parity are recorded; one materialized header matrix is covered |
 | Inverted symbols | Partial | Sampled matrices are retried inverted; no dedicated end-to-end fixture |
 | Rotated symbols | Partial | Eight orientation transforms are attempted; real-image rotation coverage is ignored by default |
 | Mirrored symbols | Partial | Reflection transforms exist in orientation retries; no dedicated fixture |
