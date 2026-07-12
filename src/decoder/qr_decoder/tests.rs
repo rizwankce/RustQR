@@ -1,6 +1,85 @@
 use super::*;
 use crate::models::ECLevel;
-use crate::models::Version;
+use crate::models::MaskPattern;
+use crate::models::{Fnc1Position, StructuredAppendInfo, Version};
+
+#[test]
+fn matrix_api_rejects_invalid_and_mismatched_dimensions() {
+    assert!(matches!(
+        QrDecoder::decode_matrix(&BitMatrix::new(20, 20), 1),
+        Err(MatrixDecodeError::InvalidDimensions)
+    ));
+    assert!(matches!(
+        QrDecoder::decode_matrix(&BitMatrix::new(25, 25), 1),
+        Err(MatrixDecodeError::VersionDimensionMismatch)
+    ));
+}
+
+#[test]
+fn matrix_api_advertises_supported_metadata_modes() {
+    let matrix = BitMatrix::new(21, 21);
+    for mode in [
+        MatrixDataMode::Eci,
+        MatrixDataMode::Gs1Fnc1,
+        MatrixDataMode::StructuredAppend,
+    ] {
+        assert!(matches!(
+            QrDecoder::decode_matrix_for_mode(&matrix, 1, mode),
+            Err(MatrixDecodeError::DecodeFailed)
+        ));
+    }
+}
+
+#[test]
+fn deterministic_boundary_positions_are_reproducible() {
+    fn positions(seed: u64, count: usize, limit: usize) -> Vec<usize> {
+        let mut state = seed;
+        let mut output = Vec::new();
+        while output.len() < count {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let candidate = (state as usize) % limit;
+            if !output.contains(&candidate) {
+                output.push(candidate);
+            }
+        }
+        output
+    }
+
+    let first = positions(0x5255_5354_5152, 10, 26);
+    assert_eq!(first, positions(0x5255_5354_5152, 10, 26));
+    assert_ne!(first, positions(0x5255_5354_5153, 10, 26));
+}
+
+#[test]
+fn decoded_position_uses_outer_symbol_boundary() {
+    let transform = QrDecoder::build_transform(
+        &Point::new(13.5, 13.5),
+        &Point::new(27.5, 13.5),
+        &Point::new(13.5, 27.5),
+        &Point::new(27.5, 27.5),
+        21,
+    )
+    .unwrap();
+    let qr = QRCode::new(
+        vec![1],
+        "test".to_string(),
+        Version::Model2(1),
+        ECLevel::L,
+        MaskPattern::Pattern0,
+    );
+
+    let positioned = QrDecoder::with_position(qr, &transform, 21);
+
+    let expected = [
+        Point::new(10.0, 10.0),
+        Point::new(31.0, 10.0),
+        Point::new(31.0, 31.0),
+        Point::new(10.0, 31.0),
+    ];
+    for (actual, expected) in positioned.position.iter().zip(expected) {
+        assert!(actual.distance(&expected) < 0.001);
+    }
+}
 
 #[test]
 fn test_decoder_basic() {
@@ -29,6 +108,105 @@ fn test_decode_payload_byte_mode() {
     let (data, content) = payload::decode_payload(&codewords, 1).unwrap();
     assert_eq!(content, "HI");
     assert_eq!(data, b"HI");
+}
+
+#[test]
+fn test_decode_payload_kanji_preserves_shift_jis_bytes() {
+    let mut bits = Vec::new();
+    push_bits(&mut bits, 0b1000, 4); // Kanji mode
+    push_bits(&mut bits, 2, 8); // count for version 1
+    push_bits(&mut bits, 0x073f, 13); // "漢" (8a bf in Shift-JIS)
+    push_bits(&mut bits, 0x0a1a, 13); // "字" (8e 9a in Shift-JIS)
+    push_bits(&mut bits, 0, 4); // terminator
+
+    let codewords = payload::bits_to_codewords(&bits);
+    let (data, _) = payload::decode_payload(&codewords, 1).expect("valid Kanji payload");
+    assert_eq!(data, [0x8a, 0xbf, 0x8e, 0x9a]);
+}
+
+#[test]
+fn test_decode_payload_eci_records_all_assignment_widths() {
+    for (assignment, encoded) in [
+        (26u32, vec![(26, 8)]),
+        (899, vec![(0x80 | (899 >> 8), 8), (899 & 0xff, 8)]),
+        (
+            1_000_000,
+            vec![(0xc0 | (1_000_000 >> 16), 8), (1_000_000 & 0xffff, 16)],
+        ),
+    ] {
+        let mut bits = Vec::new();
+        push_bits(&mut bits, 0b0111, 4); // ECI
+        for (value, width) in encoded {
+            push_bits(&mut bits, value, width);
+        }
+        push_bits(&mut bits, 0b0100, 4); // Byte mode
+        push_bits(&mut bits, 2, 8);
+        push_bits(&mut bits, b'H' as u32, 8);
+        push_bits(&mut bits, b'I' as u32, 8);
+        push_bits(&mut bits, 0, 4);
+
+        let codewords = payload::bits_to_codewords(&bits);
+        let (data, content, metadata) =
+            payload::decode_payload_with_metadata(&codewords, 1).expect("valid ECI payload");
+        assert_eq!(data, b"HI");
+        assert_eq!(content, "HI");
+        assert_eq!(metadata.eci_assignment, Some(assignment));
+    }
+}
+
+#[test]
+fn test_decode_payload_gs1_fnc1_substitutes_alphanumeric_percent() {
+    let mut bits = Vec::new();
+    push_bits(&mut bits, 0b0101, 4); // FNC1 first position
+    push_bits(&mut bits, 0b0010, 4); // Alphanumeric mode
+    push_bits(&mut bits, 5, 9);
+    // "A%B%%": pairs A/% and B/%, then a final %.
+    push_bits(&mut bits, 10 * 45 + 38, 11);
+    push_bits(&mut bits, 11 * 45 + 38, 11);
+    push_bits(&mut bits, 38, 6);
+    push_bits(&mut bits, 0, 4);
+
+    let codewords = payload::bits_to_codewords(&bits);
+    let (data, content, metadata) =
+        payload::decode_payload_with_metadata(&codewords, 1).expect("valid GS1 payload");
+    assert_eq!(data, b"A\x1dB%");
+    assert_eq!(content, "A\u{1d}B%");
+    assert_eq!(metadata.fnc1, Some(Fnc1Position::First));
+}
+
+#[test]
+fn test_decode_payload_fnc1_second_and_structured_append_metadata() {
+    let mut bits = Vec::new();
+    push_bits(&mut bits, 0b0011, 4); // Structured Append
+    push_bits(&mut bits, 2, 4); // third symbol
+    push_bits(&mut bits, 3, 4); // four symbols total (encoded as total - 1)
+    push_bits(&mut bits, 0xa5, 8);
+    push_bits(&mut bits, 0b1001, 4); // FNC1 second position
+    push_bits(&mut bits, 0x42, 8);
+    push_bits(&mut bits, 0b0100, 4); // Byte mode
+    push_bits(&mut bits, 1, 8);
+    push_bits(&mut bits, b'X' as u32, 8);
+    push_bits(&mut bits, 0, 4);
+
+    let codewords = payload::bits_to_codewords(&bits);
+    let (data, content, metadata) = payload::decode_payload_with_metadata(&codewords, 1)
+        .expect("valid Structured Append payload");
+    assert_eq!(data, b"X");
+    assert_eq!(content, "X");
+    assert_eq!(
+        metadata.structured_append,
+        Some(StructuredAppendInfo {
+            index: 2,
+            total_symbols: 4,
+            parity: 0xa5,
+        })
+    );
+    assert_eq!(
+        metadata.fnc1,
+        Some(Fnc1Position::Second {
+            application_indicator: 0x42,
+        })
+    );
 }
 
 fn push_bits(bits: &mut Vec<bool>, value: u32, count: usize) {
@@ -135,9 +313,8 @@ fn test_golden_matrix_decode() {
         }
     }
 
-    let result = QrDecoder::decode_from_matrix(&matrix, 1);
-    assert!(result.is_some(), "Failed to decode golden QR matrix");
-    let qr = result.unwrap();
+    let qr = QrDecoder::decode_matrix_for_mode(&matrix, 1, MatrixDataMode::Numeric)
+        .expect("failed to decode valid golden QR matrix fixture");
     assert_eq!(qr.content, "4376471154038");
 }
 

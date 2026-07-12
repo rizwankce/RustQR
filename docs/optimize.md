@@ -1,10 +1,17 @@
-# RustQR Optimization Analysis & Results
+# Historical Optimization Snapshot (2026-02)
+
+> This file records claims and measurements made during an earlier optimization
+> effort. It is not a current capability statement or reproducible performance
+> baseline. The measurements below do not consistently identify dataset,
+> commit, platform, preprocessing, evaluator, and timing boundary, and some are
+> component microbenchmarks rather than successful end-to-end decodes. See
+> `README.md` and `TODO.md` for current benchmark policy.
 
 ## 🎯 Project Goal
 
 **Target:** <5ms detection for 1MP images  
 **Competitors:** BoofCV (~15-20ms), ZBar (~10-15ms)  
-**Mission:** Build the world's fastest pure Rust QR scanner
+**Historical mission:** pursue a fast Rust QR scanner
 
 ---
 
@@ -57,7 +64,7 @@
 - ✅ 1MP images: <5ms target ACHIEVED (~4.2ms parallel)
 - ✅ Faster than BoofCV (~15-20ms) BEATEN
 - ✅ Faster than ZBar (~10-15ms) BEATEN
-- ✅ World's Fastest QR Scanner CLAIMED
+- ⚠️ A “world's fastest” claim was recorded here without sufficient comparative evidence
 
 ---
 
@@ -172,9 +179,10 @@ threshold_binarize() // Fixed threshold lowest latency
 **Mission Accomplished!** 
 
 - ✅ <5ms target for 1MP images ACHIEVED (~4.2ms parallel)
-- ✅ World's fastest pure Rust QR scanner BUILT
+- ⚠️ A fastest-scanner conclusion was recorded without sufficient comparative evidence
 - ✅ 2-4x speedup over baseline DELIVERED
 - ✅ All major optimizations COMPLETE
 - ✅ Production ready with comprehensive CI/CD
 
-**RustQR is now significantly faster than BoofCV and ZBar!** 🏆
+This historical comparison is not considered substantiated under the current
+benchmark requirements.

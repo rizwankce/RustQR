@@ -4,8 +4,9 @@ use rust_qr::detector::finder::FinderDetector;
 use rust_qr::models::{BitMatrix, Point};
 use rust_qr::tools::{
     bench_limit_from_env, binarize, binary_stats, dataset_fingerprint, dataset_iter,
-    dataset_root_from_env, detect_qr, grayscale_stats, load_rgb, parse_expected_qr_count,
-    smoke_from_env, to_grayscale,
+    dataset_root_from_env, detect_qr, grayscale_stats, label_fingerprint, load_rgb,
+    load_rgb_with_geometry, parse_localization_labels, parse_payload_label, scale_quadrilaterals,
+    score_localizations, score_payloads, smoke_from_env, to_grayscale,
 };
 use rust_qr::utils::geometry::PerspectiveTransform;
 use std::collections::BTreeMap;
@@ -63,6 +64,12 @@ enum Command {
         /// Optional category to run (e.g. lots, rotations, high_version).
         #[arg(long)]
         category: Option<String>,
+        /// Mark images exceeding this end-to-end deadline as timed out (0 disables).
+        #[arg(long, default_value_t = 0)]
+        timeout_ms: u64,
+        /// Treat same-stem .txt labels as exact payloads instead of quadrilaterals.
+        #[arg(long)]
+        payload_validated: bool,
     },
     /// Iterate a dataset and run detection once per image
     DatasetBench {
@@ -90,7 +97,9 @@ fn main() {
             non_interactive,
             progress_every,
             category,
-        } => reading_rate_cmd(
+            timeout_ms,
+            payload_validated,
+        } => reading_rate_cmd(ReadingRateOptions {
             root,
             limit,
             smoke,
@@ -98,7 +107,9 @@ fn main() {
             non_interactive,
             progress_every,
             category,
-        ),
+            timeout_ms,
+            payload_validated,
+        }),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
     }
 }
@@ -301,7 +312,7 @@ fn decode_from_points(binary: &BitMatrix, points: &[Point]) {
     }
 }
 
-fn reading_rate_cmd(
+struct ReadingRateOptions {
     root: Option<PathBuf>,
     limit: Option<usize>,
     smoke: bool,
@@ -309,7 +320,22 @@ fn reading_rate_cmd(
     non_interactive: bool,
     progress_every: usize,
     category: Option<String>,
-) {
+    timeout_ms: u64,
+    payload_validated: bool,
+}
+
+fn reading_rate_cmd(options: ReadingRateOptions) {
+    let ReadingRateOptions {
+        root,
+        limit,
+        smoke,
+        artifact_json,
+        non_interactive,
+        progress_every,
+        category,
+        timeout_ms,
+        payload_validated,
+    } = options;
     let root = root.unwrap_or_else(dataset_root_from_env);
     let limit = limit.or_else(bench_limit_from_env);
     let smoke = smoke || smoke_from_env();
@@ -354,6 +380,16 @@ fn reading_rate_cmd(
     let datetime = utc_timestamp();
     let commit_sha = commit_sha();
     let data_fingerprint = dataset_fingerprint(&root);
+    let labels_fingerprint = label_fingerprint(&root);
+    let preprocessing_fingerprint = format!(
+        "rgb8;triangle-resize;max-dim={}",
+        std::env::var("QR_MAX_DIM").unwrap_or_else(|_| "none".to_string())
+    );
+    let evaluator_fingerprint = if payload_validated {
+        "mode=payload;matching=normalized-exact-one-to-one".to_string()
+    } else {
+        "mode=localization;quad-iou=0.5;matching=max-cardinality".to_string()
+    };
 
     println!("RustQR QR Code Reading Rate Benchmark");
     println!("=====================================");
@@ -381,6 +417,11 @@ fn reading_rate_cmd(
     let mut global_expected = 0usize;
     let mut global_images_with_labels = 0usize;
     let mut global_runtime_samples_ms: Vec<f64> = Vec::new();
+    let mut global_core_runtime_samples_ms: Vec<f64> = Vec::new();
+    let mut global_false_positives = 0usize;
+    let mut global_false_negatives = 0usize;
+    let mut global_duplicate_predictions = 0usize;
+    let mut global_timeouts = 0usize;
     let mut global_stage_telemetry = StageTelemetry::default();
     let mut global_failure_clusters: BTreeMap<String, FailureCluster> = BTreeMap::new();
     let mut category_results: Vec<CategoryResult> = Vec::new();
@@ -422,7 +463,19 @@ fn reading_rate_cmd(
             println!("  {}: no images found\n", dir);
             continue;
         }
-        let stats = reading_rate_for_images(images.into_iter(), non_interactive, progress_every);
+        let stats = match reading_rate_for_images(
+            images.into_iter(),
+            non_interactive,
+            progress_every,
+            timeout_ms,
+            payload_validated,
+        ) {
+            Ok(stats) => stats,
+            Err(error) => {
+                eprintln!("Reading-rate evaluation failed: {error}");
+                std::process::exit(2);
+            }
+        };
         if stats.total_expected == 0 {
             println!("  {}: no labeled images found\n", dir);
             continue;
@@ -436,6 +489,11 @@ fn reading_rate_cmd(
         global_expected += stats.total_expected;
         global_images_with_labels += stats.images_with_labels;
         global_runtime_samples_ms.extend(stats.runtime_samples_ms.iter().copied());
+        global_core_runtime_samples_ms.extend(stats.core_runtime_samples_ms.iter().copied());
+        global_false_positives += stats.false_positives;
+        global_false_negatives += stats.false_negatives;
+        global_duplicate_predictions += stats.duplicate_predictions;
+        global_timeouts += stats.timeouts;
         global_stage_telemetry.accumulate(stats.stage_telemetry);
         for (sig, cluster) in stats.failure_clusters {
             let entry = global_failure_clusters
@@ -459,8 +517,13 @@ fn reading_rate_cmd(
             hits: stats.hits,
             total_expected: stats.total_expected,
             images_with_labels: stats.images_with_labels,
+            false_positives: stats.false_positives,
+            false_negatives: stats.false_negatives,
+            duplicate_predictions: stats.duplicate_predictions,
+            timeouts: stats.timeouts,
             stage_telemetry: stats.stage_telemetry,
             runtime: RuntimeSummary::from_samples(&stats.runtime_samples_ms),
+            core_runtime: RuntimeSummary::from_samples(&stats.core_runtime_samples_ms),
         });
     }
 
@@ -700,16 +763,27 @@ fn reading_rate_cmd(
             let artifact = ReadingRateArtifact {
                 dataset_root: root.display().to_string(),
                 dataset_fingerprint: data_fingerprint,
+                label_fingerprint: labels_fingerprint,
+                evaluator_fingerprint,
+                preprocessing_fingerprint,
+                selected_category: category.clone(),
                 commit_sha,
                 timestamp_utc: datetime,
                 limit_per_category: limit,
                 smoke,
                 non_interactive,
+                timeout_ms,
+                payload_ground_truth_available: payload_validated,
                 weighted_global_rate_percent: global_rate,
                 total_hits: global_hits,
                 total_expected: global_expected,
                 total_images_with_labels: global_images_with_labels,
                 global_runtime,
+                global_core_runtime: RuntimeSummary::from_samples(&global_core_runtime_samples_ms),
+                false_positives: global_false_positives,
+                false_negatives: global_false_negatives,
+                duplicate_predictions: global_duplicate_predictions,
+                timeouts: global_timeouts,
                 categories: category_results,
                 failure_clusters: failure_rows,
             };
@@ -736,7 +810,19 @@ fn reading_rate_cmd(
         println!("No images found under {}", root.display());
         return;
     }
-    let stats = reading_rate_for_images(images.into_iter(), non_interactive, progress_every);
+    let stats = match reading_rate_for_images(
+        images.into_iter(),
+        non_interactive,
+        progress_every,
+        timeout_ms,
+        payload_validated,
+    ) {
+        Ok(stats) => stats,
+        Err(error) => {
+            eprintln!("Reading-rate evaluation failed: {error}");
+            std::process::exit(2);
+        }
+    };
     if stats.total_expected == 0 {
         println!("No labeled images found under {}", root.display());
         return;
@@ -751,16 +837,27 @@ fn reading_rate_cmd(
         let artifact = ReadingRateArtifact {
             dataset_root: root.display().to_string(),
             dataset_fingerprint: data_fingerprint,
+            label_fingerprint: labels_fingerprint,
+            evaluator_fingerprint,
+            preprocessing_fingerprint,
+            selected_category: category.clone(),
             commit_sha,
             timestamp_utc: datetime,
             limit_per_category: limit,
             smoke,
             non_interactive,
+            timeout_ms,
+            payload_ground_truth_available: payload_validated,
             weighted_global_rate_percent: rate,
             total_hits: stats.hits,
             total_expected: stats.total_expected,
             total_images_with_labels: stats.images_with_labels,
             global_runtime: RuntimeSummary::from_samples(&stats.runtime_samples_ms),
+            global_core_runtime: RuntimeSummary::from_samples(&stats.core_runtime_samples_ms),
+            false_positives: stats.false_positives,
+            false_negatives: stats.false_negatives,
+            duplicate_predictions: stats.duplicate_predictions,
+            timeouts: stats.timeouts,
             categories: Vec::new(),
             failure_clusters: Vec::new(),
         };
@@ -771,7 +868,7 @@ fn reading_rate_cmd(
 
 /// Per-QR-code scoring results for a set of images.
 struct ReadingRateStats {
-    /// Number of QR codes successfully decoded (capped at expected per image).
+    /// Number of predictions matched one-to-one to annotated locations.
     hits: usize,
     /// Total expected QR codes from label files.
     total_expected: usize,
@@ -781,6 +878,13 @@ struct ReadingRateStats {
     stage_telemetry: StageTelemetry,
     /// Runtime samples for successfully loaded images.
     runtime_samples_ms: Vec<f64>,
+    /// Detection-only samples; excludes image load, resize, and evaluation.
+    core_runtime_samples_ms: Vec<f64>,
+    false_positives: usize,
+    false_negatives: usize,
+    duplicate_predictions: usize,
+    /// Images whose end-to-end runtime exceeded the configured deadline.
+    timeouts: usize,
     /// Clustered failure signatures for missed images.
     failure_clusters: BTreeMap<String, FailureCluster>,
 }
@@ -971,8 +1075,19 @@ struct RuntimeSummary {
     total_ms: f64,
     mean_per_image_ms: f64,
     median_per_image_ms: f64,
+    p90_per_image_ms: f64,
+    p95_per_image_ms: f64,
+    p99_per_image_ms: f64,
     min_per_image_ms: f64,
     max_per_image_ms: f64,
+}
+
+fn percentile(sorted: &[f64], quantile: f64) -> f64 {
+    if sorted.is_empty() {
+        return 0.0;
+    }
+    let index = ((sorted.len() - 1) as f64 * quantile).ceil() as usize;
+    sorted[index.min(sorted.len() - 1)]
 }
 
 impl RuntimeSummary {
@@ -983,6 +1098,9 @@ impl RuntimeSummary {
                 total_ms: 0.0,
                 mean_per_image_ms: 0.0,
                 median_per_image_ms: 0.0,
+                p90_per_image_ms: 0.0,
+                p95_per_image_ms: 0.0,
+                p99_per_image_ms: 0.0,
                 min_per_image_ms: 0.0,
                 max_per_image_ms: 0.0,
             };
@@ -1003,6 +1121,9 @@ impl RuntimeSummary {
             total_ms,
             mean_per_image_ms,
             median_per_image_ms,
+            p90_per_image_ms: percentile(&sorted, 0.90),
+            p95_per_image_ms: percentile(&sorted, 0.95),
+            p99_per_image_ms: percentile(&sorted, 0.99),
             min_per_image_ms: *sorted.first().unwrap_or(&0.0),
             max_per_image_ms: *sorted.last().unwrap_or(&0.0),
         }
@@ -1015,23 +1136,39 @@ struct CategoryResult {
     hits: usize,
     total_expected: usize,
     images_with_labels: usize,
+    false_positives: usize,
+    false_negatives: usize,
+    duplicate_predictions: usize,
+    timeouts: usize,
     stage_telemetry: StageTelemetry,
     runtime: RuntimeSummary,
+    core_runtime: RuntimeSummary,
 }
 
 struct ReadingRateArtifact {
     dataset_root: String,
     dataset_fingerprint: String,
+    label_fingerprint: String,
+    evaluator_fingerprint: String,
+    preprocessing_fingerprint: String,
+    selected_category: Option<String>,
     commit_sha: String,
     timestamp_utc: String,
     limit_per_category: Option<usize>,
     smoke: bool,
     non_interactive: bool,
+    timeout_ms: u64,
+    payload_ground_truth_available: bool,
     weighted_global_rate_percent: f64,
     total_hits: usize,
     total_expected: usize,
     total_images_with_labels: usize,
     global_runtime: RuntimeSummary,
+    global_core_runtime: RuntimeSummary,
+    false_positives: usize,
+    false_negatives: usize,
+    duplicate_predictions: usize,
+    timeouts: usize,
     categories: Vec<CategoryResult>,
     failure_clusters: Vec<FailureClusterRow>,
 }
@@ -1047,16 +1184,27 @@ fn reading_rate_for_images<I>(
     images: I,
     non_interactive: bool,
     progress_every: usize,
-) -> ReadingRateStats
+    timeout_ms: u64,
+    payload_validated: bool,
+) -> Result<ReadingRateStats, String>
 where
     I: Iterator<Item = PathBuf>,
 {
+    enum ExpectedLabel {
+        Localization(Vec<rust_qr::tools::Quadrilateral>),
+        Payload(String),
+    }
     let mut stats = ReadingRateStats {
         hits: 0,
         total_expected: 0,
         images_with_labels: 0,
         stage_telemetry: StageTelemetry::default(),
         runtime_samples_ms: Vec::new(),
+        core_runtime_samples_ms: Vec::new(),
+        false_positives: 0,
+        false_negatives: 0,
+        duplicate_predictions: 0,
+        timeouts: 0,
         failure_clusters: BTreeMap::new(),
     };
 
@@ -1065,28 +1213,93 @@ where
         if !txt_file.exists() {
             continue;
         }
-        let expected = parse_expected_qr_count(&txt_file);
-        if expected == 0 {
-            continue;
-        }
+        let label = if payload_validated {
+            ExpectedLabel::Payload(parse_payload_label(&txt_file).map_err(|error| {
+                format!("invalid payload label {}: {error}", txt_file.display())
+            })?)
+        } else {
+            ExpectedLabel::Localization(
+                parse_localization_labels(&txt_file)
+                    .map_err(|error| format!("invalid label {}: {error}", txt_file.display()))?
+                    .quadrilaterals,
+            )
+        };
+        let expected = match &label {
+            ExpectedLabel::Localization(quadrilaterals) => quadrilaterals.len(),
+            ExpectedLabel::Payload(_) => 1,
+        };
         stats.images_with_labels += 1;
         stats.total_expected += expected;
         stats.stage_telemetry.total += 1;
 
-        if let Ok((pixels, width, height)) = load_rgb(&path) {
-            let start = Instant::now();
-            let (results, tel) = rust_qr::detect_with_telemetry(&pixels, width, height);
-            let elapsed = start.elapsed();
+        let end_to_end_start = Instant::now();
+        if let Ok(loaded) = load_rgb_with_geometry(&path) {
+            let pixels = loaded.pixels;
+            let width = loaded.width;
+            let height = loaded.height;
+            let expected_quadrilaterals = match &label {
+                ExpectedLabel::Localization(quadrilaterals) => scale_quadrilaterals(
+                    quadrilaterals,
+                    (loaded.source_width, loaded.source_height),
+                    (width, height),
+                ),
+                ExpectedLabel::Payload(_) => Vec::new(),
+            };
+            let core_start = Instant::now();
+            let (results, tel) = if timeout_ms == 0 {
+                rust_qr::detect_with_telemetry(&pixels, width, height)
+            } else {
+                rust_qr::detect_with_telemetry_timeout(
+                    &pixels,
+                    width,
+                    height,
+                    std::time::Duration::from_millis(timeout_ms),
+                )
+            };
+            let core_elapsed_ms = core_start.elapsed().as_secs_f64() * 1_000.0;
+            let elapsed = end_to_end_start.elapsed();
             let elapsed_ms = elapsed.as_secs_f64() * 1_000.0;
-            let mut decoded = results.len();
-            // Telemetry mode can undercount due stricter budgets. For reading-rate scoring,
-            // use the best of telemetry and production detect() when telemetry is short.
-            if decoded < expected {
-                decoded = decoded.max(detect_qr(&pixels, width, height).len());
-            }
-            let image_hits = decoded.min(expected);
+            let timed_out = deadline_exceeded(elapsed_ms, timeout_ms);
+            let decoded = results.len();
+            let (image_hits, false_positives, false_negatives, duplicates) = match &label {
+                ExpectedLabel::Localization(_) => {
+                    let predictions: Vec<_> = if timed_out {
+                        Vec::new()
+                    } else {
+                        results
+                            .iter()
+                            .map(|qr| qr.position.map(|p| [p.x, p.y]))
+                            .collect()
+                    };
+                    let score = score_localizations(&expected_quadrilaterals, &predictions, 0.5);
+                    (
+                        score.true_positives,
+                        score.false_positives,
+                        score.false_negatives,
+                        score.duplicate_predictions,
+                    )
+                }
+                ExpectedLabel::Payload(expected_payload) => {
+                    let predicted_payloads: Vec<String> = if timed_out {
+                        Vec::new()
+                    } else {
+                        results
+                            .iter()
+                            .filter_map(|qr| String::from_utf8(qr.data.clone()).ok())
+                            .collect()
+                    };
+                    let score =
+                        score_payloads(std::slice::from_ref(expected_payload), &predicted_payloads);
+                    (score.exact_matches, 0, 0, 0)
+                }
+            };
             stats.hits += image_hits;
+            stats.false_positives += false_positives;
+            stats.false_negatives += false_negatives;
+            stats.duplicate_predictions += duplicates;
+            stats.timeouts += usize::from(timed_out);
             stats.runtime_samples_ms.push(elapsed_ms);
+            stats.core_runtime_samples_ms.push(core_elapsed_ms);
 
             // Accumulate stage telemetry
             if tel.binarize_ok {
@@ -1210,17 +1423,42 @@ where
                     path.display()
                 );
             }
-        } else if !non_interactive {
-            println!(
-                "  [{}] {} -> load_failed (expected {})",
-                stats.images_with_labels,
-                path.display(),
-                expected,
-            );
+        } else {
+            let elapsed_ms = end_to_end_start.elapsed().as_secs_f64() * 1_000.0;
+            stats.runtime_samples_ms.push(elapsed_ms);
+            if !payload_validated {
+                stats.false_negatives += expected;
+            }
+            stats.timeouts += usize::from(deadline_exceeded(elapsed_ms, timeout_ms));
+            let row = stats
+                .failure_clusters
+                .entry("load-failed".to_string())
+                .or_insert(FailureCluster {
+                    count: 0,
+                    qr_weight: 0,
+                    examples: Vec::new(),
+                });
+            row.count += 1;
+            row.qr_weight += expected;
+            if row.examples.len() < 3 {
+                row.examples.push(path.display().to_string());
+            }
+            if !non_interactive {
+                println!(
+                    "  [{}] {} -> load_failed (expected {})",
+                    stats.images_with_labels,
+                    path.display(),
+                    expected,
+                );
+            }
         }
     }
 
-    stats
+    Ok(stats)
+}
+
+fn deadline_exceeded(elapsed_ms: f64, timeout_ms: u64) -> bool {
+    timeout_ms > 0 && elapsed_ms > timeout_ms as f64
 }
 
 fn classify_failure_signature(tel: &rust_qr::DetectionTelemetry) -> &'static str {
@@ -1298,7 +1536,7 @@ fn json_escape(input: &str) -> String {
 fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
     let mut json = String::new();
     json.push_str("{\n");
-    json.push_str("  \"schema_version\": \"rustqr.reading_rate.v1\",\n");
+    json.push_str("  \"schema_version\": \"rustqr.reading_rate.v2\",\n");
     json.push_str("  \"metadata\": {\n");
     let _ = writeln!(
         &mut json,
@@ -1310,6 +1548,31 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
         "    \"dataset_fingerprint\": \"{}\",",
         json_escape(&artifact.dataset_fingerprint)
     );
+    let _ = writeln!(
+        &mut json,
+        "    \"label_fingerprint\": \"{}\",",
+        json_escape(&artifact.label_fingerprint)
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"evaluator_fingerprint\": \"{}\",",
+        json_escape(&artifact.evaluator_fingerprint)
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"preprocessing_fingerprint\": \"{}\",",
+        json_escape(&artifact.preprocessing_fingerprint)
+    );
+    match &artifact.selected_category {
+        Some(category) => {
+            let _ = writeln!(
+                &mut json,
+                "    \"selected_category\": \"{}\",",
+                json_escape(category)
+            );
+        }
+        None => json.push_str("    \"selected_category\": null,\n"),
+    }
     let _ = writeln!(
         &mut json,
         "    \"commit_sha\": \"{}\",",
@@ -1327,6 +1590,8 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
         None => json.push_str("    \"limit_per_category\": null,\n"),
     }
     let _ = writeln!(&mut json, "    \"smoke\": {},", artifact.smoke);
+    let _ = writeln!(&mut json, "    \"timeout_ms\": {},", artifact.timeout_ms);
+    json.push_str("    \"timeout_semantics\": \"cooperative_deadline_discard_late_results\",\n");
     let _ = writeln!(
         &mut json,
         "    \"non_interactive\": {}",
@@ -1350,7 +1615,103 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
         "    \"total_images_with_labels\": {},",
         artifact.total_images_with_labels
     );
-    write_runtime_json(&mut json, "runtime", artifact.global_runtime, 4);
+    let precision_denominator = artifact.total_hits + artifact.false_positives;
+    let precision = if precision_denominator == 0 {
+        0.0
+    } else {
+        artifact.total_hits as f64 / precision_denominator as f64
+    };
+    let recall_denominator = artifact.total_hits + artifact.false_negatives;
+    let recall = if recall_denominator == 0 {
+        0.0
+    } else {
+        artifact.total_hits as f64 / recall_denominator as f64
+    };
+    let f1 = if precision + recall == 0.0 {
+        0.0
+    } else {
+        2.0 * precision * recall / (precision + recall)
+    };
+    if artifact.payload_ground_truth_available {
+        json.push_str("    \"localization_precision\": null,\n");
+        json.push_str("    \"localization_recall\": null,\n");
+        json.push_str("    \"localization_f1\": null,\n");
+        json.push_str("    \"payload_ground_truth_available\": true,\n");
+        let _ = writeln!(
+            &mut json,
+            "    \"payload_exact_matches\": {},",
+            artifact.total_hits
+        );
+        let payload_rate = if artifact.total_expected == 0 {
+            0.0
+        } else {
+            artifact.total_hits as f64 / artifact.total_expected as f64
+        };
+        let _ = writeln!(
+            &mut json,
+            "    \"payload_exact_match_rate\": {:.6},",
+            payload_rate
+        );
+    } else {
+        let _ = writeln!(
+            &mut json,
+            "    \"localization_precision\": {:.6},",
+            precision
+        );
+        let _ = writeln!(&mut json, "    \"localization_recall\": {:.6},", recall);
+        let _ = writeln!(&mut json, "    \"localization_f1\": {:.6},", f1);
+        json.push_str("    \"payload_ground_truth_available\": false,\n");
+        json.push_str("    \"payload_exact_matches\": null,\n");
+        json.push_str("    \"payload_exact_match_rate\": null,\n");
+    }
+    let _ = writeln!(
+        &mut json,
+        "    \"false_positives\": {},",
+        artifact.false_positives
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"false_negatives\": {},",
+        artifact.false_negatives
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"duplicate_predictions\": {},",
+        artifact.duplicate_predictions
+    );
+    let timeout_rate = if artifact.total_images_with_labels == 0 {
+        0.0
+    } else {
+        artifact.timeouts as f64 / artifact.total_images_with_labels as f64
+    };
+    let _ = writeln!(&mut json, "    \"timeouts\": {},", artifact.timeouts);
+    let _ = writeln!(&mut json, "    \"timeout_rate\": {:.6},", timeout_rate);
+    let seconds = artifact.global_runtime.total_ms / 1000.0;
+    let images_per_second = if seconds > 0.0 {
+        artifact.total_images_with_labels as f64 / seconds
+    } else {
+        0.0
+    };
+    // Throughput is independent of correctness: count annotated symbols
+    // presented to the detector, not only successful matches.
+    let symbols_per_second = if seconds > 0.0 {
+        artifact.total_expected as f64 / seconds
+    } else {
+        0.0
+    };
+    let _ = writeln!(
+        &mut json,
+        "    \"images_per_second\": {:.6},",
+        images_per_second
+    );
+    let _ = writeln!(
+        &mut json,
+        "    \"qr_symbols_per_second\": {:.6},",
+        symbols_per_second
+    );
+    write_runtime_json(&mut json, "core_runtime", artifact.global_core_runtime, 4);
+    json.push_str(",\n");
+    write_runtime_json(&mut json, "end_to_end_runtime", artifact.global_runtime, 4);
     json.push_str("  },\n");
     json.push_str("  \"categories\": [\n");
     for (idx, category) in artifact.categories.iter().enumerate() {
@@ -1382,6 +1743,32 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             (category.hits as f64 / category.total_expected as f64) * 100.0
         };
         let _ = writeln!(&mut json, "      \"rate_percent\": {:.4},", rate);
+        let _ = writeln!(
+            &mut json,
+            "      \"false_positives\": {},",
+            category.false_positives
+        );
+        let _ = writeln!(
+            &mut json,
+            "      \"false_negatives\": {},",
+            category.false_negatives
+        );
+        let _ = writeln!(
+            &mut json,
+            "      \"duplicate_predictions\": {},",
+            category.duplicate_predictions
+        );
+        let category_timeout_rate = if category.images_with_labels == 0 {
+            0.0
+        } else {
+            category.timeouts as f64 / category.images_with_labels as f64
+        };
+        let _ = writeln!(&mut json, "      \"timeouts\": {},", category.timeouts);
+        let _ = writeln!(
+            &mut json,
+            "      \"timeout_rate\": {:.6},",
+            category_timeout_rate
+        );
         json.push_str("      \"stage_telemetry\": {\n");
         let _ = writeln!(
             &mut json,
@@ -1631,7 +2018,9 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             category.stage_telemetry.attempts_used_histogram[4],
         );
         json.push_str("      },\n");
-        write_runtime_json(&mut json, "runtime", category.runtime, 6);
+        write_runtime_json(&mut json, "core_runtime", category.core_runtime, 6);
+        json.push_str(",\n");
+        write_runtime_json(&mut json, "end_to_end_runtime", category.runtime, 6);
         json.push_str("    }");
         if idx + 1 != artifact.categories.len() {
             json.push(',');
@@ -1698,6 +2087,26 @@ fn write_runtime_json(json: &mut String, key: &str, runtime: RuntimeSummary, ind
     );
     let _ = writeln!(
         json,
+        "{child}\"p50_per_image_ms\": {:.4},",
+        runtime.median_per_image_ms
+    );
+    let _ = writeln!(
+        json,
+        "{child}\"p90_per_image_ms\": {:.4},",
+        runtime.p90_per_image_ms
+    );
+    let _ = writeln!(
+        json,
+        "{child}\"p95_per_image_ms\": {:.4},",
+        runtime.p95_per_image_ms
+    );
+    let _ = writeln!(
+        json,
+        "{child}\"p99_per_image_ms\": {:.4},",
+        runtime.p99_per_image_ms
+    );
+    let _ = writeln!(
+        json,
         "{child}\"min_per_image_ms\": {:.4},",
         runtime.min_per_image_ms
     );
@@ -1752,4 +2161,87 @@ fn dataset_bench_cmd(root: Option<PathBuf>, limit: Option<usize>, smoke: bool) {
     }
 
     println!("Total time: {:.2?}", total_elapsed);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{deadline_exceeded, reading_rate_for_images};
+    use std::fs;
+
+    #[test]
+    fn timeout_is_disabled_by_zero_and_strictly_exceeds_deadline() {
+        assert!(!deadline_exceeded(10_000.0, 0));
+        assert!(!deadline_exceeded(25.0, 25));
+        assert!(deadline_exceeded(25.001, 25));
+    }
+
+    #[test]
+    fn invalid_label_fails_the_evaluation() {
+        let stem = format!(
+            "rustqr-invalid-label-{}-{}",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        );
+        let image = std::env::temp_dir().join(format!("{stem}.png"));
+        let label = image.with_extension("txt");
+        fs::write(&label, "SETS\nnot-a-quadrilateral\n").expect("write test label");
+
+        let result = reading_rate_for_images(std::iter::once(image), true, 0, 0, false);
+
+        let _ = fs::remove_file(label);
+        match result {
+            Err(error) => assert!(error.contains("invalid label")),
+            Ok(_) => panic!("invalid label unexpectedly succeeded"),
+        }
+    }
+
+    #[test]
+    fn image_load_failure_counts_as_a_miss_and_runtime_sample() {
+        let stem = format!("rustqr-missing-image-{}", std::process::id());
+        let image = std::env::temp_dir().join(format!("{stem}.png"));
+        let label = image.with_extension("txt");
+        fs::write(&label, "SETS\n0 0 10 0 10 10 0 10\n").expect("write test label");
+
+        let stats = reading_rate_for_images(std::iter::once(image), true, 0, 0, false)
+            .expect("valid labels should evaluate");
+
+        let _ = fs::remove_file(label);
+        assert_eq!(stats.total_expected, 1);
+        assert_eq!(stats.false_negatives, 1);
+        assert_eq!(stats.runtime_samples_ms.len(), 1);
+        assert_eq!(stats.failure_clusters["load-failed"].count, 1);
+    }
+
+    #[test]
+    fn explicit_payload_mode_accepts_multiline_payload_labels() {
+        let stem = format!("rustqr-missing-payload-image-{}", std::process::id());
+        let image = std::env::temp_dir().join(format!("{stem}.png"));
+        let label = image.with_extension("txt");
+        fs::write(&label, "BEGIN:VEVENT\r\nSUMMARY: Test\r\nEND:VEVENT\r\n")
+            .expect("write payload label");
+
+        let stats = reading_rate_for_images(std::iter::once(image), true, 0, 0, true)
+            .expect("payload mode should parse the complete label as one payload");
+
+        let _ = fs::remove_file(label);
+        assert_eq!(stats.total_expected, 1);
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.false_negatives, 0);
+    }
+
+    #[test]
+    fn explicit_payload_mode_rejects_empty_payload_labels() {
+        let stem = format!("rustqr-empty-payload-{}", std::process::id());
+        let image = std::env::temp_dir().join(format!("{stem}.png"));
+        let label = image.with_extension("txt");
+        fs::write(&label, " \r\n\t").expect("write empty payload label");
+
+        let result = reading_rate_for_images(std::iter::once(image), true, 0, 0, true);
+
+        let _ = fs::remove_file(label);
+        match result {
+            Err(error) => assert!(error.contains("invalid payload label")),
+            Ok(_) => panic!("empty payload label unexpectedly succeeded"),
+        }
+    }
 }

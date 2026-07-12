@@ -11,6 +11,39 @@ mod payload;
 /// Main QR decoder that processes a detected QR region
 pub struct QrDecoder;
 
+/// Data modes represented by the conformance corpus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatrixDataMode {
+    Numeric,
+    Alphanumeric,
+    Byte,
+    Kanji,
+    Eci,
+    Gs1Fnc1,
+    StructuredAppend,
+}
+
+/// Structured failures from deterministic matrix decoding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatrixDecodeError {
+    InvalidDimensions,
+    VersionDimensionMismatch,
+    InvalidConfidenceLength,
+    ErasureModuleOutOfBounds,
+    UnsupportedMode(MatrixDataMode),
+    DecodeFailed,
+}
+
+/// Request-scoped erasure evidence for deterministic matrix decoding.
+///
+/// Confidence values are row-major, with `0` identifying an erased module and
+/// non-zero values identifying known modules. Explicit coordinates use `(x, y)`.
+#[derive(Debug, Clone, Copy)]
+pub enum MatrixErasureEvidence<'a> {
+    ModuleConfidence(&'a [u8]),
+    ErasedModules(&'a [(usize, usize)]),
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct DecodeCounters {
     pub deskew_attempts: usize,
@@ -97,6 +130,112 @@ pub(crate) fn take_decode_counters() -> DecodeCounters {
 }
 
 impl QrDecoder {
+    /// Decode an already sampled Model 2 module matrix without image detection.
+    ///
+    /// Callers that know the encoded mode can use [`Self::decode_matrix_for_mode`]
+    /// to document the fixture's primary payload mode.
+    pub fn decode_matrix(
+        qr_matrix: &BitMatrix,
+        version_num: u8,
+    ) -> Result<QRCode, MatrixDecodeError> {
+        if qr_matrix.width() != qr_matrix.height()
+            || version_num == 0
+            || version_num > 40
+            || qr_matrix.width() < 21
+        {
+            return Err(MatrixDecodeError::InvalidDimensions);
+        }
+        if qr_matrix.width() != 17 + 4 * version_num as usize {
+            return Err(MatrixDecodeError::VersionDimensionMismatch);
+        }
+        // The deterministic matrix entry point is also the conformance entry
+        // point. Do not let the image-recovery decoder's brute-force format or
+        // version fallbacks turn structurally invalid symbols into successes.
+        if crate::decoder::format::FormatInfo::extract(qr_matrix).is_none() {
+            return Err(MatrixDecodeError::DecodeFailed);
+        }
+        if version_num >= 7
+            && crate::decoder::version::VersionInfo::extract(qr_matrix) != Some(version_num)
+        {
+            return Err(MatrixDecodeError::DecodeFailed);
+        }
+        Self::decode_from_matrix(qr_matrix, version_num).ok_or(MatrixDecodeError::DecodeFailed)
+    }
+
+    /// Decode a matrix fixture while enforcing the decoder's advertised mode support.
+    pub fn decode_matrix_for_mode(
+        qr_matrix: &BitMatrix,
+        version_num: u8,
+        mode: MatrixDataMode,
+    ) -> Result<QRCode, MatrixDecodeError> {
+        match mode {
+            MatrixDataMode::Numeric
+            | MatrixDataMode::Alphanumeric
+            | MatrixDataMode::Byte
+            | MatrixDataMode::Kanji
+            | MatrixDataMode::Eci
+            | MatrixDataMode::Gs1Fnc1
+            | MatrixDataMode::StructuredAppend => Self::decode_matrix(qr_matrix, version_num),
+        }
+    }
+
+    /// Decode a sampled Model 2 matrix using known module erasures.
+    ///
+    /// Evidence is validated and mapped through the QR data traversal into
+    /// per-block codeword erasures. The request uses no global configuration,
+    /// counters, or mutable decoder state.
+    pub fn decode_matrix_with_erasures(
+        qr_matrix: &BitMatrix,
+        version_num: u8,
+        evidence: MatrixErasureEvidence<'_>,
+    ) -> Result<QRCode, MatrixDecodeError> {
+        if qr_matrix.width() != qr_matrix.height()
+            || version_num == 0
+            || version_num > 40
+            || qr_matrix.width() < 21
+        {
+            return Err(MatrixDecodeError::InvalidDimensions);
+        }
+        if qr_matrix.width() != 17 + 4 * version_num as usize {
+            return Err(MatrixDecodeError::VersionDimensionMismatch);
+        }
+
+        let dimension = qr_matrix.width();
+        let confidence = match evidence {
+            MatrixErasureEvidence::ModuleConfidence(values) => {
+                if values.len() != dimension * dimension {
+                    return Err(MatrixDecodeError::InvalidConfidenceLength);
+                }
+                values.to_vec()
+            }
+            MatrixErasureEvidence::ErasedModules(modules) => {
+                let mut values = vec![u8::MAX; dimension * dimension];
+                for &(x, y) in modules {
+                    if x >= dimension || y >= dimension {
+                        return Err(MatrixDecodeError::ErasureModuleOutOfBounds);
+                    }
+                    values[y * dimension + x] = 0;
+                }
+                values
+            }
+        };
+
+        let format_info = crate::decoder::format::FormatInfo::extract(qr_matrix)
+            .ok_or(MatrixDecodeError::DecodeFailed)?;
+        if version_num >= 7
+            && crate::decoder::version::VersionInfo::extract(qr_matrix) != Some(version_num)
+        {
+            return Err(MatrixDecodeError::DecodeFailed);
+        }
+        payload::try_decode_single_deterministic_erasures(
+            qr_matrix,
+            version_num,
+            &format_info,
+            &confidence,
+        )
+        .ok_or(MatrixDecodeError::DecodeFailed)
+    }
+
     /// Decode a QR code from a binary matrix and finder pattern locations
     pub fn decode(
         matrix: &BitMatrix,
@@ -169,13 +308,13 @@ impl QrDecoder {
                 }
 
                 if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
-                    return Some(qr);
+                    return Some(Self::with_position(qr, &transform, dimension));
                 }
 
                 // Try inverted grid (binarization might be flipped)
                 let inverted = orientation::invert_matrix(&qr_matrix);
                 if let Some(qr) = Self::decode_from_matrix(&inverted, version_num) {
-                    return Some(qr);
+                    return Some(Self::with_position(qr, &transform, dimension));
                 }
             }
         }
@@ -252,7 +391,7 @@ impl QrDecoder {
                     version_num,
                     &module_confidence,
                 ) {
-                    return Some(qr);
+                    return Some(Self::with_position(qr, &transform, dimension));
                 }
 
                 let inverted = orientation::invert_matrix(&qr_matrix);
@@ -261,7 +400,7 @@ impl QrDecoder {
                     version_num,
                     &module_confidence,
                 ) {
-                    return Some(qr);
+                    return Some(Self::with_position(qr, &transform, dimension));
                 }
 
                 if allow_heavy_recovery && !budget_exhausted() {
@@ -289,7 +428,7 @@ impl QrDecoder {
                             version_num,
                             &jit_conf,
                         ) {
-                            return Some(qr);
+                            return Some(Self::with_position(qr, &jittered_transform, dimension));
                         }
                     }
                 }
@@ -316,7 +455,7 @@ impl QrDecoder {
                             &scaled_conf,
                         ) {
                             DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_successes += 1);
-                            return Some(qr);
+                            return Some(Self::with_position(qr, &transform, dimension));
                         }
                         let scaled_inverted = orientation::invert_matrix(&scaled_matrix);
                         if let Some(qr) = Self::decode_from_matrix_with_confidence(
@@ -325,7 +464,7 @@ impl QrDecoder {
                             &scaled_conf,
                         ) {
                             DECODE_COUNTERS.with(|c| c.borrow_mut().scale_retry_successes += 1);
-                            return Some(qr);
+                            return Some(Self::with_position(qr, &transform, dimension));
                         }
                     }
                 }
@@ -358,7 +497,11 @@ impl QrDecoder {
                                 &hv_conf,
                             ) {
                                 DECODE_COUNTERS.with(|c| c.borrow_mut().hv_refine_successes += 1);
-                                return Some(qr);
+                                return Some(Self::with_position(
+                                    qr,
+                                    &refined_hv_transform,
+                                    dimension,
+                                ));
                             }
                         }
                     }
@@ -378,7 +521,7 @@ impl QrDecoder {
                             &deskew_conf,
                         ) {
                             DECODE_COUNTERS.with(|c| c.borrow_mut().deskew_successes += 1);
-                            return Some(qr);
+                            return Some(Self::with_position(qr, &transform, dimension));
                         }
                     }
                 }
@@ -394,7 +537,7 @@ impl QrDecoder {
                             version_num,
                             &mesh_conf,
                         ) {
-                            return Some(qr);
+                            return Some(Self::with_position(qr, &transform, dimension));
                         }
                     }
                 }
@@ -412,7 +555,7 @@ impl QrDecoder {
                                 version_num,
                                 &radial_conf,
                             ) {
-                                return Some(qr);
+                                return Some(Self::with_position(qr, &transform, dimension));
                             }
                         }
                     }
@@ -427,7 +570,7 @@ impl QrDecoder {
                     }
                     DECODE_COUNTERS.with(|c| c.borrow_mut().recovery_mode_attempts += 1);
                     if let Some(qr) = Self::decode_from_matrix(&qr_matrix, version_num) {
-                        return Some(qr);
+                        return Some(Self::with_position(qr, &transform, dimension));
                     }
                 }
             }
@@ -500,6 +643,21 @@ impl QrDecoder {
         dimension: usize,
     ) -> Option<crate::utils::geometry::PerspectiveTransform> {
         geometry::build_transform(top_left, top_right, bottom_left, bottom_right, dimension)
+    }
+
+    fn with_position(
+        mut qr: QRCode,
+        transform: &crate::utils::geometry::PerspectiveTransform,
+        dimension: usize,
+    ) -> QRCode {
+        let dimension = dimension as f32;
+        qr.position = [
+            transform.transform(&Point::new(0.0, 0.0)),
+            transform.transform(&Point::new(dimension, 0.0)),
+            transform.transform(&Point::new(dimension, dimension)),
+            transform.transform(&Point::new(0.0, dimension)),
+        ];
+        qr
     }
 
     fn extract_qr_region_with_transform(

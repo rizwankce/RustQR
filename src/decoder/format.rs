@@ -14,13 +14,8 @@ impl FormatInfo {
         let bits_a = Self::read_format_bits_top_left(matrix)?;
         let bits_b = Self::read_format_bits_other(matrix)?;
 
-        let bits_a_rev = Self::reverse_15(bits_a);
-        let bits_b_rev = Self::reverse_15(bits_b);
-
-        let result_a =
-            Self::decode_with_distance(bits_a).or_else(|| Self::decode_with_distance(bits_a_rev));
-        let result_b =
-            Self::decode_with_distance(bits_b).or_else(|| Self::decode_with_distance(bits_b_rev));
+        let result_a = Self::decode_best_direction(bits_a);
+        let result_b = Self::decode_best_direction(bits_b);
 
         match (result_a, result_b) {
             (Some((a, dist_a)), Some((b, dist_b))) => {
@@ -163,6 +158,22 @@ impl FormatInfo {
         best
     }
 
+    fn decode_best_direction(format_bits: u16) -> Option<(Self, u32)> {
+        let forward = Self::decode_with_distance(format_bits);
+        let reversed = Self::decode_with_distance(Self::reverse_15(format_bits));
+        match (forward, reversed) {
+            (Some(forward), Some(reversed)) => {
+                if forward.1 <= reversed.1 {
+                    Some(forward)
+                } else {
+                    Some(reversed)
+                }
+            }
+            (Some(result), None) | (None, Some(result)) => Some(result),
+            (None, None) => None,
+        }
+    }
+
     fn reverse_15(bits: u16) -> u16 {
         let mut out = 0u16;
         for i in 0..15 {
@@ -188,5 +199,16 @@ mod tests {
         // This is a simplified test - actual format bits would need proper ECC
         // Just verify the extraction function doesn't panic
         let _ = FormatInfo::extract(&matrix);
+    }
+
+    #[test]
+    fn reversed_exact_format_beats_forward_near_match() {
+        // H / mask 0 has the masked format codeword 0x1689. Matrix placement
+        // exposes its least-significant bit first to the extraction traversal.
+        let placed_bits = FormatInfo::reverse_15(0x1689);
+        let (info, distance) = FormatInfo::decode_best_direction(placed_bits).unwrap();
+        assert_eq!(distance, 0);
+        assert_eq!(info.ec_level, ECLevel::H);
+        assert_eq!(info.mask_pattern, MaskPattern::Pattern0);
     }
 }

@@ -154,7 +154,11 @@ impl ReedSolomonDecoder {
             return Err("Too many unique erasures");
         }
 
-        // Build A*x=b over GF(256) from the first `e` syndrome equations.
+        // Treat known erasures as zero, then solve for their original values
+        // from the leading syndrome equations.
+        for &pos in &unique {
+            received[pos] = 0;
+        }
         let syndrome = self.calculate_syndrome(received);
         let e = unique.len();
         let mut a = vec![vec![0u8; e]; e];
@@ -577,5 +581,35 @@ mod tests {
         let mut data = vec![0u8; 16];
         let decoder = ReedSolomonDecoder::new(10);
         assert!(decoder.decode_with_erasures(&mut data, &[99]).is_err());
+    }
+
+    #[test]
+    fn test_rs_erasure_correction_at_supported_boundary() {
+        let data = vec![0x21, 0x32, 0x43, 0x54, 0x65, 0x76, 0x87, 0x98];
+        let num_ecc = 10;
+        let mut codeword = rs_encode(&data, num_ecc);
+        // Keep the initial executable corpus at the decoder's demonstrated
+        // conservative boundary. The manifest can grow this toward the
+        // theoretical `num_ecc` erasure limit as the implementation matures.
+        let erasures: Vec<usize> = (0..num_ecc / 2).collect();
+        for (offset, &position) in erasures.iter().enumerate() {
+            codeword[position] ^= 0x31u8.wrapping_add(offset as u8);
+        }
+
+        ReedSolomonDecoder::new(num_ecc)
+            .decode_with_erasures(&mut codeword, &erasures)
+            .expect("erasures at the supported boundary should correct");
+        assert_eq!(&codeword[..data.len()], &data);
+    }
+
+    #[test]
+    fn test_rs_erasure_correction_rejects_beyond_capacity() {
+        let mut codeword = vec![0u8; 20];
+        let decoder = ReedSolomonDecoder::new(10);
+        let erasures: Vec<usize> = (0..11).collect();
+        assert_eq!(
+            decoder.decode_with_erasures(&mut codeword, &erasures),
+            Err("Too many erasures")
+        );
     }
 }

@@ -57,13 +57,7 @@ impl BufferPool {
             self.grayscale_capacity = self.grayscale_buffer.capacity();
         }
 
-        // Safety: We're ensuring the buffer has enough capacity
-        // Only set_len if size <= capacity (which we ensured above)
-        if size <= self.grayscale_buffer.capacity() {
-            unsafe {
-                self.grayscale_buffer.set_len(size);
-            }
-        }
+        self.grayscale_buffer.resize(size, 0);
 
         &mut self.grayscale_buffer[..size]
     }
@@ -102,11 +96,7 @@ impl BufferPool {
             self.grayscale_buffer.reserve(additional);
             self.grayscale_capacity = self.grayscale_buffer.capacity();
         }
-        if pixel_count <= self.grayscale_buffer.capacity() {
-            unsafe {
-                self.grayscale_buffer.set_len(pixel_count);
-            }
-        }
+        self.grayscale_buffer.resize(pixel_count, 0);
 
         // Prepare binarization buffers
         self.binary_adaptive.reset(width, height);

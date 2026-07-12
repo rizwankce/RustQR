@@ -8,23 +8,31 @@ Benchmark datasets live under this folder.
 - GIF
 - BMP
 
-## Image Requirements
-- QR codes should be clearly visible
-- Images can be any size (will be processed at original resolution)
-- Multiple QR codes per image supported
+## Image processing
+
+- Images may be downscaled according to `QR_MAX_DIM` (1024 in benchmark
+  workflows); set `QR_MAX_DIM=0` to preserve original resolution.
+- Multiple-symbol inputs are accepted, but current scoring and decode coverage
+  are partial; see `TODO.md` WP-002 and `docs/spec.md`.
 
 ## Layout
 - `boofcv/` - BoofCV QR benchmark dataset (16 categories)
 - `custom/` - your own images for quick experiments
 
 ## Benchmarking
-Run benchmarks with:
-`cargo bench --bench real_qr_images`
+Run Criterion benchmarks with:
+`cargo bench --features tools --bench real_qr_images`
+
+Run the end-to-end reading-rate tool with:
+`cargo run --features tools --bin qrtool --release -- reading-rate --limit 3`
 
 Optional environment variables:
 - `QR_DATASET_ROOT` (default: `benches/images/boofcv`)
-- `QR_BENCH_LIMIT` (default: `5`, set to `0` for no limit)
+- `QR_BENCH_LIMIT` (default: full dataset; set a positive value to limit, or `0` for full)
 - `QR_SMOKE` (set to `1` to use `_smoke.txt` inside the dataset root)
+- `QR_MAX_DIM` (workflow default: `1024`; `0` preserves original resolution)
+
+The CLI `--limit` overrides `QR_BENCH_LIMIT`.
 
 ## Sources
 Test images can be downloaded from:

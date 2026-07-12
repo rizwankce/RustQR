@@ -1,0 +1,1302 @@
+{
+  "capacity_validation": [
+    {
+      "ec_level": "H",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 7,
+      "mode": "byte",
+      "version": 1
+    },
+    {
+      "ec_level": "L",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 17,
+      "mode": "byte",
+      "version": 1
+    },
+    {
+      "ec_level": "M",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 20,
+      "mode": "alphanumeric",
+      "version": 1
+    },
+    {
+      "ec_level": "M",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 14,
+      "mode": "byte",
+      "version": 1
+    },
+    {
+      "ec_level": "M",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 34,
+      "mode": "numeric",
+      "version": 1
+    },
+    {
+      "ec_level": "Q",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 11,
+      "mode": "byte",
+      "version": 1
+    },
+    {
+      "ec_level": "H",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 14,
+      "mode": "byte",
+      "version": 2
+    },
+    {
+      "ec_level": "L",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 32,
+      "mode": "byte",
+      "version": 2
+    },
+    {
+      "ec_level": "M",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 26,
+      "mode": "byte",
+      "version": 2
+    },
+    {
+      "ec_level": "Q",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 20,
+      "mode": "byte",
+      "version": 2
+    },
+    {
+      "ec_level": "H",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 64,
+      "mode": "byte",
+      "version": 7
+    },
+    {
+      "ec_level": "L",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 154,
+      "mode": "byte",
+      "version": 7
+    },
+    {
+      "ec_level": "M",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 122,
+      "mode": "byte",
+      "version": 7
+    },
+    {
+      "ec_level": "Q",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 86,
+      "mode": "byte",
+      "version": 7
+    },
+    {
+      "ec_level": "H",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 382,
+      "mode": "byte",
+      "version": 20
+    },
+    {
+      "ec_level": "L",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 858,
+      "mode": "byte",
+      "version": 20
+    },
+    {
+      "ec_level": "M",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 666,
+      "mode": "byte",
+      "version": 20
+    },
+    {
+      "ec_level": "Q",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 482,
+      "mode": "byte",
+      "version": 20
+    },
+    {
+      "ec_level": "H",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 1273,
+      "mode": "byte",
+      "version": 40
+    },
+    {
+      "ec_level": "L",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 2953,
+      "mode": "byte",
+      "version": 40
+    },
+    {
+      "ec_level": "M",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 2331,
+      "mode": "byte",
+      "version": 40
+    },
+    {
+      "ec_level": "Q",
+      "generator_backend": "python-qrcode==8.2",
+      "maximum_accepted": true,
+      "maximum_plus_one_rejected": true,
+      "maximum_units": 1663,
+      "mode": "byte",
+      "version": 40
+    }
+  ],
+  "cases": [
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "H",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "323034336163",
+        "version": 1
+      },
+      "id": "v01-H-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-H-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "17b1e374c7e9709ee7769f6fb4776d8c1a5782bdcfbb3b97c1242a988f40e8ce",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "323034336163",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "336233306562",
+        "version": 1
+      },
+      "id": "v01-L-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "d135d16ac6ed8b5752fca7e0f3fe84d845ad3d2d7f194afd0ded8ed0d148a56a",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "336233306562",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 1,
+        "mode": "byte",
+        "raw_payload_hex": "376362393335",
+        "version": 1
+      },
+      "id": "v01-L-m1-byte",
+      "mask": 1,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m1-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "0032c707473379d7ff4f89401fdf3c96ac976ab782e413f0aadc26c359af1d7c",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "376362393335",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 2,
+        "mode": "byte",
+        "raw_payload_hex": "643665323633",
+        "version": 1
+      },
+      "id": "v01-L-m2-byte",
+      "mask": 2,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m2-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "40c7a02c964921b294b8ce2e47d2b2f431edbedee2fd8e686127f487b552f64c",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "643665323633",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 3,
+        "mode": "byte",
+        "raw_payload_hex": "363139373530",
+        "version": 1
+      },
+      "id": "v01-L-m3-byte",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m3-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "6164ee4b91df0977c55203924e6373c984273184540042811fcdce37ba28e5a2",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "363139373530",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 4,
+        "mode": "byte",
+        "raw_payload_hex": "656531613666",
+        "version": 1
+      },
+      "id": "v01-L-m4-byte",
+      "mask": 4,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m4-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "98f9d1ee2abf87062b2f120dd5c7b15136b367443d82d0c17a246ba48a6e00cf",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "656531613666",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 5,
+        "mode": "byte",
+        "raw_payload_hex": "643736343435",
+        "version": 1
+      },
+      "id": "v01-L-m5-byte",
+      "mask": 5,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m5-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "2493d19b091f49f4088fb0e812b0e641eddd845d1d13e977b9bdb21510288f86",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "643736343435",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 6,
+        "mode": "byte",
+        "raw_payload_hex": "316236663461",
+        "version": 1
+      },
+      "id": "v01-L-m6-byte",
+      "mask": 6,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m6-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "c0fbcbc9861961f0a2c0770d1fe8393390354429edba6a46110aabe9b3fc743f",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "316236663461",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 7,
+        "mode": "byte",
+        "raw_payload_hex": "396437316634",
+        "version": 1
+      },
+      "id": "v01-L-m7-byte",
+      "mask": 7,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-L-m7-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "8142b777fb400498d9ebbf115061991b4f6e007bf46898780d041a3f7d562d94",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "396437316634",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "323934326161",
+        "version": 1
+      },
+      "id": "v01-M-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-M-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "e014d35bf1ee73991963ad044744bdf5283d2028023765c9f36f8b30b68d68eb",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "323934326161",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "alphanumeric",
+        "raw_payload_hex": "522f394e4135",
+        "version": 1
+      },
+      "id": "v01-M-m3-alphanumeric",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-M-m3-alphanumeric.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "15cf8b5154037f884610820d7a10fb1d01caedc4300744b8fa25d382f4c05e0a",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "alphanumeric",
+      "model": 2,
+      "payload_hex": "522f394e4135",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "byte",
+        "raw_payload_hex": "663465373338",
+        "version": 1
+      },
+      "id": "v01-M-m3-byte",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-M-m3-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "a08240ab952a6f5f7f2a87f0f09918a9663a41d34e7c3edf1cc3ef6bfc118c69",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "663465373338",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "eci",
+        "raw_payload_hex": "e98e1972",
+        "version": 1
+      },
+      "id": "v01-M-m3-eci",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": null,
+        "sha256": null,
+        "status": "unsupported_mode"
+      },
+      "mode": "eci",
+      "model": 2,
+      "payload_hex": "e98e1972",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "gs1_fnc1",
+        "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+        "version": 1
+      },
+      "id": "v01-M-m3-gs1_fnc1",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": null,
+        "sha256": null,
+        "status": "unsupported_mode"
+      },
+      "mode": "gs1_fnc1",
+      "model": 2,
+      "payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "kanji",
+        "raw_payload_hex": "8abf8e9a",
+        "version": 1
+      },
+      "id": "v01-M-m3-kanji",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": null,
+        "sha256": null,
+        "status": "unsupported_mode"
+      },
+      "mode": "kanji",
+      "model": 2,
+      "payload_hex": "8abf8e9a",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "numeric",
+        "raw_payload_hex": "3730303036343533",
+        "version": 1
+      },
+      "id": "v01-M-m3-numeric",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-M-m3-numeric.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "974a263560129f0c463f9589e94afde60f12a1ab4f5e91631652f553cfb8aebd",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "numeric",
+      "model": 2,
+      "payload_hex": "3730303036343533",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "structured_append",
+        "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+        "version": 1
+      },
+      "id": "v01-M-m3-structured_append",
+      "mask": 3,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": null,
+        "sha256": null,
+        "status": "unsupported_mode"
+      },
+      "mode": "structured_append",
+      "model": 2,
+      "payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "Q",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "353162323839",
+        "version": 1
+      },
+      "id": "v01-Q-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v01-Q-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "1aa9c3cf5a26bff32289cd8add7add70154e9414cebc9e572babbb81052394ad",
+        "status": "generated",
+        "symbol_dimension": 21
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "353162323839",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 1
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "H",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "316661666431",
+        "version": 2
+      },
+      "id": "v02-H-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v02-H-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "50ca4e3c09440f3ca9e985f084a3830b0b1b9b91c1b49d8b82230338f35bcf01",
+        "status": "generated",
+        "symbol_dimension": 25
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "316661666431",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 2
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "313335303762",
+        "version": 2
+      },
+      "id": "v02-L-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v02-L-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "ea25e6214de171c72b84683f9d980e958515f7c7a48aa6fee4aaaba7fdedd718",
+        "status": "generated",
+        "symbol_dimension": 25
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "313335303762",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 2
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "356666613366",
+        "version": 2
+      },
+      "id": "v02-M-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v02-M-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "d26148889453d908592945b5b621ad8ab02374c08d5727d03c28529132608853",
+        "status": "generated",
+        "symbol_dimension": 25
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "356666613366",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 2
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "Q",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "316634326331",
+        "version": 2
+      },
+      "id": "v02-Q-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v02-Q-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "1d34c7492b55ce2b9e1b5451758837b2960698dce53f21b30274b05edd6e69ac",
+        "status": "generated",
+        "symbol_dimension": 25
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "316634326331",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 2
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "H",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "303137306462",
+        "version": 7
+      },
+      "id": "v07-H-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v07-H-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "b049bb9212adf764d5cdf93aaa63e8d118599e03511495bafbbacc2ffd1f1bd5",
+        "status": "generated",
+        "symbol_dimension": 45
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "303137306462",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 7
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "373437626465",
+        "version": 7
+      },
+      "id": "v07-L-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v07-L-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "d2f2768533d88061e616c044f0f6c5d7d7e38c2faabdf8826ec5c77f65dc892f",
+        "status": "generated",
+        "symbol_dimension": 45
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "373437626465",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 7
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "653764353934",
+        "version": 7
+      },
+      "id": "v07-M-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v07-M-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "eaa06d6919e554cfa0fd705e77703363177e2e6e4d17260b69618f16d3aee9c0",
+        "status": "generated",
+        "symbol_dimension": 45
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "653764353934",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 7
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "Q",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "356465613332",
+        "version": 7
+      },
+      "id": "v07-Q-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v07-Q-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "b727c5d8318f15b2fe49a85d86dabc2d14aeca0898f4f8bc4bb950f384b0a3ff",
+        "status": "generated",
+        "symbol_dimension": 45
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "356465613332",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 7
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "H",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "646437643533",
+        "version": 20
+      },
+      "id": "v20-H-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v20-H-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "df94d46bc06eed078ebeff5d48d29af08a58caf8d9a1866ef15149f1c4c73197",
+        "status": "generated",
+        "symbol_dimension": 97
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "646437643533",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 20
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "363439643366",
+        "version": 20
+      },
+      "id": "v20-L-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v20-L-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "4ea6e01e44a82ee8453a7cb20b653a339087997c5afeb676aff9137868bc3e95",
+        "status": "generated",
+        "symbol_dimension": 97
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "363439643366",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 20
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "313262306231",
+        "version": 20
+      },
+      "id": "v20-M-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v20-M-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "a9332a3dcaa4590edb586720bda5597cd63d5d62813cc7a57dd855139248f18d",
+        "status": "generated",
+        "symbol_dimension": 97
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "313262306231",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 20
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "Q",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "633238353333",
+        "version": 20
+      },
+      "id": "v20-Q-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v20-Q-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "15a6d1d70c2c1a4a75f86a9dd7b394698b0d66b2e0d5b1842f9e591500b1ca68",
+        "status": "generated",
+        "symbol_dimension": 97
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "633238353333",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 20
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "H",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "353738346535",
+        "version": 40
+      },
+      "id": "v40-H-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v40-H-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "3575d7b563349e20085ffcdfc27c71d8a404fb8103f9e4dc87876dbd9314d499",
+        "status": "generated",
+        "symbol_dimension": 177
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "353738346535",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 40
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "L",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "336430343339",
+        "version": 40
+      },
+      "id": "v40-L-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v40-L-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "0131186f2e12fc7a9dbf748ba18f2ac4b32696ccc2d793e3131563245a8124ce",
+        "status": "generated",
+        "symbol_dimension": 177
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "336430343339",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 40
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "M",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "643337316463",
+        "version": 40
+      },
+      "id": "v40-M-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v40-M-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "89b0c378fae7dded5bf9cc6477e1b8a197dc6304456f35f0db1608c057c0cb0c",
+        "status": "generated",
+        "symbol_dimension": 177
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "643337316463",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 40
+    },
+    {
+      "capacity_boundary": "representative",
+      "differential": {
+        "decoders": [],
+        "status": "pending"
+      },
+      "ec_level": "Q",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "366138343336",
+        "version": 40
+      },
+      "id": "v40-Q-m0-byte",
+      "mask": 0,
+      "matrix": {
+        "generator_backend": "python-qrcode==8.2",
+        "path": "matrices/v40-Q-m0-byte.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "94303361f796a6264c833fde15073fc3e321eea68b8f1ea1465a7b15942cd383",
+        "status": "generated",
+        "symbol_dimension": 177
+      },
+      "mode": "byte",
+      "model": 2,
+      "payload_hex": "366138343336",
+      "seed": "rustqr-model2-conformance-v1",
+      "version": 40
+    }
+  ],
+  "coverage": {
+    "ec_levels": [
+      "L",
+      "M",
+      "Q",
+      "H"
+    ],
+    "masks": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "modes": [
+      "numeric",
+      "alphanumeric",
+      "byte",
+      "kanji",
+      "eci",
+      "gs1_fnc1",
+      "structured_append"
+    ],
+    "planned_capacity_boundaries": [
+      "empty",
+      "representative",
+      "maximum",
+      "overflow"
+    ],
+    "planned_matrix_variants": [
+      "valid",
+      "correctable_errors",
+      "correctable_erasures",
+      "invalid_format",
+      "invalid_version",
+      "invalid_remainder",
+      "invalid_padding",
+      "invalid_block_layout"
+    ],
+    "versions": [
+      1,
+      2,
+      7,
+      20,
+      40
+    ]
+  },
+  "generator": {
+    "profile": "foundation",
+    "script": "scripts/generate_conformance_manifest.py",
+    "seed": "rustqr-model2-conformance-v1"
+  },
+  "schema_version": "rustqr.conformance-manifest.v1"
+}

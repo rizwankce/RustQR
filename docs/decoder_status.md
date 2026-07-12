@@ -1,6 +1,11 @@
-# Decoder Status (as of 2026-02-02)
+# Historical Decoder Status Snapshot (2026-02-02)
 
-This doc summarizes the state of the QR decoder, what was fixed, what still needs work, and how to run benchmarks.
+> This document preserves a point-in-time repair log. Statements about what
+> “still needs work,” test counts, and performance may have been superseded.
+> Use `docs/spec.md` and `TODO.md` for current status and commands.
+
+This doc summarizes the decoder state observed on 2026-02-02, what was fixed,
+and what remained at that time.
 
 ## What was fixed
 
@@ -75,7 +80,7 @@ Benchmark commands:
 
 Optional environment variables:
 - `QR_DATASET_ROOT` (default: `benches/images/boofcv`)
-- `QR_BENCH_LIMIT` (default: `5`, set to `0` for no limit)
+- `QR_BENCH_LIMIT` (current default: full dataset; set a positive value to limit it)
 - `QR_SMOKE` (set to `1` to use `_smoke.txt` inside the dataset root)
 
 Example (smoke subset, no limit):

@@ -10,6 +10,333 @@ use std::fs;
 use std::hash::Hasher;
 use std::path::{Path, PathBuf};
 
+/// A quadrilateral annotation or prediction in image coordinates.
+pub type Quadrilateral = [[f32; 2]; 4];
+
+/// Strict result of parsing a BoofCV point-annotation file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LocalizationLabels {
+    pub quadrilaterals: Vec<Quadrilateral>,
+}
+
+/// Localization counts produced by one-to-one matching.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LocalizationScore {
+    pub true_positives: usize,
+    pub false_positives: usize,
+    pub false_negatives: usize,
+    pub duplicate_predictions: usize,
+}
+
+/// Exact payload-match counts, kept separate from localization scoring.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct PayloadScore {
+    pub exact_matches: usize,
+    pub expected: usize,
+    pub predicted: usize,
+}
+
+impl PayloadScore {
+    pub fn exact_match_rate(self) -> f64 {
+        if self.expected == 0 {
+            0.0
+        } else {
+            self.exact_matches as f64 / self.expected as f64
+        }
+    }
+}
+
+/// Normalize payload labels according to the established custom-dataset format.
+///
+/// A same-stem `.txt` file contains one complete payload, which may span lines.
+/// Only surrounding whitespace and CRLF line endings are normalized.
+pub fn normalize_payload(payload: &str) -> String {
+    payload.trim().replace("\r\n", "\n")
+}
+
+/// Parse one exact payload from a custom payload-label file.
+///
+/// Callers must select payload-label mode explicitly. A malformed localization
+/// label must never be reinterpreted as a payload label after parsing fails.
+pub fn parse_payload_label<P: AsRef<Path>>(path: P) -> Result<String, String> {
+    let content = fs::read_to_string(path.as_ref())
+        .map_err(|error| format!("failed to read {}: {error}", path.as_ref().display()))?;
+    let payload = normalize_payload(&content);
+    if payload.is_empty() {
+        Err("payload label is empty".to_string())
+    } else {
+        Ok(payload)
+    }
+}
+
+/// Score normalized payloads one-to-one using exact equality.
+pub fn score_payloads(expected: &[String], predicted: &[String]) -> PayloadScore {
+    let mut remaining = std::collections::HashMap::<String, usize>::new();
+    for payload in expected {
+        *remaining.entry(normalize_payload(payload)).or_default() += 1;
+    }
+    let mut exact_matches = 0;
+    for payload in predicted {
+        let payload = normalize_payload(payload);
+        if let Some(count) = remaining.get_mut(&payload) {
+            if *count > 0 {
+                *count -= 1;
+                exact_matches += 1;
+            }
+        }
+    }
+    PayloadScore {
+        exact_matches,
+        expected: expected.len(),
+        predicted: predicted.len(),
+    }
+}
+
+impl LocalizationScore {
+    pub fn precision(self) -> f64 {
+        let n = self.true_positives + self.false_positives;
+        if n == 0 {
+            0.0
+        } else {
+            self.true_positives as f64 / n as f64
+        }
+    }
+
+    pub fn recall(self) -> f64 {
+        let n = self.true_positives + self.false_negatives;
+        if n == 0 {
+            0.0
+        } else {
+            self.true_positives as f64 / n as f64
+        }
+    }
+
+    pub fn f1(self) -> f64 {
+        let p = self.precision();
+        let r = self.recall();
+        if p + r == 0.0 {
+            0.0
+        } else {
+            2.0 * p * r / (p + r)
+        }
+    }
+}
+
+/// Parse the two BoofCV label layouts used by the benchmark dataset.
+///
+/// Unlike the historical count parser, malformed or incomplete labels are
+/// rejected so they cannot silently enter the denominator as zero symbols.
+pub fn parse_localization_labels<P: AsRef<Path>>(path: P) -> Result<LocalizationLabels, String> {
+    let content = fs::read_to_string(path.as_ref())
+        .map_err(|error| format!("failed to read {}: {error}", path.as_ref().display()))?;
+    let mut saw_sets = false;
+    let mut rows: Vec<Vec<f32>> = Vec::new();
+    for (line_index, line) in content.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if line.eq_ignore_ascii_case("SETS") {
+            if saw_sets || !rows.is_empty() {
+                return Err(format!("invalid SETS marker on line {}", line_index + 1));
+            }
+            saw_sets = true;
+            continue;
+        }
+        let values = line
+            .split_whitespace()
+            .map(|token| token.parse::<f32>())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| format!("invalid numeric label on line {}", line_index + 1))?;
+        if values.iter().any(|v| !v.is_finite()) {
+            return Err(format!("non-finite label on line {}", line_index + 1));
+        }
+        rows.push(values);
+    }
+    if rows.is_empty() {
+        return Err("label contains no quadrilaterals".to_string());
+    }
+    let mut quadrilaterals = Vec::new();
+    if saw_sets || rows.iter().all(|row| row.len() == 8) {
+        for row in rows {
+            if row.len() != 8 {
+                return Err("SETS labels require exactly 8 values per symbol".to_string());
+            }
+            quadrilaterals.push([
+                [row[0], row[1]],
+                [row[2], row[3]],
+                [row[4], row[5]],
+                [row[6], row[7]],
+            ]);
+        }
+    } else {
+        if !rows.iter().all(|row| row.len() == 2) || rows.len() % 4 != 0 {
+            return Err("legacy labels require groups of four x/y rows".to_string());
+        }
+        for rows in rows.chunks_exact(4) {
+            quadrilaterals.push([
+                [rows[0][0], rows[0][1]],
+                [rows[1][0], rows[1][1]],
+                [rows[2][0], rows[2][1]],
+                [rows[3][0], rows[3][1]],
+            ]);
+        }
+    }
+    Ok(LocalizationLabels { quadrilaterals })
+}
+
+/// Scale annotations from source-image coordinates into processed-image coordinates.
+pub fn scale_quadrilaterals(
+    quadrilaterals: &[Quadrilateral],
+    source_dimensions: (usize, usize),
+    processed_dimensions: (usize, usize),
+) -> Vec<Quadrilateral> {
+    let (source_width, source_height) = source_dimensions;
+    let (processed_width, processed_height) = processed_dimensions;
+    if source_width == 0 || source_height == 0 {
+        return quadrilaterals.to_vec();
+    }
+    let scale_x = processed_width as f32 / source_width as f32;
+    let scale_y = processed_height as f32 / source_height as f32;
+    quadrilaterals
+        .iter()
+        .map(|quad| quad.map(|[x, y]| [x * scale_x, y * scale_y]))
+        .collect()
+}
+
+fn signed_area(polygon: &[[f32; 2]]) -> f32 {
+    polygon
+        .iter()
+        .zip(polygon.iter().cycle().skip(1))
+        .take(polygon.len())
+        .map(|(a, b)| a[0] * b[1] - b[0] * a[1])
+        .sum::<f32>()
+        * 0.5
+}
+
+fn line_intersection(start: [f32; 2], end: [f32; 2], a: [f32; 2], b: [f32; 2]) -> [f32; 2] {
+    let segment = [end[0] - start[0], end[1] - start[1]];
+    let edge = [b[0] - a[0], b[1] - a[1]];
+    let denominator = segment[0] * edge[1] - segment[1] * edge[0];
+    if denominator.abs() <= f32::EPSILON {
+        return end;
+    }
+    let offset = [a[0] - start[0], a[1] - start[1]];
+    let t = (offset[0] * edge[1] - offset[1] * edge[0]) / denominator;
+    [start[0] + t * segment[0], start[1] + t * segment[1]]
+}
+
+fn polygon_intersection(subject: &Quadrilateral, clip: &Quadrilateral) -> Vec<[f32; 2]> {
+    let mut output = subject.to_vec();
+    let orientation = signed_area(clip).signum();
+    if orientation == 0.0 {
+        return Vec::new();
+    }
+    for edge_index in 0..clip.len() {
+        let a = clip[edge_index];
+        let b = clip[(edge_index + 1) % clip.len()];
+        let input = std::mem::take(&mut output);
+        let Some(mut start) = input.last().copied() else {
+            break;
+        };
+        for end in input {
+            let start_cross = (b[0] - a[0]) * (start[1] - a[1]) - (b[1] - a[1]) * (start[0] - a[0]);
+            let end_cross = (b[0] - a[0]) * (end[1] - a[1]) - (b[1] - a[1]) * (end[0] - a[0]);
+            let start_inside = start_cross * orientation >= 0.0;
+            let end_inside = end_cross * orientation >= 0.0;
+            if end_inside {
+                if !start_inside {
+                    output.push(line_intersection(start, end, a, b));
+                }
+                output.push(end);
+            } else if start_inside {
+                output.push(line_intersection(start, end, a, b));
+            }
+            start = end;
+        }
+    }
+    output
+}
+
+/// Intersection over union of two convex quadrilaterals.
+pub fn quadrilateral_iou(a: &Quadrilateral, b: &Quadrilateral) -> f32 {
+    let area_a = signed_area(a).abs();
+    let area_b = signed_area(b).abs();
+    if area_a <= f32::EPSILON || area_b <= f32::EPSILON {
+        return 0.0;
+    }
+    let intersection = signed_area(&polygon_intersection(a, b)).abs();
+    let union = area_a + area_b - intersection;
+    if union <= 0.0 {
+        0.0
+    } else {
+        intersection / union
+    }
+}
+
+/// Match predictions to annotations once each, preferring the greatest overlap.
+pub fn score_localizations(
+    expected: &[Quadrilateral],
+    predicted: &[Quadrilateral],
+    minimum_iou: f32,
+) -> LocalizationScore {
+    let mut edges = vec![Vec::new(); predicted.len()];
+    for (pi, prediction) in predicted.iter().enumerate() {
+        for (ei, annotation) in expected.iter().enumerate() {
+            let overlap = quadrilateral_iou(prediction, annotation);
+            if overlap >= minimum_iou {
+                edges[pi].push((ei, overlap));
+            }
+        }
+        edges[pi].sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    }
+    fn augment(
+        prediction: usize,
+        edges: &[Vec<(usize, f32)>],
+        seen: &mut [bool],
+        expected_match: &mut [Option<usize>],
+    ) -> bool {
+        for &(expected, _) in &edges[prediction] {
+            if seen[expected] {
+                continue;
+            }
+            seen[expected] = true;
+            if expected_match[expected]
+                .is_none_or(|other| augment(other, edges, seen, expected_match))
+            {
+                expected_match[expected] = Some(prediction);
+                return true;
+            }
+        }
+        false
+    }
+    let mut expected_match = vec![None; expected.len()];
+    for prediction in 0..predicted.len() {
+        augment(
+            prediction,
+            &edges,
+            &mut vec![false; expected.len()],
+            &mut expected_match,
+        );
+    }
+    let true_positives = expected_match.iter().flatten().count();
+    let matched_predictions: std::collections::HashSet<_> =
+        expected_match.iter().flatten().copied().collect();
+    let duplicates = edges
+        .iter()
+        .enumerate()
+        .filter(|(prediction, candidates)| {
+            !matched_predictions.contains(prediction) && !candidates.is_empty()
+        })
+        .count();
+    LocalizationScore {
+        true_positives,
+        false_positives: predicted.len() - true_positives,
+        false_negatives: expected.len() - true_positives,
+        duplicate_predictions: duplicates,
+    }
+}
+
 fn max_dim_from_env() -> Option<u32> {
     match env::var("QR_MAX_DIM") {
         Ok(value) => match value.trim().parse::<u32>() {
@@ -21,12 +348,21 @@ fn max_dim_from_env() -> Option<u32> {
     }
 }
 
-/// Load an image as RGB bytes along with its dimensions.
-pub fn load_rgb<P: AsRef<Path>>(path: P) -> Result<(Vec<u8>, usize, usize), image::ImageError> {
+/// RGB image data together with both source and processed dimensions.
+pub struct LoadedRgb {
+    pub pixels: Vec<u8>,
+    pub width: usize,
+    pub height: usize,
+    pub source_width: usize,
+    pub source_height: usize,
+}
+
+/// Load an image as RGB bytes while retaining resize geometry for annotation scaling.
+pub fn load_rgb_with_geometry<P: AsRef<Path>>(path: P) -> Result<LoadedRgb, image::ImageError> {
     let img = image::open(path)?;
+    let (source_width, source_height) = img.dimensions();
     let rgb = if let Some(max_dim) = max_dim_from_env() {
-        let (orig_w, orig_h) = img.dimensions();
-        let max_side = orig_w.max(orig_h);
+        let max_side = source_width.max(source_height);
         if max_side > max_dim {
             let resized = img.resize(max_dim, max_dim, image::imageops::FilterType::Triangle);
             resized.to_rgb8()
@@ -37,7 +373,18 @@ pub fn load_rgb<P: AsRef<Path>>(path: P) -> Result<(Vec<u8>, usize, usize), imag
         img.to_rgb8()
     };
     let (width, height) = rgb.dimensions();
-    Ok((rgb.into_raw(), width as usize, height as usize))
+    Ok(LoadedRgb {
+        pixels: rgb.into_raw(),
+        width: width as usize,
+        height: height as usize,
+        source_width: source_width as usize,
+        source_height: source_height as usize,
+    })
+}
+
+/// Load an image as RGB bytes along with its processed dimensions.
+pub fn load_rgb<P: AsRef<Path>>(path: P) -> Result<(Vec<u8>, usize, usize), image::ImageError> {
+    load_rgb_with_geometry(path).map(|image| (image.pixels, image.width, image.height))
 }
 
 /// Convert RGB bytes into grayscale.
@@ -138,7 +485,7 @@ pub fn dataset_root_from_env() -> PathBuf {
 ///
 /// The fingerprint includes every file path and file bytes under `root`.
 /// It is intended for change detection and traceability, not cryptographic use.
-pub fn dataset_fingerprint<P: AsRef<Path>>(root: P) -> String {
+fn file_set_fingerprint<P: AsRef<Path>>(root: P, extensions: &[&str]) -> String {
     struct Fnv1a64(u64);
 
     impl Fnv1a64 {
@@ -196,6 +543,16 @@ pub fn dataset_fingerprint<P: AsRef<Path>>(root: P) -> String {
 
     let mut hasher = Fnv1a64::default();
     for path in collect_files(root) {
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(str::to_ascii_lowercase);
+        if !extension
+            .as_deref()
+            .is_some_and(|value| extensions.contains(&value))
+        {
+            continue;
+        }
         let rel = path
             .strip_prefix(root)
             .ok()
@@ -214,6 +571,19 @@ pub fn dataset_fingerprint<P: AsRef<Path>>(root: P) -> String {
     }
 
     format!("{:016x}", hasher.finish())
+}
+
+/// Fingerprint only benchmark image inputs, excluding labels and documentation.
+pub fn dataset_fingerprint<P: AsRef<Path>>(root: P) -> String {
+    file_set_fingerprint(
+        root,
+        &["png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp"],
+    )
+}
+
+/// Fingerprint localization and payload label inputs separately from images.
+pub fn label_fingerprint<P: AsRef<Path>>(root: P) -> String {
+    file_set_fingerprint(root, &["txt", "payload"])
 }
 
 /// Default bench limit from environment variables.
@@ -298,7 +668,11 @@ pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{dataset_fingerprint, parse_expected_qr_count};
+    use super::{
+        dataset_fingerprint, label_fingerprint, normalize_payload, parse_expected_qr_count,
+        parse_localization_labels, parse_payload_label, quadrilateral_iou, scale_quadrilaterals,
+        score_localizations, score_payloads,
+    };
     use std::fs::{self, create_dir_all};
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -366,11 +740,174 @@ mod tests {
         fs::write(root.join("nominal").join("a.png"), b"abc").expect("failed to write file");
 
         let before = dataset_fingerprint(&root);
-        fs::write(root.join("nominal").join("b.txt"), b"label").expect("failed to write file");
+        fs::write(root.join("nominal").join("b.png"), b"image").expect("failed to write file");
         let after = dataset_fingerprint(&root);
 
         assert_ne!(before, after);
+        let label_before = label_fingerprint(&root);
+        fs::write(root.join("nominal").join("b.txt"), b"label").expect("failed to write file");
+        assert_ne!(label_before, label_fingerprint(&root));
         let _ = fs::remove_dir_all(root);
+    }
+
+    fn square(x: f32, y: f32, size: f32) -> [[f32; 2]; 4] {
+        [[x, y], [x + size, y], [x + size, y + size], [x, y + size]]
+    }
+
+    #[test]
+    fn localization_matching_is_one_to_one_and_counts_duplicates() {
+        let expected = [square(0.0, 0.0, 10.0)];
+        let predicted = [square(0.0, 0.0, 10.0), square(1.0, 1.0, 10.0)];
+        let score = score_localizations(&expected, &predicted, 0.5);
+        assert_eq!(score.true_positives, 1);
+        assert_eq!(score.false_positives, 1);
+        assert_eq!(score.duplicate_predictions, 1);
+        assert_eq!(score.precision(), 0.5);
+    }
+
+    #[test]
+    fn localization_matching_counts_missing_and_wrong_location() {
+        let expected = [square(0.0, 0.0, 10.0), square(20.0, 20.0, 10.0)];
+        let score = score_localizations(&expected, &[square(100.0, 100.0, 10.0)], 0.5);
+        assert_eq!(
+            (
+                score.true_positives,
+                score.false_positives,
+                score.false_negatives
+            ),
+            (0, 1, 2)
+        );
+        assert_eq!(score.f1(), 0.0);
+    }
+
+    #[test]
+    fn localization_matching_handles_multi_qr_scenes() {
+        let expected = [square(0.0, 0.0, 10.0), square(20.0, 20.0, 10.0)];
+        let predicted = [square(20.0, 20.0, 10.0), square(0.0, 0.0, 10.0)];
+        let score = score_localizations(&expected, &predicted, 0.5);
+        assert_eq!(
+            (
+                score.true_positives,
+                score.false_positives,
+                score.false_negatives
+            ),
+            (2, 0, 0)
+        );
+    }
+
+    #[test]
+    fn quadrilateral_overlap_uses_polygon_area_not_bounding_boxes() {
+        let bounding_square = square(0.0, 0.0, 10.0);
+        let rotated_diamond = [[5.0, 0.0], [10.0, 5.0], [5.0, 10.0], [0.0, 5.0]];
+        assert!((quadrilateral_iou(&bounding_square, &rotated_diamond) - 0.5).abs() < 1e-5);
+        let score = score_localizations(&[bounding_square], &[rotated_diamond], 0.75);
+        assert_eq!((score.true_positives, score.false_positives), (0, 1));
+    }
+
+    #[test]
+    fn quadrilateral_overlap_handles_skew_and_reversed_winding() {
+        let skewed = [[1.0, 0.0], [12.0, 2.0], [9.0, 11.0], [0.0, 8.0]];
+        let reversed = [skewed[3], skewed[2], skewed[1], skewed[0]];
+        assert!((quadrilateral_iou(&skewed, &reversed) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn localization_matching_maximizes_cardinality() {
+        let expected = [square(0.0, 0.0, 10.0), square(8.0, 0.0, 10.0)];
+        let predicted = [square(4.0, 0.0, 10.0), square(0.0, 0.0, 10.0)];
+        let score = score_localizations(&expected, &predicted, 0.4);
+        assert_eq!(
+            (
+                score.true_positives,
+                score.false_positives,
+                score.false_negatives
+            ),
+            (2, 0, 0)
+        );
+    }
+
+    #[test]
+    fn localization_matching_empty_ground_truth_counts_all_predictions_as_extras() {
+        let score = score_localizations(&[], &[square(0.0, 0.0, 10.0)], 0.5);
+        assert_eq!(
+            (
+                score.true_positives,
+                score.false_positives,
+                score.false_negatives,
+                score.duplicate_predictions,
+            ),
+            (0, 1, 0, 0)
+        );
+    }
+
+    #[test]
+    fn annotation_scaling_uses_each_axis_processed_ratio() {
+        let annotations = [square(10.0, 20.0, 10.0)];
+        let scaled = scale_quadrilaterals(&annotations, (100, 200), (50, 50));
+        assert_eq!(
+            scaled[0],
+            [[5.0, 5.0], [10.0, 5.0], [10.0, 7.5], [5.0, 7.5]]
+        );
+    }
+
+    #[test]
+    fn strict_label_parser_rejects_invalid_and_incomplete_labels() {
+        let invalid = write_temp_file("SETS\n0 0 1 nope 1 1 0 1\n");
+        assert!(parse_localization_labels(&invalid).is_err());
+        let incomplete = write_temp_file("0 0\n1 0\n1 1\n");
+        assert!(parse_localization_labels(&incomplete).is_err());
+        let _ = fs::remove_file(invalid);
+        let _ = fs::remove_file(incomplete);
+    }
+
+    #[test]
+    fn payload_label_preserves_multiline_content_and_normalizes_crlf() {
+        let path = write_temp_file("  BEGIN:VEVENT\r\nSUMMARY: Test\r\nEND:VEVENT\r\n  ");
+        assert_eq!(
+            parse_payload_label(&path).unwrap(),
+            "BEGIN:VEVENT\nSUMMARY: Test\nEND:VEVENT"
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn payload_label_rejects_empty_content() {
+        let path = write_temp_file(" \r\n\t");
+        assert_eq!(
+            parse_payload_label(&path).unwrap_err(),
+            "payload label is empty"
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn payload_scoring_is_exact_normalized_and_one_to_one() {
+        let expected = vec![
+            "alpha".to_string(),
+            "alpha".to_string(),
+            "a\r\nb".to_string(),
+        ];
+        let predicted = vec![
+            "alpha".to_string(),
+            " alpha ".to_string(),
+            "alpha".to_string(),
+            "a\nb".to_string(),
+            "ALPHA".to_string(),
+        ];
+        let score = score_payloads(&expected, &predicted);
+        assert_eq!(
+            (score.exact_matches, score.expected, score.predicted),
+            (3, 3, 5)
+        );
+        assert_eq!(score.exact_match_rate(), 1.0);
+        assert_ne!(normalize_payload("ALPHA"), normalize_payload("alpha"));
+    }
+
+    #[test]
+    fn wrong_payload_never_counts_as_an_exact_match() {
+        let score = score_payloads(&["expected".to_string()], &["wrong".to_string()]);
+        assert_eq!(score.exact_matches, 0);
+        assert_eq!(score.exact_match_rate(), 0.0);
     }
 }
 

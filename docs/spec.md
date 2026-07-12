@@ -1,240 +1,72 @@
-# RustQR Specification
+# RustQR Capability Status and Roadmap
 
-## Project Overview
+This document describes the current implementation. It is not a claim of full
+ISO/IEC 18004 compliance. Status is derived from source paths and tests in this
+repository as of 2026-07-11.
 
-**Name:** RustQR  
-**Language:** Rust  
-**Purpose:** World's fastest QR code scanning library, cross-platform, zero third-party dependencies
+## Status definitions
 
-## Core Philosophy
+- **Tested**: an automated test makes a meaningful assertion for the feature.
+- **Partial**: implementation exists, but coverage or end-to-end validation is
+  incomplete.
+- **Planned**: in scope, but no supported implementation exists.
+- **Unsupported**: the public scanner does not implement the feature.
 
-- **Speed First**: Every millisecond matters
-- **Zero Dependencies**: Pure Rust implementation (except where absolutely critical)
-- **Complete Standards Compliance**: Support ALL QR code variants
-- **Cross-Platform**: Native performance on every platform
-- **Library-First**: Designed for integration, not a standalone tool
+## Capability matrix
 
-## QR Code Standards to Support
+| Area | Status | Current evidence and boundary |
+|---|---|---|
+| QR Code Model 2 | Partial | `src/decoder/` implements Model 2 geometry; golden v1 matrix and selected ignored real-image tests exist |
+| Model 2 versions 1-40 | Partial | Version/block tables cover 1-40, but real-image coverage is sparse and the high-version test permits no result |
+| QR Code Model 1 | Unsupported | `Version::Model1` stores metadata only; Model 1 detection/decoding is not implemented |
+| Micro QR M1-M4 | Unsupported | `Version::Micro` stores metadata only; the detector requires the three Model 2 finder patterns |
+| EC L/M/Q/H | Partial | All levels are parsed and block tables exist; exhaustive level/version fixtures do not |
+| Masks 0-7 | Partial | All formulas are implemented in `MaskPattern`; tests do not exercise every pattern end to end |
+| Numeric | Tested | `test_decode_numeric_mode` and mode-unit tests |
+| Alphanumeric | Tested | `test_decode_alphanumeric_mode` and mode-unit tests |
+| Byte | Tested | `test_decode_payload_byte_mode` and golden matrix decoding |
+| Mixed modes | Tested | `test_decode_mixed_modes` |
+| Kanji | Partial | Shift-JIS code units are reconstructed, but text conversion is lossy and untested |
+| ECI | Partial | Variable-length assignment numbers are consumed but ignored; no character-set conversion or dedicated test |
+| GS1 / FNC1 | Unsupported | Mode indicators 0101 and 1001 are not parsed |
+| Structured Append | Unsupported | Mode indicator 0011 is not parsed |
+| Inverted symbols | Partial | Sampled matrices are retried inverted; no dedicated end-to-end fixture |
+| Rotated symbols | Partial | Eight orientation transforms are attempted; real-image rotation coverage is ignored by default |
+| Mirrored symbols | Partial | Reflection transforms exist in orientation retries; no dedicated fixture |
+| Multiple symbols | Partial | Multiple groups/results are supported, but the existing ignored regression asserts only one or more |
+| Linux x86_64 | Tested | CI build and release-library test lane |
+| macOS x86_64 | Tested | CI build and release-library test lane |
+| Windows x86_64 | Tested | CI build and release-library test lane |
+| AArch64 | Partial | NEON kernels compile conditionally; no CI target verifies them |
+| WASM, iOS, Android | Planned | No target-specific build, test, binding, or packaging lane |
+| `no_std` | Unsupported | The crate and dependencies require `std`; no feature or CI lane exists |
 
-### 1. ISO/IEC 18004:2015 (Core Standard)
-All versions (1-40) with all models:
+## Public input API
 
-#### QR Code Model 1 (Original)
-- Legacy support for older systems
-- Versions 1-14 only
-- Error correction levels: L, M, Q, H
+`try_detect(ImageInput)` is the checked API. `ImageInput` describes grayscale,
+RGB, or RGBA data and an optional row stride. It rejects zero dimensions,
+invalid strides, arithmetic overflow, and short buffers with `InputError`.
+Compatibility functions `detect` and `detect_from_grayscale` return an empty
+vector for invalid input.
 
-#### QR Code Model 2 (Current Standard)
-- All versions 1-40
-- Error correction levels: L (~7%), M (~15%), Q (~25%), H (~30%)
-- Alignment patterns for larger codes
-- Format and version information areas
+Private SIMD grayscale kernels use `unsafe` on x86_64 and AArch64. Their safe
+callers validate lengths and checked arithmetic first; the crate therefore does
+not claim to contain zero unsafe code.
 
-### 2. Micro QR Code
-- Versions M1, M2, M3, M4
-- Minimal size for small data
-- Single position detection pattern
-- Limited error correction
+## Implemented pipeline
 
-### 3. iQR Code (ISO/IEC 18004 Extension)
-- Rectangular format options
-- Versions 1-61 (both square and rectangular)
-- Higher density than standard QR
-- All error correction levels
+The current Model 2 pipeline includes grayscale conversion, multiple
+binarization strategies, finder grouping, perspective sampling, format and
+version extraction, all eight mask formulas, block deinterleaving,
+Reed-Solomon correction, and payload parsing for the modes described above.
+It also contains bounded recovery heuristics. A code path existing is not the
+same as comprehensive standards conformance; the matrix records that
+distinction.
 
-### 4. Frame QR (SQRC-compatible)
-- Frame area for visual elements
-- Inside-Out pattern support
-- Custom frame configurations
+## Roadmap
 
-### 5. FCR (Fast Code Reading) Mode
-- Optimized detection patterns
-- High-speed scanning optimizations
-- Reduced complexity for speed
-
-## Technical Architecture
-
-### Core Modules
-
-```
-RustQR/
-├── src/
-│   ├── lib.rs              # Public API
-│   ├── detector/           # QR code detection
-│   │   ├── finder.rs       # Finder pattern detection
-│   │   ├── alignment.rs    # Alignment pattern detection
-│   │   ├── timing.rs       # Timing pattern analysis
-│   │   └── transform.rs    # Perspective correction
-│   ├── decoder/            # Data decoding
-│   │   ├── bitstream.rs    # Bit extraction from grid
-│   │   ├── format.rs       # Format info decoding
-│   │   ├── version.rs      # Version info decoding
-│   │   └── reed_solomon.rs # Error correction
-│   ├── encoder/            # QR code generation (future)
-│   ├── models/             # Data structures
-│   │   ├── qr_code.rs      # QR code representation
-│   │   ├── point.rs        # 2D point types
-│   │   └── matrix.rs       # Bit matrix
-│   ├── modes/              # Data modes
-│   │   ├── numeric.rs      # Numeric mode (0-9)
-│   │   ├── alphanumeric.rs # Alphanumeric mode (0-9, A-Z, space, $%*+-./:)
-│   │   ├── byte.rs         # Byte mode (ISO 8859-1, UTF-8)
-│   │   ├── kanji.rs        # Kanji mode (Shift JIS)
-│   │   └── eci.rs          # ECI mode (extended charsets)
-│   └── utils/
-│       ├── binarization.rs # Adaptive thresholding
-│       ├── geometry.rs     # Geometric calculations
-│       └── simd.rs         # SIMD optimizations (optional)
-├── benches/                # Criterion benchmarks
-├── tests/                  # Test vectors from ISO spec
-└── docs/                   # Documentation
-```
-
-### Detection Pipeline
-
-1. **Preprocessing**
-   - Grayscale conversion
-   - Adaptive binarization (Otsu + local thresholding)
-   - Noise reduction
-
-2. **Finder Pattern Detection**
-   - Ratio-based scanning (1:1:3:1:1)
-   - Cross-check in both directions
-   - Clustering and filtering
-   - Perspective estimation
-
-3. **Alignment Pattern Detection** (for v2+ or large codes)
-   - Predicted positions from version
-   - Fine-tuning for distortion
-
-4. **Timing Pattern Reading**
-   - Establish sampling grid
-   - Handle damaged patterns
-
-5. **Sample Grid Extraction**
-   - Perspective transform
-   - Sub-pixel sampling
-   - Bit matrix generation
-
-### Decoding Pipeline
-
-1. **Format Information Extraction**
-   - Mask pattern identification
-   - Error correction level
-   - BCH error checking
-
-2. **Version Information Extraction** (v7+)
-   - BCH(18,6) decoding
-   - Error detection
-
-3. **Unmasking**
-   - Apply mask pattern
-   - Handle all 8 mask patterns
-
-4. **Bitstream Extraction**
-   - Zigzag reading pattern
-   - Handle all function patterns
-
-5. **Error Correction**
-   - Reed-Solomon decoding
-   - Up to error correction capacity
-   - Erasure correction support
-
-6. **Data Decoding**
-   - Mode detection and switching
-   - Character count indicator reading
-   - Data deinterleaving
-   - Charset conversion
-
-## Benchmarking Strategy
-
-### Goal: Become the Fastest QR Scanner
-
-We will benchmark RustQR against the best libraries in the industry, following methodologies from:
-- [Dynamsoft QR Code Benchmark](https://www.dynamsoft.com/codepool/qr-code-reading-benchmark-and-comparison.html)
-- [BoofCV Performance Tests](https://boofcv.org/index.php?title=Performance:QrCode)
-- [barcode-reading-benchmark repo](https://github.com/tony-xlh/barcode-reading-benchmark)
-
-### Competitors to Beat
-
-| Library | Language | Target Time to Beat |
-|---------|----------|---------------------|
-| BoofCV | Java | ~15-20ms per image |
-| Dynamsoft | C++ | Commercial baseline |
-| ZXing | Java | ~30-50ms per image |
-| ZBar | C | ~10-15ms per image |
-
-### Benchmark Scenarios
-
-1. **Perfect conditions**: Clean QR codes, good lighting
-2. **Damaged codes**: Missing modules, blur, rotation
-3. **Multiple codes**: Detect 10+ codes in single image
-4. **Various sizes**: From v1 to v40
-5. **Real-world images**: Photos with perspective distortion
-
-### Target Performance
-
-- Single QR detection: < 5ms
-- Batch processing: > 200 images/second
-- Memory usage: < 10MB peak
-- Zero-copy pipeline where possible
-
-## API Design
-
-### Simple API
-```rust
-pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode>;
-pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode>;
-```
-
-### Advanced API
-```rust
-pub struct Detector;
-impl Detector {
-    pub fn new() -> Self;
-    pub fn detect(&self, image: Image) -> Vec<QRCode>;
-}
-
-pub struct QRCode {
-    pub data: Vec<u8>,
-    pub content: String,
-    pub version: Version,
-    pub error_correction: ECLevel,
-    pub mask_pattern: MaskPattern,
-}
-```
-
-## Development Phases
-
-### Phase 1: Foundation (Weeks 1-4)
-- Project structure and CI/CD
-- Data structures (Point, Matrix, QRCode)
-- Reed-Solomon implementation
-- BCH decoder
-
-### Phase 2: Detection (Weeks 5-8)
-- Grayscale conversion
-- Binarization
-- Finder pattern detection
-- Alignment pattern detection
-
-### Phase 3: Decoding (Weeks 9-12)
-- Format/version info
-- Unmasking
-- Bitstream extraction
-- Error correction
-- Data modes (numeric, alphanumeric, byte, kanji)
-
-### Phase 4: Optimization (Weeks 13-16)
-- SIMD operations
-- Memory optimizations
-- Benchmark comparison
-- FFI bindings for other languages
-
-## Testing Requirements
-
-- ISO/IEC 18004:2015 test vectors
-- [zxing-test-images](https://github.com/zxing/zxing/tree/master/core/src/test/resources) compatibility
-- Custom test suite for edge cases
-- Fuzzing tests for robustness
-- Benchmark regression tests in CI
+Near-term work is tracked in `TODO.md`. Measurement correctness (WP-002) takes
+precedence over new performance claims. Model 1, Micro QR, GS1/FNC1,
+Structured Append, full ECI conversion, and verified non-desktop platforms
+require dedicated implementations and conformance fixtures before their status
+can change.

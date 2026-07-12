@@ -1,0 +1,30 @@
+{
+  "schema_version": "rustqr.matrix-fixtures.v1",
+  "seed": 90583747173202,
+  "cases": [
+    {
+      "id": "golden-v1-m-numeric",
+      "expectation": "valid",
+      "mode": "numeric",
+      "version": 1,
+      "matrix": "fixtures/golden-v1-m.matrix",
+      "payload_hex": "34333736343731313534303338"
+    },
+    {
+      "id": "blank-v1-invalid",
+      "expectation": "invalid",
+      "mode": "numeric",
+      "version": 1,
+      "matrix": null,
+      "payload_hex": null
+    },
+    {
+      "id": "kanji-empty-matrix-invalid",
+      "expectation": "invalid",
+      "mode": "kanji",
+      "version": 1,
+      "matrix": null,
+      "payload_hex": null
+    }
+  ]
+}

@@ -23,7 +23,15 @@ const COEF_B: i32 = 29;
 
 /// Convert RGB image to grayscale with automatic SIMD selection
 pub fn rgb_to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
-    let pixel_count = width * height;
+    let Some(pixel_count) = width.checked_mul(height) else {
+        return Vec::new();
+    };
+    let Some(required) = pixel_count.checked_mul(3) else {
+        return Vec::new();
+    };
+    if rgb.len() < required {
+        return Vec::new();
+    }
     let mut gray = vec![0u8; pixel_count];
 
     #[cfg(target_arch = "x86_64")]
@@ -51,7 +59,15 @@ pub fn rgb_to_grayscale(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
 
 /// Convert RGBA image to grayscale (ignores alpha channel)
 pub fn rgba_to_grayscale(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
-    let pixel_count = width * height;
+    let Some(pixel_count) = width.checked_mul(height) else {
+        return Vec::new();
+    };
+    let Some(required) = pixel_count.checked_mul(4) else {
+        return Vec::new();
+    };
+    if rgba.len() < required {
+        return Vec::new();
+    }
     let mut gray = vec![0u8; pixel_count];
 
     #[cfg(target_arch = "x86_64")]
@@ -108,7 +124,7 @@ pub fn normalize_roi_local_contrast(
         }
     }
 
-    if max_v <= min_v + 12 {
+    if max_v <= min_v.saturating_add(12) {
         return gray.to_vec();
     }
 
@@ -129,6 +145,10 @@ pub fn normalize_roi_local_contrast(
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
+/// # Safety
+///
+/// `rgb` must contain at least `pixel_count * 3` bytes and `gray` must contain
+/// at least `pixel_count` bytes. The multiplication must not overflow.
 unsafe fn rgb_to_grayscale_sse2(rgb: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgb.as_ptr();
@@ -160,6 +180,10 @@ unsafe fn rgb_to_grayscale_sse2(rgb: &[u8], gray: &mut [u8], pixel_count: usize)
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
+/// # Safety
+///
+/// `rgba` must contain at least `pixel_count * 4` bytes and `gray` must contain
+/// at least `pixel_count` bytes. The multiplication must not overflow.
 unsafe fn rgba_to_grayscale_sse2(rgba: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgba.as_ptr();
@@ -192,6 +216,10 @@ unsafe fn rgba_to_grayscale_sse2(rgba: &[u8], gray: &mut [u8], pixel_count: usiz
 
 #[cfg(target_arch = "aarch64")]
 #[target_feature(enable = "neon")]
+/// # Safety
+///
+/// `rgb` must contain at least `pixel_count * 3` bytes and `gray` must contain
+/// at least `pixel_count` bytes. The multiplication must not overflow.
 unsafe fn rgb_to_grayscale_neon(rgb: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgb.as_ptr();
@@ -240,6 +268,10 @@ unsafe fn rgb_to_grayscale_neon(rgb: &[u8], gray: &mut [u8], pixel_count: usize)
 
 #[cfg(target_arch = "aarch64")]
 #[target_feature(enable = "neon")]
+/// # Safety
+///
+/// `rgba` must contain at least `pixel_count * 4` bytes and `gray` must contain
+/// at least `pixel_count` bytes. The multiplication must not overflow.
 unsafe fn rgba_to_grayscale_neon(rgba: &[u8], gray: &mut [u8], pixel_count: usize) {
     let mut i = 0;
     let in_ptr = rgba.as_ptr();
@@ -363,7 +395,12 @@ use rayon::prelude::*;
 /// Convert RGB to grayscale using parallel processing
 /// Processes rows in parallel for multi-core speedup
 pub fn rgb_to_grayscale_parallel(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
-    let pixel_count = width * height;
+    let Some(pixel_count) = width.checked_mul(height) else {
+        return Vec::new();
+    };
+    if width == 0 || rgb.len() < pixel_count.saturating_mul(3) {
+        return Vec::new();
+    }
     let mut gray = vec![0u8; pixel_count];
 
     // Process rows in parallel
@@ -384,7 +421,12 @@ pub fn rgb_to_grayscale_parallel(rgb: &[u8], width: usize, height: usize) -> Vec
 
 /// Convert RGBA to grayscale using parallel processing
 pub fn rgba_to_grayscale_parallel(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
-    let pixel_count = width * height;
+    let Some(pixel_count) = width.checked_mul(height) else {
+        return Vec::new();
+    };
+    if width == 0 || rgba.len() < pixel_count.saturating_mul(4) {
+        return Vec::new();
+    }
     let mut gray = vec![0u8; pixel_count];
 
     // Process rows in parallel
@@ -461,8 +503,15 @@ pub fn rgb_to_grayscale_with_buffer(
     height: usize,
     output: &mut [u8],
 ) -> usize {
-    let pixel_count = width * height;
-    assert!(output.len() >= pixel_count, "Output buffer too small");
+    let Some(pixel_count) = width.checked_mul(height) else {
+        return 0;
+    };
+    let Some(required) = pixel_count.checked_mul(3) else {
+        return 0;
+    };
+    if rgb.len() < required || output.len() < pixel_count {
+        return 0;
+    }
 
     #[cfg(target_arch = "x86_64")]
     {
@@ -493,8 +542,15 @@ pub fn rgba_to_grayscale_with_buffer(
     height: usize,
     output: &mut [u8],
 ) -> usize {
-    let pixel_count = width * height;
-    assert!(output.len() >= pixel_count, "Output buffer too small");
+    let Some(pixel_count) = width.checked_mul(height) else {
+        return 0;
+    };
+    let Some(required) = pixel_count.checked_mul(4) else {
+        return 0;
+    };
+    if rgba.len() < required || output.len() < pixel_count {
+        return 0;
+    }
 
     #[cfg(target_arch = "x86_64")]
     {

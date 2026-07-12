@@ -67,7 +67,7 @@ impl FunctionMask {
             for dy in 0..6 {
                 for dx in 0..3 {
                     mask.set(size - 11 + dx, dy, true);
-                    mask.set(dx, size - 11 + dy, true);
+                    mask.set(dy, size - 11 + dx, true);
                 }
             }
         }
@@ -155,5 +155,11 @@ mod tests {
         assert_eq!(alignment_pattern_positions(10), vec![6, 28, 50]);
         // Version 14: [6, 26, 46, 66]
         assert_eq!(alignment_pattern_positions(14), vec![6, 26, 46, 66]);
+    }
+
+    #[test]
+    fn version_seven_function_mask_has_no_spurious_data_modules() {
+        // Version 7 has 196 codewords and no remainder bits.
+        assert_eq!(FunctionMask::new(7).data_modules_count(), 196 * 8);
     }
 }

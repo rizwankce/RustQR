@@ -12,4 +12,6 @@ pub mod qr_code;
 
 pub use matrix::BitMatrix;
 pub use point::Point;
-pub use qr_code::{ECLevel, MaskPattern, QRCode, Version};
+pub use qr_code::{
+    ECLevel, Fnc1Position, MaskPattern, QRCode, QRCodeMetadata, StructuredAppendInfo, Version,
+};

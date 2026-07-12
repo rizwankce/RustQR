@@ -2,41 +2,43 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/rizwankce/RustQR/actions)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
-[![Rust Version](https://img.shields.io/badge/rust-1.70%2B-orange)](https://www.rust-lang.org)
 
-**The world's fastest QR code scanning library written in pure Rust.**
+RustQR is an experimental QR Code Model 2 detector and decoder written in
+Rust. It prioritizes measurable reading-rate and latency improvements, but it
+is not yet a complete ISO/IEC 18004 implementation or a production-ready
+replacement for established scanners.
 
-RustQR is a high-performance, cross-platform QR code detection and decoding library with zero third-party dependencies. Designed for speed and efficiency, it aims to be the fastest QR scanner available while maintaining a clean, safe Rust implementation.
+## Capabilities
 
-## Features
+Status is based on the current implementation and automated tests. “Partial”
+means that a code path exists but coverage or end-to-end validation is
+incomplete.
 
-- **Blazing Fast**: Target <5ms for 1MP images
-- **Pure Rust**: Zero unsafe code, zero external dependencies
-- **Cross-Platform**: Works on Linux, macOS, Windows, WASM, iOS, Android
-- **No-Std Compatible**: Suitable for embedded systems
-- **Complete Standards Support**:
-  - QR Code Model 1 & 2 (versions 1-40)
-  - Micro QR Code (M1-M4)
-  - All error correction levels (L, M, Q, H)
-  - All mask patterns (0-7)
-  - Numeric, Alphanumeric, Byte modes
+| Capability | Status | Evidence / limitation |
+|---|---|---|
+| Model 2 | Partial | Unit tests cover known v1 matrices and modes; ignored real-image regressions exercise selected images in `tests/decode_regression_tests.rs` |
+| Versions 1-40 | Partial | Tables and parsing cover 1-40; high-version decoding has an ignored, non-strict regression test and remains weak in the published dataset |
+| EC levels L/M/Q/H | Partial | Format parsing and block tables support all four; there is no end-to-end fixture for every level/version pair |
+| Masks 0-7 | Partial | `MaskPattern` implements all masks, but unit and matrix tests do not exhaust all eight end to end |
+| Numeric, alphanumeric, byte | Tested at unit level | Payload tests cover each mode and mixed-mode decoding |
+| ECI | Partial | Assignment numbers are parsed but ignored; byte payloads are rendered as UTF-8 lossily |
+| Kanji | Partial | Shift-JIS code units are reconstructed, but text is rendered lossily and lacks a dedicated test |
+| Inverted symbols | Partial | The decoder retries an inverted sampled matrix; no dedicated end-to-end regression fixture |
+| Rotated / mirrored symbols | Partial | Orientation retries include rotations and reflections; a rotated real-image test is ignored by default |
+| Multiple symbols per image | Partial | The pipeline can return multiple results, but the ignored regression only requires at least one result |
+| Model 1 | Unsupported | `Version::Model1` is a data-model placeholder; the detector/decoder implements Model 2 geometry |
+| Micro QR | Unsupported | `Version::Micro` is a data-model placeholder; single-finder Micro QR detection is not implemented |
+| GS1 / FNC1 | Unsupported | FNC1 mode indicators are not parsed |
+| Structured Append | Unsupported | Structured Append mode is not parsed |
+| Linux, macOS, Windows | Tested in CI | `.github/workflows/ci.yml` builds/tests x86_64 desktop targets |
+| WASM, iOS, Android | Planned | No build or test lane currently verifies these targets |
+| `no_std` | Unsupported | The crate uses `std`, Rayon, and `image`; no `no_std` feature or CI lane exists |
 
-## Performance
-
-| Image Size | Time | Status |
-|------------|------|--------|
-| 100x100 RGB | ~114 µs | Excellent |
-| 640x480 RGB | ~1.9 ms | Target met |
-| 1920x1080 RGB | ~12.5 ms | Optimizing |
-| Real QR images | 8-45 ms | Optimizing |
-
-**Target**: <5ms for 1MP images to beat BoofCV (~15-20ms) and ZBar (~10-15ms)
-
-See [docs/optimize.md](docs/optimize.md) for detailed optimization roadmap.
+The implementation uses small, private `unsafe` SIMD kernels on x86_64 and
+AArch64. Safe public image entry points validate dimensions, format, stride,
+and buffer length before those kernels are reached.
 
 ## Installation
-
-Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -45,140 +47,77 @@ rust_qr = { git = "https://github.com/rizwankce/RustQR" }
 
 ## Usage
 
-### Basic Detection
+New code should use the checked API:
 
 ```rust
-use rust_qr::detect;
+use rust_qr::{try_detect, ImageInput, PixelFormat};
 
-let image_data: Vec<u8> = load_image(); // Your image loading code
-let width = 640;
-let height = 480;
-
-let qr_codes = detect(&image_data, width, height);
-
-for qr in qr_codes {
-    println!("Found QR: {}", qr.content);
-}
+let pixels: Vec<u8> = load_image();
+let input = ImageInput::new(&pixels, 640, 480, PixelFormat::Rgb);
+let qr_codes = try_detect(input)?;
 ```
 
-### Using the Detector Struct
-
-```rust
-use rust_qr::Detector;
-
-let detector = Detector::new();
-let qr_codes = detector.detect(&image_data, width, height);
-
-// Or detect just the first QR code (faster)
-if let Some(qr) = detector.detect_single(&image_data, width, height) {
-    println!("QR Content: {}", qr.content);
-}
-```
+`detect(&pixels, width, height)` remains as a compatibility wrapper for packed
+RGB input. Invalid input returns an empty result through that legacy API;
+`try_detect` returns a structured `InputError`.
 
 ## Testing
 
-Run the test suite:
-
 ```bash
-cargo test
+cargo fmt -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
 ```
 
-Real-image test tuning:
-
-- `QR_MAX_DIM` sets the max image dimension for real-image tests and `qrtool` runs.
-- Recommended values:
-  - `1024` for benchmark/CI default (best speed/reading-rate balance)
-  - `800` for faster local iteration
-  - `1200` for occasional deep validation runs
-  - `0` to disable downscaling
-- `QR_DEBUG=1` enables debug logging in detection/decoder paths (off by default).
-
-Example:
+Slow real-image regressions are ignored by default. Run a relevant test
+explicitly when changing detection behavior, for example:
 
 ```bash
-# Disable downscaling and enable debug logs for real-image tests
-QR_MAX_DIM=0 QR_DEBUG=1 cargo test test_decode_monitor_image001 -- --nocapture
+QR_MAX_DIM=800 cargo test --test decode_regression_tests test_decode_rotated \
+  --release -- --ignored --nocapture
 ```
-
-Tooling note:
-
-- CI benchmark workflow default uses `QR_MAX_DIM=1024`.
-
-Run benchmarks:
-
-```bash
-# Synthetic benchmarks
-cargo bench -- qr_detect
-
-# Real QR image benchmarks
-cargo bench --features tools --bench real_qr_images
-```
-
-Quick reading-rate runs (limit the dataset):
-
-```bash
-# Limit to 3 images (also supports QR_BENCH_LIMIT env var)
-cargo run --features tools --bin qrtool -- reading-rate --limit 3
-```
-
-## Contributing
-
-We welcome contributions! Areas we need help with:
-
-- Performance: SIMD optimizations, parallel processing
-- Algorithms: Faster finder pattern detection
-- Platforms: WASM, mobile bindings
-- Documentation: Examples, tutorials
-
-See [docs/optimize.md](docs/optimize.md) for optimization opportunities.
 
 ## Benchmarks
 
-Reading rate comparison across different QR code image categories (based on [Dynamsoft benchmark](https://www.dynamsoft.com/codepool/qr-code-reading-benchmark-and-comparison.html) using the BoofCV dataset with 536 images containing 1232 QR codes):
+Criterion microbenchmarks measure individual components or a fixed benchmark
+input. They do not establish successful end-to-end decode latency: a fast
+attempt that returns no correct payload is not a successful scan.
 
-| Category | Images | Dynamsoft | BoofCV | ZBar | **RustQR** |
-|----------|--------|-----------|--------|------|------------|
-| blurred | 45 | 66.15% | 38.46% | 35.38% | **36.92%** |
-| brightness | 28 | 81.18% | 78.82% | 50.59% | **8.24%** |
-| bright_spots | 32 | 43.30% | 27.84% | 19.59% | **2.06%** |
-| close | 40 | 95.00% | 100.00% | 12.50% | **27.50%** |
-| curved | 50 | 70.00% | 56.67% | 35.00% | **38.33%** |
-| damaged | 37 | 51.16% | 16.28% | 25.58% | **30.23%** |
-| glare | 50 | 84.91% | 32.08% | 35.85% | **41.51%** |
-| high_version | 33 | 97.30% | 40.54% | 27.03% | **0.00%** |
-| lots | 7 | 100.00% | 99.76% | 18.10% | **0.24%** |
-| monitor | 17 | 100.00% | 82.35% | 0.00% | **100.00%** |
-| nominal | 65 | 93.59% | 89.74% | 66.67% | **74.36%** |
-| noncompliant | 16 | 92.31% | 3.85% | 50.00% | **30.77%** |
-| pathological | 23 | 95.65% | 43.48% | 65.22% | **86.96%** |
-| perspective | 35 | 62.86% | 80.00% | 42.86% | **34.29%** |
-| rotations | 44 | 99.25% | 96.24% | 48.87% | **1.50%** |
-| shadows | 14 | 100.00% | 85.00% | 90.00% | **25.00%** |
-| **total** | **536** | **83.29%** | **60.69%** | **38.95%** | **18.26%** |
+The reading-rate tool exercises the image pipeline and reports correctness and
+runtime over a dataset. Run a small local sample with:
 
-> **Note:** RustQR values above are from GitHub Actions run `21837108650` on `macos-latest` with commit `f26d7e8` (dataset fingerprint `ba96d1300e9f787b`).
->
-> - 536 images, median `820.08 ms/image` (mean 1189.64 ms/image)
->
-> Run the benchmark:
-> ```bash
-> cargo run --features tools --bin qrtool --release -- reading-rate
-> ```
+```bash
+QR_MAX_DIM=800 cargo run --features tools --bin qrtool --release -- \
+  reading-rate --category rotations --limit 3
+```
+
+`--limit` takes precedence over `QR_BENCH_LIMIT`. With neither set, the full
+dataset is used. GitHub's Fast Benchmark defaults to 25 images per category;
+Full Benchmark defaults to all 536 images with `QR_MAX_DIM=1024` on Linux,
+macOS, and Windows.
+
+The table formerly published here is a historical result from run
+`21837108650`, commit `f26d7e8`, on `macos-latest` with
+`QR_MAX_DIM=1024` and dataset fingerprint `ba96d1300e9f787b`. Its BoofCV score
+used expected symbol counts rather than one-to-one localization or payload
+validation, and its timing included the then-current pipeline boundaries.
+Consequently it must not be treated as a current accuracy baseline or as a
+competitor-quality comparison. See `TODO.md` WP-002 for the evaluator work
+required before publishing new comparative claims.
+
+Performance results are publishable only when they identify the dataset,
+commit, platform, preprocessing, evaluator schema, and timing boundary.
+Component microbenchmarks must be labeled separately from successful
+end-to-end decode latency.
+
+## Documentation
+
+- `docs/spec.md` — current capability matrix and roadmap
+- `docs/optimize.md` — dated historical optimization snapshot
+- `docs/decoder_status.md` — dated decoder repair snapshot
+- `docs/reading_rate_improvement.md` — historical improvement worklog
+- `TODO.md` — current execution queue and benchmark policy
 
 ## License
 
-This project is dual-licensed under MIT and Apache 2.0. You may choose either license.
-
-## Acknowledgments
-
-- Inspired by BoofCV, ZXing, and ZBar
-- Benchmark test images from BoofCV dataset
-- QR Code specification: ISO/IEC 18004:2015
-
-## Built With AI
-
-This project was developed using:
-- **Kimi K2.5** - Large language model by Moonshot AI
-- **OpenCode** - AI coding agent CLI
-
-The entire library was written through collaborative AI-assisted development.
+Dual-licensed under MIT or Apache-2.0.

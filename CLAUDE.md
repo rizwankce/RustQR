@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RustQR is a high-performance QR code detection and decoding library written in pure Rust. The goal is to be the world's fastest QR scanner while maintaining a clean, safe implementation with zero unsafe code and zero external dependencies.
+RustQR is an experimental QR Code Model 2 detection and decoding library in
+Rust. Public claims must follow the capability matrix in `docs/spec.md` and the
+benchmark evidence rules in `TODO.md`.
 
 **Performance Targets:**
 - <5ms detection for 1MP images (✅ achieved: ~4.2ms parallel)
@@ -218,6 +220,10 @@ Keep commits scoped (one logical change each). Include benchmark/test updates wh
 - **Rust Edition**: 2024
 - **Formatting**: `rustfmt` defaults (4-space indentation)
 - **Naming**: `snake_case` for functions/modules, `PascalCase` for structs/enums, `SCREAMING_SNAKE_CASE` for constants
-- **No unsafe code**: Pure safe Rust only
-- **Zero external dependencies**: Only uses `rayon` (parallelism), `image` (I/O), `clap` (CLI, feature-gated)
-- **Cross-platform**: Targets Linux, macOS, Windows, WASM, iOS, Android (no-std compatible goal)
+- **Unsafe boundary**: Private SIMD grayscale kernels use documented `unsafe`;
+  keep public inputs validated before reaching them.
+- **Dependencies**: Runtime dependencies include `rayon`, `image`, and optional
+  `clap` tooling.
+- **Verified platforms**: CI covers x86_64 Linux, macOS, and Windows. AArch64
+  SIMD is present but not CI-tested; WASM, iOS, Android, and `no_std` are not
+  currently supported claims.

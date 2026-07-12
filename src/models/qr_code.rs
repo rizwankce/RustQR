@@ -1,5 +1,36 @@
 use super::{BitMatrix, Point};
 
+/// FNC1 application identifier carried by a GS1 QR symbol.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fnc1Position {
+    /// The FNC1 is in the first position.
+    First,
+    /// The FNC1 is in the second position with its application indicator.
+    Second { application_indicator: u8 },
+}
+
+/// Sequencing information carried by a Structured Append QR symbol.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StructuredAppendInfo {
+    /// Zero-based position of this symbol in the sequence.
+    pub index: u8,
+    /// Number of symbols in the sequence (between 1 and 16).
+    pub total_symbols: u8,
+    /// Parity value shared by every symbol in the sequence.
+    pub parity: u8,
+}
+
+/// Optional QR payload headers that apply to the decoded data.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct QRCodeMetadata {
+    /// Extended Channel Interpretation assignment number, when present.
+    pub eci_assignment: Option<u32>,
+    /// GS1 FNC1 position and optional second-position application indicator.
+    pub fnc1: Option<Fnc1Position>,
+    /// Structured Append sequence metadata, when present.
+    pub structured_append: Option<StructuredAppendInfo>,
+}
+
 /// QR Code version (1-40 for Model 2)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Version {
@@ -154,6 +185,8 @@ pub struct QRCode {
     pub error_correction: ECLevel,
     /// Mask pattern used
     pub mask_pattern: MaskPattern,
+    /// Optional headers associated with the encoded payload.
+    pub metadata: QRCodeMetadata,
     /// Corner points in image coordinates
     pub position: [Point; 4],
     /// Module matrix (true = black, false = white)
@@ -177,6 +210,7 @@ impl QRCode {
             version,
             error_correction,
             mask_pattern,
+            metadata: QRCodeMetadata::default(),
             position: [Point::default(); 4],
             modules: BitMatrix::new(0, 0),
             confidence: 1.0,

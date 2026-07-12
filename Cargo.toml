@@ -3,11 +3,11 @@ name = "rust_qr"
 version = "0.1.0"
 edition = "2024"
 authors = ["Rizwan <rizwan@example.com>"]
-description = "World's fastest QR code scanning library in pure Rust"
+description = "Experimental QR Code Model 2 detector and decoder in Rust"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rizwankce/RustQR"
 keywords = ["qr", "qrcode", "barcode", "scanning", "vision"]
-categories = ["computer-vision", "no-std"]
+categories = ["computer-vision"]
 
 [dependencies]
 rayon = "1.7"
@@ -20,6 +20,7 @@ tools = ["clap"]
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 image = "0.24"
+serde_json = "1"
 
 [[bench]]
 name = "qr_detect"

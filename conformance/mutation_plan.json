@@ -1,0 +1,4364 @@
+{
+  "manifest_sha256": "751cf4d6be167b10dd3c6c0015d81a8a390152dac4d52e5f9e717d5d259f7a07",
+  "mutations": [
+    {
+      "expected_raw_payload_hex": "323034336163",
+      "id": "v01-H-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 17,
+          "errors_per_block": 8,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "e6a5096ae30c29f6",
+        "status": "planned"
+      },
+      "parent_id": "v01-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323034336163",
+      "id": "v01-H-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 17,
+          "erasures_per_block": 17,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "ff3e5e7ea56ea2b3",
+        "status": "planned"
+      },
+      "parent_id": "v01-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323034336163",
+      "id": "v01-H-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 17
+        },
+        "seed": "8d257860293a9614",
+        "status": "planned"
+      },
+      "parent_id": "v01-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323034336163",
+      "id": "v01-H-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 17
+        },
+        "seed": "b8ea9d6d222a517b",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323034336163",
+      "id": "v01-H-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 17
+        },
+        "seed": "d4040685b9fce75e",
+        "status": "planned"
+      },
+      "parent_id": "v01-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323034336163",
+      "id": "v01-H-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 17
+        },
+        "seed": "a6779ab346358603",
+        "status": "planned"
+      },
+      "parent_id": "v01-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323034336163",
+      "id": "v01-H-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 17
+        },
+        "seed": "32e396dc8a62f3e2",
+        "status": "planned"
+      },
+      "parent_id": "v01-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336233306562",
+      "id": "v01-L-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "97fc1e3d2ddb55db",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336233306562",
+      "id": "v01-L-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "565c99c7681ad431",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336233306562",
+      "id": "v01-L-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "c8c1d0b20ee45d60",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336233306562",
+      "id": "v01-L-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "6eed86dc41ceceae",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336233306562",
+      "id": "v01-L-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "934c9be00e9b1d0c",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336233306562",
+      "id": "v01-L-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "7dd8adba61f44f36",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336233306562",
+      "id": "v01-L-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "468ad12879dc299a",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "376362393335",
+      "id": "v01-L-m1-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "58c3fb298a5dd950",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m1-byte"
+    },
+    {
+      "expected_raw_payload_hex": "376362393335",
+      "id": "v01-L-m1-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "70a1d3891e1946d0",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m1-byte"
+    },
+    {
+      "expected_raw_payload_hex": "376362393335",
+      "id": "v01-L-m1-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "c56fc12c33c06040",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m1-byte"
+    },
+    {
+      "expected_raw_payload_hex": "376362393335",
+      "id": "v01-L-m1-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "f4bc4cdcec531deb",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m1-byte"
+    },
+    {
+      "expected_raw_payload_hex": "376362393335",
+      "id": "v01-L-m1-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "920a2b0ab7c405a4",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m1-byte"
+    },
+    {
+      "expected_raw_payload_hex": "376362393335",
+      "id": "v01-L-m1-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "51d03b1903f611fa",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m1-byte"
+    },
+    {
+      "expected_raw_payload_hex": "376362393335",
+      "id": "v01-L-m1-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "34ebd61977ba5bd5",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m1-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643665323633",
+      "id": "v01-L-m2-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "e3d27bb18294861c",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m2-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643665323633",
+      "id": "v01-L-m2-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "52c783eb2a17476a",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m2-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643665323633",
+      "id": "v01-L-m2-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "a7ffec176351028e",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m2-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643665323633",
+      "id": "v01-L-m2-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "852e8399b18767c6",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m2-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643665323633",
+      "id": "v01-L-m2-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "50e60f42eceb1570",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m2-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643665323633",
+      "id": "v01-L-m2-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "fd33e2e4977945ea",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m2-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643665323633",
+      "id": "v01-L-m2-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "361ca3a8a5f9a6f8",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m2-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363139373530",
+      "id": "v01-L-m3-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "c238123d0a98a83f",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363139373530",
+      "id": "v01-L-m3-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "36eb71069e530c53",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363139373530",
+      "id": "v01-L-m3-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "01fe983ea1e6c61f",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363139373530",
+      "id": "v01-L-m3-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "43a2dcf25c659605",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363139373530",
+      "id": "v01-L-m3-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "b8bf06dc034fe5f7",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363139373530",
+      "id": "v01-L-m3-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "e78fbc14db33b8bb",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363139373530",
+      "id": "v01-L-m3-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "aabedeab45ddbd09",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "656531613666",
+      "id": "v01-L-m4-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "67dd29784d513d18",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m4-byte"
+    },
+    {
+      "expected_raw_payload_hex": "656531613666",
+      "id": "v01-L-m4-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "89c9b8bbd846f44d",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m4-byte"
+    },
+    {
+      "expected_raw_payload_hex": "656531613666",
+      "id": "v01-L-m4-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "96697168c5866076",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m4-byte"
+    },
+    {
+      "expected_raw_payload_hex": "656531613666",
+      "id": "v01-L-m4-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "e8d8a64efd00ad48",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m4-byte"
+    },
+    {
+      "expected_raw_payload_hex": "656531613666",
+      "id": "v01-L-m4-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "d46f939db454a389",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m4-byte"
+    },
+    {
+      "expected_raw_payload_hex": "656531613666",
+      "id": "v01-L-m4-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "cb8fdf7095b3e8f3",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m4-byte"
+    },
+    {
+      "expected_raw_payload_hex": "656531613666",
+      "id": "v01-L-m4-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "14eb442d8fe70ff2",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m4-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643736343435",
+      "id": "v01-L-m5-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "ffde70a80be8e304",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m5-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643736343435",
+      "id": "v01-L-m5-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "a4d80e730e5bb44d",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m5-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643736343435",
+      "id": "v01-L-m5-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "6a19c7a8b0a36da9",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m5-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643736343435",
+      "id": "v01-L-m5-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "4a48567581947371",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m5-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643736343435",
+      "id": "v01-L-m5-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "5de435dedb21d533",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m5-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643736343435",
+      "id": "v01-L-m5-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "acbdcf5eed1d790a",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m5-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643736343435",
+      "id": "v01-L-m5-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "0f5e6e1c7db3e070",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m5-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316236663461",
+      "id": "v01-L-m6-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "af902f37b22670ac",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m6-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316236663461",
+      "id": "v01-L-m6-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "115c3cc0bd9501d4",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m6-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316236663461",
+      "id": "v01-L-m6-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "2b39b1add6897d5c",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m6-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316236663461",
+      "id": "v01-L-m6-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "f40aa25ba9401b58",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m6-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316236663461",
+      "id": "v01-L-m6-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "b81f98918fdba3a9",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m6-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316236663461",
+      "id": "v01-L-m6-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "6287a2f9ecec9b00",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m6-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316236663461",
+      "id": "v01-L-m6-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "5a890240556f4146",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m6-byte"
+    },
+    {
+      "expected_raw_payload_hex": "396437316634",
+      "id": "v01-L-m7-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "errors_per_block": 3,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "e1f37c6dce165fb9",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m7-byte"
+    },
+    {
+      "expected_raw_payload_hex": "396437316634",
+      "id": "v01-L-m7-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 7,
+          "erasures_per_block": 7,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "f386720c5f94083c",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m7-byte"
+    },
+    {
+      "expected_raw_payload_hex": "396437316634",
+      "id": "v01-L-m7-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "b053c212d7489030",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m7-byte"
+    },
+    {
+      "expected_raw_payload_hex": "396437316634",
+      "id": "v01-L-m7-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "daf8d08bd3e07424",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-L-m7-byte"
+    },
+    {
+      "expected_raw_payload_hex": "396437316634",
+      "id": "v01-L-m7-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "4eeefd8fc717dab6",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m7-byte"
+    },
+    {
+      "expected_raw_payload_hex": "396437316634",
+      "id": "v01-L-m7-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "42ce752d2e84d33c",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m7-byte"
+    },
+    {
+      "expected_raw_payload_hex": "396437316634",
+      "id": "v01-L-m7-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 7
+        },
+        "seed": "9edf373046a226ea",
+        "status": "planned"
+      },
+      "parent_id": "v01-L-m7-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323934326161",
+      "id": "v01-M-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "39c7fa872009fdd6",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323934326161",
+      "id": "v01-M-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "cbac45a2c2005751",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323934326161",
+      "id": "v01-M-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "08953f52483e6e75",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323934326161",
+      "id": "v01-M-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "1151e99d2638b072",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323934326161",
+      "id": "v01-M-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "cc10fc6508b41e62",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323934326161",
+      "id": "v01-M-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "9bff99edcea5b1f4",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "323934326161",
+      "id": "v01-M-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "547e57084740769f",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "522f394e4135",
+      "id": "v01-M-m3-alphanumeric--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "d1eccd83e21c9477",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-alphanumeric"
+    },
+    {
+      "expected_raw_payload_hex": "522f394e4135",
+      "id": "v01-M-m3-alphanumeric--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "570736dfc083e5fa",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-alphanumeric"
+    },
+    {
+      "expected_raw_payload_hex": "522f394e4135",
+      "id": "v01-M-m3-alphanumeric--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "8d344a77378efc6a",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-alphanumeric"
+    },
+    {
+      "expected_raw_payload_hex": "522f394e4135",
+      "id": "v01-M-m3-alphanumeric--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "6a81f4a4a14ac00b",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m3-alphanumeric"
+    },
+    {
+      "expected_raw_payload_hex": "522f394e4135",
+      "id": "v01-M-m3-alphanumeric--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "9288f6e7867f5b76",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-alphanumeric"
+    },
+    {
+      "expected_raw_payload_hex": "522f394e4135",
+      "id": "v01-M-m3-alphanumeric--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "d9d7394887e59b1d",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-alphanumeric"
+    },
+    {
+      "expected_raw_payload_hex": "522f394e4135",
+      "id": "v01-M-m3-alphanumeric--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "324905c1ff35b7fa",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-alphanumeric"
+    },
+    {
+      "expected_raw_payload_hex": "663465373338",
+      "id": "v01-M-m3-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "e3e1823457d77532",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "663465373338",
+      "id": "v01-M-m3-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "8c30d6bb5068812f",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "663465373338",
+      "id": "v01-M-m3-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "baa7354a898af64c",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "663465373338",
+      "id": "v01-M-m3-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "398f2683eb15ff8f",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "663465373338",
+      "id": "v01-M-m3-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "eb27c679cdbc5b74",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "663465373338",
+      "id": "v01-M-m3-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "a23f3c3f54b0b1a8",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "663465373338",
+      "id": "v01-M-m3-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "eb034ef337501b1e",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-byte"
+    },
+    {
+      "expected_raw_payload_hex": "e98e1972",
+      "id": "v01-M-m3-eci--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "c41146ae43ac595e",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-eci"
+    },
+    {
+      "expected_raw_payload_hex": "e98e1972",
+      "id": "v01-M-m3-eci--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "9d324bb99df54fd9",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-eci"
+    },
+    {
+      "expected_raw_payload_hex": "e98e1972",
+      "id": "v01-M-m3-eci--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "5d1af316b8a39f29",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-eci"
+    },
+    {
+      "expected_raw_payload_hex": "e98e1972",
+      "id": "v01-M-m3-eci--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "a1086a23d5551433",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m3-eci"
+    },
+    {
+      "expected_raw_payload_hex": "e98e1972",
+      "id": "v01-M-m3-eci--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "da23ee4362dbbc2c",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-eci"
+    },
+    {
+      "expected_raw_payload_hex": "e98e1972",
+      "id": "v01-M-m3-eci--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "ad20cac107334645",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-eci"
+    },
+    {
+      "expected_raw_payload_hex": "e98e1972",
+      "id": "v01-M-m3-eci--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "7ac1bec05034d35a",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-eci"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v01-M-m3-gs1_fnc1--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "d1a046077e20e42c",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v01-M-m3-gs1_fnc1--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "1db2a0b252c18a1d",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v01-M-m3-gs1_fnc1--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "5e10026bbcec8b9b",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v01-M-m3-gs1_fnc1--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "7f2f739dc6e227da",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v01-M-m3-gs1_fnc1--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "97d6e8f02cf08d29",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v01-M-m3-gs1_fnc1--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "6d63230713b8e149",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v01-M-m3-gs1_fnc1--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "a8b24094185b2886",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "be16144dfc13406f",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-kanji"
+    },
+    {
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "75d465c9237ab29d",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-kanji"
+    },
+    {
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "abb95d2297ce80d8",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-kanji"
+    },
+    {
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "0a3b2f2b5f2557e8",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m3-kanji"
+    },
+    {
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "158164f67136eb76",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-kanji"
+    },
+    {
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "9eb278cb0e0bbd83",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-kanji"
+    },
+    {
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "59e755a63a376d43",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-kanji"
+    },
+    {
+      "expected_raw_payload_hex": "3730303036343533",
+      "id": "v01-M-m3-numeric--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "94fda7e0663fca10",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-numeric"
+    },
+    {
+      "expected_raw_payload_hex": "3730303036343533",
+      "id": "v01-M-m3-numeric--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "875e25054376368d",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-numeric"
+    },
+    {
+      "expected_raw_payload_hex": "3730303036343533",
+      "id": "v01-M-m3-numeric--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "a84340b8cf8c6712",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-numeric"
+    },
+    {
+      "expected_raw_payload_hex": "3730303036343533",
+      "id": "v01-M-m3-numeric--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "f4b2061048644344",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m3-numeric"
+    },
+    {
+      "expected_raw_payload_hex": "3730303036343533",
+      "id": "v01-M-m3-numeric--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "d35cfcacfc486907",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-numeric"
+    },
+    {
+      "expected_raw_payload_hex": "3730303036343533",
+      "id": "v01-M-m3-numeric--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "04cd7f0c68362817",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-numeric"
+    },
+    {
+      "expected_raw_payload_hex": "3730303036343533",
+      "id": "v01-M-m3-numeric--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "10749038f91466d3",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-numeric"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v01-M-m3-structured_append--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "c219f8e72dc16779",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v01-M-m3-structured_append--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "f473b8bde43ba65d",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v01-M-m3-structured_append--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "b6b0fcddc7a52c6d",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v01-M-m3-structured_append--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "221ec647c85d71be",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v01-M-m3-structured_append--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "61b5d7ff7cd6986e",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v01-M-m3-structured_append--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "4f8cce691aab39a3",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v01-M-m3-structured_append--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "eb4b566dd0c903d2",
+        "status": "planned"
+      },
+      "parent_id": "v01-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "353162323839",
+      "id": "v01-Q-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 13,
+          "errors_per_block": 6,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "7f883a3063537b3b",
+        "status": "planned"
+      },
+      "parent_id": "v01-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353162323839",
+      "id": "v01-Q-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 13,
+          "erasures_per_block": 13,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "2acbed2adbfeccb7",
+        "status": "planned"
+      },
+      "parent_id": "v01-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353162323839",
+      "id": "v01-Q-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 13
+        },
+        "seed": "5a323f47c0125232",
+        "status": "planned"
+      },
+      "parent_id": "v01-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353162323839",
+      "id": "v01-Q-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 13
+        },
+        "seed": "f4a2364647c529f5",
+        "status": "not_applicable"
+      },
+      "parent_id": "v01-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353162323839",
+      "id": "v01-Q-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 13
+        },
+        "seed": "2ecdb189a60a07fb",
+        "status": "planned"
+      },
+      "parent_id": "v01-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353162323839",
+      "id": "v01-Q-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 13
+        },
+        "seed": "1a890e7f697bb6f1",
+        "status": "planned"
+      },
+      "parent_id": "v01-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353162323839",
+      "id": "v01-Q-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 13
+        },
+        "seed": "456d1d87239cb212",
+        "status": "planned"
+      },
+      "parent_id": "v01-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316661666431",
+      "id": "v02-H-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "errors_per_block": 14,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "def064ddd1d74d11",
+        "status": "planned"
+      },
+      "parent_id": "v02-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316661666431",
+      "id": "v02-H-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "erasures_per_block": 28,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "95158a8c793042ee",
+        "status": "planned"
+      },
+      "parent_id": "v02-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316661666431",
+      "id": "v02-H-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "eeed1d78b664d9e7",
+        "status": "planned"
+      },
+      "parent_id": "v02-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316661666431",
+      "id": "v02-H-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "fe39a3fe50c67fda",
+        "status": "not_applicable"
+      },
+      "parent_id": "v02-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316661666431",
+      "id": "v02-H-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "178bb71962538d39",
+        "status": "planned"
+      },
+      "parent_id": "v02-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316661666431",
+      "id": "v02-H-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "69442023a9305d56",
+        "status": "planned"
+      },
+      "parent_id": "v02-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316661666431",
+      "id": "v02-H-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "3a919ff0f49f0cdb",
+        "status": "planned"
+      },
+      "parent_id": "v02-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313335303762",
+      "id": "v02-L-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "errors_per_block": 5,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "cfa36e7aacc2bc07",
+        "status": "planned"
+      },
+      "parent_id": "v02-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313335303762",
+      "id": "v02-L-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 10,
+          "erasures_per_block": 10,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "a8bd3ba55a63825a",
+        "status": "planned"
+      },
+      "parent_id": "v02-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313335303762",
+      "id": "v02-L-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "f751baae2d1b6250",
+        "status": "planned"
+      },
+      "parent_id": "v02-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313335303762",
+      "id": "v02-L-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "ce1a7270f88c90c6",
+        "status": "not_applicable"
+      },
+      "parent_id": "v02-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313335303762",
+      "id": "v02-L-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "469d38494a2cd6ad",
+        "status": "planned"
+      },
+      "parent_id": "v02-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313335303762",
+      "id": "v02-L-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "5c93c19bc23a4365",
+        "status": "planned"
+      },
+      "parent_id": "v02-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313335303762",
+      "id": "v02-L-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 10
+        },
+        "seed": "4013bf526083d3d5",
+        "status": "planned"
+      },
+      "parent_id": "v02-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356666613366",
+      "id": "v02-M-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 16,
+          "errors_per_block": 8,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "93c0d1b20fda069e",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356666613366",
+      "id": "v02-M-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 16,
+          "erasures_per_block": 16,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "dc065b928d36d8b6",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356666613366",
+      "id": "v02-M-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "ee252efcd8281196",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356666613366",
+      "id": "v02-M-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "bc18957a11f37d97",
+        "status": "not_applicable"
+      },
+      "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356666613366",
+      "id": "v02-M-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "b6c6dee0e92cfced",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356666613366",
+      "id": "v02-M-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "cfc6368c3a432ffd",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356666613366",
+      "id": "v02-M-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "e562eb1f48aeb48a",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316634326331",
+      "id": "v02-Q-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 22,
+          "errors_per_block": 11,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "a3ae9fca061bc04c",
+        "status": "planned"
+      },
+      "parent_id": "v02-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316634326331",
+      "id": "v02-Q-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 22,
+          "erasures_per_block": 22,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "bf40927e3dac4a61",
+        "status": "planned"
+      },
+      "parent_id": "v02-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316634326331",
+      "id": "v02-Q-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 22
+        },
+        "seed": "f9c2ca8f79ed4ff5",
+        "status": "planned"
+      },
+      "parent_id": "v02-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316634326331",
+      "id": "v02-Q-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 22
+        },
+        "seed": "4aeaabe9ab213451",
+        "status": "not_applicable"
+      },
+      "parent_id": "v02-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316634326331",
+      "id": "v02-Q-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 22
+        },
+        "seed": "13955e32e4069f97",
+        "status": "planned"
+      },
+      "parent_id": "v02-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316634326331",
+      "id": "v02-Q-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 22
+        },
+        "seed": "1c2f6d35933ab117",
+        "status": "planned"
+      },
+      "parent_id": "v02-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "316634326331",
+      "id": "v02-Q-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 22
+        },
+        "seed": "cd7fd72c0d12fe2d",
+        "status": "planned"
+      },
+      "parent_id": "v02-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303137306462",
+      "id": "v07-H-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 26,
+          "errors_per_block": 13,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "ac965a4415f9f7e4",
+        "status": "planned"
+      },
+      "parent_id": "v07-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303137306462",
+      "id": "v07-H-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 26,
+          "erasures_per_block": 26,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "c938fcce11dcbe2b",
+        "status": "planned"
+      },
+      "parent_id": "v07-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303137306462",
+      "id": "v07-H-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "a09537966e2126cb",
+        "status": "planned"
+      },
+      "parent_id": "v07-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303137306462",
+      "id": "v07-H-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "522dbe63ee995035",
+        "status": "planned"
+      },
+      "parent_id": "v07-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303137306462",
+      "id": "v07-H-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "02c936260d75ae62",
+        "status": "planned"
+      },
+      "parent_id": "v07-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303137306462",
+      "id": "v07-H-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "bd59028ed94b4266",
+        "status": "planned"
+      },
+      "parent_id": "v07-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303137306462",
+      "id": "v07-H-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "d1cfe86e21a65305",
+        "status": "planned"
+      },
+      "parent_id": "v07-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "373437626465",
+      "id": "v07-L-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 20,
+          "errors_per_block": 10,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "db41ef4c399420bd",
+        "status": "planned"
+      },
+      "parent_id": "v07-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "373437626465",
+      "id": "v07-L-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 20,
+          "erasures_per_block": 20,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "7d26f3d143214e01",
+        "status": "planned"
+      },
+      "parent_id": "v07-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "373437626465",
+      "id": "v07-L-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 20
+        },
+        "seed": "b18a3f6f5cf623c8",
+        "status": "planned"
+      },
+      "parent_id": "v07-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "373437626465",
+      "id": "v07-L-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 20
+        },
+        "seed": "33298734c380b61c",
+        "status": "planned"
+      },
+      "parent_id": "v07-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "373437626465",
+      "id": "v07-L-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 20
+        },
+        "seed": "6d53f60062a2129e",
+        "status": "planned"
+      },
+      "parent_id": "v07-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "373437626465",
+      "id": "v07-L-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 20
+        },
+        "seed": "da65f8ee44259210",
+        "status": "planned"
+      },
+      "parent_id": "v07-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "373437626465",
+      "id": "v07-L-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 20
+        },
+        "seed": "d11e7d52ec7407a3",
+        "status": "planned"
+      },
+      "parent_id": "v07-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "653764353934",
+      "id": "v07-M-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 18,
+          "errors_per_block": 9,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "b80f8886516660aa",
+        "status": "planned"
+      },
+      "parent_id": "v07-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "653764353934",
+      "id": "v07-M-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 18,
+          "erasures_per_block": 18,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "0729b95566670df7",
+        "status": "planned"
+      },
+      "parent_id": "v07-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "653764353934",
+      "id": "v07-M-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "9ced81ae22b57236",
+        "status": "planned"
+      },
+      "parent_id": "v07-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "653764353934",
+      "id": "v07-M-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "8c53e9ad53bf813f",
+        "status": "planned"
+      },
+      "parent_id": "v07-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "653764353934",
+      "id": "v07-M-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "cf72bffd16803a96",
+        "status": "planned"
+      },
+      "parent_id": "v07-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "653764353934",
+      "id": "v07-M-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "5a2aa5aa916ff4bb",
+        "status": "planned"
+      },
+      "parent_id": "v07-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "653764353934",
+      "id": "v07-M-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "76cd636ef584c3b3",
+        "status": "planned"
+      },
+      "parent_id": "v07-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356465613332",
+      "id": "v07-Q-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 18,
+          "errors_per_block": 9,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "a84120d7bfde76c2",
+        "status": "planned"
+      },
+      "parent_id": "v07-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356465613332",
+      "id": "v07-Q-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 18,
+          "erasures_per_block": 18,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "75705c47719f598d",
+        "status": "planned"
+      },
+      "parent_id": "v07-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356465613332",
+      "id": "v07-Q-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "9e7104dc672d9381",
+        "status": "planned"
+      },
+      "parent_id": "v07-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356465613332",
+      "id": "v07-Q-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "6043f6bd7d6e5bf0",
+        "status": "planned"
+      },
+      "parent_id": "v07-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356465613332",
+      "id": "v07-Q-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "36dc697dc13cbf31",
+        "status": "planned"
+      },
+      "parent_id": "v07-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356465613332",
+      "id": "v07-Q-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "69ba96a386e1d8c7",
+        "status": "planned"
+      },
+      "parent_id": "v07-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "356465613332",
+      "id": "v07-Q-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 18
+        },
+        "seed": "14df2fb430e9a6e6",
+        "status": "planned"
+      },
+      "parent_id": "v07-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "646437643533",
+      "id": "v20-H-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "errors_per_block": 14,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "e9f9063ebf0903e1",
+        "status": "planned"
+      },
+      "parent_id": "v20-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "646437643533",
+      "id": "v20-H-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "erasures_per_block": 28,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "08e4c33f350640eb",
+        "status": "planned"
+      },
+      "parent_id": "v20-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "646437643533",
+      "id": "v20-H-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "f39b0b7336456322",
+        "status": "planned"
+      },
+      "parent_id": "v20-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "646437643533",
+      "id": "v20-H-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "61a5fb13689d56e9",
+        "status": "planned"
+      },
+      "parent_id": "v20-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "646437643533",
+      "id": "v20-H-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "122ea11692e51202",
+        "status": "planned"
+      },
+      "parent_id": "v20-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "646437643533",
+      "id": "v20-H-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "26c6d3ecccd36e40",
+        "status": "planned"
+      },
+      "parent_id": "v20-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "646437643533",
+      "id": "v20-H-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "a8c5aef78037520b",
+        "status": "planned"
+      },
+      "parent_id": "v20-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363439643366",
+      "id": "v20-L-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "errors_per_block": 14,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "c91b026448d08199",
+        "status": "planned"
+      },
+      "parent_id": "v20-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363439643366",
+      "id": "v20-L-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "erasures_per_block": 28,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "d26158ea8d3845b8",
+        "status": "planned"
+      },
+      "parent_id": "v20-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363439643366",
+      "id": "v20-L-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "2743ba77bb80e8cb",
+        "status": "planned"
+      },
+      "parent_id": "v20-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363439643366",
+      "id": "v20-L-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "5ff6573f1c541cf0",
+        "status": "planned"
+      },
+      "parent_id": "v20-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363439643366",
+      "id": "v20-L-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "073581db252e7e03",
+        "status": "planned"
+      },
+      "parent_id": "v20-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363439643366",
+      "id": "v20-L-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "14879794253bee7f",
+        "status": "planned"
+      },
+      "parent_id": "v20-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "363439643366",
+      "id": "v20-L-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "9f6a5582ace02631",
+        "status": "planned"
+      },
+      "parent_id": "v20-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313262306231",
+      "id": "v20-M-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 26,
+          "errors_per_block": 13,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "dd790e1c400da83a",
+        "status": "planned"
+      },
+      "parent_id": "v20-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313262306231",
+      "id": "v20-M-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 26,
+          "erasures_per_block": 26,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "2908ad00b98b2020",
+        "status": "planned"
+      },
+      "parent_id": "v20-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313262306231",
+      "id": "v20-M-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "3d1c1398062737c4",
+        "status": "planned"
+      },
+      "parent_id": "v20-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313262306231",
+      "id": "v20-M-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "3c799af451b72bde",
+        "status": "planned"
+      },
+      "parent_id": "v20-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313262306231",
+      "id": "v20-M-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "6e3a654efe6ad380",
+        "status": "planned"
+      },
+      "parent_id": "v20-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313262306231",
+      "id": "v20-M-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "6ccfd829323aeeea",
+        "status": "planned"
+      },
+      "parent_id": "v20-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "313262306231",
+      "id": "v20-M-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 26
+        },
+        "seed": "14830d358c60062c",
+        "status": "planned"
+      },
+      "parent_id": "v20-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "633238353333",
+      "id": "v20-Q-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "errors_per_block": 15,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "94d8b424d8747816",
+        "status": "planned"
+      },
+      "parent_id": "v20-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "633238353333",
+      "id": "v20-Q-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "erasures_per_block": 30,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "d0917ba1272388af",
+        "status": "planned"
+      },
+      "parent_id": "v20-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "633238353333",
+      "id": "v20-Q-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "25721c1c4e7e37f0",
+        "status": "planned"
+      },
+      "parent_id": "v20-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "633238353333",
+      "id": "v20-Q-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "c5ae284e99435bbc",
+        "status": "planned"
+      },
+      "parent_id": "v20-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "633238353333",
+      "id": "v20-Q-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "9850196ca7361c08",
+        "status": "planned"
+      },
+      "parent_id": "v20-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "633238353333",
+      "id": "v20-Q-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "64281727d485850a",
+        "status": "planned"
+      },
+      "parent_id": "v20-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "633238353333",
+      "id": "v20-Q-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "897bb3c9f417d2a2",
+        "status": "planned"
+      },
+      "parent_id": "v20-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353738346535",
+      "id": "v40-H-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "errors_per_block": 15,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "5743363c049e527e",
+        "status": "planned"
+      },
+      "parent_id": "v40-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353738346535",
+      "id": "v40-H-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "erasures_per_block": 30,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "a7a406946e461796",
+        "status": "planned"
+      },
+      "parent_id": "v40-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353738346535",
+      "id": "v40-H-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "5fe81c17d9ddf385",
+        "status": "planned"
+      },
+      "parent_id": "v40-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353738346535",
+      "id": "v40-H-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "2192080d5cc9d9ee",
+        "status": "planned"
+      },
+      "parent_id": "v40-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353738346535",
+      "id": "v40-H-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "878c5d30ac060ae9",
+        "status": "planned"
+      },
+      "parent_id": "v40-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353738346535",
+      "id": "v40-H-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "bcf96c430b2578ec",
+        "status": "planned"
+      },
+      "parent_id": "v40-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "353738346535",
+      "id": "v40-H-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "e17d0ed19ff8178c",
+        "status": "planned"
+      },
+      "parent_id": "v40-H-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336430343339",
+      "id": "v40-L-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "errors_per_block": 15,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "7c3572adca90481a",
+        "status": "planned"
+      },
+      "parent_id": "v40-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336430343339",
+      "id": "v40-L-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "erasures_per_block": 30,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "0e0db20d0facf588",
+        "status": "planned"
+      },
+      "parent_id": "v40-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336430343339",
+      "id": "v40-L-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "8ec44f4297640957",
+        "status": "planned"
+      },
+      "parent_id": "v40-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336430343339",
+      "id": "v40-L-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "9a4299d1e4bc4e15",
+        "status": "planned"
+      },
+      "parent_id": "v40-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336430343339",
+      "id": "v40-L-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "8df68f3b71e4685a",
+        "status": "planned"
+      },
+      "parent_id": "v40-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336430343339",
+      "id": "v40-L-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "4b523e2832a5f484",
+        "status": "planned"
+      },
+      "parent_id": "v40-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "336430343339",
+      "id": "v40-L-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "0c4686523591fdc3",
+        "status": "planned"
+      },
+      "parent_id": "v40-L-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643337316463",
+      "id": "v40-M-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "errors_per_block": 14,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "0c786f26b925f9f3",
+        "status": "planned"
+      },
+      "parent_id": "v40-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643337316463",
+      "id": "v40-M-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 28,
+          "erasures_per_block": 28,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "8fbdd706946c07e3",
+        "status": "planned"
+      },
+      "parent_id": "v40-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643337316463",
+      "id": "v40-M-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "bcb2b0604de423b0",
+        "status": "planned"
+      },
+      "parent_id": "v40-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643337316463",
+      "id": "v40-M-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "79796c1a30255e41",
+        "status": "planned"
+      },
+      "parent_id": "v40-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643337316463",
+      "id": "v40-M-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "1b025634d7a3d546",
+        "status": "planned"
+      },
+      "parent_id": "v40-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643337316463",
+      "id": "v40-M-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "be40fba66b942b35",
+        "status": "planned"
+      },
+      "parent_id": "v40-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "643337316463",
+      "id": "v40-M-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 28
+        },
+        "seed": "b25eb0c1dabc2e5c",
+        "status": "planned"
+      },
+      "parent_id": "v40-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "366138343336",
+      "id": "v40-Q-m0-byte--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "errors_per_block": 15,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "3bb003f28b24d519",
+        "status": "planned"
+      },
+      "parent_id": "v40-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "366138343336",
+      "id": "v40-Q-m0-byte--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 30,
+          "erasures_per_block": 30,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "4c63f057b22e8a6f",
+        "status": "planned"
+      },
+      "parent_id": "v40-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "366138343336",
+      "id": "v40-Q-m0-byte--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "c37e67fa5c0f6b1a",
+        "status": "planned"
+      },
+      "parent_id": "v40-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "366138343336",
+      "id": "v40-Q-m0-byte--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "99cc174a33d189a0",
+        "status": "planned"
+      },
+      "parent_id": "v40-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "366138343336",
+      "id": "v40-Q-m0-byte--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "20b196ccf99692bb",
+        "status": "planned"
+      },
+      "parent_id": "v40-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "366138343336",
+      "id": "v40-Q-m0-byte--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "b3462d0b3e75fd55",
+        "status": "planned"
+      },
+      "parent_id": "v40-Q-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "366138343336",
+      "id": "v40-Q-m0-byte--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 30
+        },
+        "seed": "f2d9bf61b6a46ef7",
+        "status": "planned"
+      },
+      "parent_id": "v40-Q-m0-byte"
+    }
+  ],
+  "schema_version": "rustqr.conformance-mutation-plan.v1",
+  "semantics": {
+    "decode_success": "materialized fixture must reproduce expected raw payload",
+    "planned": "not executable and never counted as pass or failure",
+    "reject": "materialized fixture must not return an accepted payload"
+  },
+  "tables_sha256": "db7cbe863cd9206a2c0e664535a76e857b0e9d364fd5e3f19583a00a760d0327"
+}

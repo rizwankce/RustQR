@@ -1,0 +1,100 @@
+{
+  "cases": [
+    {
+      "coordinate_source": "ISO format information copies",
+      "id": "invalid-format-v1",
+      "kind": "invalid_format",
+      "matrix": "invalid-format-v1.matrix",
+      "mutation": {
+        "minimum_valid_bch_distance": 5,
+        "word": "000000000000000"
+      },
+      "parent": "golden-v1-m-numeric",
+      "sha256": "b838492729255af425bb6230573413761bfc8a573854e8c2d0eedb5fe6615d92"
+    },
+    {
+      "coordinate_source": "ISO version information copies",
+      "id": "invalid-version-v7",
+      "kind": "invalid_version",
+      "matrix": "invalid-version-v7.matrix",
+      "mutation": {
+        "decoded_version": null,
+        "word": "000000000000000000"
+      },
+      "parent": "v07-L-m0-byte",
+      "sha256": "f166a2214521195fd651772ec4fa4fa4614870a2e511939da84183f52d0a6087"
+    },
+    {
+      "coordinate_source": "scripts/qr_spec_mapping.py remainder_modules(2)",
+      "id": "invalid-remainder-v2",
+      "kind": "invalid_remainder",
+      "matrix": "invalid-remainder-v2.matrix",
+      "mutation": {
+        "coordinate": [
+          0,
+          13
+        ],
+        "masked_after": 1,
+        "masked_before": 0,
+        "remainder_module_count": 7,
+        "unmasked_after": 1
+      },
+      "parent": "v02-M-m0-byte",
+      "sha256": "86b37679d0c96ea377c5699bdab900dff2b2d11aa297ce5afaed55d87a8aa55a"
+    },
+    {
+      "coordinate_source": "scripts/qr_spec_mapping.py codeword_to_modules(1)",
+      "id": "invalid-padding-v1",
+      "kind": "invalid_padding",
+      "matrix": "invalid-padding-v1.matrix",
+      "mutation": {
+        "data_codeword_index": 8,
+        "expected_pad_codeword": "ec",
+        "module_coordinates_msb_first": [
+          [
+            16,
+            12
+          ],
+          [
+            15,
+            12
+          ],
+          [
+            16,
+            11
+          ],
+          [
+            15,
+            11
+          ],
+          [
+            16,
+            10
+          ],
+          [
+            15,
+            10
+          ],
+          [
+            16,
+            9
+          ],
+          [
+            15,
+            9
+          ]
+        ],
+        "reed_solomon_parity": "regenerated with python-qrcode==8.2",
+        "replacement_codeword": "ed"
+      },
+      "parent": "v01-M-m0-byte",
+      "sha256": "f65f9584327af3b8e98dc5d1243ffc9b9090d6f065f73537e77fa289d6df02c6"
+    }
+  ],
+  "generator": "scripts/materialize_structural_invalid_fixtures.py",
+  "provenance": {
+    "padding_backend": "python-qrcode==8.2",
+    "placement_map": "scripts/qr_spec_mapping.py"
+  },
+  "schema_version": "rustqr.structural-invalid-fixtures.v1"
+}

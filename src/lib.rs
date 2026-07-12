@@ -235,6 +235,162 @@ use utils::grayscale::{
 };
 use utils::memory_pool::BufferPool;
 
+/// Pixel layout for an [`ImageInput`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PixelFormat {
+    /// One luminance byte per pixel.
+    Grayscale,
+    /// Three interleaved bytes per pixel, in red-green-blue order.
+    Rgb,
+    /// Four interleaved bytes per pixel, in red-green-blue-alpha order.
+    Rgba,
+}
+
+impl PixelFormat {
+    const fn bytes_per_pixel(self) -> usize {
+        match self {
+            Self::Grayscale => 1,
+            Self::Rgb => 3,
+            Self::Rgba => 4,
+        }
+    }
+}
+
+/// A borrowed image supplied to [`try_detect`].
+#[derive(Debug, Clone, Copy)]
+pub struct ImageInput<'a> {
+    pub data: &'a [u8],
+    pub width: usize,
+    pub height: usize,
+    pub pixel_format: PixelFormat,
+    /// Bytes between the starts of adjacent rows. `None` means tightly packed.
+    pub stride: Option<usize>,
+}
+
+impl<'a> ImageInput<'a> {
+    /// Create a tightly packed image input.
+    pub const fn new(
+        data: &'a [u8],
+        width: usize,
+        height: usize,
+        pixel_format: PixelFormat,
+    ) -> Self {
+        Self {
+            data,
+            width,
+            height,
+            pixel_format,
+            stride: None,
+        }
+    }
+
+    /// Set the number of bytes between adjacent row starts.
+    pub const fn with_stride(mut self, stride: usize) -> Self {
+        self.stride = Some(stride);
+        self
+    }
+}
+
+/// Validation failures returned by fallible image entry points.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InputError {
+    /// Width and height must both be non-zero.
+    ZeroDimension,
+    /// A dimension, channel, or stride calculation overflowed `usize`.
+    DimensionOverflow,
+    /// The row stride cannot contain one complete row.
+    InvalidStride { stride: usize, minimum: usize },
+    /// The input slice does not contain all addressed pixels.
+    BufferTooShort { required: usize, actual: usize },
+}
+
+impl std::fmt::Display for InputError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ZeroDimension => write!(f, "image width and height must be non-zero"),
+            Self::DimensionOverflow => write!(f, "image dimensions overflow addressable memory"),
+            Self::InvalidStride { stride, minimum } => {
+                write!(
+                    f,
+                    "image stride {stride} is smaller than row size {minimum}"
+                )
+            }
+            Self::BufferTooShort { required, actual } => write!(
+                f,
+                "image buffer is too short: requires {required} bytes, got {actual}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for InputError {}
+
+fn validate_input(input: ImageInput<'_>) -> Result<(usize, usize), InputError> {
+    if input.width == 0 || input.height == 0 {
+        return Err(InputError::ZeroDimension);
+    }
+    let row_bytes = input
+        .width
+        .checked_mul(input.pixel_format.bytes_per_pixel())
+        .ok_or(InputError::DimensionOverflow)?;
+    let stride = input.stride.unwrap_or(row_bytes);
+    if stride < row_bytes {
+        return Err(InputError::InvalidStride {
+            stride,
+            minimum: row_bytes,
+        });
+    }
+    let required = (input.height - 1)
+        .checked_mul(stride)
+        .and_then(|offset| offset.checked_add(row_bytes))
+        .ok_or(InputError::DimensionOverflow)?;
+    if input.data.len() < required {
+        return Err(InputError::BufferTooShort {
+            required,
+            actual: input.data.len(),
+        });
+    }
+    input
+        .width
+        .checked_mul(input.height)
+        .ok_or(InputError::DimensionOverflow)?;
+    Ok((row_bytes, stride))
+}
+
+fn input_to_grayscale(input: ImageInput<'_>) -> Result<Vec<u8>, InputError> {
+    let (row_bytes, stride) = validate_input(input)?;
+    let pixel_count = input
+        .width
+        .checked_mul(input.height)
+        .ok_or(InputError::DimensionOverflow)?;
+    let mut gray = Vec::new();
+    gray.try_reserve_exact(pixel_count)
+        .map_err(|_| InputError::DimensionOverflow)?;
+    gray.resize(pixel_count, 0);
+
+    for y in 0..input.height {
+        let source_start = y.checked_mul(stride).ok_or(InputError::DimensionOverflow)?;
+        let source = &input.data[source_start..source_start + row_bytes];
+        let output = &mut gray[y * input.width..(y + 1) * input.width];
+        match input.pixel_format {
+            PixelFormat::Grayscale => output.copy_from_slice(source),
+            PixelFormat::Rgb => {
+                for (dst, pixel) in output.iter_mut().zip(source.chunks_exact(3)) {
+                    *dst = ((76 * pixel[0] as u16 + 150 * pixel[1] as u16 + 29 * pixel[2] as u16)
+                        >> 8) as u8;
+                }
+            }
+            PixelFormat::Rgba => {
+                for (dst, pixel) in output.iter_mut().zip(source.chunks_exact(4)) {
+                    *dst = ((76 * pixel[0] as u16 + 150 * pixel[1] as u16 + 29 * pixel[2] as u16)
+                        >> 8) as u8;
+                }
+            }
+        }
+    }
+    Ok(gray)
+}
+
 fn auto_window(width: usize, height: usize) -> usize {
     let base = (width.min(height) / 24).max(31);
     if base % 2 == 0 { base + 1 } else { base }
@@ -252,7 +408,7 @@ fn contrast_stretch(gray: &[u8]) -> Vec<u8> {
         max_v = max_v.max(v);
     }
 
-    if max_v <= min_v + 8 {
+    if max_v <= min_v.saturating_add(8) {
         return gray.to_vec();
     }
 
@@ -850,7 +1006,19 @@ where
     run_detection_strategies(&rotated, width, height, &is_expired)
 }
 
-/// Detect QR codes in an RGB image
+/// Detect QR codes from a validated image description.
+///
+/// This is the preferred public entry point. It accepts grayscale, RGB, and
+/// RGBA data, including row padding, and rejects malformed layouts before any
+/// conversion or detection code runs.
+pub fn try_detect(input: ImageInput<'_>) -> Result<Vec<QRCode>, InputError> {
+    let width = input.width;
+    let height = input.height;
+    let gray = input_to_grayscale(input)?;
+    Ok(detect_grayscale_validated(&gray, width, height))
+}
+
+/// Detect QR codes in a tightly packed RGB image.
 ///
 /// # Arguments
 /// * `image` - Raw RGB bytes (3 bytes per pixel)
@@ -860,26 +1028,30 @@ where
 /// # Returns
 /// Vector of detected QR codes
 ///
-/// Uses pyramid detection for large images (800px+) for better performance
+/// This compatibility wrapper returns an empty result for malformed input.
+/// New callers should use [`try_detect`] to receive a structured error.
 pub fn detect(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
+    try_detect(ImageInput::new(image, width, height, PixelFormat::Rgb)).unwrap_or_default()
+}
+
+fn detect_grayscale_validated(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
     let start = std::time::Instant::now();
     let budget_ms = decoder::config::global_time_budget_ms();
     let deadline = start + std::time::Duration::from_millis(budget_ms);
     set_global_deadline(deadline);
     let is_expired = || start.elapsed().as_millis() as u64 >= budget_ms;
 
-    let gray = rgb_to_grayscale(image, width, height);
     if is_expired() {
         clear_global_deadline();
         return Vec::new();
     }
-    let fast = run_fast_path(&gray, width, height);
+    let fast = run_fast_path(image, width, height);
     if !fast.is_empty() {
         clear_global_deadline();
         return fast;
     }
 
-    let results = run_detection_with_phase4_fallbacks(&gray, width, height, is_expired);
+    let results = run_detection_with_phase4_fallbacks(image, width, height, is_expired);
     clear_global_deadline();
     results
 }
@@ -894,16 +1066,51 @@ pub fn detect_with_telemetry(
     width: usize,
     height: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
+    detect_with_telemetry_budget(image, width, height, None)
+}
+
+/// Detect with telemetry while applying a caller-supplied cooperative budget.
+///
+/// The budget is capped by the detector's configured global budget. Expensive
+/// pipeline and decoder loops observe the shared deadline, but this is not
+/// preemptive cancellation: a single uninterruptible operation can return
+/// after the requested duration. Callers must measure elapsed time to classify
+/// that case as a timeout and discard its results.
+pub fn detect_with_telemetry_timeout(
+    image: &[u8],
+    width: usize,
+    height: usize,
+    timeout: std::time::Duration,
+) -> (Vec<QRCode>, DetectionTelemetry) {
+    detect_with_telemetry_budget(image, width, height, Some(timeout))
+}
+
+fn detect_with_telemetry_budget(
+    image: &[u8],
+    width: usize,
+    height: usize,
+    requested_timeout: Option<std::time::Duration>,
+) -> (Vec<QRCode>, DetectionTelemetry) {
+    if validate_input(ImageInput::new(image, width, height, PixelFormat::Rgb)).is_err() {
+        return (Vec::new(), DetectionTelemetry::default());
+    }
     let mut tel = DetectionTelemetry::default();
     reset_decode_counters();
 
-    let gray = rgb_to_grayscale(image, width, height);
-
     let start_tel = std::time::Instant::now();
-    let budget_ms_tel = decoder::config::global_time_budget_ms();
-    let deadline_tel = start_tel + std::time::Duration::from_millis(budget_ms_tel);
+    let configured_budget =
+        std::time::Duration::from_millis(decoder::config::global_time_budget_ms());
+    let budget_tel = requested_timeout.map_or(configured_budget, |requested| {
+        requested.min(configured_budget)
+    });
+    let deadline_tel = start_tel + budget_tel;
     set_global_deadline(deadline_tel);
-    let is_expired_tel = || start_tel.elapsed().as_millis() as u64 >= budget_ms_tel;
+    let is_expired_tel = || start_tel.elapsed() >= budget_tel;
+    let gray = rgb_to_grayscale(image, width, height);
+    if is_expired_tel() {
+        clear_global_deadline();
+        return (Vec::new(), tel);
+    }
     let mut brightness_remaining = image_decode_attempt_budget();
 
     if is_overexposed(&gray) {
@@ -1109,21 +1316,13 @@ pub fn detect_with_telemetry(
 /// # Returns
 /// Vector of detected QR codes
 pub fn detect_from_grayscale(image: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    let start = std::time::Instant::now();
-    let budget_ms = decoder::config::global_time_budget_ms();
-    let deadline = start + std::time::Duration::from_millis(budget_ms);
-    set_global_deadline(deadline);
-    let is_expired = || start.elapsed().as_millis() as u64 >= budget_ms;
-
-    let fast = run_fast_path(image, width, height);
-    if !fast.is_empty() {
-        clear_global_deadline();
-        return fast;
-    }
-
-    let results = run_detection_with_phase4_fallbacks(image, width, height, is_expired);
-    clear_global_deadline();
-    results
+    try_detect(ImageInput::new(
+        image,
+        width,
+        height,
+        PixelFormat::Grayscale,
+    ))
+    .unwrap_or_default()
 }
 
 /// Detect QR codes using a reusable buffer pool (faster for batch processing)
@@ -1145,6 +1344,9 @@ pub fn detect_with_pool(
     height: usize,
     pool: &mut BufferPool,
 ) -> Vec<QRCode> {
+    if validate_input(ImageInput::new(image, width, height, PixelFormat::Rgb)).is_err() {
+        return Vec::new();
+    }
     // Get all buffers at once via split borrowing
     let (gray_buffer, bin_adaptive, bin_otsu, integral) = pool.get_all_buffers(width, height);
 
@@ -1285,6 +1487,13 @@ impl Detector {
         }
     }
 
+    /// Detect QR codes from a checked image description.
+    pub fn try_detect(&mut self, input: ImageInput<'_>) -> Result<Vec<QRCode>, InputError> {
+        // Strided and non-RGB formats are normalized before detection. The pool
+        // remains an optimization for the legacy tightly packed RGB entry point.
+        try_detect(input)
+    }
+
     /// Detect a single QR code (faster if you know there's only one)
     pub fn detect_single(&mut self, image: &[u8], width: usize, height: usize) -> Option<QRCode> {
         let codes = self.detect(image, width, height);
@@ -1310,6 +1519,35 @@ mod tests {
     use super::*;
     use image::GenericImageView;
     use std::env;
+
+    #[test]
+    fn padded_pixel_formats_normalize_equivalently() {
+        let grayscale = [17, 47, 77, 107, 0, 0, 137, 167, 197, 227];
+        let rgb = [
+            18, 18, 18, 48, 48, 48, 78, 78, 78, 108, 108, 108, 255, 255, 255, 138, 138, 138, 168,
+            168, 168, 198, 198, 198, 228, 228, 228,
+        ];
+        let rgba = [
+            18, 18, 18, 1, 48, 48, 48, 2, 78, 78, 78, 3, 108, 108, 108, 4, 255, 255, 255, 255, 138,
+            138, 138, 5, 168, 168, 168, 6, 198, 198, 198, 7, 228, 228, 228, 8,
+        ];
+
+        let expected = vec![17, 47, 77, 107, 137, 167, 197, 227];
+        assert_eq!(
+            input_to_grayscale(
+                ImageInput::new(&grayscale, 4, 2, PixelFormat::Grayscale).with_stride(6)
+            ),
+            Ok(expected.clone())
+        );
+        assert_eq!(
+            input_to_grayscale(ImageInput::new(&rgb, 4, 2, PixelFormat::Rgb).with_stride(15)),
+            Ok(expected.clone())
+        );
+        assert_eq!(
+            input_to_grayscale(ImageInput::new(&rgba, 4, 2, PixelFormat::Rgba).with_stride(20)),
+            Ok(expected)
+        );
+    }
 
     fn test_max_dim(default: u32) -> u32 {
         match env::var("QR_MAX_DIM") {

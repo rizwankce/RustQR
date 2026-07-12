@@ -1,0 +1,834 @@
+{
+  "schema_version": "rustqr.differential-report.v1",
+  "manifest": {
+    "path": "conformance/manifest.json",
+    "sha256": "751cf4d6be167b10dd3c6c0015d81a8a390152dac4d52e5f9e717d5d259f7a07",
+    "schema_version": "rustqr.conformance-manifest.v1"
+  },
+  "adapters": {
+    "opencv": {
+      "available": true,
+      "engine": "OpenCV QRCodeDetector",
+      "version": "4.12.0",
+      "raw_bytes": false
+    },
+    "zbar": {
+      "available": true,
+      "engine": "ZBar",
+      "version": "0.23.93",
+      "raw_bytes": true
+    }
+  },
+  "corpus": {
+    "case_count": 34,
+    "matrix_status_counts": {
+      "generated": 30,
+      "unsupported_mode": 4
+    }
+  },
+  "summary": {
+    "opencv": {
+      "status_counts": {
+        "decode_error": 5,
+        "match": 25,
+        "unsupported": 4
+      },
+      "generated_total": 30,
+      "matches": 25,
+      "mismatches": 0
+    },
+    "zbar": {
+      "status_counts": {
+        "match": 30,
+        "unsupported": 4
+      },
+      "generated_total": 30,
+      "matches": 30,
+      "mismatches": 0
+    }
+  },
+  "cases": [
+    {
+      "id": "v01-H-m0-byte",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "323034336163",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "323034336163",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "323034336163",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m0-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "336233306562",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "336233306562",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "336233306562",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m1-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 1,
+        "mode": "byte",
+        "raw_payload_hex": "376362393335",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "376362393335",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "376362393335",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m2-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 2,
+        "mode": "byte",
+        "raw_payload_hex": "643665323633",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "643665323633",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "643665323633",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m3-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 3,
+        "mode": "byte",
+        "raw_payload_hex": "363139373530",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "363139373530",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "363139373530",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m4-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 4,
+        "mode": "byte",
+        "raw_payload_hex": "656531613666",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "656531613666",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "656531613666",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m5-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 5,
+        "mode": "byte",
+        "raw_payload_hex": "643736343435",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "643736343435",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "643736343435",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m6-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 6,
+        "mode": "byte",
+        "raw_payload_hex": "316236663461",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "316236663461",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "316236663461",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-L-m7-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 7,
+        "mode": "byte",
+        "raw_payload_hex": "396437316634",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "396437316634",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "396437316634",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-M-m0-byte",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "323934326161",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "323934326161",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "323934326161",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-alphanumeric",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "alphanumeric",
+        "raw_payload_hex": "522f394e4135",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "522f394e4135",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "522f394e4135",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-byte",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "byte",
+        "raw_payload_hex": "663465373338",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "663465373338",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "663465373338",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-eci",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "eci",
+        "raw_payload_hex": "e98e1972",
+        "version": 1
+      },
+      "matrix_status": "unsupported_mode",
+      "decoders": {
+        "opencv": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode eci is explicitly unsupported"
+        },
+        "zbar": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode eci is explicitly unsupported"
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-gs1_fnc1",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "gs1_fnc1",
+        "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+        "version": 1
+      },
+      "matrix_status": "unsupported_mode",
+      "decoders": {
+        "opencv": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode gs1_fnc1 is explicitly unsupported"
+        },
+        "zbar": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode gs1_fnc1 is explicitly unsupported"
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-kanji",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "kanji",
+        "raw_payload_hex": "8abf8e9a",
+        "version": 1
+      },
+      "matrix_status": "unsupported_mode",
+      "decoders": {
+        "opencv": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode kanji is explicitly unsupported"
+        },
+        "zbar": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode kanji is explicitly unsupported"
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-numeric",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "numeric",
+        "raw_payload_hex": "3730303036343533",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "3730303036343533",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "3730303036343533",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-structured_append",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "mode": "structured_append",
+        "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+        "version": 1
+      },
+      "matrix_status": "unsupported_mode",
+      "decoders": {
+        "opencv": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode structured_append is explicitly unsupported"
+        },
+        "zbar": {
+          "status": "unsupported",
+          "raw_payload_hex": null,
+          "detail": "fixture mode structured_append is explicitly unsupported"
+        }
+      }
+    },
+    {
+      "id": "v01-Q-m0-byte",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "353162323839",
+        "version": 1
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "353162323839",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "353162323839",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v02-H-m0-byte",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "316661666431",
+        "version": 2
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "316661666431",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "316661666431",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v02-L-m0-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "313335303762",
+        "version": 2
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "313335303762",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "313335303762",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v02-M-m0-byte",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "356666613366",
+        "version": 2
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "356666613366",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "356666613366",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v02-Q-m0-byte",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "316634326331",
+        "version": 2
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "316634326331",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "316634326331",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v07-H-m0-byte",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "303137306462",
+        "version": 7
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "303137306462",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "303137306462",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v07-L-m0-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "373437626465",
+        "version": 7
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "373437626465",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "373437626465",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v07-M-m0-byte",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "653764353934",
+        "version": 7
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "653764353934",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "653764353934",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v07-Q-m0-byte",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "356465613332",
+        "version": 7
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "356465613332",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "356465613332",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v20-H-m0-byte",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "646437643533",
+        "version": 20
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "decode_error",
+          "raw_payload_hex": null,
+          "detail": "no payload decoded"
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "646437643533",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v20-L-m0-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "363439643366",
+        "version": 20
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "363439643366",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "363439643366",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v20-M-m0-byte",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "313262306231",
+        "version": 20
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "313262306231",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "313262306231",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v20-Q-m0-byte",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "633238353333",
+        "version": 20
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "633238353333",
+          "detail": null
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "633238353333",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v40-H-m0-byte",
+      "expected": {
+        "ec_level": "H",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "353738346535",
+        "version": 40
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "decode_error",
+          "raw_payload_hex": null,
+          "detail": "no payload decoded"
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "353738346535",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v40-L-m0-byte",
+      "expected": {
+        "ec_level": "L",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "336430343339",
+        "version": 40
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "decode_error",
+          "raw_payload_hex": null,
+          "detail": "no payload decoded"
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "336430343339",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v40-M-m0-byte",
+      "expected": {
+        "ec_level": "M",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "643337316463",
+        "version": 40
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "decode_error",
+          "raw_payload_hex": null,
+          "detail": "no payload decoded"
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "643337316463",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v40-Q-m0-byte",
+      "expected": {
+        "ec_level": "Q",
+        "mask": 0,
+        "mode": "byte",
+        "raw_payload_hex": "366138343336",
+        "version": 40
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "decode_error",
+          "raw_payload_hex": null,
+          "detail": "no payload decoded"
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "366138343336",
+          "detail": null
+        }
+      }
+    }
+  ]
+}

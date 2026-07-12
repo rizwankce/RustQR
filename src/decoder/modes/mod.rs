@@ -7,4 +7,5 @@
 
 pub mod alphanumeric;
 pub mod byte;
+pub mod kanji;
 pub mod numeric;

@@ -1,0 +1,952 @@
+# RustQR Roadmap
+
+This file is the execution queue for future agent sessions. Work through the
+packets in order unless a packet explicitly says it can run in parallel.
+
+When starting a new session, ask the agent to:
+
+1. Read `AGENTS.md`, this file, and the Markdown files referenced by the chosen
+   work packet.
+2. Inspect the current branch and working tree before editing.
+3. Work on one packet only unless the packet explicitly authorizes broader
+   changes.
+4. Run targeted local checks during development.
+5. Use GitHub Actions for full benchmark runs; do not run the complete image
+   corpus locally by default.
+6. Record completed commands, results, decisions, and follow-up work in this
+   file before handing the task back.
+
+## Operating principles
+
+- Correctness and safety come before performance claims.
+- A benchmark improvement is valid only when its scoring and timing boundaries
+  are trustworthy.
+- Keep the deterministic specification path separate from bounded recovery
+  heuristics.
+- Do not tune against every benchmark image. Preserve validation and holdout
+  data to detect overfitting.
+- Do not merge the rebuild branch wholesale until it has been compared against
+  `main` using the same evaluator and input pixels.
+- Preserve unrelated user changes and the untracked `benchmark/` artifacts.
+- Correct public claims when evidence contradicts them.
+
+## Benchmark ladder
+
+Use the smallest useful run while iterating.
+
+### Targeted local run
+
+```bash
+QR_MAX_DIM=800 cargo run --features tools --bin qrtool --release -- \
+  reading-rate --category rotations --limit 3
+```
+
+Increase `--limit` to 5, 10, or 25 only when the smaller run is stable.
+
+### Multiple categories locally
+
+Run categories separately so the output identifies regressions clearly:
+
+```bash
+QR_MAX_DIM=800 cargo run --features tools --bin qrtool --release -- \
+  reading-rate --category rotations --limit 5
+
+QR_MAX_DIM=800 cargo run --features tools --bin qrtool --release -- \
+  reading-rate --category high_version --limit 5
+```
+
+### Environment overrides
+
+- `QR_BENCH_LIMIT=N`: maximum images per category.
+- `QR_BENCH_LIMIT=0`: full dataset.
+- `QR_SMOKE=1`: use the smoke subset.
+- `QR_MAX_DIM=800`: fast local iteration.
+- `QR_MAX_DIM=1024`: GitHub Actions and comparison default.
+- `QR_MAX_DIM=1200`: occasional deeper validation.
+- `QR_MAX_DIM=0`: preserve original resolution.
+
+The CLI `--limit` value takes precedence over `QR_BENCH_LIMIT`. When neither is
+set, the current implementation runs the full dataset.
+
+### GitHub Actions
+
+- `Fast Benchmark`: defaults to macOS and 25 images per category; supports a
+  category filter and selected platform.
+- `Full Benchmark`: defaults to all 536 images on Linux, macOS, and Windows,
+  with `QR_MAX_DIM=1024`.
+- `Criterion Benchmark`: use its smoke option during iteration; reserve full
+  runs for performance milestones.
+
+Run the full workflow only for milestone candidates, architecture comparisons,
+or release baselines.
+
+## Required checks for ordinary code changes
+
+```bash
+cargo fmt -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
+```
+
+Real-image tests are currently ignored by default. Run the relevant ignored
+test explicitly when a packet affects that scenario.
+
+---
+
+## Continuation handoff (2026-07-12)
+
+The current dirty working tree is the active implementation. **Do not require
+it to be committed or pushed before continuing local work.** Preserve all
+existing changes and the untracked `benchmark/` evidence. WP-002's remaining
+Fast Benchmark run is a remote validation gate only; it blocks WP-005 and
+WP-013 comparisons, but it does **not** block the independent WP-006 work below.
+
+### Start here
+
+Run these quick checks before editing:
+
+```bash
+git status --short
+cargo test --test conformance_matrix_tests --all-features
+cargo test --test conformance_mutation_tests --all-features
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+```
+
+Then choose exactly one of these resumable packets. They may run in parallel
+when each worker stays within the listed ownership boundary.
+
+#### WP-006A: Full supported Model 2 grid
+
+**Status:** Completed locally on 2026-07-12
+
+**Ownership:** `conformance/`, `scripts/generate_conformance_manifest.py`,
+`scripts/materialize_conformance_matrices.py`, generator/materializer tests,
+and a new generated-corpus integration test. Avoid decoder implementation files.
+
+- Generate on demand for versions 1-40, all four EC levels, all eight masks,
+  and supported numeric/alphanumeric/byte modes.
+- Keep large generated matrices out of Git unless a compact representative set
+  is needed; the full gate should regenerate into a temporary directory.
+- Assert exact raw payload, version, EC level, and mask for every valid case.
+- Record deterministic seeds, backend version, and checksums.
+
+**Done when:** the full supported grid regenerates reproducibly and RustQR
+passes 100%; failures remain visible rather than being removed from the grid.
+
+#### WP-006B: Unsupported mode implementation
+
+**Status:** Decoder implementation complete locally; independent matrix fixtures pending
+
+**Ownership:** decoder mode/payload/model files plus focused unit fixtures.
+Avoid corpus generator and benchmark evaluator files.
+
+- Implement one capability at a time in this order: Kanji raw bytes and count,
+  ECI metadata, GS1/FNC1, then Structured Append metadata.
+- Preserve raw payload bytes; do not force unsupported encodings through UTF-8.
+- Replace `unsupported_mode` manifest entries only after exact payload and
+  metadata tests pass.
+
+**2026-07-12 WP-006B update:** Added a dedicated QR Kanji decoder that consumes
+the version-dependent character count and converts each 13-bit QR value back
+to its original Shift-JIS byte pair. `QRCode::data` now preserves those raw
+bytes, and `decode_matrix_for_mode` advertises Kanji support; ECI, GS1/FNC1,
+and Structured Append remain explicit unsupported modes. Deterministic focused
+fixtures cover the two-character `漢字` payload (`8abf8e9a`) and truncated
+Kanji data. Passed:
+`cargo test --lib decoder::modes::kanji --all-features`,
+`cargo test --lib test_decode_payload_kanji_preserves_shift_jis_bytes --all-features`,
+`cargo test --lib matrix_api_reports_unsupported_modes_explicitly --all-features`,
+`cargo test --test conformance_matrix_tests --all-features` (6 passed, one
+full-grid test ignored), and `git diff --check`. The compact null-matrix Kanji
+fixture is now an invalid-input case rather than an unsupported-mode claim.
+The generated manifest remains `unsupported_mode` because the pinned
+python-qrcode materializer cannot emit a Kanji matrix; add an independently
+generated matrix and exact matrix metadata assertions before changing that
+corpus status.
+
+**2026-07-12 WP-006B metadata update:** ECI, GS1/FNC1, and Structured Append
+headers are now decoded into `QRCode::metadata`. ECI handles all ISO prefix
+widths (8, 16, and 24 bits); FNC1 first/second position is recorded and applies
+the required alphanumeric `%` substitution; Structured Append records
+zero-based index, total symbol count, and parity. Focused bitstream fixtures
+assert raw payload, rendered content, and exact metadata. The conformance
+manifest entries remain `unsupported_mode` only because the pinned
+python-qrcode materializer cannot create header-bearing matrices. Passed:
+`cargo fmt -- --check`, `cargo test --lib --all-features` (100 passed),
+`cargo test --test conformance_matrix_tests --all-features` (6 passed, one
+full-grid test ignored), and `git diff --check`. Follow-up: materialize
+independently generated ECI, GS1/FNC1, Structured Append, and Kanji matrices,
+then change their manifest statuses and add end-to-end matrix metadata checks.
+
+**Done when:** each implemented capability has deterministic valid fixtures and
+explicit metadata assertions. The parser-level portion is complete; end-to-end
+matrix fixtures remain pending an independent matrix backend.
+
+#### WP-006C: Remaining block-layout mutations
+
+**Status:** Completed locally on 2026-07-12; independent of WP-006A and WP-006B
+
+**Ownership:** `scripts/qr_spec_mapping.py`, mutation planner/materializer,
+`conformance/mutations*`, and `tests/conformance_mutation_tests.rs`. Avoid core
+decoder changes unless a generated fixture exposes a proven decoder bug.
+
+- Replace the seven remaining `planned` cross-block cases with provably
+  over-limit deterministic mutations, or document why a case is impossible.
+- Regenerate mutation provenance and verify byte-identical output.
+- Require invalid layouts to be rejected; accepted garbage is a hard failure.
+
+**Done when:** no block-layout mutation remains ambiguously `planned`.
+
+**Completion record (2026-07-12):** Replaced the first-two-block random-prefix
+swap selection with deterministic unequal-codeword matching across every RS
+block pair. All 12 multi-block cases now have `correction_limit_per_block <
+errors_per_affected_block` evidence and reject in the matrix decoder; 18
+single-block cases remain explicitly `not_applicable`. Verified with:
+
+```bash
+python3 scripts/materialize_conformance_mutations.py
+sha256sum conformance/mutations.json  # unchanged after a second materialization
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+cargo test --test conformance_mutation_tests --all-features
+```
+
+### Remote-only follow-up
+
+WP-002 Fast Benchmark must run only after the current local changes are
+committed and pushed. If the session is not explicitly authorized to commit and
+push, leave this gate pending and continue WP-006A, WP-006B, or WP-006C. Do not
+stop all work merely because Actions cannot yet exercise the dirty worktree.
+
+### Current verified baseline
+
+- `cargo fmt -- --check`: passed.
+- `cargo clippy --all-targets --all-features -- -D warnings`: passed.
+- `cargo test --all-features`: 97 library, 5 CLI, 6 conformance matrix,
+  4 mutation, 7 input API, 2 timeout, and 1 doc test passed; the full-grid
+  conformance gate and 7 slow photographic tests are ignored by design.
+- Supported compact corpus: RustQR 30/30, ZBar 30/30, OpenCV 25/30 with five
+  decoder rejections and zero payload mismatches.
+
+---
+
+## WP-001: Preserve and document benchmark evidence
+
+**Status:** Completed on 2026-07-11
+
+**Goal:** Prevent the untracked GitHub benchmark artifacts from being lost and
+establish their provenance without presenting them as an authoritative
+baseline.
+
+**Read first:**
+
+- `README.md`
+- `docs/reading_rate_improvement.md`
+- `docs/failure_cluster_triage.md`
+- `.github/workflows/benchmark.yml`
+- `benchmark/baselines/gh_run_21927167412/*.json`
+
+**Tasks:**
+
+- Confirm which branch and commit produced GitHub run `21927167412`.
+- Record the command, environment, platform, dataset fingerprint, evaluator
+  schema, and timing boundaries.
+- Determine whether the artifacts should be checked in, attached to a release,
+  or retained as Actions artifacts with longer retention.
+- Make backup label files and unrelated documentation irrelevant to the dataset
+  fingerprint.
+- Clearly label the BoofCV lane as annotation/count based and the custom lane as
+  payload validated.
+
+**Acceptance criteria:**
+
+- Artifacts have documented provenance and cannot be mistaken for main's
+  authoritative baseline.
+- Dataset, evaluator, preprocessing, and artifact fingerprints are separately
+  identifiable.
+- No benchmark result is silently deleted or overwritten.
+
+**Completion record:**
+
+- Confirmed with `gh run view 21927167412` and the Actions log that the run was
+  dispatched from `scratch_from_scratch_rebuild` at
+  `e735ac991fb27e4c8b3c5c70d7e51c7fa3f61de6`, on GitHub's Ubuntu 24.04 runner
+  image `20260201.15.1` with Rust 1.93.0.
+- Inspected the workflow at that commit and recorded the expanded command,
+  environment, preprocessing, evaluator semantics, and timing boundaries in
+  `benchmark/baselines/gh_run_21927167412/README.md`.
+- Generated independent dataset-image, evaluator, pipeline/preprocessing,
+  dependency-lock, and preserved-artifact SHA-256 fingerprints. The dataset
+  fingerprint uses image Git blobs only, so backup labels and unrelated docs do
+  not affect it.
+- Added `SHA256SUMS` without modifying any of the 17 preserved JSON artifacts.
+  `shasum -a 256 -c SHA256SUMS` passes from the artifact directory.
+- Decision: check in this 448 KiB historical evidence set because the original
+  Actions artifact has expired. Keep future large artifacts in Actions or a
+  release asset with explicit retention, and use immutable run-ID directories.
+- Follow-up for WP-002: add separate label-input fingerprints to the next schema
+  and reject comparisons against `wp007-reading-rate-v1` unless explicitly
+  opted into historical compatibility.
+- Known gap: the run log proves `reading_rate_boofcv-all.json` was generated and
+  uploaded, but it is missing from the preserved copy and the expired Actions
+  artifact can no longer be downloaded. The omission is documented; no result
+  was reconstructed or overwritten.
+
+---
+
+## WP-002: Repair reading-rate scoring and timing
+
+**Status:** Local implementation complete; Fast Benchmark Actions pending
+
+**Goal:** Make benchmark results trustworthy enough to compare branches and
+competitors.
+
+**Primary files:**
+
+- `src/bin/qrtool.rs`
+- `src/tools/mod.rs`
+- `src/models/qr_code.rs`
+- `.github/workflows/benchmark.yml`
+- `scripts/compare_reading_rate_artifacts.py`
+
+**Tasks:**
+
+- Include every production fallback inside the measured latency interval.
+- Report core pipeline and end-to-end latency separately.
+- Stop treating `min(results, expected)` as sufficient correctness.
+- Match returned QR quadrilaterals to BoofCV annotations one-to-one.
+- Report localization precision, recall, F1, duplicate predictions, and false
+  positives.
+- Keep exact payload matching as a separate metric for datasets that contain
+  payload ground truth.
+- Add p50, p90, p95, p99, timeout rate, images/second, and QR symbols/second.
+- Version the evaluator schema and reject incompatible baseline comparisons.
+- Add evaluator unit tests for duplicates, missing symbols, extra symbols,
+  invalid labels, multi-QR scenes, and timeouts.
+
+**Acceptance criteria:**
+
+- A wrong payload cannot count as a payload success.
+- A prediction in the wrong location cannot count as a localization success.
+- Extra predictions reduce precision.
+- All work contributing to the result is included in end-to-end timing.
+- Old and new artifact schemas cannot be compared accidentally.
+
+**Validation:**
+
+- Use synthetic evaluator fixtures locally.
+- Use `--category nominal --limit 3` and `--category lots --limit 1` locally.
+- Run Fast Benchmark in Actions after local tests pass.
+
+**Progress record (2026-07-11):**
+
+- Added strict synthetic label parsing and initial one-to-one localization
+  scoring tests, plus separate core/end-to-end timing summaries and v2 schema
+  rejection in the artifact comparator.
+- Populated `QRCode.position` from the exact successful sampling transform on
+  regular, inverted, jittered, high-version-refined, and fallback decode paths.
+  A focused test verifies the projected outer symbol boundary and corner order.
+- Added separate image-input and label-input fingerprints plus evaluator,
+  preprocessing, category, limit, smoke, and evaluated-category compatibility
+  checks. The comparator rejects old schemas and incompatible v2 scopes by
+  default. Payload metrics are explicitly unavailable (`null`) for the BoofCV
+  annotation-only dataset rather than inferred from detection counts.
+- Added a caller-supplied cooperative detector deadline for benchmark runs.
+  Decoder and pipeline loops observe the tighter of this deadline and the
+  configured production budget; elapsed end-to-end time still determines the
+  timeout metric and late results are discarded. This cannot preempt a single
+  uninterruptible operation. A strict wall-clock kill would require process or
+  worker isolation and belongs with WP-008 benchmark isolation, not a thread
+  cancellation claim in WP-002.
+- Replaced bounding-box/greedy matching with winding-safe convex quadrilateral
+  overlap and maximum-cardinality bipartite matching. Labels are scaled into
+  processed-image coordinates before scoring; load failures count as misses and
+  contribute end-to-end timing samples.
+- Added explicit `--payload-validated` mode for same-stem payload labels. It
+  performs normalized, exact, one-to-one payload matching and cannot be selected
+  implicitly by malformed localization labels.
+- Targeted release validation passed: `nominal --limit 3` localized 3/6 symbols
+  and `lots --limit 1` localized 0/60 symbols. A 1 ms timeout run reported one
+  timeout, a 1.0 timeout rate, and accepted no late result.
+- `cargo fmt -- --check`, strict all-target/all-feature Clippy, all-feature
+  tests, three comparator tests, and `git diff --check` pass.
+- Remaining validation: run Fast Benchmark in Actions after these local changes
+  are committed and pushed. Running it against the current remote branch would
+  exercise the old evaluator, so it is intentionally not triggered yet.
+
+---
+
+## WP-003: Add a safe, fallible public input API
+
+**Status:** Completed (2026-07-11)
+
+**Goal:** Prevent malformed dimensions or short buffers from reaching unchecked
+SIMD and pointer operations.
+
+**Primary files:**
+
+- `src/lib.rs`
+- `src/utils/grayscale.rs`
+- `src/utils/memory_pool.rs`
+- `src/models/qr_code.rs`
+
+**Tasks:**
+
+- Introduce checked multiplication for width, height, stride, and channel
+  calculations.
+- Validate input buffer length before conversion or detection.
+- Introduce an explicit pixel format and optional stride.
+- Add a fallible API returning structured errors.
+- Decide whether the existing convenience API remains as a compatibility
+  wrapper or is deprecated.
+- Keep unsafe kernels private and document their proven preconditions.
+- Add tests for empty input, short input, extra padding, zero dimensions,
+  enormous dimensions, multiplication overflow, RGB, RGBA, and grayscale.
+- Add fuzz targets for public image entry points.
+
+**Acceptance criteria:**
+
+- Safe public APIs cannot cause out-of-bounds pointer reads for arbitrary input.
+- Invalid input returns a deterministic error rather than an empty detection or
+  panic.
+- Existing valid callers have a documented migration path.
+
+**Results:**
+
+- Added `try_detect(ImageInput)` with explicit grayscale, RGB, and RGBA pixel
+  formats, optional row stride, and structured `InputError` failures.
+- Kept `detect` and `detect_from_grayscale` as compatibility wrappers; invalid
+  legacy input now returns an empty result, while new callers can migrate to
+  the fallible API for deterministic error details.
+- Added checked dimension/channel/stride calculations and last-addressed-byte
+  validation. Row padding and trailing bytes are accepted.
+- Hardened public grayscale conversion helpers against short buffers and
+  arithmetic overflow, documented private unsafe-kernel preconditions, and
+  removed unsafe buffer-length manipulation from `BufferPool`.
+- Added `tests/input_api_tests.rs` and a cargo-fuzz target covering the public
+  image input API.
+
+**Validation:**
+
+- `cargo test --lib --no-default-features` — passed (67 tests).
+- `cargo test --test input_api_tests` — passed (7 tests).
+- `cargo test --all-features` — passed (72 library tests, 7 input API tests,
+  and 1 doc test; 7 slow real-image regressions remained ignored).
+- `cargo fmt -- --check` — passed.
+- `cargo clippy --all-targets --all-features -- -D warnings` — passed.
+- Fuzz target compile was not checked because restricted DNS prevented fetching
+  `libfuzzer-sys`; the harness is recorded under `fuzz/` for a networked run.
+
+---
+
+## WP-004: Establish truthful capabilities and documentation
+
+**Status:** Completed on 2026-07-11
+
+**Goal:** Make the public project description match tested behavior.
+
+**Primary files:**
+
+- `README.md`
+- `Cargo.toml`
+- `docs/spec.md`
+- `docs/optimize.md`
+- `docs/decoder_status.md`
+- `docs/reading_rate_improvement.md`
+- `CLAUDE.md`
+- `benches/images/README.md`
+
+**Tasks:**
+
+- Create a capability matrix for Model 1, Model 2, Micro QR, versions, EC
+  levels, masks, modes, ECI, GS1/FNC1, Structured Append, inversion, mirrored
+  codes, multi-QR, platforms, and `no_std`.
+- Label every capability as tested, partial, planned, or unsupported.
+- Remove or qualify claims about zero dependencies, zero unsafe code, `no_std`,
+  world-leading speed, platform support, Model 1, and Micro QR.
+- Explain the difference between microbenchmarks and successful end-to-end
+  decode latency.
+- Fix stale documentation saying the default benchmark limit is five.
+- Identify dated historical documents as snapshots rather than current truth.
+
+**Acceptance criteria:**
+
+- Every headline feature links to a test, CI lane, or explicit roadmap status.
+- Local and Actions benchmark instructions agree with the code.
+- Performance claims identify dataset, commit, platform, preprocessing,
+  evaluator, and timing boundary.
+
+**Completion record:**
+
+- Replaced the README feature list with an evidence-qualified capability
+  matrix covering models, versions, EC levels, masks, modes, ECI, Kanji,
+  GS1/FNC1, Structured Append, inversion, orientation/mirroring, multi-QR,
+  platforms, and `no_std`.
+- Identified Model 1 and Micro QR as metadata placeholders rather than scanner
+  support. Marked ECI, Kanji, inverted/oriented symbols, high versions, and
+  multi-QR as partial where code paths exist without sufficient end-to-end
+  fixtures.
+- Removed the zero-dependency, zero-unsafe, `no_std`, unverified platform, and
+  fastest-scanner package claims. Documented the checked WP-003 input API and
+  the private validated SIMD `unsafe` boundary.
+- Aligned README, decoder snapshot, and dataset instructions with the live
+  full-dataset default, CLI-over-environment limit precedence, Fast Benchmark
+  limit of 25, and Full Benchmark's 536-image desktop matrix at
+  `QR_MAX_DIM=1024`.
+- Distinguished component Criterion measurements from successful end-to-end
+  decode latency. The old README table is now identified as historical run
+  `21837108650` evidence whose count-based evaluator is not a current accuracy
+  or competitor baseline.
+- Marked `docs/optimize.md`, `docs/decoder_status.md`, and
+  `docs/reading_rate_improvement.md` as dated snapshots/worklogs rather than
+  current truth.
+
+**Validation:**
+
+- `cargo test --lib --all-features` — passed (77 tests).
+- `cargo fmt -- --check` — could not provide an isolated result because
+  concurrent WP-002 edits in `src/bin/qrtool.rs` were not yet formatted; WP-004
+  changed Markdown and Cargo metadata only.
+- Audited `.github/workflows/ci.yml`, `benchmark.yml`,
+  `fast-benchmark.yml`, and `criterion-benchmark.yml` against the documented
+  platform, limit, preprocessing, and smoke-run claims.
+
+---
+
+## WP-005: Compare main with the rebuild branch
+
+**Status:** Blocked by WP-002
+
+**Goal:** Decide whether to continue `main`, adopt the rebuild, or merge proven
+slices from both.
+
+**Branches:**
+
+- `main`
+- `work_wp014_wp018_gates_2026_02_12`
+
+**Tasks:**
+
+- Compare public API, architectural complexity, code size, safety, standards
+  coverage, tests, and maintainability.
+- Run identical evaluator fixtures on both branches.
+- Run targeted local categories first: `nominal`, `rotations`, `perspective`,
+  `high_version`, `lots`, `brightness`, and `bright_spots`.
+- Trigger the same Fast Benchmark configuration for both branches.
+- Trigger Full Benchmark only after targeted results are understood.
+- Produce a per-category accuracy and latency delta table.
+- Identify individual rebuild commits or modules worth transplanting.
+- Write an architecture decision record with the chosen direction.
+
+**Acceptance criteria:**
+
+- The decision is supported by the same pixels, evaluator, preprocessing, and
+  hardware class.
+- Improvements are not accepted when they hide category regressions or timeout
+  work.
+- There is a concrete merge or transplant sequence with rollback points.
+
+---
+
+## WP-006: Build an ISO conformance and differential corpus
+
+**Status:** In progress; compact supported corpus is green
+
+**Goal:** Prove decoder correctness independently of photographic detection.
+
+**Tasks:**
+
+- Generate Model 2 matrices across versions 1-40, all EC levels, all masks, and
+  representative capacity boundaries.
+- Cover numeric, alphanumeric, byte, Kanji, ECI, GS1/FNC1, and Structured
+  Append.
+- Include valid error and erasure patterns up to correction limits.
+- Add invalid format, version, remainder, padding, and block-layout cases.
+- Differentially compare generated fixtures against at least two independent
+  mature decoders.
+- Store generation seeds and expected raw payload bytes and metadata.
+
+**Acceptance criteria:**
+
+- The deterministic matrix decoder reaches 100% on supported valid fixtures.
+- Unsupported features return explicit errors.
+- Invalid matrices do not produce accepted garbage payloads.
+- All fixtures are reproducible from a manifest and seed.
+
+**Progress record (2026-07-11):**
+
+- Added `rustqr.conformance-manifest.v1`, a deterministic stdlib-only generator,
+  and a compact checked-in foundation manifest. Stable cases record seed,
+  Model 2 version, EC level, mask, mode, expected raw payload bytes, expected
+  metadata, and placeholders for independently generated matrix checksums and
+  differential-decoder evidence.
+- The compact profile covers every metadata axis without checking in the full
+  Cartesian product; `--full` reproducibly expands all 40 versions, four EC
+  levels, eight masks, and seven mode scaffolds.
+- ZBar and OpenCV differential results are recorded for every generated matrix:
+  ZBar matches all 30 fixtures, while OpenCV matches 25 and rejects five; neither
+  decoder reports a payload mismatch. The checked-in report reproduces
+  byte-for-byte with the locally available adapters.
+- Materialized 30 supported numeric, alphanumeric, and byte matrices with
+  pinned `python-qrcode==8.2`, fixed version/EC/mask inputs, reproducible PNG
+  checksums, and explicit rendering metadata. Four Kanji/ECI/GS1/Structured
+  Append scaffolds remain marked `unsupported_mode`, not generated.
+- Binary-searched and recorded 22 version/EC/mode capacity maxima using the
+  pinned backend; each record asserts maximum accepted and maximum-plus-one
+  rejected. The materializer and all emitted checksums are deterministic across
+  consecutive runs.
+- Materialized correctable-error mutations for all 30 generated matrices; the
+  deterministic matrix decoder exactly reproduces every expected payload.
+  All 30 erasure variants are now executable through the request-scoped
+  `decode_matrix_with_erasures` API using either row-major module confidence or
+  explicit erased-module coordinates. Evidence is validated, mapped to
+  per-block codeword erasures, and exact payloads pass at each fixture's full
+  supported erasure boundary without global state. Focused conformance and
+  Reed-Solomon boundary tests pass. All 12 multi-block invalid block-layout
+  mutations are materialized and rejected; deterministic unequal-codeword
+  matching records an error count above the correction limit in both affected
+  blocks. The 18 single-block cases are correctly marked not applicable.
+- Materialized deterministic invalid-format and invalid-version matrices by
+  replacing both redundant information regions at their specification-defined
+  coordinates. Their manifest records SHA-256 checksums and mutation evidence,
+  and matrix-entry-point tests prove rejection without invoking photographic
+  detection or recovery fallbacks.
+- Materialized deterministic invalid-remainder and invalid-padding matrices
+  from the explicit Model 2 placement map. The remainder fixture records the
+  exact version-2 module coordinate; the padding fixture changes the first
+  `0xEC` pad byte to `0xED`, regenerates Reed-Solomon parity with the pinned
+  backend, and records all eight mapped module coordinates. Strict matrix
+  decoding now rejects non-zero remainder modules and invalid terminator,
+  alignment, or alternating padding bits without mistaking them for RS damage.
+- Corrected stale corpus evidence labels: erasure mutations now record
+  `materialized` and document their executable
+  `decode_matrix_with_erasures` path, matching the existing 30-fixture test.
+- Repository validation passed: formatting, strict all-target/all-feature
+  Clippy, 94 library tests, five CLI tests, six conformance matrix tests, three
+  mutation tests, seven input API tests, two timeout tests, and one doc test.
+  The seven slow photographic regression tests remain intentionally ignored.
+- WP-006 remains in progress because the checked-in corpus is compact rather
+  than the complete versions 1-40 by four EC levels by eight masks grid; Kanji
+  still needs an independently materialized matrix fixture, ECI, GS1/FNC1, and
+  Structured Append remain explicit unsupported scaffolds. The materialized
+  supported corpus is 30/30 in RustQR and ZBar and 25/30 in OpenCV with five
+  decoder rejections and no payload mismatches.
+- WP-006A (2026-07-12): added an on-demand ignored integration gate that
+  regenerates the full supported Model 2 grid in a temporary directory rather
+  than checking in 3,840 PNGs. It verifies every generated numeric,
+  alphanumeric, and byte fixture's recorded checksum, exact raw payload,
+  Model 2 version, EC level, and mask. `cargo test --test
+  conformance_matrix_tests --all-features -- --ignored
+  generated_full_supported_corpus_reaches_one_hundred_percent` passed.
+  `python3 -m unittest scripts.tests.test_generate_conformance_manifest
+  scripts.tests.test_materialize_conformance_matrices` passed. The ordinary
+  conformance-matrix run was rerun after the WP-006B fixture update and passes
+  with six standard tests; the full-grid test remains intentionally ignored
+  except when explicitly requested.
+
+---
+
+## WP-007: Replace brute-force decoding with a spec-first decoder
+
+**Status:** Blocked by WP-006
+
+**Goal:** Make the common decode path deterministic, fast, and resistant to
+false positives.
+
+**Primary files:**
+
+- `src/decoder/qr_decoder/matrix_decode.rs`
+- `src/decoder/qr_decoder/payload.rs`
+- `src/decoder/format.rs`
+- `src/decoder/version.rs`
+- `src/decoder/bitstream.rs`
+- `src/decoder/function_mask.rs`
+
+**Tasks:**
+
+- Use the specification-defined traversal as the primary path.
+- Correct full BCH handling for format and version information.
+- Validate finder, timing, alignment, dark module, remainder, terminator, and
+  padding invariants.
+- Fix Kanji character count and Shift-JIS decoding.
+- Preserve raw bytes and honor ECI rather than assuming UTF-8.
+- Add GS1/FNC1 and Structured Append metadata.
+- Move soft-format, mask, traversal, and module-repair searches into an explicit
+  bounded recovery phase.
+- Rank recovery attempts by evidence and stop at request deadlines.
+
+**Acceptance criteria:**
+
+- Clean valid matrices require one deterministic decoding path.
+- Recovery cannot return a result that fails structural validation.
+- Exact payload, segment, and metadata results match WP-006 fixtures.
+- Common-case matrix decode latency drops substantially without recall loss.
+
+---
+
+## WP-008: Introduce request-scoped configuration and diagnostics
+
+**Status:** Can accompany WP-007
+
+**Goal:** Replace global environment-driven and thread-local behavior with a
+production-quality library API.
+
+**Tasks:**
+
+- Add immutable `DecoderOptions` or equivalent.
+- Support fast, balanced, and exhaustive presets.
+- Make deadline, cancellation, candidate limits, erasure budgets, and telemetry
+  request-scoped.
+- Remove process-wide counters that allow concurrent decodes to interfere.
+- Return structured diagnostics and failure stages when requested.
+- Keep diagnostic collection optional and cheap when disabled.
+
+**Acceptance criteria:**
+
+- Concurrent requests cannot reset or consume one another's budgets.
+- Library behavior does not depend on process environment variables unless a
+  CLI explicitly translates them into options.
+- Callers can distinguish invalid input, unsupported content, timeout,
+  detection miss, geometry failure, RS failure, and payload failure.
+
+---
+
+## WP-009: Create a false-positive and adversarial suite
+
+**Status:** Blocked by WP-002 scoring and WP-007 acceptance rules
+
+**Goal:** Prevent recovery heuristics from trading recall for hallucinated
+payloads.
+
+**Tasks:**
+
+- Assemble licensed negative images containing text, checkerboards, packaging,
+  screens, Data Matrix, Aztec, linear barcodes, finder-like graphics, and
+  random noise.
+- Add malformed and adversarial QR-like matrices.
+- Track false positives per image and per megapixel.
+- Fuzz matrix parsing, block deinterleaving, RS correction, payload parsing, and
+  public image APIs.
+- Add sanitizer, Miri where applicable, and long-running fuzz workflows.
+
+**Acceptance criteria:**
+
+- False-positive rates are reported alongside recall.
+- Recovery changes cannot merge when they exceed the agreed false-positive
+  budget.
+- Fuzz failures are reproducible and stored as regression fixtures.
+
+---
+
+## WP-010: Rebuild finder detection around ranked proposals
+
+**Status:** Blocked by WP-005 architecture decision
+
+**Goal:** Replace repeated global scans and fallback combinations with a fast,
+explainable proposal pipeline.
+
+**Tasks:**
+
+- Implement allocation-light horizontal and vertical scanline state machines.
+- Estimate module pitch and useful scale ranges early.
+- Rank finder candidates by ratio, cross-check, contrast, quiet zone, and local
+  geometry.
+- Group candidates without fixed pixel-distance constants.
+- Use proposal-level non-maximum suppression and preserve multiple symbols.
+- Add ROI-first processing for dense scenes.
+- Measure stage-level recall and latency, not only final decoding.
+
+**Acceptance criteria:**
+
+- Finder and grouping recall can be evaluated independently.
+- Common images avoid unnecessary full-image fallback scans.
+- Multi-QR scenes do not discard candidates after the first valid triple.
+- No targeted category regresses beyond its agreed gate.
+
+---
+
+## WP-011: Geometry and sampling refinement
+
+**Status:** Blocked by WP-010 proposal interface
+
+**Goal:** Improve high-version, perspective, curved, rotated, and small-module
+decoding without unbounded offset searches.
+
+**Tasks:**
+
+- Refine homographies using timing and alignment residuals.
+- Use all relevant alignment patterns for high versions.
+- Add bilinear or confidence-aware subpixel sampling.
+- Scale sample footprints to module pitch.
+- Use local sampled-grid thresholds under uneven lighting.
+- Add a bounded nonlinear mesh model for curved surfaces.
+- Model saturation/glare masks and avoid treating clipped pixels as confident.
+
+**Acceptance criteria:**
+
+- Improvements are demonstrated separately for `high_version`, `perspective`,
+  `curved`, `rotations`, `brightness`, `bright_spots`, `glare`, and `shadows`.
+- Candidate refinements are ranked and bounded by deadline.
+- Clean nominal images do not pay the full recovery cost.
+
+---
+
+## WP-012: Dense multi-QR detection
+
+**Status:** Can follow WP-010 independently of WP-011
+
+**Goal:** Make the seven `lots` images and realistic dense scenes first-class,
+not edge cases.
+
+**Tasks:**
+
+- Implement one-to-one proposal grouping and result deduplication.
+- Suppress decoded regions while preserving overlapping candidates.
+- Add spatial indexing for finder and symbol proposals.
+- Report symbols/second and recall as scene density rises.
+- Create controlled scenes with 1, 2, 5, 10, 25, 50, and 100 symbols.
+
+**Acceptance criteria:**
+
+- Evaluator performs bipartite geometry matching.
+- At least 90% recall on a controlled 50-code scene under 500 ms is the
+  long-term target.
+- Duplicate results and false positives remain within explicit budgets.
+
+---
+
+## WP-013: Establish the OSS competitor harness
+
+**Status:** Blocked by WP-002
+
+**Goal:** Compare RustQR fairly against current open-source alternatives.
+
+**Initial adapters:**
+
+- ZXing-C++
+- quirc
+- ZBar
+- BoofCV
+- OpenCV `QRCodeDetector`
+- a maintained Rust-native decoder
+
+**Tasks:**
+
+- Pin exact versions and build settings.
+- Feed every implementation the same decoded pixel buffers.
+- Enforce matched thread counts, timeouts, resolution, and preprocessing.
+- Normalize raw payload and metadata without hiding charset differences.
+- Publish adapter source and raw artifacts.
+- Record license and redistribution constraints.
+
+**Acceptance criteria:**
+
+- Competitor claims are locally reproducible.
+- Accuracy and latency use identical case manifests and timing boundaries.
+- Results include confidence intervals and hardware metadata.
+
+---
+
+## WP-014: Performance engineering after correctness
+
+**Status:** Blocked by WP-007, WP-010, and trustworthy benchmarks
+
+**Goal:** Reach OSS-leading latency without sacrificing verified correctness.
+
+**Tasks:**
+
+- Profile successful clean, hard, and multi-code cases separately.
+- Remove per-row and per-candidate allocations.
+- Reuse request-scoped buffers safely.
+- Measure when Rayon helps and avoid parallel overhead for small images.
+- Add architecture-specific SIMD behind tested feature gates.
+- Measure cold/warm latency, allocations, RSS, and sustained throughput.
+- Evaluate PGO only after representative workloads are stable.
+
+**Targets:**
+
+- Desktop p50 no more than 25 ms and p95 no more than 100 ms at max dimension
+  1024 for the near-term credibility gate.
+- Sustained 30 FPS on representative 1080p single-code video.
+- Beat the fastest tested OSS implementation, or remain within 10% while
+  achieving at least three percentage points higher recall.
+
+---
+
+## WP-015: Platform and packaging roadmap
+
+**Status:** Blocked by stable API and correctness gates
+
+**Goal:** Turn the decoder into an adoptable OSS product.
+
+**Tasks:**
+
+- Separate a small `no_std + alloc` matrix-decoding core if feasible.
+- Make image loading, Rayon, tools, and platform SIMD optional features.
+- Add MSRV, WASM, Linux, macOS, Windows, iOS, and Android CI lanes as support is
+  implemented.
+- Provide C ABI, Swift, Kotlin, Python, and WASM bindings in staged releases.
+- Publish crates.io releases, tags, API documentation, examples, changelog,
+  semver policy, security policy, and dataset provenance.
+
+**Acceptance criteria:**
+
+- Platform claims correspond to continuously tested build or runtime lanes.
+- Optional dependencies do not leak into the core configuration.
+- Bindings share conformance fixtures with the Rust API.
+
+---
+
+## WP-016: Closed-SDK challenger features
+
+**Status:** Long-term; begin only after OSS-leading correctness
+
+**Goal:** Differentiate RustQR through transparency, control, and diagnostics,
+not only aggregate recall.
+
+**Candidate features:**
+
+- Calibrated confidence.
+- Per-stage diagnostic traces.
+- Damaged-module, glare, and sampling-confidence heatmaps.
+- Corners, pose, module pitch, and geometric uncertainty.
+- QR print-quality grading.
+- Structured Append assembly across images or video frames.
+- Video ROI tracking, reacquisition, and duplicate suppression.
+- Deterministic private/offline operation.
+- Fast, balanced, and forensic modes with hard service-level objectives.
+
+**Long-term target:**
+
+- Stay within two recall percentage points of the best tested commercial SDK.
+- Beat it in at least half of named hard categories.
+- Beat it on p50 latency or memory in a matched one-thread configuration.
+- Publish evaluator source, manifests, raw artifacts, and confidence intervals.
+
+---
+
+## Current project snapshot
+
+- Branch: `main` at `5b9b41e`; the dirty working tree is the active roadmap
+  implementation and must be preserved rather than treated as disposable.
+- The untracked `benchmark/` directory contains preserved historical evidence;
+  preserve it.
+- `cargo test --all-features`: passed 94 library tests, 5 CLI tests, 6
+  conformance matrix tests, 3 mutation tests, 7 input API tests, 2 timeout
+  tests, and one doc test; seven real-image integration tests were ignored.
+- `cargo fmt -- --check`: passed.
+- `cargo clippy --all-targets --all-features -- -D warnings`: passed.
+- Main README benchmark: 18.26% overall instance reading rate, median about
+  820 ms/image, GitHub run `21837108650`.
+- Untracked run `21927167412`: custom payload lane reported 26/26 at median
+  156.7 ms; BoofCV semantics and provenance require WP-001 verification.
+- Rebuild branch `work_wp014_wp018_gates_2026_02_12` was 33 commits ahead of
+  `main` and must be evaluated through WP-005 rather than merged blindly.
+
+## Suggested prompt for a new session
+
+> Read `AGENTS.md` and `TODO.md`, then work only on WP-XXX. Launch focused
+> sub-agents to inspect implementation, tests, and benchmark implications.
+> Preserve the untracked benchmark artifacts. Use targeted local benchmark
+> limits during development and GitHub Actions for full runs. Implement the
+> packet, validate its acceptance criteria, and update `TODO.md` with results
+> and remaining work.

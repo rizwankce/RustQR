@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+SUPPORTED_SCHEMA_VERSION = "rustqr.reading_rate.v2"
+
 
 def load_artifact(path: Path) -> dict:
     try:
@@ -27,12 +29,18 @@ def load_artifact(path: Path) -> dict:
 
     if "summary" not in data:
         raise ValueError(f"missing summary in {path}")
+    schema = data.get("schema_version")
+    if schema != SUPPORTED_SCHEMA_VERSION:
+        raise ValueError(
+            f"incompatible schema_version in {path}: expected "
+            f"{SUPPORTED_SCHEMA_VERSION!r}, got {schema!r}"
+        )
     return data
 
 
 def read_metrics(data: dict, path: Path) -> tuple[float, float]:
     summary = data.get("summary", {})
-    runtime = summary.get("runtime", {})
+    runtime = summary.get("end_to_end_runtime", {})
 
     weighted = summary.get("weighted_global_rate_percent")
     median_ms = runtime.get("median_per_image_ms")
@@ -51,6 +59,32 @@ def read_fingerprint(data: dict, path: Path) -> str:
     if not isinstance(fingerprint, str) or not fingerprint:
         raise ValueError(f"missing metadata.dataset_fingerprint in {path}")
     return fingerprint
+
+
+def read_compatibility(data: dict, path: Path) -> dict:
+    metadata = data.get("metadata", {})
+    required = (
+        "label_fingerprint",
+        "evaluator_fingerprint",
+        "preprocessing_fingerprint",
+        "limit_per_category",
+        "smoke",
+        "selected_category",
+    )
+    missing = [name for name in required if name not in metadata]
+    if missing:
+        raise ValueError(f"missing compatibility metadata in {path}: {', '.join(missing)}")
+    for name in required[:3]:
+        if not isinstance(metadata[name], str) or not metadata[name]:
+            raise ValueError(f"invalid metadata.{name} in {path}")
+    return {
+        **{name: metadata[name] for name in required},
+        "evaluated_categories": sorted(
+            entry.get("name")
+            for entry in data.get("categories", [])
+            if isinstance(entry, dict) and isinstance(entry.get("name"), str)
+        ),
+    }
 
 
 def per_category_rates(data: dict) -> dict[str, float]:
@@ -151,18 +185,24 @@ def main() -> int:
         candidate_rate, candidate_median = read_metrics(candidate, candidate_path)
         baseline_fp = read_fingerprint(baseline, baseline_path)
         candidate_fp = read_fingerprint(candidate, candidate_path)
+        baseline_compat = read_compatibility(baseline, baseline_path)
+        candidate_compat = read_compatibility(candidate, candidate_path)
         category_thresholds = parse_category_thresholds(args.category_max_drop_pp)
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
     if not category_thresholds:
-        category_thresholds = {
-            "lots": 2.0,
-            "rotations": 2.0,
-            "nominal": 1.5,
-            "high_version": 1.5,
-        }
+        selected_category = baseline_compat["selected_category"]
+        if selected_category is not None:
+            category_thresholds = {selected_category: 1.0}
+        else:
+            category_thresholds = {
+                "lots": 2.0,
+                "rotations": 2.0,
+                "nominal": 1.5,
+                "high_version": 1.5,
+            }
 
     if baseline_fp != candidate_fp and not args.allow_dataset_mismatch:
         print(
@@ -170,6 +210,20 @@ def main() -> int:
             f"(baseline={baseline_fp}, candidate={candidate_fp})"
         )
         print("Use --allow-dataset-mismatch only for exploratory comparisons.")
+        return 1
+
+    incompatible = [
+        name
+        for name in baseline_compat
+        if baseline_compat[name] != candidate_compat[name]
+    ]
+    if incompatible:
+        print("FAIL: incompatible evaluator inputs/configuration")
+        for name in incompatible:
+            print(
+                f"  {name}: baseline={baseline_compat[name]!r} "
+                f"candidate={candidate_compat[name]!r}"
+            )
         return 1
 
     rate_drop_pp = baseline_rate - candidate_rate

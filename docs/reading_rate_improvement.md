@@ -1,6 +1,13 @@
-# Reading Rate Improvement Plan
+# Historical Reading-Rate Improvement Worklog
 
-Goal: Raise RustQR's overall reading rate from the public README baseline (**8.04%**) toward **38.95%+** (beat ZBar), then toward **60%+** (BoofCV range), while maintaining world-class speed (<5ms for 1MP images).
+> This file combines dated measurements, diagnoses, and completed phase notes.
+> It is not the current capability matrix or an authoritative benchmark
+> baseline. Some diagnoses describe code that has since changed. Use
+> `docs/spec.md` for current support and `TODO.md` for current benchmark rules.
+
+Historical goal: raise the then-reported reading rate while reducing latency.
+Comparisons in this worklog predate the evaluator hardening required by WP-002
+and must not be presented as current competitor comparisons.
 
 ---
 
@@ -174,7 +181,7 @@ Before algorithm work, ensure benchmark numbers are trustworthy and comparable a
 - **Current issue**:
   - A "hit" is currently counted as `!results.is_empty()` (any decode), without verifying decoded content matches the `.txt` label.
   - Overall "Average Reading Rate" is unweighted mean across categories, not true global success rate across all images.
-  - `QR_BENCH_LIMIT` defaults to 5 when unset, which can silently sample only a tiny subset.
+  - At the time of this snapshot, `QR_BENCH_LIMIT` defaulted to 5. The current implementation defaults to the full dataset.
 - **Fix**:
   1. Compare decoded payload(s) against expected `.txt` content per image.
   2. Report both:

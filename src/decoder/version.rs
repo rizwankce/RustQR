@@ -58,17 +58,8 @@ impl VersionInfo {
     }
 
     fn decode(version_bits: u32) -> Option<u8> {
-        // BCH(18,6) decoding
-        let corrected = Self::correct_errors(version_bits)?;
-
-        // Top 6 bits are version number
-        let version = (corrected >> 12) as u8;
-
-        if (7..=40).contains(&version) {
-            Some(version)
-        } else {
-            None
-        }
+        Self::decode_with_distance(version_bits)
+            .or_else(|| Self::decode_with_distance(Self::reverse_18(version_bits)))
     }
 
     fn decode_with_correction(bits1: u32, bits2: u32) -> Option<u8> {
@@ -83,37 +74,30 @@ impl VersionInfo {
         None
     }
 
-    fn correct_errors(codeword: u32) -> Option<u32> {
-        // BCH(18,6) can correct up to 3 errors
-        if Self::check_version(codeword) {
-            return Some(codeword);
-        }
-
-        // Try single-bit corrections
-        for i in 0..18 {
-            let test = codeword ^ (1 << i);
-            if Self::check_version(test) {
-                return Some(test);
-            }
-        }
-
-        None
+    fn decode_with_distance(codeword: u32) -> Option<u8> {
+        (7..=40)
+            .map(|version| (version, Self::version_codeword(version) ^ codeword))
+            .map(|(version, difference)| (version, difference.count_ones()))
+            .filter(|(_, distance)| *distance <= 3)
+            .min_by_key(|(_, distance)| *distance)
+            .map(|(version, _)| version)
     }
 
-    fn check_version(codeword: u32) -> bool {
-        // BCH(18,6) generator: x^12 + x^11 + x^10 + x^9 + x^8 + x^5 + x^2 + 1
+    fn version_codeword(version: u8) -> u32 {
         const GENERATOR: u32 = 0x1f25;
-        let mut remainder = codeword;
-
-        for _ in 0..6 {
-            if remainder & 0x20000 != 0 {
-                remainder ^= GENERATOR << 5;
-            }
-            remainder <<= 1;
+        let mut remainder = version as u32;
+        for _ in 0..12 {
+            remainder = (remainder << 1) ^ (((remainder >> 11) & 1) * GENERATOR);
         }
+        ((version as u32) << 12) | remainder
+    }
 
-        let syndrome = (remainder >> 6) & 0xFFF;
-        syndrome == 0
+    fn reverse_18(bits: u32) -> u32 {
+        let mut reversed = 0;
+        for index in 0..18 {
+            reversed = (reversed << 1) | ((bits >> index) & 1);
+        }
+        reversed
     }
 }
 
@@ -123,7 +107,11 @@ mod tests {
 
     #[test]
     fn test_version_check() {
-        // Valid version info should pass check
-        assert!(VersionInfo::check_version(0));
+        for version in 7..=40 {
+            let codeword = VersionInfo::version_codeword(version);
+            assert_eq!(VersionInfo::decode(codeword), Some(version));
+            assert_eq!(VersionInfo::decode(codeword ^ 0b111), Some(version));
+        }
+        assert_eq!(VersionInfo::decode(0), None);
     }
 }
