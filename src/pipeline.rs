@@ -24,6 +24,11 @@ const CLUSTER_GROUP_TRIGGER: usize = 64;
 const CLUSTER_TARGET_SIZE: usize = 28;
 // Increased from 40 to 64 for better multi-QR coverage in "lots" category
 const CLUSTER_MAX_SIZE: usize = 64;
+// The largest possible finder-to-finder pair in a Model 2 symbol is the
+// diagonal of a version-40 grid.  Keep a little perspective headroom, but
+// express the bound in modules rather than image pixels: the same QR must be
+// groupable after a uniform resize.
+const MAX_FINDER_PAIR_MODULES: f32 = 260.0;
 
 #[derive(Clone, Copy)]
 struct RankedGroupCandidate {
@@ -307,7 +312,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                 let max_d = distances.iter().fold(0.0f32, |a, &b| a.max(b));
 
                 let avg_module = (pi.module_size + pj.module_size + pk.module_size) / 3.0;
-                if min_d < avg_module * 2.5 || max_d > 3000.0 {
+                if min_d < avg_module * 2.5 || max_d > avg_module * MAX_FINDER_PAIR_MODULES {
                     continue;
                 }
                 let distortion_ratio = max_d / min_d;
@@ -1743,5 +1748,28 @@ mod tests {
             decoded("same"),
         ));
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn grouping_is_scale_invariant_beyond_legacy_pixel_limit() {
+        // These finder centres form a valid, large Model 2 symbol.  Their
+        // diagonal is intentionally wider than the old 3,000-pixel global
+        // cutoff; grouping must depend on pitch, not raster size.
+        let patterns = vec![
+            FinderPattern::new(1_000.0, 1_000.0, 30.0),
+            FinderPattern::new(5_000.0, 1_000.0, 30.0),
+            FinderPattern::new(1_000.0, 5_000.0, 30.0),
+        ];
+        assert_eq!(group_finder_patterns(&patterns), vec![vec![0, 1, 2]]);
+    }
+
+    #[test]
+    fn grouping_rejects_module_span_beyond_model_two_limit() {
+        let patterns = vec![
+            FinderPattern::new(1_000.0, 1_000.0, 30.0),
+            FinderPattern::new(11_000.0, 1_000.0, 30.0),
+            FinderPattern::new(1_000.0, 11_000.0, 30.0),
+        ];
+        assert!(group_finder_patterns(&patterns).is_empty());
     }
 }

@@ -30,7 +30,7 @@ For a deliberate same-machine comparison, run the command once before a
 decoder change and once after it without deleting that directory, and retain
 the Criterion output with the commit IDs and environment details.
 
-## Current baseline (2026-07-12)
+## Matched pre/post measurement (2026-07-12)
 
 Command:
 
@@ -38,12 +38,21 @@ Command:
 cargo bench --bench matrix_decode
 ```
 
-Result (Criterion 100 samples, 95% confidence interval):
+Both revisions were extracted with `git archive` into separate temporary
+directories, so neither benchmark changed the active worktree. The older
+revision did not contain the benchmark target, therefore only its temporary
+copy received the byte-for-byte benchmark source and Cargo target registration
+from the current revision. No decoder source was changed. Both copies used the
+same fixture SHA-256:
+`966a96def275227273000131b513b01a568f5b2baee672f9c34481eee8fb13e5`.
+
+Result (Criterion 100 samples, 95% confidence interval; second alternating
+run for each snapshot):
 
 | Comparison point | Revision | Benchmark | Time |
 |---|---|---|---|
-| Before the spec-first slice | No equivalent measurement | `decode_matrix/canonical_v1_m_numeric` | Not measured |
-| After the measurement-only evidence change / current baseline | `72ac730` plus uncommitted roadmap work | `decode_matrix/canonical_v1_m_numeric` | 6.9299–7.0763 us |
+| Before the spec-first slice | `82fc5172ad1c19bf6ba245302e93bbb56a151782` | `decode_matrix/canonical_v1_m_numeric` | 6.9570–6.9782 us |
+| Current measured snapshot | `e41cb144ef4f1e562c54a7724bc7943db8d52ac4` | `decode_matrix/canonical_v1_m_numeric` | 6.3762–6.3959 us |
 
 Environment: Apple Silicon (`aarch64-apple-darwin`), macOS Darwin 25.5.0,
 Rust 1.85.0, release Criterion benchmark. Gnuplot was unavailable, so
@@ -51,13 +60,19 @@ Criterion used its Plotters backend; that does not change the timing samples.
 
 ## Before/after assessment
 
-There is no valid pre-WP-007 measurement: the prior revision did not contain
-this fixed-fixture benchmark or a recorded equivalent timing boundary. A
-historical before number must therefore remain **not measured**, rather than
-being inferred from unrelated detector or reading-rate timings. This evidence
-establishes the current baseline and a reproducible comparison method, but it
-does not prove the acceptance criterion that latency *dropped substantially*.
+The matched point estimates are 6.9673 us before and 6.3859 us after, an
+8.35% reduction for this clean canonical workload. A first alternating pair
+was noisier but had the same direction (6.9501–7.4565 us before and
+6.5084–6.5992 us after). This replaces the previous "not measured" statement:
+the pre-WP-007 implementation can be measured under the same timing boundary.
+
+This does **not** complete the latency acceptance criterion. The roadmap does
+not define a threshold for "drops substantially," and an 8.35% component
+reduction cannot defensibly be called substantial without one. It is evidence
+of a modest clean-matrix improvement only; it is not a photographic detection,
+reading-rate, or end-to-end claim.
 
 The separate targeted photographic regression run remains the recall evidence
-for recovery behavior. A future WP-007 completion claim needs a matched
-pre/post Criterion comparison and the same targeted recovery checks.
+for recovery behavior. A future WP-007 completion claim needs a defined
+substantial-latency threshold (and evidence against it) plus the existing
+targeted recovery checks.

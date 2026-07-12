@@ -789,20 +789,22 @@ cargo test --test conformance_matrix_tests --all-features
 QR_MAX_DIM=800 cargo test --test decode_regression_tests --release --all-features -- --ignored --nocapture
 ```
 
-**2026-07-12 matrix-latency baseline:** Added the reproducible Criterion
+**2026-07-12 matrix-latency evidence:** Added the reproducible Criterion
 benchmark `decode_matrix/canonical_v1_m_numeric` in `benches/matrix_decode.rs`.
 It parses a checked-in clean V1-M numeric conformance matrix, checks its exact
 raw payload once, and times only the public `QrDecoder::decode_matrix` call.
-On Apple Silicon with Rust 1.85.0, `cargo bench --bench matrix_decode` reported
-a 95% interval of **6.9299–7.0763 us** over 100 samples. The workload and
-timing boundary, full command, environment, and before/after rules are in
-`docs/wp007_matrix_latency.md`. There is no valid pre-WP-007 number because
-the prior revision had no equivalent fixed-fixture benchmark; it is explicitly
-recorded as not measured rather than inferred from detector timings. This is a
-current baseline, not proof that latency dropped substantially. The remaining
-WP-007 completion evidence is a matched pre/post Criterion comparison plus
-the existing targeted photographic recovery checks; do not infer a reduction
-from the no-regression checks above.
+On Apple Silicon with Rust 1.85.0, matched isolated `git archive` snapshots
+measured **6.9570–6.9782 us** (95% CI) before WP-007 at `82fc517` and
+**6.3762–6.3959 us** at current measured snapshot `e41cb14`; the point
+estimates show an **8.35%** reduction. Both used the identical fixture and
+byte-for-byte copied Criterion closure; the older snapshot received only the
+temporary benchmark wiring, not decoder changes. Full methodology, fixture
+checksum, environment, and a noisier confirming alternating pair are in
+`docs/wp007_matrix_latency.md`. This is a modest clean-matrix component
+improvement, not proof that latency "dropped substantially": the roadmap has
+no substantial-latency threshold. WP-007 therefore remains in progress pending
+a defined threshold/evidence and the existing targeted photographic recovery
+checks.
 
 ---
 
@@ -953,6 +955,15 @@ This slice intentionally does not claim the full WP-010 acceptance criteria:
 the scan state machines still allocate per row/column, grouping remains in the
 legacy pipeline, and ROI-first/dense-scene stage evaluation are pending.
 
+**2026-07-12 module-scaled grouping follow-up:** the legacy grouping guard no
+longer rejects triples because their finder centres exceed a global 3,000-pixel
+distance. Its upper span is now expressed in modules, with Model 2 version-40
+diagonal and perspective headroom. Focused regressions prove a uniformly
+upscaled valid symbol still groups and an impossible module span is rejected.
+This removes one fixed-pixel constraint from the proposal-to-group boundary;
+it does not yet replace the legacy grouping implementation or provide
+ROI-first raster processing.
+
 Verified with:
 
 ```bash
@@ -1057,6 +1068,11 @@ spatial index for grouping/region routing, rasterized multi-QR end-to-end
 scenes with bipartite geometry evaluation, measured density recall/throughput,
 and explicit duplicate/false-positive budgets. The 50-code 500 ms target is
 not claimed by this slice.
+
+The module-scaled grouping follow-up above also applies to dense raster scenes:
+large images no longer discard a valid local symbol solely for being rendered
+past a global coordinate limit. It is unit-level proposal/group evidence only,
+not the required controlled raster-scene throughput result.
 
 **Acceptance criteria:**
 
