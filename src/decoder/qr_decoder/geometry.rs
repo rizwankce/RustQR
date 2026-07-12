@@ -214,6 +214,10 @@ fn extract_qr_region_gray_with_variant(
 ) -> (BitMatrix, Vec<u8>) {
     let mut samples: Vec<f32> = vec![255.0; dimension * dimension];
     let mut local_std_dev: Vec<f32> = vec![0.0; dimension * dimension];
+    // A camera highlight can turn an entire sample footprint into white.  It
+    // should not become an apparently high-confidence white module merely
+    // because its samples agree with one another.
+    let mut bright_saturation: Vec<f32> = vec![0.0; dimension * dimension];
     let center_module = Point::new(
         (dimension as f32 - 1.0) * 0.5,
         (dimension as f32 - 1.0) * 0.5,
@@ -242,12 +246,15 @@ fn extract_qr_region_gray_with_variant(
             let module_px = estimate_local_module_pixels(transform, x, y);
             let radius =
                 ((adaptive_kernel_radius(module_px) as f32) * sample_scale).round() as usize;
-            let radius = radius.clamp(1, 4);
+            // At sub-pixel pitch, a single bilinear centre sample is safer
+            // than smearing neighbouring modules into the decision.
+            let radius = radius.clamp(0, 4);
             let sample_step = (0.35 / sample_scale.max(0.8)).clamp(0.2, 0.45);
 
             let mut sum = 0.0f32;
             let mut sum_sq = 0.0f32;
             let mut count = 0usize;
+            let mut saturated = 0usize;
             for oy in -(radius as isize)..=(radius as isize) {
                 for ox in -(radius as isize)..=(radius as isize) {
                     let sx = img_point.x + ox as f32 * sample_step;
@@ -256,6 +263,12 @@ fn extract_qr_region_gray_with_variant(
                         sum += v;
                         sum_sq += v * v;
                         count += 1;
+                        // 250 leaves a small guard band below the usual
+                        // 8-bit white clip value while not penalising normal
+                        // paper/background values.
+                        if v >= 250.0 {
+                            saturated += 1;
+                        }
                     }
                 }
             }
@@ -270,6 +283,11 @@ fn extract_qr_region_gray_with_variant(
             };
             samples[idx] = avg;
             local_std_dev[idx] = variance.max(0.0).sqrt();
+            bright_saturation[idx] = if count > 0 {
+                saturated as f32 / count as f32
+            } else {
+                1.0
+            };
         }
     }
 
@@ -284,7 +302,12 @@ fn extract_qr_region_gray_with_variant(
 
             let margin = (s - local_t).abs();
             let var_penalty = (local_std_dev[idx] / 96.0).clamp(0.0, 1.0);
-            let conf = ((margin / 64.0) * (1.0 - 0.45 * var_penalty)).clamp(0.0, 1.0);
+            // White-clipped samples are ambiguous under glare.  Keep their
+            // sampled bit (the matrix decoder may still recover it), but make
+            // the uncertainty available to confidence-guided RS recovery.
+            let glare_penalty = bright_saturation[idx];
+            let conf = ((margin / 64.0) * (1.0 - 0.45 * var_penalty) * (1.0 - glare_penalty))
+                .clamp(0.0, 1.0);
             confidence[idx] = (conf * 255.0).round() as u8;
         }
     }
@@ -526,12 +549,20 @@ fn transform_quality(
 
     if version_num >= 2 {
         let centers = alignment_centers(version_num, dimension);
-        if let Some((ax, ay)) = centers.iter().max_by_key(|(x, y)| x + y) {
-            let p = transform.transform(&Point::new(*ax as f32 + 0.5, *ay as f32 + 0.5));
+        let mut alignment_score = 0.0;
+        let mut observed = 0usize;
+        // Every spec-relevant alignment center contributes to the rank.  The
+        // count is bounded by QR version 40 (at most 46 centers), unlike a
+        // free-form pixel offset search.
+        for (ax, ay) in centers {
+            let p = transform.transform(&Point::new(ax as f32 + 0.5, ay as f32 + 0.5));
             if let Some(mm) = alignment_pattern_mismatch(binary, &p, module_size.max(1.0)) {
-                let align = 1.0 - (mm as f32 / 25.0).clamp(0.0, 1.0);
-                score += align * 0.25;
+                alignment_score += 1.0 - (mm as f32 / 25.0).clamp(0.0, 1.0);
+                observed += 1;
             }
+        }
+        if observed > 0 {
+            score += (alignment_score / observed as f32) * 0.25;
         }
     } else {
         score += 0.25;
@@ -781,5 +812,35 @@ mod tests {
         assert_eq!(matrix.width(), dim);
         assert_eq!(matrix.height(), dim);
         assert_eq!(conf.len(), dim * dim);
+    }
+
+    #[test]
+    fn saturated_white_samples_are_not_confident() {
+        let dim = 21usize;
+        let gray = vec![255u8; 64 * 64];
+        let src = [
+            Point::new(3.5, 3.5),
+            Point::new(dim as f32 - 3.5, 3.5),
+            Point::new(3.5, dim as f32 - 3.5),
+            Point::new(dim as f32 - 3.5, dim as f32 - 3.5),
+        ];
+        let dst = [
+            Point::new(10.0, 10.0),
+            Point::new(54.0, 10.0),
+            Point::new(10.0, 54.0),
+            Point::new(54.0, 54.0),
+        ];
+        let transform = PerspectiveTransform::from_points(&src, &dst).unwrap();
+        let (_, confidence) =
+            extract_qr_region_gray_with_transform_and_confidence(&gray, 64, 64, &transform, dim);
+
+        assert!(confidence.iter().all(|&value| value == 0));
+    }
+
+    #[test]
+    fn sampling_footprint_does_not_blur_sub_pixel_modules() {
+        assert_eq!(adaptive_kernel_radius(0.9), 0);
+        assert_eq!(adaptive_kernel_radius(1.4), 0);
+        assert_eq!(adaptive_kernel_radius(1.5), 1);
     }
 }

@@ -17,3 +17,10 @@ path = "fuzz_targets/public_image_input.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "matrix_decode"
+path = "fuzz_targets/matrix_decode.rs"
+test = false
+doc = false
+bench = false

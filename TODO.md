@@ -871,7 +871,7 @@ production-quality library API.
 
 ## WP-009: Create a false-positive and adversarial suite
 
-**Status:** Blocked by WP-002 scoring and WP-007 acceptance rules
+**Status:** Safety foundation in progress; false-positive rate gate remains blocked
 
 **Goal:** Prevent recovery heuristics from trading recall for hallucinated
 payloads.
@@ -886,6 +886,34 @@ payloads.
 - Fuzz matrix parsing, block deinterleaving, RS correction, payload parsing, and
   public image APIs.
 - Add sanitizer, Miri where applicable, and long-running fuzz workflows.
+
+**2026-07-12 safety foundation:** Added deterministic adversarial matrix tests
+for QR-sized seeded noise, malformed dimensions, and finder/timing damage past
+the documented recovery tolerance. The existing structural-invalid fixtures
+remain the source for invalid format/version BCH words, remainder bits, and
+payload padding. Added the bounded `fuzz/matrix_decode` target alongside the
+public image-input target; it covers matrix dimension checks, format/version
+parsing, block deinterleaving, RS correction, payload parsing, and erasure
+evidence. A weekly/manual GitHub Actions sanitizer workflow runs both targets
+for a bounded duration and uploads minimized failures. `cargo fuzz` could not
+be compiled locally because this environment cannot resolve `index.crates.io`
+for `libfuzzer-sys`; the workflow is the first networked validation.
+
+The false-positive metric limitation is explicit in
+`docs/wp009_adversarial.md`: no image-level or per-megapixel rate is reported
+because no licensed annotated negative-image corpus/evaluator exists. Matrix
+rejection and fuzz coverage are safety evidence only, not detector false-
+positive metrics. No false-positive budget claim may be made until that corpus,
+evaluator, and budget are established.
+
+Focused local validation:
+
+```bash
+cargo fmt -- --check
+cargo test --test adversarial_matrix_tests --all-features
+cargo test --test input_api_tests --all-features
+git diff --check
+```
 
 **Acceptance criteria:**
 
@@ -943,7 +971,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ## WP-011: Geometry and sampling refinement
 
-**Status:** Blocked by WP-010 proposal interface
+**Status:** In progress; bounded sampling-confidence and alignment-ranking slice
 
 **Goal:** Improve high-version, perspective, curved, rotated, and small-module
 decoding without unbounded offset searches.
@@ -957,6 +985,33 @@ decoding without unbounded offset searches.
 - Use local sampled-grid thresholds under uneven lighting.
 - Add a bounded nonlinear mesh model for curved surfaces.
 - Model saturation/glare masks and avoid treating clipped pixels as confident.
+
+**2026-07-12 bounded sampling slice:** The selected proposal's sampling path
+now preserves a single bilinear center sample when local module pitch is below
+1.5 pixels instead of forcing a 3x3 footprint that blends neighboring modules.
+It also records the fraction of bright-clipped samples in each module footprint
+and reduces that module's confidence to zero when the footprint is fully
+saturated, while retaining its sampled bit for normal decoding. The existing
+confidence-aware RS path can therefore treat glare as uncertainty rather than
+as strong white evidence. Alignment transform ranking now averages every
+spec-relevant alignment-pattern residual (at most 46 at version 40) rather
+than using only the far-corner pattern; the nine transform candidates remain
+fixed and bounded. This does not claim full WP-011 completion: timing/alignment
+homography fitting, curved-scene evidence, category gates, and candidate-level
+deadline telemetry remain pending.
+
+Focused validation passed:
+
+```bash
+cargo test --lib decoder::qr_decoder::geometry::tests --all-features
+cargo clippy --all-targets --all-features -- -D warnings
+```
+
+Category probes at `QR_MAX_DIM=800` deliberately remain evidence rather than
+a performance claim: `high_version --limit 3` decoded 0/3 and `glare --limit
+3` decoded 1/3. The probes confirm the bounded path executes on the intended
+categories; their misses show that this slice alone does not satisfy the
+remaining homography/refinement and glare-recovery work.
 
 **Acceptance criteria:**
 
