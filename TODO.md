@@ -1788,6 +1788,14 @@ acceptable recall, so they were reverted. The next route must
 select/decode the existing grouped candidates under the bounded budget; do not
 disable these early returns globally.
 
+**2026-07-13 bounded adaptive-frontier rejection:** The brightness telemetry
+path reused only attempts left after its dense one-code gamma decode for one
+adaptive grouped frontier and merged only distinct payloads. It left realistic
+`lots` at 1/60 while raising wall time from 497.8 to 922.5 ms; controlled
+`dense_50` held 48/50 in 94.5 ms. The frontier neither selected a useful real
+candidate nor met the latency bound, so it was reverted. Do not repeat this
+post-primary adaptive-frontier design.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.

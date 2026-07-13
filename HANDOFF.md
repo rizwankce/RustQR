@@ -23,6 +23,8 @@ before editing. `TODO.md` is the canonical detailed queue.
    It already reaches 34/60 finder and 29/60 grouped symbols before legacy
    fast/brightness early returns; global bypass trials were only 1/60 at 1.16
    s or 4/60 at 1.02 s and were reverted. Do not disable them globally.
+   A one-frontier adaptive remainder also stayed 1/60 at 922.5 ms; do not
+   repeat it.
    The route audit's
    five Otsu-only payloads (`011`, `014`, `039`, `043`, `046`) and two absent
    from both routes (`021`, `047`) remain useful diagnosis, but global or
