@@ -327,7 +327,14 @@ def bootstrap_ci(samples: list[float], seed: int = 0xC0DEC0DE, rounds: int = 100
 
 
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    completed = [row for row in rows if row["result"]["status"] != "unavailable"]
+    # Only calls that actually crossed an adapter invocation boundary may
+    # contribute to timing or annotation-count coverage. In particular, a
+    # missing, version-mismatched, or provenance-unverified runner must not
+    # look like a zero-return decode in a report.
+    completed = [
+        row for row in rows
+        if row["result"]["status"] in {"decoded", "no_decode", "timeout"}
+    ]
     latencies = [row["result"]["latency_ms"] for row in completed if row["result"]["latency_ms"] is not None]
     expected = sum(row["expected_symbols"] for row in completed)
     returned = sum(len(row["result"]["payloads_hex"]) for row in completed)
@@ -355,6 +362,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     cases = collect_cases(Path(args.dataset_root), args.category, args.limit)
     observed_versions = {adapter: observed_version(adapter) for adapter in adapters}
     setup = {adapter: adapter_setup(adapter) for adapter in adapters}
+    runner_preflight = {
+        adapter: adapter_preflight(adapter, lock["adapters"][adapter])
+        for adapter in adapters
+    }
     results: dict[str, list[dict[str, Any]]] = {adapter: [] for adapter in adapters}
     with tempfile.TemporaryDirectory(prefix="rustqr-competitor-pixels-") as temporary:
         pixel_root = Path(temporary)
@@ -374,6 +385,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             expected_version = lock["adapters"][adapter]["version"].removeprefix("v")
             observed = observed_versions[adapter]
             version_mismatch = observed is not None and expected_version not in observed
+            runner_unverified = (
+                args.require_verified_runner
+                and runner_preflight[adapter]["status"] != "verified_pinned_runner"
+            )
             for case in materialized:
                 result = (
                     {"status": "version_mismatch", "detail": f"pinned {expected_version}, observed {observed}",
@@ -381,6 +396,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                      "raw_stdout_hex": None, "raw_stderr_hex": None, "latency_ms": None}
                     if version_mismatch else run_adapter(adapter, case["pgm"], args.timeout_ms)
                 )
+                if runner_unverified:
+                    result = {
+                        "status": "unverified_runner",
+                        "detail": (
+                            "--require-verified-runner requires a matching version and "
+                            "runner_sha256; "
+                            f"preflight status is {runner_preflight[adapter]['status']}"
+                        ),
+                        "payloads_hex": [], "metadata": [],
+                        "metadata_status": "adapter_did_not_run",
+                        "raw_stdout_hex": None, "raw_stderr_hex": None,
+                        "latency_ms": None,
+                    }
                 results[adapter].append({
                     "id": case["id"], "category": case["category"],
                     "expected_symbols": case["expected_symbols"],
@@ -394,6 +422,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "hardware": hardware_metadata(),
         "thread_environment": THREAD_ENVIRONMENT,
         "adapters": {adapter: {"lock": lock["adapters"][adapter], "setup": setup[adapter],
+                                "runner_preflight": runner_preflight[adapter],
                                 "version_observed": observed_versions[adapter],
                                 "summary": summarize(rows), "cases": rows}
                      for adapter, rows in results.items()},
@@ -420,6 +449,8 @@ def main() -> int:
     parser.add_argument("--max-dim", type=int, default=1024)
     parser.add_argument("--timeout-ms", type=int, default=1000)
     parser.add_argument("--adapter", action="append", choices=ADAPTERS)
+    parser.add_argument("--require-verified-runner", action="store_true",
+                        help="do not invoke adapters unless version and runner digest match the lock")
     parser.add_argument("--preflight", action="store_true", help="write local adapter availability only; do not select images or decode")
     parser.add_argument("--opencv-one", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()

@@ -32,6 +32,17 @@ class CompetitorHarnessTests(unittest.TestCase):
         self.assertEqual(summary["annotation_count_coverage"], 0.5)
         self.assertEqual(summary["latency_ms"]["median"], 4.0)
 
+    def test_summary_excludes_non_invoked_runner_states(self):
+        rows = [
+            {"expected_symbols": 2, "result": {"status": "decoded", "payloads_hex": ["61"], "latency_ms": 4.0}},
+            {"expected_symbols": 4, "result": {"status": "version_mismatch", "payloads_hex": [], "latency_ms": None}},
+            {"expected_symbols": 4, "result": {"status": "unverified_runner", "payloads_hex": [], "latency_ms": None}},
+        ]
+        summary = HARNESS.summarize(rows)
+        self.assertEqual(summary["available_cases"], 1)
+        self.assertEqual(summary["expected_annotation_symbols"], 2)
+        self.assertEqual(summary["annotation_count_coverage"], 0.5)
+
     def test_case_collection_is_sorted_and_bounded(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "images"

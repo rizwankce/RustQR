@@ -51,6 +51,17 @@ python3 scripts/run_competitor_harness.py \
   --output /tmp/competitor-smoke.json
 ```
 
+For a retained result, use `--require-verified-runner`. It prevents an
+installation that merely reports a matching version from contributing empty
+observations or timing samples:
+
+```sh
+python3 scripts/run_competitor_harness.py \
+  --category monitor --limit 17 --adapter zbar --require-verified-runner \
+  --max-dim 1024 --timeout-ms 1000 \
+  --output artifacts/competitors/wp013-zbar-monitor-2026-07-13.json
+```
+
 Missing ZXing-C++, quirc, BoofCV, or rqrr wrappers are written as
 `unavailable`, not removed from the report. The report contains no temporary
 PGM paths, so it can be published alongside the exact lock and raw source
@@ -127,3 +138,15 @@ runner used by the harness, not an independently reproducible upstream source
 build or its transitive-library provenance. Other adapters remain
 provenance-unverified until their listed pinned sources are built and their
 resulting runner digests are recorded.
+
+## Verified ZBar monitor observation (2026-07-13)
+
+`artifacts/competitors/wp013-zbar-monitor-2026-07-13.json` records 17 monitor
+images materialized once to the shared 1024px PGM contract and run through the
+digest-verified ZBar 0.23.93 executable with the one-thread environment and a
+1000ms per-image timeout. ZBar returned one payload line and no decode on the
+other 16 images. The report's 1/17 annotation-count coverage is only a count
+of returned lines versus quadrilateral annotations: these labels contain no
+payload truth, and the ZBar CLI provides no localization output. It therefore
+does not establish payload accuracy, localization recall, a RustQR comparison,
+or a general ZBar accuracy/latency claim.

@@ -28,17 +28,17 @@ before editing. `TODO.md` is the canonical detailed queue.
    with bounded category-specific geometry or cancellable-stage evidence.
 3. **WP-009 safety:** synthetic baseline is present; acceptance requires a
    licensed, representative negative corpus and explicit false-positive
-   budget. `docs/wp009_adversarial.md` now defines the required provenance and
-   manifest fields; the local BoofCV images are positive-only and cannot be
-   repurposed as negative evidence.
-4. **WP-005 decision / WP-013 competitors:** pinned standalone adapters for
-   `main@5b9b41e` and `scratch_from_scratch_rebuild@295b97c` now live in
-   `scripts/wp005_adapters/`. A detached main-only geometry projection patch
-   now shows 17/17 monitor hits without fabricating boxes. WP-005 is complete:
-   shared-v2 evidence covers 157 matching images and 727 labels (rebuild
-   74/727 versus main 36/727), and matched macOS Fast Benchmark dispatches
-   passed for both refs. Keep the current Model 2 implementation; do not merge
-   rebuild code. WP-013 still needs additional pinned competitor runners.
+   budget. A 47-image/12.5184 MP Apache-2.0 ZXing high-contrast negative
+   slice is now vendored with per-asset hashes, provenance, and zero-timeout
+   public-API evidence. It is not representative enough for the production
+   FPR gate; BoofCV remains positive-only and cannot be repurposed.
+4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
+   evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
+   main 36/727), and matched macOS Fast Benchmark dispatches passed for both
+   refs. Keep the current Model 2 implementation; do not merge rebuild code.
+   WP-013 has a SHA-pinned local ZBar runner and a 17-image raw monitor
+   observation, but needs additional pinned runners plus payload/geometry
+   truth before a fair competitor comparison.
 5. **WP-010:** the bounded contour supplement improves `lots` finder/group
    recall to 102/420 and 87/420, but 215 labels still have no contained
    proposal. Preserve the capped primary/ROI/contour staging and do not relax

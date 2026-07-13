@@ -86,11 +86,11 @@ false-positive budgets, decide whether failures include timeouts, and run the
 same public-API evaluator used by the synthetic corpus. A manifest missing any
 of those provenance fields remains an intake record, not safety evidence.
 
-### Candidate intake: ZXing negative black-box images
+### Admitted slice: ZXing negative black-box images
 
-One external source now clears the *source-level* intake check, without yet
-being copied into this repository. The candidate is the `falsepositives` (22
-PNGs) and `falsepositives-2` (25 PNGs) directories in
+The `falsepositives` (22 PNGs) and `falsepositives-2` (25 PNGs) directories
+from ZXing are now vendored under `tests/negative_corpus/`, with one immutable
+per-asset record in `zxing_manifest.json`. The source is
 [`zxing/zxing`](https://github.com/zxing/zxing), pinned to commit
 [`82333b3ed894ef097d41dd8c922689ede8880e01`](https://github.com/zxing/zxing/tree/82333b3ed894ef097d41dd8c922689ede8880e01)
 (commit date `2026-07-11T19:40:42-05:00`). The immutable source paths are:
@@ -104,8 +104,9 @@ The upstream REUSE declaration, `.reuse/dep5`, assigns `Apache-2.0` to
 grants reproduction and distribution in source or object form, including with
 modifications, subject to retaining the license and relevant notices. The
 upstream `NOTICE` contains only Barcode4J and JCommander notices, neither of
-which applies to these image paths. Any eventual vendoring must retain
-`Apache-2.0`, the upstream attribution, and the applicable `NOTICE` text.
+which applies to these image paths. The vendored slice retains the Apache-2.0
+license, complete upstream NOTICE, and `.reuse/dep5` as
+`tests/negative_corpus/licenses/ZXING-*` files.
 
 The negative annotation is source-authored rather than inferred from an image
 search: at the same commit,
@@ -119,12 +120,18 @@ The legacy ZXing test allows a small aggregate decoder false-positive tolerance;
 that is a tolerance of its implementation, not a claim that any source image
 contains a QR code.
 
-This is a useful licensed negative slice for high-contrast/finder-like
-patterns. It does **not** establish representative coverage of photographs,
-screens, packaging, text, or all required non-QR symbologies, and it is not
-admitted evidence until a local manifest records each downloaded asset's
-SHA-256, dimensions, category, and RustQR audit result. Do not bulk-download
-or vendor the images merely from this record.
+`scripts/verify_wp009_zxing_corpus.py` verifies every local asset's SHA-256,
+PNG dimensions, unique path/id, expected zero QR count, upstream path, and
+the required provenance files before `scripts/evaluate_negative_corpus.py`
+runs the public API evaluator. The manifest records each local/source path,
+SHA-256, dimensions, category, and `expected_qr_count: 0`.
+
+The release evaluator completed all 47 assets (12.518400 MP) with zero
+timeouts, zero positive images, and zero returned QR objects. That is a
+reproducible result for this licensed high-contrast slice only. It is **not** a
+production FPR claim: it has no photographed text, packaging, screens, or
+representative valid non-QR symbologies, and it does not define the still-open
+production false-positive budget.
 
 ## Reproducing the local checks
 
@@ -132,6 +139,7 @@ or vendor the images merely from this record.
 cargo test --test adversarial_matrix_tests --all-features
 cargo test --test input_api_tests --all-features
 python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json
+python3 scripts/verify_wp009_zxing_corpus.py
 cargo fuzz run public_image_input -- -max_total_time=30
 cargo fuzz run matrix_decode -- -max_total_time=30
 ```
@@ -164,3 +172,12 @@ The focused local run completed all thirteen generated cases with
 new request work but is not a process-level hard timeout. This improves the
 repeatability of the synthetic evaluator only and does not change its
 synthetic-only FPR scope.
+
+The same timeout/FPR semantics apply to the admitted ZXing slice: every input
+is decoded through `try_detect_with_options` using RGB bytes and a five-second
+request-scoped deadline. A `FailureStage::Timeout` fails the test and remains a
+separate `timeout_images` value; it is never folded into the zero-detection
+numerator. `ZXING_NEGATIVE_CORPUS_METRICS` reports its own image and megapixel
+denominators. The optional `WP009_EXTERNAL_SHARD=INDEX/COUNT` test setting is
+only for resource-constrained verification; without it the test evaluates all
+47 assets.

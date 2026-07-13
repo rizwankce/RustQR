@@ -1111,8 +1111,9 @@ production-quality library API.
 
 ## WP-009: Create a false-positive and adversarial suite
 
-**Status:** Safety foundation in progress; synthetic false-positive baseline
-reported, broader annotated-corpus gate remains open
+**Status:** Safety foundation in progress; synthetic and licensed ZXing
+high-contrast false-positive baselines reported, broader representative-corpus
+gate remains open
 
 **Goal:** Prevent recovery heuristics from trading recall for hallucinated
 payloads.
@@ -1184,16 +1185,20 @@ category, dimensions, and zero-QR annotation) plus the required FPR-budget
 decision. This is a durable selection path, not a claim that an external corpus
 or production FPR gate exists.
 
-**2026-07-13 candidate-source audit:** The Apache-2.0 ZXing repository at
-immutable commit `82333b3ed894ef097d41dd8c922689ede8880e01` is now recorded as
-a source-level candidate for 47 explicitly negative, high-contrast black-box
-images. Its REUSE metadata assigns Apache-2.0 to the image paths; the pinned
-negative tests state that they should contain no decodable barcode, supporting
-an eventual `expected_qr_count: 0` annotation. No image was downloaded or
-vendored: per-asset hash, dimensions, RustQR visual/decoder audit, and category
-manifest are still required before admission. The slice is not a representative
-corpus by itself; photographed text, packaging, screens, and additional
-non-QR-symbology coverage remain open.
+**2026-07-13 licensed ZXing corpus admission:** Vendored exactly 47 PNGs from
+the Apache-2.0 `zxing/zxing` commit
+`82333b3ed894ef097d41dd8c922689ede8880e01`: 22 `falsepositives` and 25
+`falsepositives-2` fixtures. `tests/negative_corpus/zxing_manifest.json`
+records each source/local path, SHA-256, dimensions, category, and explicit
+`expected_qr_count: 0`; the bundled upstream Apache-2.0 license, NOTICE, and
+REUSE declaration preserve provenance. `scripts/verify_wp009_zxing_corpus.py`
+checks all 47 digests and PNG dimensions before the public RGB API evaluator
+runs. Release verification in six deterministic shards covered 47/47 images
+(12.518400 MP), with zero timeouts, positive images, or returned QR objects.
+Timeouts fail rather than count as clean negatives. This is a licensed,
+high-contrast-slice measurement, not a production FPR claim or completion:
+photographed text, packaging, screens, representative non-QR symbologies, and
+an agreed production false-positive budget remain open.
 
 Focused local validation:
 
@@ -1202,6 +1207,7 @@ cargo fmt -- --check
 cargo test --test adversarial_matrix_tests --all-features
 cargo test --test input_api_tests --all-features
 python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json
+python3 scripts/verify_wp009_zxing_corpus.py
 git diff --check
 ```
 
@@ -1759,6 +1765,20 @@ comparison claim). The current local Cargo registry cannot resolve
 `rqrr = 0.9.0` in `--offline` mode, so the Rust adapter still requires its
 pinned crate source/index before it can be built; ZXing-C++, quirc, and BoofCV
 sources/runners are likewise absent locally.
+
+**2026-07-13 verified ZBar monitor observation:** The harness now records each
+adapter's runner preflight with a normal report and has a
+`--require-verified-runner` gate. Non-invoked unavailable, version-mismatched,
+or provenance-unverified adapters are excluded from timing and
+annotation-count coverage rather than misreported as zero-return decodes.
+`artifacts/competitors/wp013-zbar-monitor-2026-07-13.json` used that gate for
+all 17 `monitor` images at the shared 1024px BT.601/triangle-PGM contract.
+ZBar 0.23.93 was `verified_pinned_runner`, returned one payload line
+(`monitor/image008.jpg`), and had 16 no-decodes with a 107.67ms median and
+133.83ms p95 process-invocation time. The 1/17 returned-line/annotation count
+is deliberately not payload accuracy, localization recall, or a RustQR/ZBar
+comparison: the labels do not contain payload truth and the ZBar CLI exposes
+no quadrilaterals. This is retained reproducible adapter evidence only.
 
 ---
 
