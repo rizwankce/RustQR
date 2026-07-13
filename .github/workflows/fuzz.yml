@@ -29,11 +29,22 @@ jobs:
       - name: Run bounded sanitizer campaign
         env:
           FUZZ_SECONDS: ${{ inputs.max_total_time || '120' }}
-        run: cargo fuzz run --sanitizer address ${{ matrix.target }} -- -max_total_time=$FUZZ_SECONDS
+        run: |
+          set -o pipefail
+          cargo fuzz run --sanitizer address ${{ matrix.target }} -- \
+            -max_total_time="$FUZZ_SECONDS" 2>&1 | tee "fuzz-${{ matrix.target }}.txt"
+        shell: bash
       - name: Upload minimized failures
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-artifacts-${{ matrix.target }}
           path: fuzz/artifacts/${{ matrix.target }}/
+          if-no-files-found: ignore
+      - name: Upload sanitizer logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-log-${{ matrix.target }}
+          path: fuzz-${{ matrix.target }}.txt
           if-no-files-found: ignore

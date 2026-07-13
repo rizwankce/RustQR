@@ -47,6 +47,38 @@ quadrilaterals, dataset fingerprint, label fingerprint, and preprocessing
 fingerprint. It is produced once from the selected fixed input list, not by a
 candidate branch.
 
+## Current-branch exporter
+
+The current branch provides this contract without changing decoder behavior:
+
+```sh
+QR_MAX_DIM=1024 cargo run --release --features tools --bin qrtool -- \
+  prediction-export --category nominal --limit 1 --timeout-ms 0 \
+  --output artifacts/wp005_current_nominal_limit1_prediction_stream.json
+
+python3 scripts/make_wp005_truth_manifest.py \
+  --predictions artifacts/wp005_current_nominal_limit1_prediction_stream.json \
+  --dataset-root benches/images/boofcv \
+  --output artifacts/wp005_truth_nominal_limit1_1024.json
+
+python3 scripts/normalize_wp005_prediction_stream.py \
+  --predictions artifacts/wp005_current_nominal_limit1_prediction_stream.json \
+  --truth artifacts/wp005_truth_nominal_limit1_1024.json \
+  --output artifacts/wp005_current_nominal_limit1_v2.json
+```
+
+`prediction-export` reuses `load_rgb_with_geometry`, the normal detector, and
+the existing cooperative timeout path. It records all result positions after
+rescaling working coordinates back to original-image coordinates. The truth
+helper reads only same-stem BoofCV `SETS` label files selected by the export;
+it writes a separate manifest and label fingerprint, never candidate-derived
+labels.
+
+The checked-in local artifact pair above covers only `nominal/image001.jpg`.
+Its normalized result is 0/2 with no false positives, because the current
+detector exported no predictions for that image. That is a contract smoke,
+not an accuracy result or a comparison with `main` or the rebuild.
+
 ## Normalization
 
 Run the shared scorer only after one prediction export and its shared truth

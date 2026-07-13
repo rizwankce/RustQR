@@ -76,3 +76,13 @@ cargo fuzz run matrix_decode -- -max_total_time=30
 The two fuzz commands require the `cargo-fuzz` tool and a sanitizer-capable
 host. CI runs a bounded sanitizer pass; developers should run substantially
 longer campaigns before security-sensitive releases.
+
+## Fuzz campaign replay evidence
+
+The scheduled/manual AddressSanitizer workflow runs each target with a bounded
+`-max_total_time` (120 seconds by default). It uses `pipefail` and uploads a
+per-target sanitizer log regardless of outcome. On a failure it separately
+uploads the minimized input directory. The log establishes the exact remote
+campaign invocation; the minimized input is the artifact to replay locally.
+This improves reproducibility of remote-only fuzz validation but does not
+claim that a local sanitizer campaign ran in this network-restricted workspace.

@@ -1,0 +1,56 @@
+{
+  "images": [
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            211.6417910447761,
+            153.13432835820896
+          ],
+          [
+            211.49253731343282,
+            89.1044776119403
+          ],
+          [
+            278.95522388059703,
+            89.1044776119403
+          ],
+          [
+            283.7313432835821,
+            151.94029850746267
+          ]
+        ],
+        [
+          [
+            327.76119402985074,
+            149.8507462686567
+          ],
+          [
+            321.04477611940297,
+            86.86567164179104
+          ],
+          [
+            389.8507462686567,
+            81.7910447761194
+          ],
+          [
+            402.08955223880594,
+            145.37313432835822
+          ]
+        ]
+      ],
+      "image_id": "nominal/image001.jpg",
+      "original_height": 308,
+      "original_width": 550,
+      "working_height": 308,
+      "working_width": 550
+    }
+  ],
+  "metadata": {
+    "dataset_fingerprint": "0b700978989119e9",
+    "label_fingerprint": "4d84e89ba5cf02caccda1aa9edbe74959adf536b635d78cd72a8194d60e1ef19",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024"
+  },
+  "schema_version": "rustqr.wp005.localization-truth.v1"
+}

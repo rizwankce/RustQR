@@ -26,3 +26,15 @@ For a local smoke run, use a short explicit time budget:
 cargo fuzz run public_image_input -- -max_total_time=30
 cargo fuzz run matrix_decode -- -max_total_time=30
 ```
+
+The scheduled workflow retains a per-target sanitizer log on both success and
+failure. A crash input, when present, is uploaded separately under
+`fuzz-artifacts-<target>` and can be replayed from the repository root with:
+
+```sh
+cargo fuzz run --sanitizer address matrix_decode \
+  fuzz/artifacts/matrix_decode/<crash-file>
+```
+
+The log records the bounded campaign; the minimized crash input is the
+authoritative replay artifact.

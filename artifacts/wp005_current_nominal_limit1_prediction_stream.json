@@ -1,0 +1,25 @@
+{
+  "schema_version": "rustqr.wp005.prediction-stream.v1",
+  "metadata": {
+    "commit_sha": "4360d95ee85fcf5034a6c1232bb651e731255ffa",
+    "dataset_fingerprint": "0b700978989119e9",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024",
+    "limit_per_category": 1,
+    "timeout_ms": 0
+  },
+  "images": [
+    {
+      "image_id": "nominal/image001.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 308,
+      "working_width": 550,
+      "working_height": 308,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2099.545875,
+      "end_to_end_elapsed_ms": 2102.574542,
+      "timed_out": false
+    }
+  ]
+}

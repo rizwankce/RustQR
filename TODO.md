@@ -636,6 +636,21 @@ dimension rejection. No `main`, rebuild, or current all-branch stream exists
 yet, so this is contract/tooling preparation only—not a normalized comparison,
 an accuracy result, or a latency claim. See `docs/wp005_prediction_stream.md`.
 
+**2026-07-13 current exporter smoke:** `qrtool prediction-export` now writes
+the documented `rustqr.wp005.prediction-stream.v1` directly from the current
+branch using the existing image loader, detector, and cooperative timeout
+path; it only serializes original-coordinate predictions and does not alter
+decoder behavior. `scripts/make_wp005_truth_manifest.py` builds the separate
+shared BoofCV `SETS` truth manifest for exactly the exported images. The
+one-image 1024-px nominal artifacts
+`wp005_current_nominal_limit1_prediction_stream.json`,
+`wp005_truth_nominal_limit1_1024.json`, and
+`wp005_current_nominal_limit1_v2.json` normalized successfully. That image
+exported zero predictions and consequently scores 0/2, so this proves only
+the current adapter/scorer handoff—not recall, latency, or any cross-branch
+comparison. The main/rebuild throwaway adapters and matched 25-image exports
+remain required.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
@@ -1010,6 +1025,15 @@ evidence. A weekly/manual GitHub Actions sanitizer workflow runs both targets
 for a bounded duration and uploads minimized failures. `cargo fuzz` could not
 be compiled locally because this environment cannot resolve `index.crates.io`
 for `libfuzzer-sys`; the workflow is the first networked validation.
+
+**2026-07-13 fuzz replayability audit:** The fuzz inputs remain bounded by the
+targets (public input dimensions at most 32; matrices at most 177x177 plus a
+same-size confidence sidecar). Local `cargo fuzz` remains unavailable here
+because `libfuzzer-sys` requires registry access. The scheduled/manual
+sanitizer workflow now uses `pipefail`, retains a per-target sanitizer log on
+success or failure, and continues uploading any minimized crash inputs. This
+makes remote campaign output and crash replay inspectable without claiming a
+local sanitizer run or production FPR evidence.
 
 **2026-07-13 synthetic negative baseline:** Added the self-authored,
 deterministic thirteen-image corpus in `tests/negative_corpus/manifest.json` and

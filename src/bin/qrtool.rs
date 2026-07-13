@@ -99,6 +99,24 @@ enum Command {
         #[arg(long)]
         smoke: bool,
     },
+    /// Export branch-neutral WP-005 predictions; does not score labels.
+    PredictionExport {
+        /// Dataset root (default: QR_DATASET_ROOT or benches/images/boofcv)
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Max images per selected category (default: QR_BENCH_LIMIT; 0 means all)
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Optional category to export (e.g. nominal, rotations, lots).
+        #[arg(long)]
+        category: Option<String>,
+        /// Cooperative request deadline in milliseconds (0 disables).
+        #[arg(long, default_value_t = 0)]
+        timeout_ms: u64,
+        /// Write rustqr.wp005.prediction-stream.v1 JSON.
+        #[arg(long, value_name = "PATH")]
+        output: PathBuf,
+    },
 }
 
 fn main() {
@@ -143,6 +161,13 @@ fn main() {
             artifact_json.as_deref(),
         ),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
+        Command::PredictionExport {
+            root,
+            limit,
+            category,
+            timeout_ms,
+            output,
+        } => prediction_export_cmd(root, limit, category.as_deref(), timeout_ms, &output),
     }
 }
 
@@ -409,6 +434,148 @@ fn detect_cmd(image: &Path) {
             eprintln!("Failed to load image {}: {}", image.display(), err);
         }
     }
+}
+
+const WP005_CATEGORIES: [&str; 7] = [
+    "nominal",
+    "rotations",
+    "perspective",
+    "high_version",
+    "lots",
+    "brightness",
+    "bright_spots",
+];
+
+/// Export geometry before any evaluator scoring so other branch adapters can
+/// feed the shared WP-005 external normalizer.  This intentionally uses the
+/// existing image loader/detector API unchanged.
+fn prediction_export_cmd(
+    root: Option<PathBuf>,
+    limit: Option<usize>,
+    category: Option<&str>,
+    timeout_ms: u64,
+    output: &Path,
+) {
+    let root = root.unwrap_or_else(dataset_root_from_env);
+    let limit = limit.or_else(bench_limit_from_env);
+    if !root.is_dir() {
+        eprintln!("Dataset root not found: {}", root.display());
+        std::process::exit(2);
+    }
+    let selected_categories: Vec<&str> = match category {
+        Some(name) if WP005_CATEGORIES.contains(&name) => vec![name],
+        Some(name) => {
+            eprintln!("Unsupported WP-005 category: {name}");
+            std::process::exit(2);
+        }
+        None => WP005_CATEGORIES.to_vec(),
+    };
+    let mut rows = String::new();
+    let mut first = true;
+    let mut exported = 0usize;
+    for category in selected_categories {
+        let category_root = root.join(category);
+        if !category_root.is_dir() {
+            eprintln!("Dataset category not found: {}", category_root.display());
+            std::process::exit(2);
+        }
+        for path in dataset_iter(&category_root, limit, false) {
+            let start = Instant::now();
+            let loaded = load_rgb_with_geometry(&path).unwrap_or_else(|error| {
+                eprintln!("failed to load {}: {error}", path.display());
+                std::process::exit(2);
+            });
+            let core_start = Instant::now();
+            let results = if timeout_ms == 0 {
+                rust_qr::detect(&loaded.pixels, loaded.width, loaded.height)
+            } else {
+                rust_qr::detect_with_telemetry_timeout(
+                    &loaded.pixels,
+                    loaded.width,
+                    loaded.height,
+                    std::time::Duration::from_millis(timeout_ms),
+                )
+                .0
+            };
+            let core_elapsed_ms = core_start.elapsed().as_secs_f64() * 1_000.0;
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
+            let timed_out = deadline_exceeded(elapsed_ms, timeout_ms);
+            if !first {
+                rows.push_str(",\n");
+            }
+            first = false;
+            let image_id = path.strip_prefix(&root).unwrap_or(&path).to_string_lossy();
+            let _ = write!(
+                &mut rows,
+                "    {{\n      \"image_id\": \"{}\",\n      \"category\": \"{}\",\n      \"original_width\": {},\n      \"original_height\": {},\n      \"working_width\": {},\n      \"working_height\": {},\n      \"predicted_quadrilaterals\": [",
+                json_escape(&image_id),
+                category,
+                loaded.source_width,
+                loaded.source_height,
+                loaded.width,
+                loaded.height,
+            );
+            for (index, qr) in results.iter().enumerate() {
+                if index > 0 {
+                    rows.push_str(", ");
+                }
+                rows.push('[');
+                for (point_index, point) in qr.position.iter().enumerate() {
+                    if point_index > 0 {
+                        rows.push_str(", ");
+                    }
+                    let x = point.x * loaded.source_width as f32 / loaded.width as f32;
+                    let y = point.y * loaded.source_height as f32 / loaded.height as f32;
+                    let _ = write!(&mut rows, "[{x:.6}, {y:.6}]");
+                }
+                rows.push(']');
+            }
+            rows.push_str("],\n      \"payloads\": [");
+            let mut first_payload = true;
+            for qr in &results {
+                if let Ok(payload) = String::from_utf8(qr.data.clone()) {
+                    if !first_payload {
+                        rows.push_str(", ");
+                    }
+                    first_payload = false;
+                    let _ = write!(&mut rows, "\"{}\"", json_escape(&payload));
+                }
+            }
+            let _ = write!(
+                &mut rows,
+                "],\n      \"core_elapsed_ms\": {core_elapsed_ms:.6},\n      \"end_to_end_elapsed_ms\": {elapsed_ms:.6},\n      \"timed_out\": {timed_out}\n    }}"
+            );
+            exported += 1;
+        }
+    }
+    let preprocessing = format!(
+        "rgb8;triangle-resize;max-dim={}",
+        std::env::var("QR_MAX_DIM").unwrap_or_else(|_| "none".to_string())
+    );
+    let artifact = format!(
+        "{{\n  \"schema_version\": \"rustqr.wp005.prediction-stream.v1\",\n  \"metadata\": {{\n    \"commit_sha\": \"{}\",\n    \"dataset_fingerprint\": \"{}\",\n    \"preprocessing_fingerprint\": \"{}\",\n    \"limit_per_category\": {},\n    \"timeout_ms\": {}\n  }},\n  \"images\": [\n{}\n  ]\n}}\n",
+        json_escape(&commit_sha()),
+        json_escape(&dataset_fingerprint(&root)),
+        json_escape(&preprocessing),
+        limit.map_or_else(|| "null".to_string(), |value| value.to_string()),
+        timeout_ms,
+        rows,
+    );
+    if let Some(parent) = output.parent() {
+        if let Err(error) = fs::create_dir_all(parent) {
+            eprintln!("failed to create {}: {error}", parent.display());
+            std::process::exit(2);
+        }
+    }
+    if let Err(error) = fs::write(output, artifact) {
+        eprintln!("failed to write {}: {error}", output.display());
+        std::process::exit(2);
+    }
+    println!(
+        "WP-005 prediction export: {} images -> {}",
+        exported,
+        output.display()
+    );
 }
 
 fn debug_detect_cmd(image: &Path) {
