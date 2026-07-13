@@ -18,7 +18,9 @@ before editing. `TODO.md` is the canonical detailed queue.
    a bounded breadth-first regional schedule gives 48/50 (96%) in 97.09 ms,
    with zero false positives, duplicates, or timeouts; repeat samples were
    95.84–101.91 ms. It does not complete WP-012: the same ladder is 23/25 and
-   63/100, and realistic dense scenes still need evidence. The route audit's
+   63/100. A one-image realistic `lots` check is only 1/60 in 505.77 ms at
+   `QR_MAX_DIM=800`; realistic dense scenes still need proposal-recall work.
+   The route audit's
    five Otsu-only payloads (`011`, `014`, `039`, `043`, `046`) and two absent
    from both routes (`021`, `047`) remain useful diagnosis, but global or
    residual Otsu retries are not viable under the bounded request policy.
@@ -32,12 +34,12 @@ before editing. `TODO.md` is the canonical detailed queue.
    budget. A 47-image/12.5184 MP Apache-2.0 ZXing high-contrast negative
    slice is now vendored with per-asset hashes, provenance, and zero-timeout
    public-API evidence. A separate 17 Aztec/23 Data Matrix/7 Code128 ZXing
-   slice has complete membership/format/hash provenance but is intentionally
-   incomplete: its strict five-second release run timed out on four Aztec
-   assets (`hello`, `hello-with-errors`, `lorem-105x105`, `lorem-151x151`).
-   Do not weaken the timeout; solve bounded scale/scheduling first. Neither slice is
-   representative enough for the production FPR gate; BoofCV remains
-   positive-only and cannot be repurposed.
+   slice has complete membership/format/hash provenance and now passes its
+   strict five-second release gate (47/47, zero detections/timeouts). The
+   default request budget caps only current inputs with max side <=640 at 32
+   candidates; it preserves caller-stricter limits and leaves dense large-input
+   budgets unchanged. Neither slice is representative enough for the
+   production FPR gate; BoofCV remains positive-only and cannot be repurposed.
 4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both

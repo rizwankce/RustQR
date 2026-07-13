@@ -152,6 +152,13 @@ timeouts. Three isolated public-evaluator reruns also scored 48/50 in
 clears the controlled 50-code gate without claiming general dense-scene
 completion.
 
+The one-image real `lots` check remains far behind the raster control: at
+`QR_MAX_DIM=800`, `reading-rate --category lots --limit 1 --timeout-ms 2500`
+localized 1/60 in 505.77 ms, with no false positives, duplicates, or timeouts.
+The transient artifact is `/tmp/wp012_lots_round_robin_limit1.json`. The
+realistic lane is therefore blocked by proposal/localization recall rather than
+the retained bounded raster scheduler.
+
 ### Release-binary reproducibility correction
 
 A transient 27/50, 4.8-second observation was produced by a stale

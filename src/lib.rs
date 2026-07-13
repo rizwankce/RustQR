@@ -1441,8 +1441,17 @@ fn detect_with_telemetry_budget(
     if is_expired_tel() {
         return (Vec::new(), tel);
     }
-    let request_candidate_limit =
-        requested_candidate_limit.unwrap_or_else(image_decode_attempt_budget);
+    let request_candidate_limit = requested_candidate_limit
+        .unwrap_or_else(image_decode_attempt_budget)
+        // Small, high-contrast inputs can produce many repeated finder-like
+        // candidates even though their image work is cheap. Keep their
+        // request-wide transform schedule bounded without changing the
+        // caller's stricter cap or the larger-image multi-symbol budget.
+        .min(if width.max(height) <= 640 {
+            32
+        } else {
+            usize::MAX
+        });
     let mut remaining_attempts = request_candidate_limit;
 
     if is_overexposed(&gray) {

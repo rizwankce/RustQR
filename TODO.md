@@ -1217,13 +1217,28 @@ Apache-2.0 ZXing revision. `zxing_cross_symbology_manifest.json` records each
 asset's SHA-256, dimensions, upstream path, expected non-QR format, and zero
 QR label; the integrity guard checks the fixed 17/23/7 suite membership as
 well as hashes and dimensions. The bounded public-API evaluator keeps the
-five-second per-image deadline and reports a separate metric. This is an
-intentionally incomplete admission: a full release run timed out on
-`zxing-aztec-hello`, `zxing-aztec-hello-with-errors`,
-`zxing-aztec-lorem-105x105`, and `zxing-aztec-lorem-151x151`. Timeouts fail
-the corpus rather than contributing zero-detection evidence. Preserve the
-assets and strict timeout policy; a bounded image-scale or scheduling solution
-must clear this gate before the slice can count toward an FPR budget.
+five-second per-image deadline and reports a separate metric. The initial
+release run exposed timeouts on `zxing-aztec-hello`,
+`zxing-aztec-hello-with-errors`, `zxing-aztec-lorem-105x105`, and
+`zxing-aztec-lorem-151x151`; timeouts always fail rather than contributing
+zero-detection evidence. The following bounded policy clears that gate without
+weakening its deadline.
+
+**2026-07-13 bounded small-input safety policy:** The cross-symbology timeout
+traces reached finder/group/transform but never BCH, so decoder recovery was
+not relevant. A global 32-candidate ceiling cleared the negatives but
+regressed native controlled `dense_50` from 48/50 to 15/50 and was rejected.
+The retained default instead caps the request-wide candidate schedule at 32
+only when the *current processed input* has maximum side <=640; caller-supplied
+stricter limits still win and larger multi-symbol inputs retain their existing
+budget. The strict release cross test now passes all 47 images (5.068674 MP)
+with zero detections and zero timeouts in 17.89 s. The existing synthetic and
+ZXing negative suites remain zero-detection/zero-timeout, native dense_50 is
+48/50 in 111.52 ms with no false positives, duplicates, or timeouts, and
+matched label-backed nominal/rotation slices retained 5/9 and 7/15 recall.
+Ignored strict monitor/close regressions and matrix conformance also passed.
+This admits the cross-symbology slice as a bounded negative measurement; it
+does not complete the representative-corpus or production-FPR-budget gates.
 
 Focused local validation:
 
@@ -1746,6 +1761,13 @@ timeouts; three isolated reruns were also 48/50 in 95.84–101.91 ms. This
 meets the controlled 50-code acceptance target. WP-012 remains in progress:
 the same density ladder has 23/25 and 63/100, so the broader dense-scene goal
 and realistic-scene evidence are still open.
+
+**2026-07-13 realistic-lots boundary check:** The retained raster scheduling
+change does not establish photographic multi-code readiness. At `QR_MAX_DIM=800`,
+`reading-rate --category lots --limit 1 --timeout-ms 2500` localized 1/60
+codes in 505.77 ms with zero false positives, duplicates, or timeouts; the
+transient artifact is `/tmp/wp012_lots_round_robin_limit1.json`. This keeps
+WP-010 proposal recall and realistic-scene localization as the next blockers.
 
 **Acceptance criteria:**
 
