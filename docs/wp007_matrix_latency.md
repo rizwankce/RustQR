@@ -76,3 +76,34 @@ The separate targeted photographic regression run remains the recall evidence
 for recovery behavior. A future WP-007 completion claim needs a defined
 substantial-latency threshold (and evidence against it) plus the existing
 targeted recovery checks.
+
+## Current-state audit (2026-07-13)
+
+No repository roadmap, benchmark document, or CI configuration defines a
+numeric (or otherwise objectively evaluable) threshold for the acceptance
+phrase “latency drops substantially.” Consequently, the matched archive result
+above remains a modest component improvement, not completion evidence.
+
+At commit `47319a4684bbfcff00adcf2f10565f07ddb242cf`, two immediate local
+runs of the same command gave the following 95% confidence intervals:
+
+| Run | Benchmark | Time |
+|---|---|---|
+| 1 | `decode_matrix/canonical_v1_m_numeric` | 9.2808–10.071 us |
+| 2 | `decode_matrix/canonical_v1_m_numeric` | 8.7282–9.1043 us |
+
+These were shared-machine measurements, not isolated `git archive` snapshots.
+Their spread means they are recorded only as the current local range; they do
+not support a direction or regression claim against the 2026-07-12 archive
+pair.
+
+The documented `QR_MAX_DIM=800` ignored photographic command completed all
+seven functions at this revision. Monitor and rotated produced decodes, and
+the multi-code smoke produced five results. Blurred, nominal, damaged, and
+high-version cases emitted their allowed no-decode warnings. Inspection of
+`tests/decode_regression_tests.rs` confirms that these tests accept an empty
+result for most cases and do not assert expected payloads or expected
+multi-code counts. They are therefore smoke/safety evidence, not a
+no-recall-loss acceptance gate. A WP-007 completion claim requires a defined
+latency threshold plus a payload- and count-asserting photographic recall
+comparison.

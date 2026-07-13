@@ -47,8 +47,15 @@ pub struct FinderGroupingEvaluation {
     pub expected_symbols: usize,
     /// Symbols containing at least three retained finder proposals.
     pub finder_hits: usize,
+    /// Annotated symbols by the number of retained proposal centres they
+    /// contain: zero, one, two, and three-or-more respectively. The final
+    /// bucket is exactly the finder-stage-eligible population, which keeps
+    /// proposal loss distinct from a later grouping loss.
+    pub proposal_multiplicity: [usize; 4],
     /// Symbols containing at least one geometrically valid finder group.
     pub grouping_hits: usize,
+    /// Finder-stage-eligible symbols for which no contained group was emitted.
+    pub finder_eligible_without_group: usize,
     /// Proposals whose centres are outside every annotated symbol.
     pub spurious_proposals: usize,
     /// Retained proposal centres inside at least one annotated symbol.
@@ -116,17 +123,21 @@ pub fn evaluate_finder_and_grouping(
         let center = &patterns[proposal_index].center;
         point_in_quadrilateral([center.x, center.y], symbol)
     };
-    let finder_hits = expected
+    let proposal_counts: Vec<_> = expected
         .iter()
-        .filter(|symbol| {
+        .map(|symbol| {
             patterns
                 .iter()
                 .enumerate()
                 .filter(|(index, _)| proposal_in_symbol(*index, symbol))
                 .count()
-                >= 3
         })
-        .count();
+        .collect();
+    let mut proposal_multiplicity = [0usize; 4];
+    for count in &proposal_counts {
+        proposal_multiplicity[(*count).min(3)] += 1;
+    }
+    let finder_hits = proposal_multiplicity[3];
     let mut grouped_symbols = vec![false; expected.len()];
     let mut contained_groups = 0;
     let mut duplicate_contained_groups = 0;
@@ -162,7 +173,9 @@ pub fn evaluate_finder_and_grouping(
     FinderGroupingEvaluation {
         expected_symbols: expected.len(),
         finder_hits,
+        proposal_multiplicity,
         grouping_hits,
+        finder_eligible_without_group: finder_hits - grouping_hits,
         spurious_proposals,
         contained_proposals: patterns.len() - spurious_proposals,
         spurious_groups,
@@ -934,7 +947,9 @@ mod tests {
         let evaluation = evaluate_finder_and_grouping(&matrix, &[square(0.0, 0.0, 120.0)]);
         assert_eq!(evaluation.expected_symbols, 1);
         assert_eq!(evaluation.finder_hits, 1);
+        assert_eq!(evaluation.proposal_multiplicity, [0, 0, 0, 1]);
         assert_eq!(evaluation.grouping_hits, 1);
+        assert_eq!(evaluation.finder_eligible_without_group, 0);
         assert_eq!(evaluation.contained_proposals, 3);
         assert_eq!(evaluation.spurious_proposals, 0);
         assert_eq!(evaluation.contained_groups, 1);

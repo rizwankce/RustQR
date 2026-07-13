@@ -151,7 +151,9 @@ struct ProposalEvalStats {
     images: usize,
     expected_symbols: usize,
     finder_hits: usize,
+    proposal_multiplicity: [usize; 4],
     grouping_hits: usize,
+    finder_eligible_without_group: usize,
     spurious_proposals: usize,
     contained_proposals: usize,
     spurious_groups: usize,
@@ -168,7 +170,15 @@ impl ProposalEvalStats {
         self.images += 1;
         self.expected_symbols += evaluation.expected_symbols;
         self.finder_hits += evaluation.finder_hits;
+        for (total, value) in self
+            .proposal_multiplicity
+            .iter_mut()
+            .zip(evaluation.proposal_multiplicity)
+        {
+            *total += value;
+        }
         self.grouping_hits += evaluation.grouping_hits;
+        self.finder_eligible_without_group += evaluation.finder_eligible_without_group;
         self.spurious_proposals += evaluation.spurious_proposals;
         self.contained_proposals += evaluation.contained_proposals;
         self.spurious_groups += evaluation.spurious_groups;
@@ -248,6 +258,14 @@ fn proposal_eval_cmd(
         grouping_recall * 100.0,
     );
     println!(
+        "Proposal centres per symbol (0/1/2/3+): {}/{}/{}/{} | finder-eligible without group: {}",
+        stats.proposal_multiplicity[0],
+        stats.proposal_multiplicity[1],
+        stats.proposal_multiplicity[2],
+        stats.proposal_multiplicity[3],
+        stats.finder_eligible_without_group,
+    );
+    println!(
         "Contained/spurious proposals: {}/{} | contained/duplicate/spurious groups: {}/{}/{}",
         stats.contained_proposals,
         stats.spurious_proposals,
@@ -271,15 +289,17 @@ fn proposal_eval_cmd(
     if let Some(path) = artifact_json {
         let artifact = format!(
             r#"{{
-  "schema_version": 2,
-  "evaluator": "finder-proposal-grouping-contained-centres-v2",
+  "schema_version": 3,
+  "evaluator": "finder-proposal-grouping-contained-centres-v3",
   "dataset": "{}",
   "dataset_fingerprint": "{}",
   "label_fingerprint": "{}",
   "images": {},
   "expected_symbols": {},
   "finder_hits": {},
+  "proposal_multiplicity": {{"zero": {}, "one": {}, "two": {}, "three_or_more": {}}},
   "grouping_hits": {},
+  "finder_eligible_without_group": {},
   "finder_recall": {:.8},
   "grouping_recall": {:.8},
   "spurious_proposals": {},
@@ -299,7 +319,12 @@ fn proposal_eval_cmd(
             stats.images,
             stats.expected_symbols,
             stats.finder_hits,
+            stats.proposal_multiplicity[0],
+            stats.proposal_multiplicity[1],
+            stats.proposal_multiplicity[2],
+            stats.proposal_multiplicity[3],
             stats.grouping_hits,
+            stats.finder_eligible_without_group,
             finder_recall,
             grouping_recall,
             stats.spurious_proposals,

@@ -851,6 +851,23 @@ no substantial-latency threshold. WP-007 therefore remains in progress pending
 a defined threshold/evidence and the existing targeted photographic recovery
 checks.
 
+**2026-07-13 acceptance audit:** A repository-wide audit found no numeric or
+otherwise objectively evaluable definition of “drops substantially.” At
+`47319a4`, two immediate local `cargo bench --bench matrix_decode` runs gave
+95% confidence intervals of 8.7282–9.1043 us and 9.2808–10.071 us for the
+same canonical fixture. The variance on the shared machine makes those runs a
+current local range, not a valid comparison with the isolated archive pair
+above and not a performance-direction claim. The documented
+`QR_MAX_DIM=800 cargo test --test decode_regression_tests --release
+--all-features -- --ignored --nocapture` scope completed its seven test
+functions, but only monitor, rotated, and a five-result multi-code smoke
+produced output; blurred, nominal, damaged, and high-version inputs warned of
+no decode. The tests deliberately allow those warnings and do not assert
+expected payloads or expected multi-code counts, so they are safety/smoke
+evidence rather than proof of recall preservation. WP-007 cannot be marked
+complete until a measured latency threshold and payload/count-asserting
+photographic recall gate exist and pass.
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
@@ -1071,6 +1088,17 @@ controlled 25-symbol grouping retention regression remains green. This makes
 the remaining selectivity problem measurable; it does not change WP-010's
 in-progress status or claim dense-scene acceptance.
 
+**2026-07-13 proposal-boundary diagnosis:** `proposal-eval` schema v3 records
+the number of annotations retaining zero, one, two, or at least three finder
+centres and the number of three-centre annotations that never form a contained
+group. This distinguishes proposal misses from grouping misses using the same
+labels and bounded grouping path. The fresh `lots` artifact reports
+263/36/41/80 symbols with 0/1/2/3+ centres respectively; just 4 of the 80
+three-centre symbols fail to group. Proposal loss therefore explains 340 of
+344 stage misses and establishes raster ROI proposal recovery—not more global
+group tuning—as the next measured slice. This does not alter candidate routing
+or claim an acceptance improvement.
+
 Verified with:
 
 ```bash
@@ -1166,6 +1194,20 @@ fallbacks. This is a local control-flow recheck only, not a comparable
 performance claim while WP-014 changes share the worktree; the full artifact
 is `/tmp/wp011_high_version_scheduler_1_2500.json` and details are in
 `docs/wp011_high_version_probe.md`.
+
+**2026-07-13 bounded category audit:** Seven one-image local diagnostics at
+`QR_MAX_DIM=800` with `--timeout-ms 2500` are retained as
+`artifacts/wp011_category_*_qrmax800_limit1_2500.json`. The exact results are:
+perspective 0/1 in 1919.41 ms; rotations 2/3 in 267.28 ms; brightness 2/3 in
+225.88 ms; bright_spots 0/3 in 613.33 ms; glare 0/1 with one cooperative
+timeout in 2790.12 ms; shadows 2/3 in 598.10 ms; and curved 0/1 in 1407.06
+ms. Every artifact has zero false positives and zero duplicates. This is a
+scope-bounded current-state diagnostic, not category acceptance or a
+before/after claim: it samples only the first image per category, perspective,
+bright_spots, glare, and curved still have no match, and glare demonstrates
+that an in-flight operation can outlast the cooperative deadline. See
+`docs/wp011_category_probe.md` for raw-artifact names, core timings, and
+attempt counts.
 
 **Acceptance criteria:**
 

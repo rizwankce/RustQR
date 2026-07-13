@@ -22,7 +22,11 @@ them to the processed raster, then measures:
   contained by any labeled symbol;
 - separate scan/rank/NMS and grouping wall-clock intervals.
 
-Version 2 of the artifact additionally separates the retained proposals and
+Version 3 of the artifact additionally records the number of contained finder
+centres per annotation (zero, one, two, and three-or-more) and the number of
+finder-stage-eligible annotations with no contained group. It therefore
+identifies whether a miss occurred before grouping or during grouping. It also
+separates the retained proposals and
 groups that are contained by a label from ones that are spurious.  It reports
 contained duplicate groups independently: only the first contained group for a
 label counts toward grouping recall, so the duplicates represent extra
@@ -45,13 +49,23 @@ All runs used QR_MAX_DIM=800 and the checked-in BoofCV labels.
 | lots, ROI/spatial follow-up | 7 | 420 | 80/420 (19.05%) | 52/420 (12.38%) | 5.115/4.994/5.513 | 0.551/0.547/1.322 |
 | lots, current containment diagnostic (v2) | 7 | 420 | 80/420 (19.05%) | 76/420 (18.10%) | 5.277/5.174/5.579 | 6.904/7.483/16.651 |
 
+The fresh v3 `lots` run has the same 80 finder-stage-eligible and 76 grouped
+symbols, but makes the loss boundary explicit: **263/420 annotations have zero
+contained proposal centres, 36 have one, 41 have two, and 80 have three or
+more**. Only **4/80** finder-stage-eligible symbols fail to produce a contained
+group. It also retains 376 contained versus 41 spurious proposals and emits
+83 contained groups (7 duplicates) versus 440 spurious groups. Thus proposal
+recall, not the bounded grouping transition, accounts for 340 of 344 dense
+stage misses. The v3 release run measured proposal mean/p50/p95 latency of
+5.339/5.261/5.814 ms and grouping 6.589/7.573/15.320 ms.
+
 The matching JSON artifacts are:
 
 - artifacts/wp010_proposal_grouping_eval_boofcv_smoke_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_nominal_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_roi_spatial_qrmax800.json
-- artifacts/wp010_proposal_grouping_eval_lots_containment_v2_qrmax800.json
+- artifacts/wp010_proposal_grouping_eval_lots_containment_v3_qrmax800.json
 
 ## Interpretation and remaining work
 
@@ -64,7 +78,9 @@ recall after the bounded dense-routing changes, but also records 83 contained
 groups, 7 contained duplicates, and 440 spurious groups.  This confirms that
 the proposal boundary is not complete: finder recall remains 80/420, and the
 grouping output still requires substantially better selectivity before it can
-meet the acceptance target.
+meet the acceptance target. The v3 artifact's multiplicity histogram means a
+follow-up can target raster proposal recovery when most annotations lack three
+retained centres, rather than incorrectly tuning grouping.
 
 The remaining WP-010 implementation work is unchanged:
 
