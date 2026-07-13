@@ -3,8 +3,9 @@
   "image": "tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png",
   "working_dimensions": [1276, 1119],
   "timeout_ms": 10000,
-  "brightness_elapsed_ms": 347.694917,
-  "otsu_elapsed_ms": 344.968833,
+  "brightness_elapsed_ms": 348.653375,
+  "otsu_elapsed_ms": 361.231000,
+  "otsu_stage_ms": {"binarize": 11.476667, "finder": 37.264625, "group": 18.642375, "decode": 293.846958},
   "otsu_finder_patterns": 161,
   "otsu_group_candidates": 128,
   "brightness_codes": [

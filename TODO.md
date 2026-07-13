@@ -1427,6 +1427,15 @@ frontier with raw payload/bbox evidence. A fresh public evaluator is still
 policy changed: the remaining safe task is to select only the five Otsu-only
 candidate regions without a full second decode.
 
+**2026-07-13 direct-Otsu cost audit (`fed7d19`):** The same rebuilt route
+artifact measures direct Otsu at 11.477ms binarization, 37.265ms finder,
+18.642ms diagnostic grouping, and 293.847ms decode (361.231ms including the
+separate grouping observation). Brightness alone took 348.653ms. The public
+394.62ms dense_50 lane has about 105ms before the 500ms gate, so a complete
+second Otsu route cannot fit. Only a non-duplicate preselection of the five
+known Otsu-only geometries with a strictly small decode frontier is technically
+plausible; no behavior was changed by this diagnostic.
+
 **2026-07-13 release-binary correction:** A transient 27/50, 4.8-second
 `density_050` result came from stale `target/release/qrtool` bytes, not a
 source regression. After `cargo build --release --features tools --bin qrtool`,

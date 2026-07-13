@@ -476,6 +476,11 @@ fn dense_route_audit_cmd(image: &Path, timeout_ms: u64, output: &Path) {
     );
     let _ = writeln!(
         &mut json,
+        "  \"otsu_stage_ms\": {{\"binarize\": {:.6}, \"finder\": {:.6}, \"group\": {:.6}, \"decode\": {:.6}}},",
+        audit.otsu_binarize_ms, audit.otsu_finder_ms, audit.otsu_group_ms, audit.otsu_decode_ms,
+    );
+    let _ = writeln!(
+        &mut json,
         "  \"otsu_finder_patterns\": {},",
         audit.otsu_finder_patterns
     );

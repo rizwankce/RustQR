@@ -117,6 +117,15 @@ full Otsu decode. The fresh public evaluator remains 43/50 in 394.62 ms, with
 zero false positives, duplicates, or timeouts, so the 90% recall target is
 still unmet.
 
+The same fresh artifact profiles direct Otsu wall time: 11.477 ms
+binarization, 37.265 ms finder detection, 18.642 ms diagnostic grouping, and
+293.847 ms decode, for 361.231 ms including the separately recorded grouping
+diagnostic. The brightness route took 348.653 ms in that isolated audit. The
+public dense_50 lane has roughly 105 ms of slack below 500 ms, so a second
+full Otsu route is not technically plausible. A hybrid would need to reuse or
+select only the five Otsu-only geometries before expensive decode; even its
+candidate-ranking and decode budget must fit inside that ~105 ms margin.
+
 ### Release-binary reproducibility correction
 
 A transient 27/50, 4.8-second observation was produced by a stale

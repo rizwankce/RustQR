@@ -86,6 +86,10 @@ pub struct DenseRouteAudit {
     pub brightness_elapsed_ms: f64,
     pub otsu_codes: Vec<QRCode>,
     pub otsu_elapsed_ms: f64,
+    pub otsu_binarize_ms: f64,
+    pub otsu_finder_ms: f64,
+    pub otsu_group_ms: f64,
+    pub otsu_decode_ms: f64,
     pub otsu_finder_patterns: usize,
     pub otsu_group_candidates: usize,
 }
@@ -104,9 +108,16 @@ pub fn audit_brightness_vs_otsu(
     let gray = rgb_to_grayscale(rgb, width, height);
     let otsu_start = std::time::Instant::now();
     let otsu = otsu_binarize(&gray, width, height);
+    let otsu_binarize_ms = otsu_start.elapsed().as_secs_f64() * 1_000.0;
+    let finder_start = std::time::Instant::now();
     let finder_patterns = FinderDetector::detect(&otsu);
+    let otsu_finder_ms = finder_start.elapsed().as_secs_f64() * 1_000.0;
+    let group_start = std::time::Instant::now();
     let otsu_group_candidates = group_finder_patterns(&finder_patterns).len();
+    let otsu_group_ms = group_start.elapsed().as_secs_f64() * 1_000.0;
+    let decode_start = std::time::Instant::now();
     let otsu_codes = decode_groups(&otsu, &gray, width, height, &finder_patterns);
+    let otsu_decode_ms = decode_start.elapsed().as_secs_f64() * 1_000.0;
     let otsu_elapsed_ms = otsu_start.elapsed().as_secs_f64() * 1_000.0;
 
     DenseRouteAudit {
@@ -114,6 +125,10 @@ pub fn audit_brightness_vs_otsu(
         brightness_elapsed_ms,
         otsu_codes,
         otsu_elapsed_ms,
+        otsu_binarize_ms,
+        otsu_finder_ms,
+        otsu_group_ms,
+        otsu_decode_ms,
         otsu_finder_patterns: finder_patterns.len(),
         otsu_group_candidates,
     }
