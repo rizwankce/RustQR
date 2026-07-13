@@ -49,6 +49,8 @@ pub struct FinderGroupingEvaluation {
     /// Evidence aligned by index with the retained post-NMS proposal centres
     /// used for grouping. This is diagnostic-only; it does not affect ranking.
     pub proposal_evidence: Vec<FinderProposalEvidence>,
+    pub contained_evidence_buckets: [usize; 4],
+    pub spurious_evidence_buckets: [usize; 4],
     /// Symbols containing at least three retained finder proposals.
     pub finder_hits: usize,
     /// Annotated symbols by the number of retained proposal centres they
@@ -176,7 +178,7 @@ pub fn evaluate_finder_and_grouping(
         .iter()
         .map(|proposal| proposal.pattern.clone())
         .collect();
-    let proposal_evidence = report
+    let proposal_evidence: Vec<FinderProposalEvidence> = report
         .proposals
         .iter()
         .map(|proposal| proposal.evidence)
@@ -227,6 +229,26 @@ pub fn evaluate_finder_and_grouping(
                 .any(|symbol| point_in_quadrilateral([pattern.center.x, pattern.center.y], symbol))
         })
         .count();
+    let mut contained_evidence_buckets = [0; 4];
+    let mut spurious_evidence_buckets = [0; 4];
+    for (pattern, evidence) in patterns.iter().zip(&proposal_evidence) {
+        let score = (0.30_f32 * evidence.horizontal_ratio
+            + 0.30_f32 * evidence.vertical_ratio
+            + 0.20_f32 * evidence.pitch_agreement
+            + 0.15_f32 * evidence.local_contrast
+            + 0.05_f32 * evidence.quiet_zone)
+            .clamp(0.0, 1.0);
+        let bucket = (score * 4.0).floor() as usize;
+        let target = if expected
+            .iter()
+            .any(|symbol| point_in_quadrilateral([pattern.center.x, pattern.center.y], symbol))
+        {
+            &mut contained_evidence_buckets
+        } else {
+            &mut spurious_evidence_buckets
+        };
+        target[bucket.min(3)] += 1;
+    }
     let spurious_groups = groups
         .iter()
         .filter(|group| {
@@ -239,6 +261,8 @@ pub fn evaluate_finder_and_grouping(
     FinderGroupingEvaluation {
         expected_symbols: expected.len(),
         proposal_evidence,
+        contained_evidence_buckets,
+        spurious_evidence_buckets,
         finder_hits,
         proposal_multiplicity,
         grouping_hits,
@@ -1028,6 +1052,14 @@ mod tests {
                 .iter()
                 .all(|evidence| (0.0..=1.0).contains(&evidence.horizontal_ratio)
                     && (0.0..=1.0).contains(&evidence.vertical_ratio))
+        );
+        assert_eq!(
+            evaluation.contained_evidence_buckets.iter().sum::<usize>(),
+            evaluation.contained_proposals
+        );
+        assert_eq!(
+            evaluation.spurious_evidence_buckets.iter().sum::<usize>(),
+            evaluation.spurious_proposals
         );
         assert_eq!(evaluation.spurious_proposals, 0);
         assert_eq!(evaluation.contained_groups, 1);

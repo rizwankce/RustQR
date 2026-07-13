@@ -208,6 +208,8 @@ struct ProposalEvalStats {
     roi_raw_candidates: usize,
     contour_raw_candidates: usize,
     contour_appended_proposals: usize,
+    contained_evidence_buckets: [usize; 4],
+    spurious_evidence_buckets: [usize; 4],
     proposal_ms: Vec<f64>,
     grouping_ms: Vec<f64>,
 }
@@ -239,6 +241,20 @@ impl ProposalEvalStats {
         self.roi_raw_candidates += evaluation.scan_telemetry.roi_raw_candidates;
         self.contour_raw_candidates += evaluation.scan_telemetry.contour_raw_candidates;
         self.contour_appended_proposals += evaluation.scan_telemetry.contour_appended_proposals;
+        for (total, value) in self
+            .contained_evidence_buckets
+            .iter_mut()
+            .zip(evaluation.contained_evidence_buckets)
+        {
+            *total += value;
+        }
+        for (total, value) in self
+            .spurious_evidence_buckets
+            .iter_mut()
+            .zip(evaluation.spurious_evidence_buckets)
+        {
+            *total += value;
+        }
         self.proposal_ms.push(evaluation.proposal_latency_ms);
         self.grouping_ms.push(evaluation.grouping_latency_ms);
     }
@@ -327,6 +343,10 @@ fn proposal_eval_cmd(
         stats.spurious_groups,
     );
     println!(
+        "Contained evidence bands [0-.25/.25-.5/.5-.75/.75-1]: {:?} | spurious: {:?}",
+        stats.contained_evidence_buckets, stats.spurious_evidence_buckets,
+    );
+    println!(
         "Raw/NMS proposals: {}/{}",
         stats.raw_candidates, stats.proposals_after_nms,
     );
@@ -353,8 +373,8 @@ fn proposal_eval_cmd(
     if let Some(path) = artifact_json {
         let artifact = format!(
             r#"{{
-  "schema_version": 6,
-  "evaluator": "finder-proposal-grouping-contained-centres-v6",
+  "schema_version": 7,
+  "evaluator": "finder-proposal-grouping-contained-centres-v7",
   "dataset": "{}",
   "dataset_fingerprint": "{}",
   "label_fingerprint": "{}",
@@ -375,6 +395,7 @@ fn proposal_eval_cmd(
   "proposals_after_nms": {},
   "roi_recovery": {{"windows": {}, "rows": {}, "columns": {}, "raw_candidates": {}}},
   "contour_recovery": {{"raw_candidates": {}, "appended_proposals": {}}},
+  "proposal_evidence_buckets": {{"contained": [{}, {}, {}, {}], "spurious": [{}, {}, {}, {}]}},
   "proposal_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}},
   "grouping_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}}
 }}
@@ -406,6 +427,14 @@ fn proposal_eval_cmd(
             stats.roi_raw_candidates,
             stats.contour_raw_candidates,
             stats.contour_appended_proposals,
+            stats.contained_evidence_buckets[0],
+            stats.contained_evidence_buckets[1],
+            stats.contained_evidence_buckets[2],
+            stats.contained_evidence_buckets[3],
+            stats.spurious_evidence_buckets[0],
+            stats.spurious_evidence_buckets[1],
+            stats.spurious_evidence_buckets[2],
+            stats.spurious_evidence_buckets[3],
             proposal_summary.0,
             proposal_summary.1,
             proposal_summary.2,
