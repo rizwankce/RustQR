@@ -16,24 +16,38 @@ class ParseMetricsTests(unittest.TestCase):
             "NEGATIVE_CORPUS_METRICS cases=9 pixels=589824 megapixels=0.589824 "
             "positive_images=0 timeout_images=0 false_positive_detections=0 fp_per_image=0.000000 "
             "fp_per_megapixel=0.000000\n"
+            "ZXING_NEGATIVE_CORPUS_METRICS cases=47 pixels=12518400 megapixels=12.518400 "
+            "positive_images=0 timeout_images=0 false_positive_detections=0 fp_per_image=0.000000 "
+            "fp_per_megapixel=0.000000\n"
+            "ZXING_CROSS_SYMBOLOGY_NEGATIVE_CORPUS_METRICS cases=47 pixels=5068674 megapixels=5.068674 "
+            "positive_images=0 timeout_images=0 false_positive_detections=0 fp_per_image=0.000000 "
+            "fp_per_megapixel=0.000000\n"
+        )
+        reports = MODULE.parse_metrics(
+            output,
+            {
+                "negative_corpus",
+                "zxing_negative_corpus",
+                "zxing_cross_symbology_negative_corpus",
+            },
         )
         self.assertEqual(
-            MODULE.parse_metrics(output),
+            set(reports),
             {
-                "cases": 9,
-                "pixels": 589824,
-                "megapixels": 0.589824,
-                "positive_images": 0,
-                "timeout_images": 0,
-                "false_positive_detections": 0,
-                "false_positives_per_image": 0.0,
-                "false_positives_per_megapixel": 0.0,
+                "negative_corpus",
+                "zxing_negative_corpus",
+                "zxing_cross_symbology_negative_corpus",
             },
+        )
+        self.assertEqual(reports["negative_corpus"]["cases"], 9)
+        self.assertEqual(reports["zxing_negative_corpus"]["cases"], 47)
+        self.assertEqual(
+            reports["zxing_cross_symbology_negative_corpus"]["cases"], 47
         )
 
     def test_rejects_missing_metric_line(self):
-        with self.assertRaisesRegex(ValueError, "NEGATIVE_CORPUS_METRICS"):
-            MODULE.parse_metrics("test result: ok")
+        with self.assertRaisesRegex(ValueError, "expected"):
+            MODULE.parse_metrics("test result: ok", {"negative_corpus"})
 
 
 if __name__ == "__main__":

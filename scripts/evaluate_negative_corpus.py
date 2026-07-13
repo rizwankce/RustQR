@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 METRICS = re.compile(
-    r"(?P<name>(?:ZXING_)?NEGATIVE_CORPUS_METRICS) cases=(?P<cases>\d+) pixels=(?P<pixels>\d+) "
+    r"(?P<name>(?:ZXING(?:_CROSS_SYMBOLOGY)?_)?NEGATIVE_CORPUS_METRICS) cases=(?P<cases>\d+) pixels=(?P<pixels>\d+) "
     r"megapixels=(?P<megapixels>[0-9.]+) positive_images=(?P<positive_images>\d+) "
     r"timeout_images=(?P<timeout_images>\d+) "
     r"false_positive_detections=(?P<false_positive_detections>\d+) "
@@ -24,7 +24,9 @@ METRICS = re.compile(
 )
 
 
-def parse_metrics(output: str) -> dict[str, dict[str, int | float]]:
+def parse_metrics(
+    output: str, expected: set[str]
+) -> dict[str, dict[str, int | float]]:
     """Extract every stable corpus metric, rejecting partial or stale output."""
     reports: dict[str, dict[str, int | float]] = {}
     for match in METRICS.finditer(output):
@@ -40,7 +42,6 @@ def parse_metrics(output: str) -> dict[str, dict[str, int | float]]:
             "false_positives_per_image": float(values["fp_per_image"]),
             "false_positives_per_megapixel": float(values["fp_per_megapixel"]),
         }
-    expected = {"negative_corpus", "zxing_negative_corpus"}
     if reports.keys() != expected:
         raise ValueError(
             "negative corpus test did not emit both expected metrics: "
@@ -52,6 +53,11 @@ def parse_metrics(output: str) -> dict[str, dict[str, int | float]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="write JSON report to this path")
+    parser.add_argument(
+        "--include-cross-symbology",
+        action="store_true",
+        help="run the strict ignored cross-symbology qualification gate",
+    )
     args = parser.parse_args()
     integrity = subprocess.run(
         [sys.executable, "scripts/verify_wp009_zxing_corpus.py"],
@@ -63,8 +69,12 @@ def main() -> int:
     sys.stdout.write(integrity.stdout)
     if integrity.returncode:
         return integrity.returncode
+    command = [
+        "cargo", "test", "--test", "negative_image_corpus_tests",
+        "--all-features", "--", "--nocapture",
+    ]
     result = subprocess.run(
-        ["cargo", "test", "--test", "negative_image_corpus_tests", "--all-features", "--", "--nocapture"],
+        command,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -73,11 +83,31 @@ def main() -> int:
     sys.stdout.write(result.stdout)
     if result.returncode:
         return result.returncode
+    output = result.stdout
+    expected = {"negative_corpus", "zxing_negative_corpus"}
+    if args.include_cross_symbology:
+        cross_command = [
+            "cargo", "test", "--test", "negative_image_corpus_tests",
+            "--all-features", "admitted_zxing_cross_symbology", "--",
+            "--ignored", "--nocapture",
+        ]
+        cross_result = subprocess.run(
+            cross_command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        sys.stdout.write(cross_result.stdout)
+        if cross_result.returncode:
+            return cross_result.returncode
+        output += cross_result.stdout
+        expected.add("zxing_cross_symbology_negative_corpus")
     report = {
         "schema_version": "rustqr.negative-corpus-report.v1",
         "integrity_command": f"{sys.executable} scripts/verify_wp009_zxing_corpus.py",
-        "command": "cargo test --test negative_image_corpus_tests --all-features -- --nocapture",
-        "corpora": parse_metrics(result.stdout),
+        "command": " ".join(command),
+        "corpora": parse_metrics(output, expected),
     }
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:

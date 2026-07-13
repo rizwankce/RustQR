@@ -1211,6 +1211,20 @@ high-contrast-slice measurement, not a production FPR claim or completion:
 photographed text, packaging, screens, representative non-QR symbologies, and
 an agreed production false-positive budget remain open.
 
+**2026-07-13 ZXing cross-symbology admission attempt:** Vendored exactly 17
+Aztec, 23 Data Matrix, and 7 Code 128 PNG fixtures from the same immutable
+Apache-2.0 ZXing revision. `zxing_cross_symbology_manifest.json` records each
+asset's SHA-256, dimensions, upstream path, expected non-QR format, and zero
+QR label; the integrity guard checks the fixed 17/23/7 suite membership as
+well as hashes and dimensions. The bounded public-API evaluator keeps the
+five-second per-image deadline and reports a separate metric. This is an
+intentionally incomplete admission: a full release run timed out on
+`zxing-aztec-hello`, `zxing-aztec-hello-with-errors`,
+`zxing-aztec-lorem-105x105`, and `zxing-aztec-lorem-151x151`. Timeouts fail
+the corpus rather than contributing zero-detection evidence. Preserve the
+assets and strict timeout policy; a bounded image-scale or scheduling solution
+must clear this gate before the slice can count toward an FPR budget.
+
 Focused local validation:
 
 ```bash
@@ -1490,6 +1504,18 @@ separate post-format remainder-bit boundary. The retained artifacts are
 `artifacts/wp011_category_high_version_stage_trace_135d311.json`; they are
 control-flow evidence, not latency or category-improvement claims.
 
+**2026-07-13 timing-translation rejection:** A bounded geometry-only trial
+applied the existing nine-point gray timing-line translation search once to
+high-version candidate transforms before sampling. It added no format/matrix
+recovery hypotheses and was fully reverted. On the same one-image probes it
+left glare at 0/1 with no format or RS evidence and changed the cooperative
+run from 51 to 54 attempts (2,769.63 ms end-to-end); high_version remained
+0/1 with no format or RS evidence and changed from 11 to 12 attempts
+(3,842.36 ms end-to-end). The clean monitor smoke remained 1/1, but neither
+target made decoding progress and both target runs were slower, so this
+generic translation pass is not retained. Transient artifacts are
+`/tmp/wp011_{glare,high_version,monitor}_gray_timing_experiment.json`.
+
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It
 probes at most six deterministic alignment locations and nine sub-module
@@ -1551,7 +1577,8 @@ attempt counts.
 
 ## WP-012: Dense multi-QR detection
 
-**Status:** In progress; controlled raster baseline exposes dense-scene gap
+**Status:** In progress; controlled 50-code gate complete, broader dense-scene
+evidence remains open
 
 **Goal:** Make the seven `lots` images and realistic dense scenes first-class,
 not edge cases.

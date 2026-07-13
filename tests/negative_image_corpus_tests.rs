@@ -13,6 +13,8 @@ use std::time::Duration;
 
 const MANIFEST: &str = include_str!("negative_corpus/manifest.json");
 const ZXING_MANIFEST: &str = include_str!("negative_corpus/zxing_manifest.json");
+const ZXING_CROSS_SYMBOLOGY_MANIFEST: &str =
+    include_str!("negative_corpus/zxing_cross_symbology_manifest.json");
 const PER_IMAGE_DEADLINE: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Deserialize)]
@@ -49,6 +51,7 @@ struct ExternalCorpusCase {
     local_path: String,
     source_path: String,
     category: String,
+    source_expected_format: Option<String>,
     width: u32,
     height: u32,
     expected_qr_count: usize,
@@ -456,6 +459,128 @@ fn admitted_zxing_negative_corpus_has_zero_false_positive_detections() {
     let megapixels = total_pixels as f64 / 1_000_000.0;
     println!(
         "ZXING_NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} timeout_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
+        evaluated_cases,
+        total_pixels,
+        positive_images,
+        timeout_images,
+        false_positive_detections,
+        false_positive_detections as f64 / evaluated_cases as f64,
+        false_positive_detections as f64 / megapixels,
+    );
+}
+
+#[test]
+#[ignore = "strict cross-symbology qualification currently has documented timeouts"]
+fn admitted_zxing_cross_symbology_corpus_has_zero_false_positive_detections() {
+    let manifest: ExternalCorpusManifest = serde_json::from_str(ZXING_CROSS_SYMBOLOGY_MANIFEST)
+        .expect("valid cross-symbology external corpus manifest");
+    assert_eq!(
+        manifest.schema_version,
+        "rustqr.external-negative-corpus.v1"
+    );
+    assert_eq!(manifest.name, "zxing-cross-symbology-blackbox");
+    assert_eq!(manifest.source_repository, "https://github.com/zxing/zxing");
+    assert_eq!(
+        manifest.source_commit,
+        "82333b3ed894ef097d41dd8c922689ede8880e01"
+    );
+    assert_eq!(manifest.source_license, "Apache-2.0");
+    let root = external_corpus_root();
+    for required_file in [
+        &manifest.license_file,
+        &manifest.notice_file,
+        &manifest.reuse_declaration,
+    ] {
+        assert!(
+            root.join(required_file).is_file(),
+            "missing {required_file}"
+        );
+    }
+    assert_eq!(manifest.cases.len(), 47);
+    let shard = external_corpus_shard();
+
+    let mut total_pixels = 0_u64;
+    let mut evaluated_cases = 0_usize;
+    let mut positive_images = 0_usize;
+    let mut false_positive_detections = 0_usize;
+    let mut timeout_images = 0_usize;
+    for (case_index, case) in manifest.cases.iter().enumerate() {
+        if let Some((shard_index, shard_count)) = shard {
+            if case_index % shard_count != shard_index {
+                continue;
+            }
+        }
+        assert_eq!(
+            case.expected_qr_count, 0,
+            "{} is no longer a negative",
+            case.id
+        );
+        assert!(
+            matches!(
+                (
+                    case.category.as_str(),
+                    case.source_expected_format.as_deref()
+                ),
+                ("valid_aztec", Some("AZTEC"))
+                    | ("valid_datamatrix", Some("DATA_MATRIX"))
+                    | ("valid_code128", Some("CODE_128"))
+            ),
+            "{} has an unexpected source format/category",
+            case.id
+        );
+        assert!(
+            case.source_path
+                .starts_with("core/src/test/resources/blackbox/"),
+            "{} has an unexpected source path",
+            case.id
+        );
+        let image_path = root.join(&case.local_path);
+        let image = image::open(&image_path)
+            .unwrap_or_else(|error| panic!("{} did not load: {error}", image_path.display()));
+        assert_eq!(image.width(), case.width, "{} width changed", case.id);
+        assert_eq!(image.height(), case.height, "{} height changed", case.id);
+        let rgb = image.to_rgb8();
+        let result = try_detect_with_options(
+            ImageInput::new(
+                rgb.as_raw(),
+                case.width as usize,
+                case.height as usize,
+                PixelFormat::Rgb,
+            ),
+            DecoderOptions::default()
+                .with_deadline(PER_IMAGE_DEADLINE)
+                .with_diagnostics(true),
+        )
+        .expect("admitted corpus image is a valid RGB input");
+        total_pixels += u64::from(case.width) * u64::from(case.height);
+        evaluated_cases += 1;
+        if result.diagnostics.failure_stage == Some(FailureStage::Timeout) {
+            timeout_images += 1;
+            eprintln!("negative corpus timeout: {} ({})", case.id, case.category);
+            continue;
+        }
+        false_positive_detections += result.codes.len();
+        positive_images += usize::from(!result.codes.is_empty());
+        assert_eq!(
+            result.codes.len(),
+            case.expected_qr_count,
+            "negative corpus case {} ({}) unexpectedly returned {} detections",
+            case.id,
+            case.category,
+            result.codes.len()
+        );
+    }
+    assert!(
+        evaluated_cases > 0,
+        "selected external corpus shard is empty"
+    );
+    assert_eq!(
+        timeout_images, 0,
+        "a timeout is not a passing external corpus result"
+    );
+    let megapixels = total_pixels as f64 / 1_000_000.0;
+    println!(
+        "ZXING_CROSS_SYMBOLOGY_NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} timeout_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
         evaluated_cases,
         total_pixels,
         positive_images,

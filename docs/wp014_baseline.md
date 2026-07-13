@@ -171,6 +171,34 @@ a time. That both makes the successful controlled dense route explicit and
 preserves a required lane's failed profile as an artifact error instead of
 misreporting it as a successful timing result.
 
+## Dense grouping-frontier allocation reduction (2026-07-13)
+
+Finder groups are always exactly three proposal indices, but the dense grouping
+frontier previously represented every triple as a separately heap-allocated
+`Vec<usize>`. The internal grouping and ranking boundary now uses `[usize; 3]`
+instead, preserving the same triple order, candidate caps, and ranking logic
+without a per-triple allocation.
+
+The controlled dense lane was measured with:
+
+```bash
+WP014_ALLOCATION_ONLY=1 WP014_PROFILE_ITERATIONS=3 \
+WP014_PROFILE_LANE=dense_50 \
+cargo bench --bench wp014_profiles --features tools -- --noplot
+```
+
+| Measure | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| first-call allocations | 395,358 | 285,750 | -27.72% |
+| reallocations | 5,888 | 5,888 | unchanged |
+| requested bytes | 35,790,425 | 33,155,609 | -7.36% |
+| warm detect-only time | 86.46 ms | 84.56 ms | not claimed |
+
+The public controlled `dense_50` evaluator retained 48/50 results in 97.98
+ms, with zero false positives, duplicates, or timeouts. `cargo test --all-
+features` and the focused pipeline grouping tests passed. This is a measured
+allocation reduction for one controlled lane, not an OSS-leading latency claim.
+
 ## Remaining gates
 
 - Establish at least one successful real multi-code lane through WP-012.

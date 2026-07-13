@@ -213,7 +213,7 @@ fn estimate_dimension_from_distance(distance: f32, module_size: f32) -> Option<u
 }
 
 /// Simplified finder pattern grouping with relaxed constraints.
-pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize>> {
+pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<[usize; 3]> {
     if patterns.len() < 3 {
         return Vec::new();
     }
@@ -281,7 +281,7 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
     all_groups
 }
 
-fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
+fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<[usize; 3]> {
     let mut groups = Vec::new();
 
     for idx_i in 0..indices.len() {
@@ -331,7 +331,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
                     continue;
                 }
 
-                groups.push(vec![i, j, k]);
+                groups.push([i, j, k]);
             }
         }
     }
@@ -339,7 +339,7 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
     groups
 }
 
-fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
+fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<[usize; 3]> {
     if indices.len() <= SPATIAL_GROUP_TRIGGER {
         return build_groups(patterns, indices);
     }
@@ -349,7 +349,7 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
     // whereas unrelated symbols are usually farther away.  This replaces the
     // scene-wide cubic expansion with O(n^2 + n*k^3), and importantly does not
     // use a fixed pixel radius.
-    let mut groups: Vec<Vec<usize>> = Vec::new();
+    let mut groups: Vec<[usize; 3]> = Vec::new();
     let mut seen = HashSet::new();
     // First retain isolated local components.  In a dense raster the three
     // finders of a small symbol are often separated from the next symbol by a
@@ -407,7 +407,7 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
         if component.len() == 3 && !build_groups(patterns, &component).is_empty() {
             component.sort_unstable();
             seen.insert((component[0], component[1], component[2]));
-            groups.push(component);
+            groups.push([component[0], component[1], component[2]]);
         }
     }
     // Keep each anchor's strongest local hypothesis before adding the broader
@@ -460,7 +460,7 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
                     .total_cmp(&group_raw_score(patterns, b))
                     .then_with(|| a.cmp(b))
             }) {
-                tight_anchor_seeds.push(best.clone());
+                tight_anchor_seeds.push(*best);
             }
         }
         let mut local = Vec::with_capacity(SPATIAL_NEIGHBOR_LIMIT + 1);
@@ -478,7 +478,7 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
                 .total_cmp(&group_raw_score(patterns, b))
                 .then_with(|| a.cmp(b))
         }) {
-            anchor_seeds.push(best.clone());
+            anchor_seeds.push(*best);
         }
     }
     for triple in tight_anchor_seeds.into_iter().chain(anchor_seeds) {
@@ -541,10 +541,7 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
     groups
 }
 
-fn group_raw_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
-    if group.len() < 3 {
-        return f32::INFINITY;
-    }
+fn group_raw_score(patterns: &[FinderPattern], group: &[usize; 3]) -> f32 {
     let p0 = &patterns[group[0]];
     let p1 = &patterns[group[1]];
     let p2 = &patterns[group[2]];
@@ -583,11 +580,7 @@ fn group_raw_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
     size_ratio * 2.0 + distortion + best_cos + arm_imbalance * 4.0
 }
 
-fn geometry_confidence(patterns: &[FinderPattern], group: &[usize]) -> f32 {
-    if group.len() < 3 {
-        return 0.0;
-    }
-
+fn geometry_confidence(patterns: &[FinderPattern], group: &[usize; 3]) -> f32 {
     let p0 = &patterns[group[0]];
     let p1 = &patterns[group[1]];
     let p2 = &patterns[group[2]];
@@ -803,7 +796,7 @@ fn rank_groups(
     height: usize,
     saturation_mask_enabled: bool,
     patterns: &[FinderPattern],
-    raw_groups: Vec<Vec<usize>>,
+    raw_groups: Vec<[usize; 3]>,
 ) -> (Vec<RankedGroupCandidate>, usize) {
     // The normal path only needs a compact ranking frontier.  Once the
     // spatial grouper is active, however, its first entries are isolated
@@ -1882,7 +1875,7 @@ mod tests {
             FinderPattern::new(5_000.0, 1_000.0, 30.0),
             FinderPattern::new(1_000.0, 5_000.0, 30.0),
         ];
-        assert_eq!(group_finder_patterns(&patterns), vec![vec![0, 1, 2]]);
+        assert_eq!(group_finder_patterns(&patterns), vec![[0, 1, 2]]);
     }
 
     #[test]

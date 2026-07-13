@@ -31,8 +31,13 @@ before editing. `TODO.md` is the canonical detailed queue.
    licensed, representative negative corpus and explicit false-positive
    budget. A 47-image/12.5184 MP Apache-2.0 ZXing high-contrast negative
    slice is now vendored with per-asset hashes, provenance, and zero-timeout
-   public-API evidence. It is not representative enough for the production
-   FPR gate; BoofCV remains positive-only and cannot be repurposed.
+   public-API evidence. A separate 17 Aztec/23 Data Matrix/7 Code128 ZXing
+   slice has complete membership/format/hash provenance but is intentionally
+   incomplete: its strict five-second release run timed out on four Aztec
+   assets (`hello`, `hello-with-errors`, `lorem-105x105`, `lorem-151x151`).
+   Do not weaken the timeout; solve bounded scale/scheduling first. Neither slice is
+   representative enough for the production FPR gate; BoofCV remains
+   positive-only and cannot be repurposed.
 4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both
@@ -55,7 +60,9 @@ before editing. `TODO.md` is the canonical detailed queue.
    bounded payload-path rejections). On clean revision `135d311`, glare and
    high-version both reach finder/group/transform but no strict-BCH, remainder,
    or RS evidence; their next work is bounded sampling/geometry observation,
-   not decoder recovery.
+   not decoder recovery. A nine-point gray timing-line translation trial made
+   neither target reach BCH/RS and increased their one-image cooperative runs,
+   so it was reverted; do not re-enable it without a matched recall gain.
    WP-007 now has a clean V1-M path guard: exactly one strict payload attempt,
    one RS candidate, and no recovery payload attempts. It remains component
    evidence, not a photographic or packet-completion claim. WP-015's current
