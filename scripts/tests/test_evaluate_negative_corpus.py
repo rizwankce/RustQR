@@ -14,7 +14,7 @@ class ParseMetricsTests(unittest.TestCase):
     def test_parses_complete_metric_line(self):
         output = (
             "NEGATIVE_CORPUS_METRICS cases=9 pixels=589824 megapixels=0.589824 "
-            "positive_images=0 false_positive_detections=0 fp_per_image=0.000000 "
+            "positive_images=0 timeout_images=0 false_positive_detections=0 fp_per_image=0.000000 "
             "fp_per_megapixel=0.000000\n"
         )
         self.assertEqual(
@@ -24,6 +24,7 @@ class ParseMetricsTests(unittest.TestCase):
                 "pixels": 589824,
                 "megapixels": 0.589824,
                 "positive_images": 0,
+                "timeout_images": 0,
                 "false_positive_detections": 0,
                 "false_positives_per_image": 0.0,
                 "false_positives_per_megapixel": 0.0,

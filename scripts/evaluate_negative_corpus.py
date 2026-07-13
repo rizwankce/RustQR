@@ -19,6 +19,7 @@ from pathlib import Path
 METRICS = re.compile(
     r"NEGATIVE_CORPUS_METRICS cases=(?P<cases>\d+) pixels=(?P<pixels>\d+) "
     r"megapixels=(?P<megapixels>[0-9.]+) positive_images=(?P<positive_images>\d+) "
+    r"timeout_images=(?P<timeout_images>\d+) "
     r"false_positive_detections=(?P<false_positive_detections>\d+) "
     r"fp_per_image=(?P<fp_per_image>[0-9.]+) fp_per_megapixel=(?P<fp_per_megapixel>[0-9.]+)"
 )
@@ -35,6 +36,7 @@ def parse_metrics(output: str) -> dict[str, int | float]:
         "pixels": int(values["pixels"]),
         "megapixels": float(values["megapixels"]),
         "positive_images": int(values["positive_images"]),
+        "timeout_images": int(values["timeout_images"]),
         "false_positive_detections": int(values["false_positive_detections"]),
         "false_positives_per_image": float(values["fp_per_image"]),
         "false_positives_per_megapixel": float(values["fp_per_megapixel"]),

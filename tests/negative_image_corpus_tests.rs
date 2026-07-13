@@ -4,10 +4,14 @@
 //! opaque binary fixtures. This keeps provenance and licensing unambiguous and
 //! makes every image reproducible from source.
 
-use rust_qr::{ImageInput, PixelFormat, try_detect};
+use rust_qr::{
+    DecoderOptions, FailureStage, ImageInput, PixelFormat, try_detect, try_detect_with_options,
+};
 use serde::Deserialize;
+use std::time::Duration;
 
 const MANIFEST: &str = include_str!("negative_corpus/manifest.json");
+const PER_IMAGE_DEADLINE: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Deserialize)]
 struct CorpusManifest {
@@ -248,33 +252,44 @@ fn self_authored_negative_corpus_has_zero_false_positive_detections() {
     let mut total_pixels = 0_usize;
     let mut positive_images = 0_usize;
     let mut false_positive_detections = 0_usize;
+    let mut timeout_images = 0_usize;
     for case in &manifest.cases {
         let image = render(case);
-        let detections = try_detect(ImageInput::new(
-            &image,
-            case.width,
-            case.height,
-            PixelFormat::Grayscale,
-        ))
+        let result = try_detect_with_options(
+            ImageInput::new(&image, case.width, case.height, PixelFormat::Grayscale),
+            DecoderOptions::default()
+                .with_deadline(PER_IMAGE_DEADLINE)
+                .with_diagnostics(true),
+        )
         .expect("generated corpus image is a valid grayscale input");
         total_pixels += case.width * case.height;
-        false_positive_detections += detections.len();
-        positive_images += usize::from(!detections.is_empty());
+        if result.diagnostics.failure_stage == Some(FailureStage::Timeout) {
+            timeout_images += 1;
+            continue;
+        }
+        false_positive_detections += result.codes.len();
+        positive_images += usize::from(!result.codes.is_empty());
         assert!(
-            detections.is_empty(),
+            result.codes.is_empty(),
             "negative corpus case {} ({}) unexpectedly returned {} detections",
             case.id,
             case.kind,
-            detections.len()
+            result.codes.len()
         );
     }
 
+    assert_eq!(
+        timeout_images, 0,
+        "a timeout is not a passing negative-corpus result"
+    );
+
     let megapixels = total_pixels as f64 / 1_000_000.0;
     println!(
-        "NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
+        "NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} timeout_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
         manifest.cases.len(),
         total_pixels,
         positive_images,
+        timeout_images,
         false_positive_detections,
         false_positive_detections as f64 / manifest.cases.len() as f64,
         false_positive_detections as f64 / megapixels,

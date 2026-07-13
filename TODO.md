@@ -1050,6 +1050,16 @@ false-positive rates; reproduce it with
 This is a reproducible synthetic baseline, not a production FPR budget: the
 broader licensed, annotated corpus and agreed budget remain required.
 
+**2026-07-13 bounded evaluator update:** Every synthetic negative image now
+uses `try_detect_with_options` with a request-scoped five-second deadline and
+diagnostics. A `FailureStage::Timeout` increments `timeout_images` in the
+stable metric line and fails the corpus test instead of being counted as a
+zero-detection pass. The evaluator JSON preserves that field separately from
+false-positive metrics. The focused bounded run completed 13/13 cases with
+zero timeouts and zero detections; its transient report is
+`/tmp/wp009_negative_bounded.json`. This remains synthetic-only evidence and
+the cooperative deadline is not a hard process interruption.
+
 Focused local validation:
 
 ```bash

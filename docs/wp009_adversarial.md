@@ -86,3 +86,18 @@ uploads the minimized input directory. The log establishes the exact remote
 campaign invocation; the minimized input is the artifact to replay locally.
 This improves reproducibility of remote-only fuzz validation but does not
 claim that a local sanitizer campaign ran in this network-restricted workspace.
+
+## Bounded synthetic evaluation
+
+The synthetic corpus integration test evaluates each image through
+`try_detect_with_options` with diagnostics and a five-second request-scoped
+deadline. A timeout is emitted as `timeout_images` in
+`NEGATIVE_CORPUS_METRICS` and causes the test to fail; it is not folded into
+the zero-detection numerator. `scripts/evaluate_negative_corpus.py` carries
+that field into its JSON report separately from false-positive counts.
+
+The focused local run completed all thirteen generated cases with
+`timeout_images=0` and zero detections. The limit is cooperative, so it bounds
+new request work but is not a process-level hard timeout. This improves the
+repeatability of the synthetic evaluator only and does not change its
+synthetic-only FPR scope.
