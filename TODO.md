@@ -1774,6 +1774,17 @@ one five-call aggregate, not per-call samples, therefore cannot establish an
 in-process p50/p95. This is evidence of non-passage, not a target claim; the
 full boundary and raw observations are in `docs/wp014_baseline.md`.
 
+**2026-07-13 scanline allocation reduction:** Finder scanlines previously
+allocated two growing run-history vectors per scanned row or column even
+though validation reads only the latest five runs. The fixed five-entry stack
+window preserves that suffix for primary and bounded ROI scans. A three-warm
+call release probe on the successful clean lane retained one decoded symbol
+and reduced first-call allocations from 69,411 to 66,119, reallocations from
+5,468 to 1,525, and requested bytes from 4,656,124 to 4,249,900. The isolated
+42.681 ms to 42.526 ms warm-time difference is not a latency claim. Full
+all-feature tests and ignored release photographic regressions passed. See
+`docs/wp014_baseline.md` for the reproducible command and timing boundary.
+
 ---
 
 ## WP-015: Platform and packaging roadmap

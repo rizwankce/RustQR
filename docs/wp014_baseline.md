@@ -107,6 +107,37 @@ which is within this small local run's noise; this is an allocation and bounded
 work reduction, not a latency claim. The dense output, candidate cap, and
 strict-path behavior are unchanged.
 
+### Scanline run-window allocation follow-up
+
+The row/column finder scans kept two growing heap vectors for the run lengths
+and colours on every scanned line, although ratio validation reads only the
+five most recent runs. `RunWindow` now keeps that exact five-run suffix in
+fixed stack arrays for the primary and bounded-ROI row/column scans.
+
+On the same loaded-RGB clean lane, two consecutive release allocation probes
+with the same three warm calls measured:
+
+| Measurement | Before | Stack window | Change |
+| --- | ---: | ---: | ---: |
+| first-call decoded symbols | 1 | 1 | unchanged |
+| first-call allocations | 69,411 | 66,119 | -4.7% |
+| first-call reallocations | 5,468 | 1,525 | -72.1% |
+| first-call requested bytes | 4,656,124 | 4,249,900 | -8.7% |
+| warm detect-only time per call | 42.681 ms | 42.526 ms | not claimed |
+
+The command for each observation was:
+
+```bash
+WP014_ALLOCATION_ONLY=1 WP014_PROFILE_ITERATIONS=3 \
+WP014_PROFILE_LANE=clean \
+cargo bench --bench wp014_profiles --features tools -- --noplot
+```
+
+This removes a measured allocation source without broadening the finder
+frontier. The isolated 0.155 ms warm-time difference is not a latency result.
+`cargo test --all-features` and the four ignored release photographic
+regressions both passed after the change.
+
 ## 1024-pixel credibility sample (2026-07-13)
 
 `artifacts/wp014_credibility_1024_a60d082.json` is a bounded five-process-run,

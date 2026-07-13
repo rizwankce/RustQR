@@ -23,6 +23,33 @@ impl FinderPattern {
 
 pub struct FinderDetector;
 
+/// The scanner only ever inspects the five most recent colour runs.  Keeping
+/// that window on the stack avoids two heap vectors for every scanned row or
+/// column (including the bounded ROI rescans) without changing the ratio
+/// sequence presented to the finder checks.
+#[derive(Default)]
+struct RunWindow {
+    lengths: [usize; 5],
+    colors: [bool; 5],
+    len: usize,
+}
+
+impl RunWindow {
+    fn push(&mut self, length: usize, color: bool) -> bool {
+        if self.len < self.lengths.len() {
+            self.lengths[self.len] = length;
+            self.colors[self.len] = color;
+            self.len += 1;
+        } else {
+            self.lengths.copy_within(1.., 0);
+            self.colors.copy_within(1.., 0);
+            self.lengths[4] = length;
+            self.colors[4] = color;
+        }
+        self.len == self.lengths.len()
+    }
+}
+
 /// Scan-stage evidence which is available before grouping, geometry, or
 /// decoding.  Counts make finder recall/latency experiments independently
 /// observable without changing the public decoding result.
@@ -479,8 +506,7 @@ impl FinderDetector {
 
     fn scan_row(matrix: &BitMatrix, y: usize, width: usize) -> Vec<FinderPattern> {
         let mut candidates = Vec::new();
-        let mut run_lengths: Vec<usize> = Vec::new();
-        let mut run_colors: Vec<bool> = Vec::new();
+        let mut runs = RunWindow::default();
         let mut run_start = 0usize;
         let mut current_color = matrix.get(0, y);
 
@@ -496,17 +522,15 @@ impl FinderDetector {
             if color != current_color {
                 // Save completed run
                 let run_len = x - run_start;
-                run_lengths.push(run_len);
-                run_colors.push(current_color);
+                let has_pattern_window = runs.push(run_len, current_color);
 
                 run_start = x;
                 current_color = color;
 
                 // Check if we have enough runs for a pattern
-                if run_colors.len() >= 5 {
-                    let end_idx = run_colors.len();
-                    let colors = &run_colors[end_idx - 5..end_idx];
-                    let lengths = &run_lengths[end_idx - 5..end_idx];
+                if has_pattern_window {
+                    let colors = &runs.colors;
+                    let lengths = &runs.lengths;
 
                     // Pattern should be: black-white-black-white-black
                     if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
@@ -554,8 +578,7 @@ impl FinderDetector {
         max_x: usize,
     ) -> Vec<FinderPattern> {
         let mut candidates = Vec::new();
-        let mut run_lengths: Vec<usize> = Vec::new();
-        let mut run_colors: Vec<bool> = Vec::new();
+        let mut runs = RunWindow::default();
 
         // Clamp the range to valid row bounds
         let start_x = min_x.min(width - 1);
@@ -578,17 +601,15 @@ impl FinderDetector {
             if color != current_color {
                 // Save completed run
                 let run_len = x - run_start;
-                run_lengths.push(run_len);
-                run_colors.push(current_color);
+                let has_pattern_window = runs.push(run_len, current_color);
 
                 run_start = x;
                 current_color = color;
 
                 // Check if we have enough runs for a pattern
-                if run_colors.len() >= 5 {
-                    let end_idx = run_colors.len();
-                    let colors = &run_colors[end_idx - 5..end_idx];
-                    let lengths = &run_lengths[end_idx - 5..end_idx];
+                if has_pattern_window {
+                    let colors = &runs.colors;
+                    let lengths = &runs.lengths;
 
                     // Pattern should be: black-white-black-white-black
                     if colors[0] && !colors[1] && colors[2] && !colors[3] && colors[4] {
@@ -947,8 +968,7 @@ impl FinderDetector {
             return candidates;
         }
 
-        let mut run_lengths: Vec<usize> = Vec::new();
-        let mut run_colors: Vec<bool> = Vec::new();
+        let mut runs = RunWindow::default();
         let mut run_start = 0usize;
         let mut current_color = matrix.get(x, 0);
 
@@ -959,16 +979,14 @@ impl FinderDetector {
 
             if color != current_color {
                 let run_len = y - run_start;
-                run_lengths.push(run_len);
-                run_colors.push(current_color);
+                let has_pattern_window = runs.push(run_len, current_color);
 
                 run_start = y;
                 current_color = color;
 
-                if run_colors.len() >= 5 {
-                    let end_idx = run_colors.len();
-                    let colors = &run_colors[end_idx - 5..end_idx];
-                    let lengths = &run_lengths[end_idx - 5..end_idx];
+                if has_pattern_window {
+                    let colors = &runs.colors;
+                    let lengths = &runs.lengths;
 
                     // Pattern should be: black-white-black-white-black
                     if colors[0]
@@ -1025,8 +1043,7 @@ impl FinderDetector {
             return candidates;
         }
 
-        let mut run_lengths: Vec<usize> = Vec::new();
-        let mut run_colors: Vec<bool> = Vec::new();
+        let mut runs = RunWindow::default();
 
         let start_y = min_y.min(height - 1);
         let end_y = max_y.min(height - 1);
@@ -1045,16 +1062,14 @@ impl FinderDetector {
 
             if color != current_color {
                 let run_len = y - run_start;
-                run_lengths.push(run_len);
-                run_colors.push(current_color);
+                let has_pattern_window = runs.push(run_len, current_color);
 
                 run_start = y;
                 current_color = color;
 
-                if run_colors.len() >= 5 {
-                    let end_idx = run_colors.len();
-                    let colors = &run_colors[end_idx - 5..end_idx];
-                    let lengths = &run_lengths[end_idx - 5..end_idx];
+                if has_pattern_window {
+                    let colors = &runs.colors;
+                    let lengths = &runs.lengths;
 
                     if colors[0]
                         && !colors[1]
