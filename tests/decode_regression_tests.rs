@@ -10,8 +10,9 @@
 
 use image::GenericImageView;
 use rust_qr::{
-    ECLevel, Version, detect,
+    DecoderOptions, ECLevel, ImageInput, PixelFormat, Version, detect,
     tools::{Quadrilateral, parse_localization_labels, scale_quadrilaterals, score_localizations},
+    try_detect_with_options,
 };
 
 const MONITOR_IMAGE: &str = "benches/images/boofcv/monitor/image001.jpg";
@@ -132,6 +133,45 @@ fn close_image002_decodes_payload_and_localizes_label() {
     assert_eq!(score.false_negatives, 0);
     assert_eq!(score.false_positives, 0);
     assert_eq!(score.duplicate_predictions, 0);
+}
+
+#[test]
+#[ignore = "slow real-image regression; run with cargo test --test decode_regression_tests -- --ignored"]
+fn monitor_image001_strict_path_needs_no_decoder_recovery() {
+    let image = load_rgb_downscaled(MONITOR_IMAGE);
+    let result = try_detect_with_options(
+        ImageInput::new(&image.pixels, image.width, image.height, PixelFormat::Rgb),
+        DecoderOptions::default().with_diagnostics(true),
+    )
+    .expect("validated RGB fixture is accepted");
+
+    assert_eq!(result.codes.len(), 1, "monitor fixture must decode once");
+    assert_eq!(result.codes[0].data, b"4376471154038");
+    let telemetry = result
+        .diagnostics
+        .telemetry
+        .expect("diagnostics were explicitly requested");
+    assert_eq!(telemetry.recovery_mode_attempts, 0);
+    assert_eq!(telemetry.rs_erasure_attempts, 0);
+}
+
+#[test]
+#[ignore = "slow real-image regression; run with cargo test --test decode_regression_tests -- --ignored"]
+fn close_image002_strict_path_needs_no_decoder_recovery() {
+    let image = load_rgb_downscaled(CLOSE_IMAGE);
+    let result = try_detect_with_options(
+        ImageInput::new(&image.pixels, image.width, image.height, PixelFormat::Rgb),
+        DecoderOptions::default().with_diagnostics(true),
+    )
+    .expect("validated RGB fixture is accepted");
+
+    assert_eq!(result.codes.len(), 1, "close fixture must decode once");
+    let telemetry = result
+        .diagnostics
+        .telemetry
+        .expect("diagnostics were explicitly requested");
+    assert_eq!(telemetry.recovery_mode_attempts, 0);
+    assert_eq!(telemetry.rs_erasure_attempts, 0);
 }
 
 #[test]

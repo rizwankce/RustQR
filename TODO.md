@@ -980,6 +980,19 @@ blurred, high-version, rotations, damaged, lots, and nominal shortfalls remain
 explicitly unresolved; this is stronger successful-case evidence, not a
 packet-wide recall-completion claim.
 
+**2026-07-13 strict-path photographic evidence:** The two successful strict
+fixtures now also run through `try_detect_with_options` with request-scoped
+diagnostics. At the same 800px policy, both monitor/image001 (V1) and
+close/image002 (V7) decode exactly once with zero matrix recovery-mode attempts
+and zero RS-erasure attempts. This proves those two passing photographic paths
+do not depend on the bounded decoder recovery frontier; it neither establishes
+category-wide recall nor changes the unresolved fixtures above. Passed:
+
+```bash
+cargo test --release --test decode_regression_tests --all-features \
+  strict_path_needs_no_decoder_recovery -- --ignored --nocapture
+```
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
@@ -1372,6 +1385,20 @@ pairs in bounded recovery. Future work must use the truthful per-candidate
 format/BCH and RS evidence, then retain a change only with matched recall gain;
 the transient artifacts are `/tmp/wp011_format_baseline.json` and
 `/tmp/wp011_format_early_soft.json`.
+
+**2026-07-13 truthful decoder traces:** Fresh `QR_MAX_DIM=800`, 2,500 ms
+diagnostics now distinguish format and RS evidence. `bright_spots/image001`
+remained 0/3 with no false positives, but reached 48 strict-BCH-valid format
+candidates (all distance zero) and zero RS candidate/block attempts; its
+immediate barrier is therefore after format validation but before RS payload
+work. `glare/image001` reached transform construction but no strict-BCH or RS
+evidence before its cooperative timeout; `high_version/image001` had no
+finders and likewise no decoder evidence. The three tracked artifacts are
+`artifacts/wp011_category_{bright_spots,glare,high_version_image001}_trace_`
+`qrmax800_limit1_2500.json`. Glare attempt counts vary under the cooperative
+deadline, so the artifact is control-flow evidence rather than a latency
+comparison. These traces define separate next investigations; they do not
+prove a common recovery mechanism.
 
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It

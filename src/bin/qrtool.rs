@@ -1627,6 +1627,18 @@ struct StageTelemetry {
     hv_refine_attempts: usize,
     /// Total high-version refine successes.
     hv_refine_successes: usize,
+    /// Observed BCH-valid format candidates.
+    format_extracted: usize,
+    /// BCH-distance histogram for observed format candidates: [0, 1, 2, 3].
+    format_bch_distance_hist: [usize; 4],
+    /// Candidate paths that reached Reed-Solomon correction.
+    rs_candidate_attempts: usize,
+    /// Individual Reed-Solomon block decodes attempted.
+    rs_block_attempts: usize,
+    /// Individual Reed-Solomon blocks corrected successfully.
+    rs_block_successes: usize,
+    /// Individual Reed-Solomon blocks that remained uncorrectable.
+    rs_block_failures: usize,
     /// Total RS erasure attempts.
     rs_erasure_attempts: usize,
     /// Total RS erasure successes.
@@ -1687,6 +1699,14 @@ impl StageTelemetry {
         self.hv_subpixel_attempts += other.hv_subpixel_attempts;
         self.hv_refine_attempts += other.hv_refine_attempts;
         self.hv_refine_successes += other.hv_refine_successes;
+        self.format_extracted += other.format_extracted;
+        for i in 0..self.format_bch_distance_hist.len() {
+            self.format_bch_distance_hist[i] += other.format_bch_distance_hist[i];
+        }
+        self.rs_candidate_attempts += other.rs_candidate_attempts;
+        self.rs_block_attempts += other.rs_block_attempts;
+        self.rs_block_successes += other.rs_block_successes;
+        self.rs_block_failures += other.rs_block_failures;
         self.rs_erasure_attempts += other.rs_erasure_attempts;
         self.rs_erasure_successes += other.rs_erasure_successes;
         for i in 0..self.rs_erasure_count_hist.len() {
@@ -2028,6 +2048,15 @@ where
             stats.stage_telemetry.hv_subpixel_attempts += tel.hv_subpixel_attempts;
             stats.stage_telemetry.hv_refine_attempts += tel.hv_refine_attempts;
             stats.stage_telemetry.hv_refine_successes += tel.hv_refine_successes;
+            stats.stage_telemetry.format_extracted += tel.format_extracted;
+            for i in 0..stats.stage_telemetry.format_bch_distance_hist.len() {
+                stats.stage_telemetry.format_bch_distance_hist[i] +=
+                    tel.format_bch_distance_hist[i];
+            }
+            stats.stage_telemetry.rs_candidate_attempts += tel.rs_candidate_attempts;
+            stats.stage_telemetry.rs_block_attempts += tel.rs_block_attempts;
+            stats.stage_telemetry.rs_block_successes += tel.rs_block_successes;
+            stats.stage_telemetry.rs_block_failures += tel.rs_block_failures;
             stats.stage_telemetry.rs_erasure_attempts += tel.rs_erasure_attempts;
             stats.stage_telemetry.rs_erasure_successes += tel.rs_erasure_successes;
             for i in 0..stats.stage_telemetry.rs_erasure_count_hist.len() {
@@ -2628,6 +2657,39 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             &mut json,
             "        \"hv_refine_successes\": {},",
             category.stage_telemetry.hv_refine_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"format_extracted\": {},",
+            category.stage_telemetry.format_extracted
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"format_bch_distance_hist\": [{}, {}, {}, {}],",
+            category.stage_telemetry.format_bch_distance_hist[0],
+            category.stage_telemetry.format_bch_distance_hist[1],
+            category.stage_telemetry.format_bch_distance_hist[2],
+            category.stage_telemetry.format_bch_distance_hist[3]
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rs_candidate_attempts\": {},",
+            category.stage_telemetry.rs_candidate_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rs_block_attempts\": {},",
+            category.stage_telemetry.rs_block_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rs_block_successes\": {},",
+            category.stage_telemetry.rs_block_successes
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"rs_block_failures\": {},",
+            category.stage_telemetry.rs_block_failures
         );
         let _ = writeln!(
             &mut json,

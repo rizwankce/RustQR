@@ -129,3 +129,9 @@ not declared passing regressions: their labels establish expected counts
 current known misses remain explicitly outside the strict acceptance set. The
 labels do not contain payloads, so a full photographic recall gate still needs
 independently sourced payload data as well as count and geometry assertions.
+
+The same two fixtures also have focused ignored diagnostic tests. They prove
+that their successful request-scoped paths require zero matrix recovery-mode
+attempts and zero RS-erasure attempts at that fixed resize policy. This is
+evidence that the two strict successes do not rely on brute-force decoder
+recovery; it is not category-wide recall evidence.
