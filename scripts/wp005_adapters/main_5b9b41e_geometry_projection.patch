@@ -1,0 +1,39 @@
+diff --git a/src/pipeline.rs b/src/pipeline.rs
+index 872cfdf..9520190 100644
+--- a/src/pipeline.rs
++++ b/src/pipeline.rs
+@@ -856,6 +856,34 @@ fn decode_candidate(
+         candidate.module_size,
+         effective_heavy_recovery,
+     )?;
++    // The decoder is entered with actual finder-pattern centers but its
++    // historical QRCode constructor leaves `position` at the default origin.
++    // Project the QR boundary through that same measured finder geometry so
++    // external callers can distinguish a localizable detection from a
++    // payload-only decode. This is intentionally derived only from the
++    // candidate that produced the decode.
++    let dimension = qr.version.size() as f32;
++    let bottom_right = Point::new(
++        candidate.tr.x + candidate.bl.x - candidate.tl.x,
++        candidate.tr.y + candidate.bl.y - candidate.tl.y,
++    );
++    if let Some(transform) = PerspectiveTransform::from_points(
++        &[
++            Point::new(3.5, 3.5),
++            Point::new(dimension - 3.5, 3.5),
++            Point::new(3.5, dimension - 3.5),
++            Point::new(dimension - 3.5, dimension - 3.5),
++        ],
++        &[candidate.tl, candidate.tr, candidate.bl, bottom_right],
++    ) {
++        // Clockwise, beginning at top-left, matching the BoofCV label order.
++        qr.position = [
++            transform.transform(&Point::new(0.0, 0.0)),
++            transform.transform(&Point::new(dimension, 0.0)),
++            transform.transform(&Point::new(dimension, dimension)),
++            transform.transform(&Point::new(0.0, dimension)),
++        ];
++    }
+     let proxy = decode_proxy_confidence(&qr);
+     qr.confidence = (0.75 * candidate.geometry_confidence + 0.25 * proxy).clamp(0.0, 1.0);
+     Some(qr)

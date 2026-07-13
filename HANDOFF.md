@@ -21,18 +21,22 @@ before editing. `TODO.md` is the canonical detailed queue.
    (`011`, `014`, `039`, `043`, `046`) and two absent from both routes
    (`021`, `047`). Direct Otsu is too slow as a global substitute; any hybrid
    must choose non-duplicate candidates generically and stay under 500 ms.
+   A residual-Otsu proposal with eight reserved decode attempts regressed to
+   40/50 in 911.42 ms and was reverted; do not repeat that design.
 2. **WP-011 geometry/sampling:** expiry now prevents scheduling new image-wide
    passes, but scans already in flight cannot be interrupted. Continue only
    with bounded category-specific geometry or cancellable-stage evidence.
 3. **WP-009 safety:** synthetic baseline is present; acceptance requires a
    licensed, representative negative corpus and explicit false-positive
-   budget.
+   budget. `docs/wp009_adversarial.md` now defines the required provenance and
+   manifest fields; the local BoofCV images are positive-only and cannot be
+   repurposed as negative evidence.
 4. **WP-005/WP-013 comparisons:** pinned standalone adapters for
    `main@5b9b41e` and `scratch_from_scratch_rebuild@295b97c` now live in
-   `scripts/wp005_adapters/`. A one-image smoke built and normalized both
-   streams, but it is not a comparison: main's historical fast path exposes
-   zero-area geometry and both scored 0/2 localization. The seven-category
-   25-image exports, geometry-capable main path, matched comparison, and
+   `scripts/wp005_adapters/`. A detached main-only geometry projection patch
+   now shows 17/17 monitor hits without fabricating boxes, but all adapters
+   still need an identical seven-category allow-list (or fixed input tree)
+   before the 25-per-category comparison can run. Matched comparison and
    pinned competitor runners remain open.
 5. **WP-010:** the bounded contour supplement improves `lots` finder/group
    recall to 102/420 and 87/420, but 215 labels still have no contained

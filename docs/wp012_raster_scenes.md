@@ -126,6 +126,17 @@ full Otsu route is not technically plausible. A hybrid would need to reuse or
 select only the five Otsu-only geometries before expensive decode; even its
 candidate-ranking and decode budget must fit inside that ~105 ms margin.
 
+### Rejected residual-Otsu probe
+
+A local generic residual experiment reserved eight of the fixed 128 decode
+attempts, removed Otsu finder proposals inside already accepted brightness
+regions, and decoded only the remaining Otsu frontier. It was rejected before
+commit: the public evaluator fell to 40/50 with zero false positives,
+duplicates, or timeouts, and took 911.42 ms. The primary-route reservation
+lost accepted symbols and the residual frontier still cost too much. Do not
+repeat this filter-plus-fixed-budget approach; a future hybrid needs a
+materially cheaper candidate-level selector.
+
 ### Release-binary reproducibility correction
 
 A transient 27/50, 4.8-second observation was produced by a stale

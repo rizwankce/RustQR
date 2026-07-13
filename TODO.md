@@ -679,6 +679,23 @@ fabricating a quadrilateral, and both one-image localization scores were 0/2.
 The required seven-category 25-image-per-category export, geometry-capable
 main result, matched Fast Benchmark run, and comparison table remain pending.
 
+**2026-07-13 main geometry projection probe:** `main@5b9b41e` retains the
+measured finder-triplet geometry that generated a successful decode, although
+its public `QRCode.position` is left at zero. A reviewed patch retained under
+`scripts/wp005_adapters/` projects only that candidate's outer boundary; it
+does not invent payload-derived boxes and is for the detached historical
+worktree only. It normalized at 17/17 hits with zero false positives, false
+negatives, duplicates, or timeouts on the monitor directory. The probe also
+found that passing a category directory as exporter root makes each filename a
+category, defeating the intended one-image limit. The required comparison
+remains pending: run from the BoofCV root with the seven named categories,
+25 images per category, matching image IDs/fingerprints, shared truth, and the
+same Fast Benchmark configuration. The reviewed historical adapters still
+lack a category allow-list, so that exact seven-category slice is blocked
+until all throwaway adapters share one (or use the same materialized input
+tree). Evidence and exact patch instructions:
+`artifacts/wp005_main_geometry_monitor_2026-07-13.md`.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
@@ -1098,6 +1115,16 @@ zero timeouts and zero detections; its transient report is
 `/tmp/wp009_negative_bounded.json`. This remains synthetic-only evidence and
 the cooperative deadline is not a hard process interruption.
 
+**2026-07-13 external-corpus intake audit:** No locally checked-in external
+negative corpus can be admitted yet. `benches/images/boofcv` has positive QR
+annotations and its local documentation lists sources but no image-level
+license or redistribution grant; it must not be repurposed as negative evidence.
+`docs/wp009_adversarial.md` now records the required per-asset admission fields
+(source, immutable revision/date, license, redistribution constraint, SHA-256,
+category, dimensions, and zero-QR annotation) plus the required FPR-budget
+decision. This is a durable selection path, not a claim that an external corpus
+or production FPR gate exists.
+
 Focused local validation:
 
 ```bash
@@ -1508,6 +1535,15 @@ separate grouping observation). Brightness alone took 348.653ms. The public
 second Otsu route cannot fit. Only a non-duplicate preselection of the five
 known Otsu-only geometries with a strictly small decode frontier is technically
 plausible; no behavior was changed by this diagnostic.
+
+**2026-07-13 rejected residual-Otsu probe:** A local generic experiment held
+back eight of the 128 request attempts, filtered direct-Otsu finder evidence
+inside the 43 accepted brightness regions, and decoded only the residual
+frontier. It was reverted: the public evaluator regressed to 40/50 in 911.42
+ms (FP=0, duplicates=0, timeouts=0). Reserving attempts lost primary-route
+symbols while the residual candidates still exceeded the latency budget. Do
+not repeat this filter-plus-fixed-budget design; any future hybrid needs a
+cheaper candidate-level selector.
 
 **2026-07-13 release-binary correction:** A transient 27/50, 4.8-second
 `density_050` result came from stale `target/release/qrtool` bytes, not a

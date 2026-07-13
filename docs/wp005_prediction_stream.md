@@ -172,3 +172,27 @@ payload-only prediction. This makes the smoke stream valid but means a full
 comparison needs a main geometry-producing path or must explicitly record the
 resulting localization loss. The smoke is adapter compatibility evidence only;
 both normalized results are 0% localization rate on this one two-label image.
+
+## Main geometry projection probe (2026-07-13)
+
+The historical main pipeline retains measured finder-triplet geometry for the
+candidate that decoded a QR, but does not copy it into the public
+`QRCode.position`. A reviewed throwaway-only patch now lives at
+`scripts/wp005_adapters/main_5b9b41e_geometry_projection.patch`. It projects
+the outer QR boundary through that candidate's finder centers and decoded
+dimension; it does not infer a box from payload presence or labels. Applied
+only in the detached `main@5b9b41e` worktree, it produced nonzero geometry
+that normalized as 17/17 hits on the monitor directory, with zero false
+positives, false negatives, duplicates, or timeouts. Full evidence and the
+exact patch application command are in
+`artifacts/wp005_main_geometry_monitor_2026-07-13.md`.
+
+The monitor command deliberately exposed an adapter selection caveat: passing
+`--root benches/images/boofcv/monitor --limit 1` treats each filename as a
+separate category and therefore exports all 17 images. This is useful probe
+evidence, not a one-image result. The seven-category comparison must pass
+`--root benches/images/boofcv --limit 25`, but the reviewed historical
+exporters do not yet have a category allow-list and would include every
+BoofCV directory. Add identical filtering to all throwaway adapters (or use a
+fixed materialized input tree) and verify matching image-ID lists before
+shared-truth normalization.

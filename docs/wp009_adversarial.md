@@ -63,6 +63,29 @@ establishes crash/memory-safety coverage rather than a false-positive rate.
 No recovery change may claim compliance with a production false-positive budget
 until a broader annotated corpus and an agreed budget are added.
 
+## External-corpus admission gate
+
+The checked-in `benches/images/boofcv` tree is **not** a WP-009 candidate. Its
+local README names upstream benchmark sources, but the tree contains neither an
+image-level license nor a redistribution grant, and its annotations describe
+positive QR symbols rather than negative-image ground truth. Do not relabel,
+copy, or derive a negative corpus from it without independently recording that
+authority.
+
+The concrete current path is therefore two-stage:
+
+1. keep `tests/negative_corpus` as the only locally admissible, self-authored
+   baseline; and
+2. add a separately sourced external corpus only with a tracked manifest that
+   records, for every asset, its source URL, immutable revision or download
+   date, license text/identifier, redistribution constraint, SHA-256, category,
+   dimensions, and an explicit `expected_qr_count: 0` annotation.
+
+Before enabling that manifest as a merge gate, define the image and megapixel
+false-positive budgets, decide whether failures include timeouts, and run the
+same public-API evaluator used by the synthetic corpus. A manifest missing any
+of those provenance fields remains an intake record, not safety evidence.
+
 ## Reproducing the local checks
 
 ```sh
