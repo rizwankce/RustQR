@@ -1189,6 +1189,17 @@ and takes 2323.97 ms, so the 90%/<500 ms target remains unmet. This is a
 bounded routing improvement, not completion; the remaining failure is
 spurious local finder evidence preventing all true triples from being routed.
 
+**2026-07-13 bounded region-cap follow-up:** The controlled 50-symbol scene
+had 50 retained local groups, but the `MultiQrHeavy` router admitted only 32
+regions. The router now visits one region for every retained dense candidate,
+while retaining the existing 128-candidate frontier and request-wide decode
+cap. The regenerated public `qrtool reading-rate` artifact reports 43/50
+(86.00%) at 2139.27 ms, with zero false positives and zero duplicates; the
+full 1–100 corpus is 145/193 (75.13%). This is a measured improvement over
+the earlier 32/50 run, not completion: the 90%/<500 ms target remains unmet.
+See `docs/wp012_raster_scenes.md` and
+`artifacts/wp012_controlled_dense_by_density_qrmax0.json`.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.

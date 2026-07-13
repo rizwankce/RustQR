@@ -897,6 +897,22 @@ fn decode_top_k_limit(total_candidates: usize) -> usize {
         .min(total_candidates)
 }
 
+/// Choose a bounded number of spatial regions to visit.
+///
+/// A dense scene normally produces one ranked candidate per physical symbol.
+/// Limiting its regions to a fixed 32 silently discards otherwise valid,
+/// disjoint candidates before sampling.  The group frontier is already capped
+/// at [`DENSE_MAX_GROUP_CANDIDATES`], so allowing one region for each retained
+/// dense candidate preserves that safety bound while avoiding this loss.
+fn region_limit_for_strategy(strategy: StrategyProfile, candidate_count: usize) -> usize {
+    match strategy {
+        StrategyProfile::MultiQrHeavy => {
+            candidate_count.clamp(DEFAULT_MAX_REGIONS, DENSE_MAX_GROUP_CANDIDATES)
+        }
+        _ => DEFAULT_MAX_REGIONS,
+    }
+}
+
 fn decode_proxy_confidence(qr: &QRCode) -> f32 {
     let bytes_component = (qr.data.len().min(64) as f32 / 64.0).clamp(0.0, 1.0);
     let content_len = qr.content.chars().count();
@@ -1542,12 +1558,11 @@ fn decode_ranked_groups(
         return results;
     }
 
-    let mut max_regions = DEFAULT_MAX_REGIONS;
+    let max_regions = region_limit_for_strategy(strategy, candidates.len());
     let mut per_region_top_k = DEFAULT_PER_REGION_TOP_K;
     let mut per_region_attempt_cap = 3;
     match strategy {
         StrategyProfile::MultiQrHeavy => {
-            max_regions = max_regions.max(32);
             per_region_top_k = per_region_top_k.max(16);
             per_region_attempt_cap = per_region_attempt_cap.max(48);
         }
@@ -1898,5 +1913,24 @@ mod tests {
                 "tight raster symbol {symbol} must retain its own finder triple"
             );
         }
+    }
+
+    #[test]
+    fn dense_strategy_visits_each_retained_disjoint_region() {
+        // A 50-symbol controlled scene has one local region per retained
+        // triple.  Do not let the historical 32-region router cap turn the
+        // final 18 valid triples into sampling misses.
+        assert_eq!(
+            region_limit_for_strategy(StrategyProfile::MultiQrHeavy, 50),
+            50
+        );
+        assert_eq!(
+            region_limit_for_strategy(StrategyProfile::MultiQrHeavy, 500),
+            DENSE_MAX_GROUP_CANDIDATES
+        );
+        assert_eq!(
+            region_limit_for_strategy(StrategyProfile::FastSingle, 50),
+            DEFAULT_MAX_REGIONS
+        );
     }
 }

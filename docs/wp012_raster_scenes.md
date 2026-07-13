@@ -30,28 +30,31 @@ second result cannot inflate recall for one expected symbol; unmatched
 overlapping predictions are accounted as duplicates and all other unmatched
 predictions as false positives.
 
-## 2026-07-13 release baseline
+## 2026-07-13 bounded-region routing measurement
 
-This baseline used `QR_MAX_DIM=0`, a 10,000 ms cooperative deadline, release
-`qrtool` at `096d31e`, and the checked-in `python-qrcode==11.1.0` manifest.
+This measurement used `QR_MAX_DIM=0`, a 10,000 ms cooperative deadline, the
+current release `qrtool`, and the checked-in `python-qrcode==8.2` manifest.
+It follows the bounded-region routing change: a dense request visits one
+region per retained candidate, capped at 128, instead of discarding all
+regions beyond a fixed 32.
 
 | Symbols | Matched | Recall | End-to-end ms | Symbols/s | FP | Duplicates |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 1/1 | 100.00% | 3.50 | 285.65 | 0 | 0 |
-| 2 | 2/2 | 100.00% | 4.26 | 469.25 | 0 | 0 |
-| 5 | 3/5 | 60.00% | 92.41 | 54.10 | 0 | 0 |
-| 10 | 3/10 | 30.00% | 105.60 | 94.69 | 0 | 0 |
-| 25 | 2/25 | 8.00% | 1508.75 | 16.57 | 0 | 0 |
-| 50 | 2/50 | 4.00% | 3607.59 | 13.86 | 0 | 0 |
-| 100 | 1/100 | 1.00% | 511.24 | 195.60 | 0 | 0 |
+| 1 | 1/1 | 100.00% | 2.84 | 351.59 | 0 | 0 |
+| 2 | 2/2 | 100.00% | 5.24 | 381.43 | 0 | 0 |
+| 5 | 5/5 | 100.00% | 306.61 | 16.31 | 0 | 0 |
+| 10 | 10/10 | 100.00% | 815.54 | 12.26 | 0 | 0 |
+| 25 | 23/25 | 92.00% | 2540.78 | 9.84 | 0 | 0 |
+| 50 | 43/50 | 86.00% | 2139.27 | 23.37 | 0 | 0 |
+| 100 | 61/100 | 61.00% | 409.61 | 244.13 | 0 | 0 |
 
-Across all seven scenes the pipeline localized 14/193 symbols (7.25%) with
-zero false positives and zero duplicates.  Mean end-to-end runtime was
-782.61 ms/image.  The timings are one sample per deterministic scene, so they
-are a baseline rather than a statistical latency claim.
+Across all seven scenes the pipeline localized 145/193 symbols (75.13%) with
+zero false positives and zero duplicates. Mean end-to-end runtime was 888.56
+ms/image. The timings are one sample per deterministic scene, so they are a
+measurement rather than a statistical latency claim.
 
 The 50-symbol acceptance target (at least 90% recall under 500 ms) is **not
-met**: this corpus gives 4% recall in 3607.59 ms.  The flat-scene failure rules
-out treating camera distortion as the main current blocker; ROI-first raster
-processing, higher dense-scene finder recall, and region-aware decode routing
-remain required.
+met**: this corpus gives 86% recall in 2139.27 ms. The flat-scene failure
+rules out treating camera distortion as the main current blocker; candidate
+sampling/ranking still needs work, and throughput remains well outside the
+target.
