@@ -72,12 +72,15 @@ jobs:
               echo "---" >> $GITHUB_STEP_SUMMARY
             done
           else
-            echo "Profile: boofcv-all" >> $GITHUB_STEP_SUMMARY
-            cargo run --features tools --bin qrtool --release -- \
-              reading-rate --profile boofcv-all --limit "${{ inputs.bench_limit }}" \
-              --max-working-dim 1024 --artifact "reading_rate_linux.json" \
-              2>&1 | tee "reading_rate_linux.txt"
-            cat "reading_rate_linux.txt" >> $GITHUB_STEP_SUMMARY
+            for CAT in nominal rotations perspective high_version brightness bright_spots lots; do
+              PROFILE="boofcv-$(echo "$CAT" | tr '_' '-')"
+              echo "Running WP-005 profile: $PROFILE" >> $GITHUB_STEP_SUMMARY
+              cargo run --features tools --bin qrtool --release -- \
+                reading-rate --profile "$PROFILE" --limit "${{ inputs.bench_limit }}" \
+                --max-working-dim 1024 --artifact "reading_rate_${CAT}.json" \
+                2>&1 | tee "reading_rate_${CAT}.txt"
+              echo "---" >> $GITHUB_STEP_SUMMARY
+            done
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
@@ -135,12 +138,15 @@ jobs:
               echo "---" >> $GITHUB_STEP_SUMMARY
             done
           else
-            echo "Profile: boofcv-all" >> $GITHUB_STEP_SUMMARY
-            cargo run --features tools --bin qrtool --release -- \
-              reading-rate --profile boofcv-all --limit "${{ inputs.bench_limit }}" \
-              --max-working-dim 1024 --artifact "reading_rate_macos.json" \
-              2>&1 | tee "reading_rate_macos.txt"
-            cat "reading_rate_macos.txt" >> $GITHUB_STEP_SUMMARY
+            for CAT in nominal rotations perspective high_version brightness bright_spots lots; do
+              PROFILE="boofcv-$(echo "$CAT" | tr '_' '-')"
+              echo "Running WP-005 profile: $PROFILE" >> $GITHUB_STEP_SUMMARY
+              cargo run --features tools --bin qrtool --release -- \
+                reading-rate --profile "$PROFILE" --limit "${{ inputs.bench_limit }}" \
+                --max-working-dim 1024 --artifact "reading_rate_${CAT}.json" \
+                2>&1 | tee "reading_rate_${CAT}.txt"
+              echo "---" >> $GITHUB_STEP_SUMMARY
+            done
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
@@ -198,12 +204,15 @@ jobs:
               echo "---" >> $GITHUB_STEP_SUMMARY
             done
           else
-            echo "Profile: boofcv-all" >> $GITHUB_STEP_SUMMARY
-            cargo run --features tools --bin qrtool --release -- \
-              reading-rate --profile boofcv-all --limit "${{ inputs.bench_limit }}" \
-              --max-working-dim 1024 --artifact "reading_rate_windows.json" \
-              2>&1 | tee "reading_rate_windows.txt"
-            cat "reading_rate_windows.txt" >> $GITHUB_STEP_SUMMARY
+            for CAT in nominal rotations perspective high_version brightness bright_spots lots; do
+              PROFILE="boofcv-$(echo "$CAT" | tr '_' '-')"
+              echo "Running WP-005 profile: $PROFILE" >> $GITHUB_STEP_SUMMARY
+              cargo run --features tools --bin qrtool --release -- \
+                reading-rate --profile "$PROFILE" --limit "${{ inputs.bench_limit }}" \
+                --max-working-dim 1024 --artifact "reading_rate_${CAT}.json" \
+                2>&1 | tee "reading_rate_${CAT}.txt"
+              echo "---" >> $GITHUB_STEP_SUMMARY
+            done
           fi
           echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
