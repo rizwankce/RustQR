@@ -248,6 +248,9 @@ pub struct DetectionTelemetry {
     pub format_bch_distance_hist: [usize; 4],
     /// Candidate payload paths that reached Reed-Solomon correction.
     pub rs_candidate_attempts: usize,
+    /// Candidate paths rejected before Reed-Solomon because QR remainder bits
+    /// were non-zero after unmasking.
+    pub nonzero_remainder_bit_rejections: usize,
     /// Individual Reed-Solomon block decodes attempted.
     pub rs_block_attempts: usize,
     /// Individual Reed-Solomon blocks corrected successfully.
@@ -378,6 +381,7 @@ impl DetectionTelemetry {
             self.format_bch_distance_hist[i] += other.format_bch_distance_hist[i];
         }
         self.rs_candidate_attempts += other.rs_candidate_attempts;
+        self.nonzero_remainder_bit_rejections += other.nonzero_remainder_bit_rejections;
         self.rs_block_attempts += other.rs_block_attempts;
         self.rs_block_successes += other.rs_block_successes;
         self.rs_block_failures += other.rs_block_failures;
@@ -1649,6 +1653,7 @@ fn detect_with_telemetry_budget(
     tel.format_extracted = counters.format_bch_candidates;
     tel.format_bch_distance_hist = counters.format_bch_distance_hist;
     tel.rs_candidate_attempts = counters.rs_candidate_attempts;
+    tel.nonzero_remainder_bit_rejections = counters.nonzero_remainder_bit_rejections;
     tel.rs_block_attempts = counters.rs_block_attempts;
     tel.rs_block_successes = counters.rs_block_successes;
     tel.rs_block_failures = counters.rs_block_failures;

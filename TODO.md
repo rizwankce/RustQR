@@ -1417,6 +1417,20 @@ deadline, so the artifact is control-flow evidence rather than a latency
 comparison. These traces define separate next investigations; they do not
 prove a common recovery mechanism.
 
+**2026-07-13 bright-spots post-format gate:** A fresh matched release trace
+at `QR_MAX_DIM=800`, limit 1, and a 2,500 ms cooperative deadline retained
+the 0/3 result with zero false positives, duplicates, or timeouts. New
+request-scoped decoder evidence recorded 48 strict-BCH candidates (all
+distance zero), zero RS candidate/block attempts, and 7,056
+`nonzero_remainder_bit_rejections`. This is the ISO remainder-bit check after
+unmasking and before codeword/RS work; it includes the strict and bounded
+recovery payload hypotheses, so it is intentionally larger than the 48
+strict-BCH observations. The failure is therefore sampled-module corruption
+at that exact structural gate, not an RS-correction failure. The retained
+artifact is
+`artifacts/wp011_category_bright_spots_remainder_trace_qrmax800_limit1_2500.json`.
+No recovery heuristic was added.
+
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It
 probes at most six deterministic alignment locations and nine sub-module

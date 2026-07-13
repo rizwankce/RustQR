@@ -119,10 +119,8 @@ fn try_decode_single_internal(
     // when a recovery traversal is being attempted, otherwise those modules
     // would be silently discarded by `bits_to_codewords_with_confidence`.
     let canonical_bits = BitstreamExtractor::extract(&unmasked, dimension, &func);
-    if canonical_bits[canonical_bits.len() / 8 * 8..]
-        .iter()
-        .any(|bit| *bit)
-    {
+    if has_nonzero_remainder_bits(&canonical_bits) {
+        context.counters_mut().nonzero_remainder_bit_rejections += 1;
         return None;
     }
     let (bits, bit_confidence) = if reverse_stream {
@@ -184,6 +182,16 @@ fn try_decode_single_internal(
     );
     qr.metadata = decoded.metadata;
     Some(qr)
+}
+
+/// QR remainder bits are not payload bits and must be zero before masking.
+///
+/// The bitstream extractor yields all non-function modules, while the final
+/// partial byte is specified as zero-valued remainder bits. Keeping this check
+/// separate makes the post-format, pre-RS rejection observable without
+/// changing any decode behaviour.
+fn has_nonzero_remainder_bits(bits: &[bool]) -> bool {
+    bits[bits.len() / 8 * 8..].iter().any(|bit| *bit)
 }
 
 #[allow(dead_code)]
@@ -452,6 +460,18 @@ mod telemetry_tests {
         assert_eq!(counters.rs_block_attempts, 1);
         assert_eq!(counters.rs_block_successes, 0);
         assert_eq!(counters.rs_block_failures, 1);
+    }
+
+    #[test]
+    fn nonzero_remainder_bits_are_identified_without_touching_codewords() {
+        assert!(!has_nonzero_remainder_bits(&[true; 16]));
+        assert!(!has_nonzero_remainder_bits(&[
+            true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+            true, true, false,
+        ]));
+        assert!(has_nonzero_remainder_bits(&[
+            false, false, false, false, false, false, false, false, true,
+        ]));
     }
 }
 

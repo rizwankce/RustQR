@@ -90,6 +90,8 @@ pub(crate) struct DecodeCounters {
     pub format_bch_distance_hist: [usize; 4],
     /// Candidate payload paths that reached Reed-Solomon correction.
     pub rs_candidate_attempts: usize,
+    /// Candidate payload paths rejected because QR remainder bits were non-zero.
+    pub nonzero_remainder_bit_rejections: usize,
     /// Individual Reed-Solomon block decodes attempted.
     pub rs_block_attempts: usize,
     /// Individual Reed-Solomon blocks corrected successfully.
@@ -195,6 +197,7 @@ impl DecodeCounters {
             format_bch_candidates: 0,
             format_bch_distance_hist: [0; 4],
             rs_candidate_attempts: 0,
+            nonzero_remainder_bit_rejections: 0,
             rs_block_attempts: 0,
             rs_block_successes: 0,
             rs_block_failures: 0,

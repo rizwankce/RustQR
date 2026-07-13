@@ -72,6 +72,18 @@ winning distances (0--3), plus RS candidate/block attempts, successes, and
 uncorrectable blocks. A fresh matched trace must use those fields before it
 attributes the miss to format extraction or RS correction.
 
+### Post-format rejection evidence (2026-07-13)
+
+The retained matched release artifact
+`artifacts/wp011_category_bright_spots_remainder_trace_qrmax800_limit1_2500.json`
+adds a request-scoped counter for the ISO remainder-bit check after unmasking
+and before codeword extraction. It records 48 strict-BCH-valid candidates
+(all distance zero), no RS candidate or block attempts, and 7,056
+non-zero-remainder-bit rejections. That count deliberately includes all
+strict and bounded recovery payload hypotheses, so it is not comparable 1:1
+with the strict-BCH observation count. It establishes a sampled-module
+integrity barrier before RS, without introducing a recovery heuristic.
+
 ### Rejected targeted format recovery (2026-07-13)
 
 A decoder-only experiment tried the four nearest soft-BCH format candidates

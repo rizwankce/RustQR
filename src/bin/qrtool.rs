@@ -1633,6 +1633,8 @@ struct StageTelemetry {
     format_bch_distance_hist: [usize; 4],
     /// Candidate paths that reached Reed-Solomon correction.
     rs_candidate_attempts: usize,
+    /// Candidate paths rejected before Reed-Solomon because remainder bits were non-zero.
+    nonzero_remainder_bit_rejections: usize,
     /// Individual Reed-Solomon block decodes attempted.
     rs_block_attempts: usize,
     /// Individual Reed-Solomon blocks corrected successfully.
@@ -1704,6 +1706,7 @@ impl StageTelemetry {
             self.format_bch_distance_hist[i] += other.format_bch_distance_hist[i];
         }
         self.rs_candidate_attempts += other.rs_candidate_attempts;
+        self.nonzero_remainder_bit_rejections += other.nonzero_remainder_bit_rejections;
         self.rs_block_attempts += other.rs_block_attempts;
         self.rs_block_successes += other.rs_block_successes;
         self.rs_block_failures += other.rs_block_failures;
@@ -2054,6 +2057,8 @@ where
                     tel.format_bch_distance_hist[i];
             }
             stats.stage_telemetry.rs_candidate_attempts += tel.rs_candidate_attempts;
+            stats.stage_telemetry.nonzero_remainder_bit_rejections +=
+                tel.nonzero_remainder_bit_rejections;
             stats.stage_telemetry.rs_block_attempts += tel.rs_block_attempts;
             stats.stage_telemetry.rs_block_successes += tel.rs_block_successes;
             stats.stage_telemetry.rs_block_failures += tel.rs_block_failures;
@@ -2675,6 +2680,11 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             &mut json,
             "        \"rs_candidate_attempts\": {},",
             category.stage_telemetry.rs_candidate_attempts
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"nonzero_remainder_bit_rejections\": {},",
+            category.stage_telemetry.nonzero_remainder_bit_rejections
         );
         let _ = writeln!(
             &mut json,

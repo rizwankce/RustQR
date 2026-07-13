@@ -51,8 +51,10 @@ before editing. `TODO.md` is the canonical detailed queue.
    buckets; RS candidate/block attempts, successes, and failures are separate
    from accepted decodes. Collect matched category traces before attempting a
    recovery change or attributing a failure to sampling.
-   Fresh traces place bright-spots after exact format validation but before RS,
-   while glare/high-version do not reach decoder evidence at all.
+   Fresh traces place bright-spots at the ISO non-zero-remainder-bit gate after
+   exact format validation and before RS (48 strict BCH candidates, 7,056
+   bounded payload-path rejections), while glare/high-version do not reach
+   decoder evidence at all.
 
 Run targeted checks while iterating, then record exact commands, metrics, and
 remaining work in `TODO.md` before handoff. Full benchmark comparisons belong
