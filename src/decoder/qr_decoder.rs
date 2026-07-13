@@ -409,6 +409,7 @@ impl QrDecoder {
             bottom_left,
             module_size,
             allow_heavy_recovery,
+            allow_heavy_recovery,
             &mut context,
         )
     }
@@ -425,6 +426,7 @@ impl QrDecoder {
         bottom_left: &Point,
         module_size: f32,
         allow_heavy_recovery: bool,
+        allow_matrix_recovery: bool,
         context: &mut DecodeRequestContext,
     ) -> Option<QRCode> {
         let started = Instant::now();
@@ -473,22 +475,28 @@ impl QrDecoder {
                     continue;
                 }
 
-                if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
-                    &qr_matrix,
-                    version_num,
-                    &module_confidence,
-                    context,
-                ) {
+                if let Some(qr) =
+                    matrix_decode::decode_from_matrix_with_confidence_in_context_with_recovery(
+                        &qr_matrix,
+                        version_num,
+                        &module_confidence,
+                        allow_matrix_recovery,
+                        context,
+                    )
+                {
                     return Some(Self::with_position(qr, &transform, dimension));
                 }
 
                 let inverted = orientation::invert_matrix(&qr_matrix);
-                if let Some(qr) = Self::decode_from_matrix_with_confidence_in_context(
-                    &inverted,
-                    version_num,
-                    &module_confidence,
-                    context,
-                ) {
+                if let Some(qr) =
+                    matrix_decode::decode_from_matrix_with_confidence_in_context_with_recovery(
+                        &inverted,
+                        version_num,
+                        &module_confidence,
+                        allow_matrix_recovery,
+                        context,
+                    )
+                {
                     return Some(Self::with_position(qr, &transform, dimension));
                 }
 

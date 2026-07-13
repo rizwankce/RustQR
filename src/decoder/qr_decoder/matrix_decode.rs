@@ -26,7 +26,7 @@ pub(super) fn decode_from_matrix_in_context(
     version_num: u8,
     context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
-    decode_from_matrix_internal(qr_matrix, version_num, None, context)
+    decode_from_matrix_internal(qr_matrix, version_num, None, true, context)
 }
 
 pub(super) fn decode_from_matrix_with_confidence(
@@ -48,13 +48,41 @@ pub(super) fn decode_from_matrix_with_confidence_in_context(
     module_confidence: &[u8],
     context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
-    decode_from_matrix_internal(qr_matrix, version_num, Some(module_confidence), context)
+    decode_from_matrix_with_confidence_in_context_with_recovery(
+        qr_matrix,
+        version_num,
+        module_confidence,
+        true,
+        context,
+    )
+}
+
+/// Decode a sampled matrix while allowing the image pipeline to explicitly
+/// bound expensive fallback work.  The strict ISO path is always attempted;
+/// only non-canonical traversal/format hypotheses and confidence beam repair
+/// are gated.  This keeps dense, clean scenes from spending recovery time on
+/// every rejected finder triple.
+pub(super) fn decode_from_matrix_with_confidence_in_context_with_recovery(
+    qr_matrix: &BitMatrix,
+    version_num: u8,
+    module_confidence: &[u8],
+    allow_recovery: bool,
+    context: &mut DecodeRequestContext,
+) -> Option<QRCode> {
+    decode_from_matrix_internal(
+        qr_matrix,
+        version_num,
+        Some(module_confidence),
+        allow_recovery,
+        context,
+    )
 }
 
 fn decode_from_matrix_internal(
     qr_matrix: &BitMatrix,
     version_num: u8,
     module_confidence: Option<&[u8]>,
+    allow_recovery: bool,
     context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
     let mut orientations = orientation::candidate_orientations(qr_matrix);
@@ -108,20 +136,22 @@ fn decode_from_matrix_internal(
         }
     }
 
-    if let Some(qr) = decode_recovery_phase(
-        &orientations,
-        &corrected_versions,
-        module_confidence,
-        context,
-    ) {
-        return Some(qr);
-    }
-
-    if let Some(conf) = module_confidence {
-        if let Some(qr) =
-            attempt_uncertain_module_beam_repair(qr_matrix, version_num, conf, context)
-        {
+    if allow_recovery {
+        if let Some(qr) = decode_recovery_phase(
+            &orientations,
+            &corrected_versions,
+            module_confidence,
+            context,
+        ) {
             return Some(qr);
+        }
+
+        if let Some(conf) = module_confidence {
+            if let Some(qr) =
+                attempt_uncertain_module_beam_repair(qr_matrix, version_num, conf, context)
+            {
+                return Some(qr);
+            }
         }
     }
 
@@ -435,5 +465,5 @@ fn decode_with_flips(
         let y = idx / dim;
         mutated.set(x, y, !mutated.get(x, y));
     }
-    decode_from_matrix_internal(&mutated, version_num, None, context)
+    decode_from_matrix_internal(&mutated, version_num, None, true, context)
 }

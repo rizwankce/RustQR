@@ -1309,6 +1309,17 @@ first-call allocation counts of 13,711 (clean), 758,042 (hard), and 17,561,330
 (multi candidate). See `docs/wp014_baseline.md` for boundaries, commands, and
 remaining gates. No target claim or detector optimization is implied.
 
+**2026-07-13 dense recovery evidence:** The successful controlled `dense_50`
+lane showed that candidates beyond the existing two-attempt recovery budget
+were still running matrix-level non-canonical recovery after a strict decode
+miss. The decoder now preserves the strict ISO decode for every candidate and
+gates only fallback traversal/format and confidence-beam repair by that same
+bounded flag. A three-iteration local release probe retained 48/50 results per
+call, reduced allocations from 451,087 to 444,857 and requested bytes from
+95,437,204 to 94,802,508. Warm time changed from 1.725 s to 1.732 s, so no
+latency improvement is claimed. See `docs/wp014_baseline.md` for the exact
+command and raw probe boundaries.
+
 ---
 
 ## WP-015: Platform and packaging roadmap

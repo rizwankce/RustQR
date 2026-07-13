@@ -926,6 +926,13 @@ fn decode_proxy_confidence(qr: &QRCode) -> f32 {
     (0.45 * bytes_component + 0.35 * content_component + 0.20 * ec_component).clamp(0.0, 1.0)
 }
 
+/// Dense routing has an explicit, request-bounded recovery quota.  Keep the
+/// historical matrix fallback behavior for every other strategy; only the
+/// clean dense lane skips fallback hypotheses after that quota is exhausted.
+fn matrix_recovery_allowed(strategy: StrategyProfile, allow_heavy_recovery: bool) -> bool {
+    !matches!(strategy, StrategyProfile::MultiQrHeavy) || allow_heavy_recovery
+}
+
 #[allow(clippy::too_many_arguments)]
 fn decode_candidate(
     candidate: &RankedGroupCandidate,
@@ -934,6 +941,7 @@ fn decode_candidate(
     width: usize,
     height: usize,
     allow_heavy_recovery: bool,
+    allow_matrix_recovery: bool,
     blur_metric: f32,
     context: &mut DecodeRequestContext,
 ) -> Option<QRCode> {
@@ -951,6 +959,7 @@ fn decode_candidate(
         &candidate.bl,
         candidate.module_size,
         effective_heavy_recovery,
+        allow_matrix_recovery,
         context,
     )?;
     let proxy = decode_proxy_confidence(&qr);
@@ -1506,6 +1515,7 @@ fn decode_ranked_groups(
         used_transforms += 1;
         used_attempts += 1;
         let allow_heavy = used_attempts <= heavy_recovery_top_n;
+        let allow_matrix_recovery = matrix_recovery_allowed(strategy, allow_heavy);
         if let Some(qr) = decode_candidate(
             &first,
             binary,
@@ -1513,6 +1523,7 @@ fn decode_ranked_groups(
             width,
             height,
             allow_heavy,
+            allow_matrix_recovery,
             fast_signals.blur_metric,
             context,
         ) {
@@ -1625,6 +1636,7 @@ fn decode_ranked_groups(
             used_attempts += 1;
 
             let allow_heavy = used_attempts <= heavy_recovery_top_n;
+            let allow_matrix_recovery = matrix_recovery_allowed(strategy, allow_heavy);
             if let Some(qr) = decode_candidate(
                 candidate,
                 binary,
@@ -1632,6 +1644,7 @@ fn decode_ranked_groups(
                 width,
                 height,
                 allow_heavy,
+                allow_matrix_recovery,
                 fast_signals.blur_metric,
                 context,
             ) {
@@ -1748,6 +1761,20 @@ mod tests {
             saturation_coverage: 0.0,
             geometry_confidence: 0.9,
         }
+    }
+
+    #[test]
+    fn dense_matrix_recovery_respects_the_existing_heavy_quota() {
+        assert!(matrix_recovery_allowed(StrategyProfile::MultiQrHeavy, true));
+        assert!(!matrix_recovery_allowed(
+            StrategyProfile::MultiQrHeavy,
+            false
+        ));
+        assert!(matrix_recovery_allowed(
+            StrategyProfile::LowContrastRecovery,
+            false
+        ));
+        assert!(matrix_recovery_allowed(StrategyProfile::FastSingle, false));
     }
 
     fn decoded(content: &str) -> QRCode {

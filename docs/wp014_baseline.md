@@ -88,6 +88,25 @@ warm call was 1.726 s. The allocation reduction is deterministic for this
 input; the 0.9% latency difference is only a single-run observation, not a
 throughput claim.
 
+### Dense recovery gate follow-up
+
+The next allocation probe isolated a separate per-region cost: the image
+candidate loop passed `allow_heavy_recovery = false` after its first two
+bounded attempts, but its sampled-matrix decoder still entered non-canonical
+format/traversal and confidence-beam recovery after every strict failure.
+Those fallbacks are useful for the two explicitly selected recovery attempts;
+they are unnecessary work for the remaining clean dense candidates.
+
+The sampled-matrix entry point now always runs the strict ISO path, while
+gating only those fallback hypotheses behind the existing
+`allow_heavy_recovery` budget. The three-iteration release probe on the same
+fixture retained 48 decodes per call and reduced per-call allocations from
+451,087 to 444,857 (reallocations 246,521 to 246,192; requested bytes
+95,437,204 to 94,802,508). Warm time was 1.725 s before and 1.732 s after,
+which is within this small local run's noise; this is an allocation and bounded
+work reduction, not a latency claim. The dense output, candidate cap, and
+strict-path behavior are unchanged.
+
 ## Remaining gates
 
 - Establish at least one successful real multi-code lane through WP-012.
