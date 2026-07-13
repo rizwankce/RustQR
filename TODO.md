@@ -1041,6 +1041,17 @@ unchanged at 80/420 (19.05%) and grouping p95 1.322 ms. This is a measurable
 grouping improvement, not WP-010/WP-012 completion: raster ROI rescanning,
 finder recall, decoded dense-scene recall, and category gates remain open.
 
+**2026-07-13 containment-evaluation follow-up:** `proposal-eval` artifact
+schema v2 now records contained proposal/group counts and contained duplicate
+groups, rather than reporting spurious counts without a denominator. On the
+same `lots` labels at `QR_MAX_DIM=800`, the current bounded dense-routing
+baseline retains 376 contained and 41 spurious proposals (417 after NMS), and
+produces 83 contained groups: 76 first groups for distinct labels (18.10%
+grouping recall), 7 contained duplicates, and 440 spurious groups. The
+controlled 25-symbol grouping retention regression remains green. This makes
+the remaining selectivity problem measurable; it does not change WP-010's
+in-progress status or claim dense-scene acceptance.
+
 Verified with:
 
 ```bash

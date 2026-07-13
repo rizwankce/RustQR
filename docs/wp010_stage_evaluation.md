@@ -22,6 +22,13 @@ them to the processed raster, then measures:
   contained by any labeled symbol;
 - separate scan/rank/NMS and grouping wall-clock intervals.
 
+Version 2 of the artifact additionally separates the retained proposals and
+groups that are contained by a label from ones that are spurious.  It reports
+contained duplicate groups independently: only the first contained group for a
+label counts toward grouping recall, so the duplicates represent extra
+downstream work rather than extra recall.  These are containment diagnostics,
+not final QR precision measurements.
+
 Containment deliberately avoids deriving finder centres from an unknown QR
 version or orientation. It is a stage diagnostic, not an IoU localization
 metric and not a final-decode accuracy claim.
@@ -36,6 +43,7 @@ All runs used QR_MAX_DIM=800 and the checked-in BoofCV labels.
 | nominal | 65 | 78 | 71/78 (91.03%) | 59/78 (75.64%) | 3.734/3.728/5.784 | 0.005/0.005/0.012 |
 | lots | 7 | 420 | 80/420 (19.05%) | 3/420 (0.71%) | 5.348/5.201/6.216 | 0.017/0.025/0.035 |
 | lots, ROI/spatial follow-up | 7 | 420 | 80/420 (19.05%) | 52/420 (12.38%) | 5.115/4.994/5.513 | 0.551/0.547/1.322 |
+| lots, current containment diagnostic (v2) | 7 | 420 | 80/420 (19.05%) | 76/420 (18.10%) | 5.277/5.174/5.579 | 6.904/7.483/16.651 |
 
 The matching JSON artifacts are:
 
@@ -43,6 +51,7 @@ The matching JSON artifacts are:
 - artifacts/wp010_proposal_grouping_eval_nominal_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_roi_spatial_qrmax800.json
+- artifacts/wp010_proposal_grouping_eval_lots_containment_v2_qrmax800.json
 
 ## Interpretation and remaining work
 
@@ -50,9 +59,12 @@ The initial dense lots result established that the proposal plus legacy
 grouping path did not meet WP-010's multi-symbol requirement.  The ROI/spatial
 follow-up retains exact three-proposal local components before bounded
 neighbourhood expansion and raises grouping recall from 3/420 to 52/420 at the
-same proposal recall.  It is still evidence against treating the proposal
-boundary as complete: the dominant dense-scene loss is now finder recall
-(80/420), and 12.38% grouping recall is far below the acceptance target.
+same proposal recall.  The current v2 diagnostic records 76/420 grouping
+recall after the bounded dense-routing changes, but also records 83 contained
+groups, 7 contained duplicates, and 440 spurious groups.  This confirms that
+the proposal boundary is not complete: finder recall remains 80/420, and the
+grouping output still requires substantially better selectivity before it can
+meet the acceptance target.
 
 The remaining WP-010 implementation work is unchanged:
 

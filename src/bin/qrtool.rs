@@ -153,7 +153,10 @@ struct ProposalEvalStats {
     finder_hits: usize,
     grouping_hits: usize,
     spurious_proposals: usize,
+    contained_proposals: usize,
     spurious_groups: usize,
+    contained_groups: usize,
+    duplicate_contained_groups: usize,
     raw_candidates: usize,
     proposals_after_nms: usize,
     proposal_ms: Vec<f64>,
@@ -167,7 +170,10 @@ impl ProposalEvalStats {
         self.finder_hits += evaluation.finder_hits;
         self.grouping_hits += evaluation.grouping_hits;
         self.spurious_proposals += evaluation.spurious_proposals;
+        self.contained_proposals += evaluation.contained_proposals;
         self.spurious_groups += evaluation.spurious_groups;
+        self.contained_groups += evaluation.contained_groups;
+        self.duplicate_contained_groups += evaluation.duplicate_contained_groups;
         self.raw_candidates += evaluation.scan_telemetry.raw_candidates;
         self.proposals_after_nms += evaluation.scan_telemetry.proposals_after_nms;
         self.proposal_ms.push(evaluation.proposal_latency_ms);
@@ -242,11 +248,16 @@ fn proposal_eval_cmd(
         grouping_recall * 100.0,
     );
     println!(
-        "Spurious proposals/groups: {}/{} | raw/NMS proposals: {}/{}",
+        "Contained/spurious proposals: {}/{} | contained/duplicate/spurious groups: {}/{}/{}",
+        stats.contained_proposals,
         stats.spurious_proposals,
+        stats.contained_groups,
+        stats.duplicate_contained_groups,
         stats.spurious_groups,
-        stats.raw_candidates,
-        stats.proposals_after_nms,
+    );
+    println!(
+        "Raw/NMS proposals: {}/{}",
+        stats.raw_candidates, stats.proposals_after_nms,
     );
     println!(
         "Proposal ms (mean/p50/p95): {:.3}/{:.3}/{:.3} | grouping: {:.3}/{:.3}/{:.3}",
@@ -260,8 +271,8 @@ fn proposal_eval_cmd(
     if let Some(path) = artifact_json {
         let artifact = format!(
             r#"{{
-  "schema_version": 1,
-  "evaluator": "finder-proposal-grouping-contained-centres-v1",
+  "schema_version": 2,
+  "evaluator": "finder-proposal-grouping-contained-centres-v2",
   "dataset": "{}",
   "dataset_fingerprint": "{}",
   "label_fingerprint": "{}",
@@ -272,7 +283,10 @@ fn proposal_eval_cmd(
   "finder_recall": {:.8},
   "grouping_recall": {:.8},
   "spurious_proposals": {},
+  "contained_proposals": {},
   "spurious_groups": {},
+  "contained_groups": {},
+  "duplicate_contained_groups": {},
   "raw_candidates": {},
   "proposals_after_nms": {},
   "proposal_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}},
@@ -289,7 +303,10 @@ fn proposal_eval_cmd(
             finder_recall,
             grouping_recall,
             stats.spurious_proposals,
+            stats.contained_proposals,
             stats.spurious_groups,
+            stats.contained_groups,
+            stats.duplicate_contained_groups,
             stats.raw_candidates,
             stats.proposals_after_nms,
             proposal_summary.0,

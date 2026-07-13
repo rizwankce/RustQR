@@ -51,8 +51,17 @@ pub struct FinderGroupingEvaluation {
     pub grouping_hits: usize,
     /// Proposals whose centres are outside every annotated symbol.
     pub spurious_proposals: usize,
+    /// Retained proposal centres inside at least one annotated symbol.
+    pub contained_proposals: usize,
     /// Groups whose three centres are not contained by one annotated symbol.
     pub spurious_groups: usize,
+    /// Groups whose three centres are contained by an annotated symbol.
+    pub contained_groups: usize,
+    /// Contained groups beyond the first one assigned to each symbol.
+    ///
+    /// This is separate from `grouping_hits`: many valid-looking groups for
+    /// one label improve neither symbol recall nor downstream work.
+    pub duplicate_contained_groups: usize,
     /// Scan-stage counters, recorded alongside latency for diagnosis.
     pub scan_telemetry: FinderScanTelemetry,
     /// Time spent in the scan/rank/NMS proposal stage.
@@ -118,14 +127,21 @@ pub fn evaluate_finder_and_grouping(
                 >= 3
         })
         .count();
-    let grouping_hits = expected
-        .iter()
-        .filter(|symbol| {
-            groups.iter().any(|group| {
-                group.len() == 3 && group.iter().all(|index| proposal_in_symbol(*index, symbol))
-            })
-        })
-        .count();
+    let mut grouped_symbols = vec![false; expected.len()];
+    let mut contained_groups = 0;
+    let mut duplicate_contained_groups = 0;
+    for group in &groups {
+        let Some(symbol_index) = expected.iter().position(|symbol| {
+            group.len() == 3 && group.iter().all(|index| proposal_in_symbol(*index, symbol))
+        }) else {
+            continue;
+        };
+        contained_groups += 1;
+        if std::mem::replace(&mut grouped_symbols[symbol_index], true) {
+            duplicate_contained_groups += 1;
+        }
+    }
+    let grouping_hits = grouped_symbols.into_iter().filter(|hit| *hit).count();
     let spurious_proposals = patterns
         .iter()
         .filter(|pattern| {
@@ -148,7 +164,10 @@ pub fn evaluate_finder_and_grouping(
         finder_hits,
         grouping_hits,
         spurious_proposals,
+        contained_proposals: patterns.len() - spurious_proposals,
         spurious_groups,
+        contained_groups,
+        duplicate_contained_groups,
         scan_telemetry: report.telemetry,
         proposal_latency_ms,
         grouping_latency_ms,
@@ -916,6 +935,11 @@ mod tests {
         assert_eq!(evaluation.expected_symbols, 1);
         assert_eq!(evaluation.finder_hits, 1);
         assert_eq!(evaluation.grouping_hits, 1);
+        assert_eq!(evaluation.contained_proposals, 3);
+        assert_eq!(evaluation.spurious_proposals, 0);
+        assert_eq!(evaluation.contained_groups, 1);
+        assert_eq!(evaluation.duplicate_contained_groups, 0);
+        assert_eq!(evaluation.spurious_groups, 0);
         assert!(evaluation.proposal_latency_ms >= 0.0);
         assert!(evaluation.grouping_latency_ms >= 0.0);
     }
