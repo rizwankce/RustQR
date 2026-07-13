@@ -540,8 +540,7 @@ SIMD and pointer operations.
 
 ## WP-005: Compare main with the rebuild branch
 
-**Status:** Direction decided; normalized cross-branch v2 benchmark remains
-pending
+**Status:** Completed (2026-07-13); retain current Model 2 implementation
 
 **Goal:** Decide whether to continue `main`, adopt the rebuild, or merge proven
 slices from both.
@@ -726,6 +725,22 @@ normalized-stream gap but does **not** satisfy the remaining matched remote
 Fast Benchmark gate or authorize a rebuild merge/transplant. Exact raw,
 truth, normalized, checksum, category-table, and reproduction evidence:
 `artifacts/wp005_targeted_cross_branch_2026-07-13.md`.
+
+**2026-07-13 matched macOS Fast Benchmark dispatch:** The required workflow
+ran successfully for both pinned historical implementations at 1024 px across
+the same seven categories and 25-image per-category limit (all seven `lots`
+images): main run `29241027260` and rebuild run `29240862028`. The rebuild
+required a temporary workflow-only compatibility wrapper because its historical
+CLI predates `--non-interactive`/`--artifact-json`; its final wrapper commit
+`3f2ab45` adds no decoder code and invokes the seven historical profiles
+separately. Main reports `rustqr.reading_rate.v1` label counts while rebuild
+reports `wp007-reading-rate-v1` image booleans, so the remote outputs verify
+the matched macOS configuration and timing boundaries but are not an accuracy
+delta. The detached shared-v2 comparison above remains the decision evidence:
+keep the current Model 2 branch, do not merge/transplant rebuild code, and
+only revisit quarantined ideas one reversible slice at a time. Checksums,
+per-category results, workflow provenance, and artifact links are retained in
+`artifacts/wp005_fast_benchmark_runs_2026-07-13.md`.
 
 ---
 
