@@ -101,7 +101,13 @@ pub fn find_black_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize
         }
     }
 
-    bboxes.values().cloned().collect()
+    // Component discovery is geometric, but the intermediate map has an
+    // intentionally randomized iteration order.  Callers merge nearby boxes
+    // with order-sensitive logic, so expose a stable raster order rather than
+    // letting a hash seed change proposal coverage between equivalent runs.
+    let mut regions = bboxes.values().cloned().collect::<Vec<_>>();
+    regions.sort_unstable_by_key(|&(min_x, min_y, max_x, max_y)| (min_y, min_x, max_y, max_x));
+    regions
 }
 
 #[cfg(test)]
@@ -120,5 +126,18 @@ mod tests {
         let regions = find_black_regions(&matrix);
         assert_eq!(regions.len(), 1);
         assert_eq!(regions[0], (2, 2, 3, 3));
+    }
+
+    #[test]
+    fn regions_are_returned_in_raster_order() {
+        let mut matrix = BitMatrix::new(12, 12);
+        matrix.set(8, 2, true);
+        matrix.set(2, 7, true);
+        matrix.set(3, 7, true);
+
+        assert_eq!(
+            find_black_regions(&matrix),
+            vec![(8, 2, 8, 2), (2, 7, 3, 7)]
+        );
     }
 }

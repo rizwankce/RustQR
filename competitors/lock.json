@@ -50,6 +50,14 @@
       "revision": "rqrr 0.9.0",
       "license": "MIT",
       "build": "cargo build --release --manifest-path competitors/adapters/rqrr/Cargo.toml && cp competitors/adapters/rqrr/target/release/rqrr_decode competitors/bin/rqrr_decode"
+    },
+    "quircs": {
+      "version": "0.10.3",
+      "source": "https://crates.io/crates/quircs",
+      "revision": "quircs 0.10.3",
+      "license": "MIT",
+      "runner_sha256": "239544aedf5977f504ed4fa0da7eca8cdbcaf0e3e31ece7f2525dadf7ec45b81",
+      "build": "cargo build --release --offline --locked --manifest-path competitors/adapters/quircs/Cargo.toml && install -m 755 competitors/adapters/quircs/target/release/quircs_decode competitors/bin/quircs_decode"
     }
   }
 }

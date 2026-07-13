@@ -1,0 +1,32 @@
+{
+  "schema_version": "rustqr.competitor-preflight.v1",
+  "lock": {
+    "path": "competitors/lock.json",
+    "sha256": "c6ad3ba1bd1017fdd12bb1d335448e1f1a569989cb5bef3fffe061b3a970fd50"
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1"
+  },
+  "adapters": {
+    "quircs": {
+      "status": "verified_pinned_runner",
+      "expected_version": "0.10.3",
+      "version_observed": "quircs 0.10.3",
+      "setup": {
+        "status": "available",
+        "command": [
+          "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/quircs_decode",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "capabilities": {},
+      "provenance_verified": true,
+      "provenance_verification_detail": null
+    }
+  },
+  "comparison_claim": "none; availability and version are not pinned-build provenance"
+}

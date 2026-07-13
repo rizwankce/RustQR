@@ -1360,6 +1360,17 @@ global score-threshold increase is not justified; any next detector change
 must preserve this diagnostic and controlled dense retention. This is a
 diagnostic-only follow-up, not a routing or acceptance change.
 
+**2026-07-13 deterministic contour ordering:** connected-component boxes are
+now returned in raster order before the contour family's order-sensitive
+nearby merge. This removes hash-map iteration variance from bounded contour
+proposals without changing thresholds, scan budgets, or the appended-frontier
+cap. Two consecutive QR_MAX_DIM=800 `lots` runs retain the same non-timing
+metrics; the recorded artifact reports 104/420 finder and 91/420 grouping
+recall, 489/45 contained/spurious proposals, and 187/116 raw/appended contour
+observations. Nominal finder recall remains 71/78. This makes the evidence
+reproducible and modestly improves the prior recorded dense stage result; it
+does not complete WP-010, whose broad proposal gap remains.
+
 Verified with:
 
 ```bash
@@ -1845,6 +1856,17 @@ ZBar 0.23.93 was `verified_pinned_runner`, returned one payload line
 is deliberately not payload accuracy, localization recall, or a RustQR/ZBar
 comparison: the labels do not contain payload truth and the ZBar CLI exposes
 no quadrilaterals. This is retained reproducible adapter evidence only.
+
+**2026-07-13 verified quircs smoke:** The locally cached `quircs` 0.10.3 crate
+and every Cargo-lock dependency build offline with `--locked`. Its dedicated
+P5-only adapter is SHA-256 pinned in `competitors/lock.json`; the preflight
+artifact `artifacts/competitors/wp013-quircs-pinned-preflight-2026-07-13.json`
+reports `verified_pinned_runner`. The `--require-verified-runner` monitor
+smoke at `artifacts/competitors/wp013-quircs-pinned-smoke-2026-07-13.json`
+returned one raw payload line for the one annotated image in 9.61ms. This is
+only a runnable-adapter/count observation: the monitor labels do not provide
+payload truth or quadrilaterals from the competitor, so it is not accuracy,
+localization, or a RustQR comparison claim.
 
 ---
 

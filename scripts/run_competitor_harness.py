@@ -25,7 +25,7 @@ from typing import Any
 
 SCHEMA = "rustqr.competitor-report.v1"
 CASE_SCHEMA = "rustqr.competitor-case-manifest.v1"
-ADAPTERS = ("zxing_cpp", "quirc", "zbar", "boofcv", "opencv", "rqrr")
+ADAPTERS = ("zxing_cpp", "quirc", "zbar", "boofcv", "opencv", "rqrr", "quircs")
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 # Keep process based adapters on the same one-thread contract as the OpenCV
@@ -138,6 +138,7 @@ def adapter_command(adapter: str, pgm: Path) -> tuple[list[str] | None, str | No
         "zbar": ["zbarimg", "--quiet", "--raw", str(pgm)],
         "boofcv": ["java", "-jar", str(binary / "boofcv_decode.jar"), str(pgm)],
         "rqrr": [str(binary / "rqrr_decode"), str(pgm)],
+        "quircs": [str(binary / "quircs_decode"), str(pgm)],
     }
     if adapter == "opencv":
         try:
@@ -435,7 +436,9 @@ def observed_version(adapter: str) -> str | None:
         return None
     commands = {"zbar": ["zbarimg", "--version"], "zxing_cpp": [str(binary / "ZXingReader"), "--version"],
                 "quirc": [str(binary / "quirc_decode"), "--version"], "boofcv": ["java", "-jar", str(binary / "boofcv_decode.jar"), "--version"],
-                "rqrr": [str(binary / "rqrr_decode"), "--version"], "opencv": [sys.executable, "-c", "import cv2; print(cv2.__version__)"]}
+                "rqrr": [str(binary / "rqrr_decode"), "--version"],
+                "quircs": [str(binary / "quircs_decode"), "--version"],
+                "opencv": [sys.executable, "-c", "import cv2; print(cv2.__version__)"]}
     return command_version(commands[adapter])
 
 

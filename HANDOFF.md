@@ -42,13 +42,16 @@ before editing. `TODO.md` is the canonical detailed queue.
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both
    refs. Keep the current Model 2 implementation; do not merge rebuild code.
-   WP-013 has a SHA-pinned local ZBar runner and a 17-image raw monitor
-   observation, but needs additional pinned runners plus payload/geometry
-   truth before a fair competitor comparison.
-5. **WP-010:** the bounded contour supplement improves `lots` finder/group
-   recall to 102/420 and 87/420, but 215 labels still have no contained
-   proposal. Preserve the capped primary/ROI/contour staging and do not relax
-   thresholds without evidence carried through the evaluator.
+   WP-013 has SHA-pinned local ZBar and offline-built quircs runners. ZBar has
+   a 17-image raw monitor observation; quircs has a one-image verified smoke.
+   Both still need payload/geometry truth and broader matched manifests before
+   a fair competitor comparison.
+5. **WP-010:** deterministic raster ordering now removes hash-map variance
+   before the contour family's nearby merge. The reproducible `lots` artifact
+   reports 104/420 finder and 91/420 grouping recall, but 214 labels still
+   have no contained proposal. Preserve the capped primary/ROI/contour
+   staging and do not relax thresholds without evidence carried through the
+   evaluator.
 6. **WP-011/WP-007/WP-014/WP-015:** use their explicit acceptance gaps in
    `TODO.md`; do not upgrade their statuses based on component-only tests.
    `format_extracted` is now a real strict-BCH observation count with distance

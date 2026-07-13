@@ -62,7 +62,7 @@ python3 scripts/run_competitor_harness.py \
   --output artifacts/competitors/wp013-zbar-monitor-2026-07-13.json
 ```
 
-Missing ZXing-C++, quirc, BoofCV, or rqrr wrappers are written as
+Missing ZXing-C++, quirc, BoofCV, rqrr, or quircs wrappers are written as
 `unavailable`, not removed from the report. The report contains no temporary
 PGM paths, so it can be published alongside the exact lock and raw source
 dataset fingerprint.
@@ -107,8 +107,10 @@ all six adapters on `monitor/image001.jpg`. Its available pinned adapters were
 ZBar 0.23.93 and OpenCV 4.12.0. ZXing-C++ needs
 `competitors/bin/ZXingReader`; quirc needs `competitors/bin/quirc_decode`;
 BoofCV needs `competitors/bin/boofcv_decode.jar`; and rqrr needs
-`competitors/bin/rqrr_decode`. Those are build prerequisites, not negative
-benchmark observations.
+`competitors/bin/rqrr_decode`. The offline-built quircs 0.10.3 adapter is
+available as `competitors/bin/quircs_decode`; its checked-in Cargo lock captures
+the exact crate checksums and its runner digest is locked. Missing outputs are
+build prerequisites, not negative benchmark observations.
 
 ## Licenses and redistribution
 
@@ -120,6 +122,7 @@ benchmark observations.
 | BoofCV | Apache-2.0 | Preserve notices when redistributing the runner/dependencies. |
 | OpenCV | Apache-2.0 | Preserve notices when redistributing the selected wheel/library. |
 | rqrr | MIT | Preserve the crate's copyright and permission notice. |
+| quircs | MIT | Preserve the crate's copyright and permission notice. |
 
 `competitors/` contains only locally authored adapters and version metadata;
 it contains no competitor source, jar, wheel, or executable. Review the
@@ -138,6 +141,12 @@ runner used by the harness, not an independently reproducible upstream source
 build or its transitive-library provenance. Other adapters remain
 provenance-unverified until their listed pinned sources are built and their
 resulting runner digests are recorded.
+
+`quircs` 0.10.3 is a second, locally available, offline-built runner. Its
+adapter parses only the harness's 8-bit P5 input contract and invokes the
+library directly, avoiding an image-loader difference. The repository stores
+the adapter source and Cargo lock, never the generated executable; the lock's
+runner hash identifies the locally tested release artifact on this platform.
 
 ## Verified ZBar monitor observation (2026-07-13)
 

@@ -8,7 +8,8 @@ results. A missing binary is an explicit `unavailable` result; a different
 version is `version_mismatch` and is not benchmarked.
 
 The adapters are thin newline-delimited payload CLIs. `quirc_decode.c`, the
-`rqrr` crate, and the BoofCV Gradle runner are source-controlled wrappers; the
+`rqrr` and `quircs` crates, and the BoofCV Gradle runner are source-controlled
+wrappers; the
 ZXing-C++ runner is the pinned upstream `ZXingReader` example and must be
 copied into `competitors/bin/` after its build. Every runner writes one decoded
 payload per line and supports `--version`.

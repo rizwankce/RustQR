@@ -1,0 +1,121 @@
+{
+  "schema_version": "rustqr.competitor-report.v1",
+  "lock": {
+    "path": "competitors/lock.json",
+    "sha256": "c6ad3ba1bd1017fdd12bb1d335448e1f1a569989cb5bef3fffe061b3a970fd50"
+  },
+  "case_manifest": {
+    "schema_version": "rustqr.competitor-case-manifest.v1",
+    "lock_sha256": "c6ad3ba1bd1017fdd12bb1d335448e1f1a569989cb5bef3fffe061b3a970fd50",
+    "pixel_contract": {
+      "format": "binary PGM (P5), 8-bit grayscale",
+      "preprocessing": "decode source pixels once, convert RGB to ITU-R BT.601 luma, optionally downscale with Pillow Triangle, then write PGM",
+      "timing_boundary": "adapter process/API invocation only; image decoding, normalization, PGM writing, manifest generation, and report generation are excluded",
+      "threads": 1,
+      "timeout_ms": 1000
+    },
+    "max_dim": 1024,
+    "cases": [
+      {
+        "id": "monitor/image001.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image001.jpg",
+        "source_sha256": "7aee6b038f09ee793cb18e3b09861e717e8d4e78a037a4dfd72ef8d548682093",
+        "expected_symbols": 1,
+        "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+        "pixel_dimensions": [
+          843,
+          1024
+        ]
+      }
+    ]
+  },
+  "hardware": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "processor": "arm",
+    "python": "3.13.2",
+    "cpu_count": 10
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1"
+  },
+  "adapters": {
+    "quircs": {
+      "lock": {
+        "version": "0.10.3",
+        "source": "https://crates.io/crates/quircs",
+        "revision": "quircs 0.10.3",
+        "license": "MIT",
+        "runner_sha256": "239544aedf5977f504ed4fa0da7eca8cdbcaf0e3e31ece7f2525dadf7ec45b81",
+        "build": "cargo build --release --offline --locked --manifest-path competitors/adapters/quircs/Cargo.toml && install -m 755 competitors/adapters/quircs/target/release/quircs_decode competitors/bin/quircs_decode"
+      },
+      "setup": {
+        "status": "available",
+        "command": [
+          "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/quircs_decode",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "runner_preflight": {
+        "status": "verified_pinned_runner",
+        "expected_version": "0.10.3",
+        "version_observed": "quircs 0.10.3",
+        "setup": {
+          "status": "available",
+          "command": [
+            "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/quircs_decode",
+            "<shared-pixels>.pgm"
+          ]
+        },
+        "capabilities": {},
+        "provenance_verified": true,
+        "provenance_verification_detail": null
+      },
+      "version_observed": "quircs 0.10.3",
+      "summary": {
+        "cases": 1,
+        "available_cases": 1,
+        "expected_annotation_symbols": 1,
+        "returned_symbols": 1,
+        "annotation_count_coverage": 1.0,
+        "status_counts": {
+          "decoded": 1
+        },
+        "latency_ms": {
+          "samples": 1,
+          "median": 9.606042,
+          "p95": 9.606042,
+          "median_95_ci": [
+            9.606042,
+            9.606042
+          ]
+        }
+      },
+      "cases": [
+        {
+          "id": "monitor/image001.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "34333736343731313534303338"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "343337363437313135343033380a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.606042
+          }
+        }
+      ]
+    }
+  }
+}
