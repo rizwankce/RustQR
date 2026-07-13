@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "evaluator": "finder-proposal-grouping-contained-centres-v1",
+  "dataset": "benches/images/boofcv/nominal",
+  "dataset_fingerprint": "bde0501bf2082e5d",
+  "label_fingerprint": "5b1d39851ef18c2f",
+  "images": 3,
+  "expected_symbols": 6,
+  "finder_hits": 4,
+  "grouping_hits": 3,
+  "finder_recall": 0.66666667,
+  "grouping_recall": 0.50000000,
+  "spurious_proposals": 0,
+  "spurious_groups": 14,
+  "raw_candidates": 43,
+  "proposals_after_nms": 16,
+  "proposal_latency_ms": {"mean": 9.536958, "p50": 9.622792, "p95": 9.638042},
+  "grouping_latency_ms": {"mean": 0.018306, "p50": 0.016500, "p95": 0.024792}
+}

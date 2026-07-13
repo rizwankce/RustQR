@@ -60,6 +60,7 @@ pub(crate) struct DecodeCounters {
     pub rs_erasure_successes: usize,
     pub rs_erasure_count_hist: [usize; 4],
     pub phase11_time_budget_skips: usize,
+    pub unsupported_payloads: usize,
 }
 
 /// Mutable state owned by one decode request.
@@ -155,6 +156,7 @@ impl DecodeCounters {
             rs_erasure_successes: 0,
             rs_erasure_count_hist: [0; 4],
             phase11_time_budget_skips: 0,
+            unsupported_payloads: 0,
         }
     }
 }

@@ -190,8 +190,22 @@ def materialize(manifest_path: Path) -> dict:
             "quiet_zone_modules": 4,
             "pixels_per_module": 4,
         }
-    capacity_keys = sorted(
-        {(case["version"], case["ec_level"], case["mode"]) for case in manifest["cases"] if case["mode"] in SUPPORTED_MODES}
+    # Capacity-boundary evidence belongs to the compact foundation corpus.  The
+    # full-grid gate deliberately expands masks, not capacity probes; repeating
+    # the binary searches for every version/EC/mode makes that gate depend on a
+    # python-qrcode overflow-path bug (``glog(0)`` for some known-overflow
+    # candidates) without adding coverage.  Keep the checked-in representative
+    # probes, and let the full profile concentrate on its 3,840 valid symbols.
+    capacity_keys = (
+        sorted(
+            {
+                (case["version"], case["ec_level"], case["mode"])
+                for case in manifest["cases"]
+                if case["mode"] in SUPPORTED_MODES
+            }
+        )
+        if materialize_header_cases
+        else []
     )
     manifest["capacity_validation"] = [
         {

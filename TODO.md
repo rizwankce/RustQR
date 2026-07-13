@@ -607,7 +607,7 @@ slices from both.
 
 ## WP-006: Build an ISO conformance and differential corpus
 
-**Status:** In progress; compact supported corpus is green
+**Status:** Complete; full supported grid and compact header corpus are green
 
 **Goal:** Prove decoder correctness independently of photographic detection.
 
@@ -686,12 +686,12 @@ slices from both.
   Clippy, 94 library tests, five CLI tests, six conformance matrix tests, three
   mutation tests, seven input API tests, two timeout tests, and one doc test.
   The seven slow photographic regression tests remain intentionally ignored.
-- WP-006 remains in progress because the checked-in corpus is compact rather
-  than the complete versions 1-40 by four EC levels by eight masks grid and
-  its header-mode fixtures are representative rather than full-grid coverage.
-  Kanji, ECI, GS1/FNC1, and Structured Append are materialized supported
-  fixtures, not unsupported scaffolds. RustQR passes all 34/34 compact cases;
-  independent-adapter outcomes and limitations are recorded per case.
+- The checked-in corpus remains compact, while the ignored full-grid gate
+  regenerates versions 1-40 by four EC levels by eight masks for numeric,
+  alphanumeric, and byte modes. Kanji, ECI, GS1/FNC1, and Structured Append
+  have deterministic compact end-to-end matrices with exact metadata checks.
+  RustQR passes all 34/34 compact cases; independent-adapter outcomes and
+  limitations are recorded per case.
 - WP-006A (2026-07-12): added an on-demand ignored integration gate that
   regenerates the full supported Model 2 grid in a temporary directory rather
   than checking in 3,840 PNGs. It verifies every generated numeric,
@@ -704,6 +704,21 @@ slices from both.
   conformance-matrix run was rerun after the WP-006B fixture update and passes
   with six standard tests; the full-grid test remains intentionally ignored
   except when explicitly requested.
+- **Completion audit (2026-07-13):** Re-ran the full ignored gate after fixing
+  its full-profile-only capacity-probe defect: capacity probes stay in the
+  foundation corpus (22 representative version/EC/mode records) instead of
+  being redundantly binary-searched for all 3,840 full-grid symbols. This
+  avoids a known `python-qrcode==8.2` overflow-path `glog(0)` failure without
+  weakening either coverage set. `cargo test --test conformance_matrix_tests
+  --all-features -- --ignored generated_full_supported_corpus_reaches_one_hundred_percent`
+  passed (1 test, 131.77 s). The standard matrix suite passed (7 tests), the
+  mutation suite passed (4 tests), and the generator/materializer/mutation/
+  differential Python tests passed (16 tests). A canonical rerun of
+  `scripts/run_differential_decoders.py` was byte-for-byte identical to
+  `conformance/differential-report.json`: 34 generated compact fixtures,
+  ZBar and OpenCV, and zero raw-payload mismatches. WP-006 acceptance is met:
+  deterministic supported fixtures decode exactly, invalid fixtures reject,
+  and the manifest/seed materializers reproduce the committed corpus.
 
 ---
 
@@ -822,18 +837,19 @@ checks.
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
 
-**Status:** In progress (2026-07-12)
+**Status:** Completed (2026-07-13)
 
 **Current evidence:** A public immutable `DecoderOptions` API now provides
 fast/balanced/exhaustive deadline presets, a per-request diagnostics switch,
 and `try_detect_with_options`. Optional diagnostics return `FailureStage` and
 `DetectionTelemetry`; the no-diagnostics path does not collect telemetry.
 Candidate and erasure budgets propagate through the diagnostics recovery path
-and the legacy decoder/erasure counters have been removed. WP-008 remains in
-progress because `src/pipeline.rs` still reads `QR_*` environment variables
-inside library detection code; those controls must be expressed as options (or
-be moved to explicit CLI translation) before the environment-independence
-acceptance criterion can be claimed.
+and the legacy decoder/erasure counters have been removed. The library pipeline
+now uses fixed library defaults plus request-scoped options rather than reading
+`QR_*` process variables; the CLI retains environment translation only for its
+benchmark/dataset controls. Reserved QR content modes are reported through the
+diagnostic `FailureStage::UnsupportedContent` and telemetry counter rather than
+being conflated with generic payload failure.
 
 **2026-07-12 candidate-budget update:** `DecoderOptions` now carries an
 immutable candidate decode-attempt limit: Fast/Balanced/Exhaustive allocate
@@ -873,11 +889,10 @@ configured concurrent request remains unaffected. Passed:
 cargo test --lib cancellation_is_request_scoped_and_reported --all-features
 ```
 
-This closes the cancellation task but does not change WP-008 to completed:
-the remaining library environment reads must be removed or converted to
-request-scoped options, and the structured image API still needs an explicit
-unsupported-content result rather than conflating it with a generic payload
-failure.
+The option API now satisfies the request-isolation, environment-independence,
+and structured-failure acceptance criteria. Validation on 2026-07-13 passed
+`cargo fmt -- --check`, strict all-target Clippy, and `cargo test --all-features`
+(121 library tests and all integration tests).
 
 **Goal:** Replace global environment-driven and thread-local behavior with a
 production-quality library API.
@@ -1003,6 +1018,16 @@ upscaled valid symbol still groups and an impossible module span is rejected.
 This removes one fixed-pixel constraint from the proposal-to-group boundary;
 it does not yet replace the legacy grouping implementation or provide
 ROI-first raster processing.
+
+**2026-07-13 stage-evaluation evidence:** qrtool proposal-eval now measures
+proposal and grouping stages independently against scaled BoofCV quadrilateral
+labels, before transform or payload decoding can hide a failure. Its
+containment contract and recorded artifacts are documented in
+docs/wp010_stage_evaluation.md. At QR_MAX_DIM=800, nominal finder/group recall
+is 71/78 (91.03%)/59/78 (75.64%), while dense lots is 80/420 (19.05%)/3/420
+(0.71%). This makes the proposal boundary measurable, not complete: ROI-first
+raster processing, allocation-light scanline state machines, region-aware
+grouping, full-corpus evidence, and agreed category gates remain outstanding.
 
 Verified with:
 

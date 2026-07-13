@@ -203,6 +203,9 @@ pub enum FailureStage {
     ReedSolomon,
     /// Error correction succeeded but no payload could be parsed.
     Payload,
+    /// Error correction succeeded but the payload contains a QR mode this
+    /// library does not support.
+    UnsupportedContent,
 }
 
 /// Optional evidence collected for a request.
@@ -243,6 +246,9 @@ pub struct DetectionTelemetry {
     pub rs_decode_ok: usize,
     /// Number of QR codes whose payload parsed into valid content.
     pub payload_decoded: usize,
+    /// Number of error-corrected payloads rejected because they use an
+    /// unsupported QR content mode.
+    pub unsupported_content: usize,
     /// Number of decoder attempts made (one per transform/group decode try).
     pub decode_attempts: usize,
     /// Total candidate groups scored before trimming.
@@ -358,6 +364,7 @@ impl DetectionTelemetry {
         self.format_extracted = self.format_extracted.max(other.format_extracted);
         self.rs_decode_ok = self.rs_decode_ok.max(other.rs_decode_ok);
         self.payload_decoded = self.payload_decoded.max(other.payload_decoded);
+        self.unsupported_content += other.unsupported_content;
         self.decode_attempts += other.decode_attempts;
         self.candidate_groups_scored += other.candidate_groups_scored;
         self.budget_skips += other.budget_skips;
@@ -1294,6 +1301,8 @@ fn classify_failure_stage(telemetry: &DetectionTelemetry) -> FailureStage {
         FailureStage::Detection
     } else if telemetry.transforms_built == 0 {
         FailureStage::Geometry
+    } else if telemetry.unsupported_content > 0 {
+        FailureStage::UnsupportedContent
     } else if telemetry.rs_decode_ok == 0 {
         FailureStage::ReedSolomon
     } else {
@@ -1593,6 +1602,7 @@ fn detect_with_telemetry_budget(
     tel.rs_erasure_successes = counters.rs_erasure_successes;
     tel.rs_erasure_count_hist = counters.rs_erasure_count_hist;
     tel.phase11_time_budget_skips = counters.phase11_time_budget_skips;
+    tel.unsupported_content = counters.unsupported_payloads;
     (results, tel)
 }
 
@@ -1918,6 +1928,20 @@ mod tests {
             Some(FailureStage::Detection)
         );
         assert!(result.diagnostics.telemetry.is_some());
+    }
+
+    #[test]
+    fn request_diagnostics_expose_unsupported_content() {
+        let telemetry = DetectionTelemetry {
+            finder_patterns_found: 3,
+            transforms_built: 1,
+            unsupported_content: 1,
+            ..DetectionTelemetry::default()
+        };
+        assert_eq!(
+            classify_failure_stage(&telemetry),
+            FailureStage::UnsupportedContent
+        );
     }
 
     #[test]

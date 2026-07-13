@@ -154,7 +154,14 @@ fn try_decode_single_internal(
         context,
     )?;
 
-    let decoded = decode_payload_strict(&data_codewords, version_num)?;
+    let decoded = match decode_payload_strict_result(&data_codewords, version_num) {
+        Ok(decoded) => decoded,
+        Err(PayloadDecodeError::UnsupportedMode(_)) => {
+            context.counters_mut().unsupported_payloads += 1;
+            return None;
+        }
+        Err(PayloadDecodeError::Malformed) => return None,
+    };
     if decoded.data.is_empty() {
         return None;
     }
@@ -439,15 +446,26 @@ pub(super) fn decode_payload_with_metadata(
     Some((decoded.data, decoded.content, decoded.metadata))
 }
 
-fn decode_payload_strict(data_codewords: &[u8], version: u8) -> Option<DecodedPayload> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PayloadDecodeError {
+    Malformed,
+    UnsupportedMode(u8),
+}
+
+fn decode_payload_strict_result(
+    data_codewords: &[u8],
+    version: u8,
+) -> Result<DecodedPayload, PayloadDecodeError> {
     let mut bits = Vec::with_capacity(data_codewords.len() * 8);
     for &byte in data_codewords {
         for i in (0..8).rev() {
             bits.push(((byte >> i) & 1) != 0);
         }
     }
-    let decoded = decode_payload_from_bits_with_tail(&bits, version)?;
-    valid_terminator_and_padding(&bits, decoded.tail_start).then_some(decoded)
+    let decoded = decode_payload_from_bits_with_tail_result(&bits, version)?;
+    valid_terminator_and_padding(&bits, decoded.tail_start)
+        .then_some(decoded)
+        .ok_or(PayloadDecodeError::Malformed)
 }
 
 #[allow(dead_code)]
@@ -465,6 +483,13 @@ struct DecodedPayload {
 }
 
 fn decode_payload_from_bits_with_tail(bits: &[bool], version: u8) -> Option<DecodedPayload> {
+    decode_payload_from_bits_with_tail_result(bits, version).ok()
+}
+
+fn decode_payload_from_bits_with_tail_result(
+    bits: &[bool],
+    version: u8,
+) -> Result<DecodedPayload, PayloadDecodeError> {
     let mut reader = BitReader::new(bits);
     let mut data = Vec::new();
     let mut content = String::new();
@@ -475,7 +500,7 @@ fn decode_payload_from_bits_with_tail(bits: &[bool], version: u8) -> Option<Deco
             break;
         }
         let mode_start = reader.index();
-        let mode = reader.read_bits(4)? as u8;
+        let mode = reader.read_bits(4).ok_or(PayloadDecodeError::Malformed)? as u8;
         if mode == 0 {
             reader.idx = mode_start;
             break;
@@ -484,18 +509,24 @@ fn decode_payload_from_bits_with_tail(bits: &[bool], version: u8) -> Option<Deco
         match mode {
             1 => {
                 let count_bits = char_count_bits(mode, version);
-                let count = reader.read_bits(count_bits)? as usize;
+                let count = reader
+                    .read_bits(count_bits)
+                    .ok_or(PayloadDecodeError::Malformed)? as usize;
                 let start = reader.index();
-                let (decoded, used) = NumericDecoder::decode(&bits[start..], count)?;
+                let (decoded, used) = NumericDecoder::decode(&bits[start..], count)
+                    .ok_or(PayloadDecodeError::Malformed)?;
                 reader.advance(used);
                 data.extend_from_slice(decoded.as_bytes());
                 content.push_str(&decoded);
             }
             2 => {
                 let count_bits = char_count_bits(mode, version);
-                let count = reader.read_bits(count_bits)? as usize;
+                let count = reader
+                    .read_bits(count_bits)
+                    .ok_or(PayloadDecodeError::Malformed)? as usize;
                 let start = reader.index();
-                let (decoded, used) = AlphanumericDecoder::decode(&bits[start..], count)?;
+                let (decoded, used) = AlphanumericDecoder::decode(&bits[start..], count)
+                    .ok_or(PayloadDecodeError::Malformed)?;
                 reader.advance(used);
                 let decoded = apply_fnc1_substitution(&decoded, metadata.fnc1.is_some());
                 data.extend_from_slice(decoded.as_bytes());
@@ -503,35 +534,42 @@ fn decode_payload_from_bits_with_tail(bits: &[bool], version: u8) -> Option<Deco
             }
             4 => {
                 let count_bits = char_count_bits(mode, version);
-                let count = reader.read_bits(count_bits)? as usize;
+                let count = reader
+                    .read_bits(count_bits)
+                    .ok_or(PayloadDecodeError::Malformed)? as usize;
                 let mut bytes = Vec::with_capacity(count);
                 for _ in 0..count {
-                    let byte = reader.read_bits(8)? as u8;
+                    let byte = reader.read_bits(8).ok_or(PayloadDecodeError::Malformed)? as u8;
                     bytes.push(byte);
                 }
                 data.extend_from_slice(&bytes);
                 content.push_str(&String::from_utf8_lossy(&bytes));
             }
             7 => {
-                metadata.eci_assignment = Some(read_eci_assignment(&mut reader)?);
+                metadata.eci_assignment =
+                    Some(read_eci_assignment(&mut reader).ok_or(PayloadDecodeError::Malformed)?);
             }
             8 => {
                 let count_bits = char_count_bits(mode, version);
-                let count = reader.read_bits(count_bits)? as usize;
+                let count = reader
+                    .read_bits(count_bits)
+                    .ok_or(PayloadDecodeError::Malformed)? as usize;
                 let mut sjis_bytes = Vec::with_capacity(count * 2);
                 let start = reader.index();
-                let (decoded, used) = KanjiDecoder::decode(&bits[start..], count)?;
+                let (decoded, used) = KanjiDecoder::decode(&bits[start..], count)
+                    .ok_or(PayloadDecodeError::Malformed)?;
                 reader.advance(used);
                 sjis_bytes.extend_from_slice(&decoded);
                 data.extend_from_slice(&sjis_bytes);
                 content.push_str(&String::from_utf8_lossy(&sjis_bytes));
             }
             3 => {
-                let index = reader.read_bits(4)? as u8;
-                let total_symbols = reader.read_bits(4)? as u8 + 1;
-                let parity = reader.read_bits(8)? as u8;
+                let index = reader.read_bits(4).ok_or(PayloadDecodeError::Malformed)? as u8;
+                let total_symbols =
+                    reader.read_bits(4).ok_or(PayloadDecodeError::Malformed)? as u8 + 1;
+                let parity = reader.read_bits(8).ok_or(PayloadDecodeError::Malformed)? as u8;
                 if metadata.structured_append.is_some() {
-                    return None;
+                    return Err(PayloadDecodeError::Malformed);
                 }
                 metadata.structured_append = Some(StructuredAppendInfo {
                     index,
@@ -541,23 +579,26 @@ fn decode_payload_from_bits_with_tail(bits: &[bool], version: u8) -> Option<Deco
             }
             5 => {
                 if metadata.fnc1.is_some() {
-                    return None;
+                    return Err(PayloadDecodeError::Malformed);
                 }
                 metadata.fnc1 = Some(Fnc1Position::First);
             }
             9 => {
                 if metadata.fnc1.is_some() {
-                    return None;
+                    return Err(PayloadDecodeError::Malformed);
                 }
                 metadata.fnc1 = Some(Fnc1Position::Second {
-                    application_indicator: reader.read_bits(8)? as u8,
+                    application_indicator: reader
+                        .read_bits(8)
+                        .ok_or(PayloadDecodeError::Malformed)?
+                        as u8,
                 });
             }
-            _ => return None,
+            _ => return Err(PayloadDecodeError::UnsupportedMode(mode)),
         }
     }
 
-    Some(DecodedPayload {
+    Ok(DecodedPayload {
         data,
         content,
         metadata,
@@ -718,5 +759,14 @@ mod tests {
         let (cw, cc) = bits_to_codewords_with_confidence(&bits, &conf, true);
         assert_eq!(cw.len(), 2);
         assert_eq!(cc, vec![10, 255]);
+    }
+
+    #[test]
+    fn payload_reports_reserved_mode_as_unsupported() {
+        let bits = [false, true, true, false]; // Reserved mode 0110.
+        assert_eq!(
+            decode_payload_from_bits_with_tail_result(&bits, 1),
+            Err(PayloadDecodeError::UnsupportedMode(6))
+        );
     }
 }

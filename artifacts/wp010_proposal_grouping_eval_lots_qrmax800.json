@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "evaluator": "finder-proposal-grouping-contained-centres-v1",
+  "dataset": "benches/images/boofcv/lots",
+  "dataset_fingerprint": "e726c9d0081f08cc",
+  "label_fingerprint": "5d1a63308e7000a9",
+  "images": 7,
+  "expected_symbols": 420,
+  "finder_hits": 80,
+  "grouping_hits": 3,
+  "finder_recall": 0.19047619,
+  "grouping_recall": 0.00714286,
+  "spurious_proposals": 41,
+  "spurious_groups": 72,
+  "raw_candidates": 687,
+  "proposals_after_nms": 417,
+  "proposal_latency_ms": {"mean": 5.348113, "p50": 5.200750, "p95": 6.216125},
+  "grouping_latency_ms": {"mean": 0.017417, "p50": 0.024542, "p95": 0.034959}
+}

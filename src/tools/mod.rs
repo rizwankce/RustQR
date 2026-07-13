@@ -1,6 +1,8 @@
 #![allow(clippy::items_after_test_module)]
 
+use crate::detector::finder::{FinderDetector, FinderScanTelemetry};
 use crate::models::BitMatrix;
+use crate::pipeline::group_finder_patterns;
 use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
 use crate::utils::grayscale::rgb_to_grayscale;
 use crate::{QRCode, detect};
@@ -34,6 +36,138 @@ pub struct PayloadScore {
     pub exact_matches: usize,
     pub expected: usize,
     pub predicted: usize,
+}
+
+/// Stage-level result for one labeled image.  This deliberately measures
+/// single-finder proposals and three-finder groups before transform/sampling
+/// and payload decoding can hide a localization failure.
+#[derive(Debug, Clone)]
+pub struct FinderGroupingEvaluation {
+    /// Number of annotated QR symbols in the image.
+    pub expected_symbols: usize,
+    /// Symbols containing at least three retained finder proposals.
+    pub finder_hits: usize,
+    /// Symbols containing at least one geometrically valid finder group.
+    pub grouping_hits: usize,
+    /// Proposals whose centres are outside every annotated symbol.
+    pub spurious_proposals: usize,
+    /// Groups whose three centres are not contained by one annotated symbol.
+    pub spurious_groups: usize,
+    /// Scan-stage counters, recorded alongside latency for diagnosis.
+    pub scan_telemetry: FinderScanTelemetry,
+    /// Time spent in the scan/rank/NMS proposal stage.
+    pub proposal_latency_ms: f64,
+    /// Time spent grouping the retained proposal patterns.
+    pub grouping_latency_ms: f64,
+}
+
+impl FinderGroupingEvaluation {
+    pub fn finder_recall(&self) -> f64 {
+        ratio(self.finder_hits, self.expected_symbols)
+    }
+
+    pub fn grouping_recall(&self) -> f64 {
+        ratio(self.grouping_hits, self.expected_symbols)
+    }
+}
+
+fn ratio(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        numerator as f64 / denominator as f64
+    }
+}
+
+/// Measure finder-proposal and grouping recall against labeled symbol bounds.
+///
+/// A symbol is a finder-stage hit when at least three retained proposal
+/// centres lie within its annotated quadrilateral.  It is a grouping hit when
+/// one output group has all three centres within that same quadrilateral.
+/// This is intentionally a conservative stage contract: it makes no claim
+/// about transform quality or successful payload decoding.
+pub fn evaluate_finder_and_grouping(
+    matrix: &BitMatrix,
+    expected: &[Quadrilateral],
+) -> FinderGroupingEvaluation {
+    let proposal_start = std::time::Instant::now();
+    let report = FinderDetector::detect_proposals(matrix);
+    let proposal_latency_ms = proposal_start.elapsed().as_secs_f64() * 1_000.0;
+
+    let patterns: Vec<_> = report
+        .proposals
+        .iter()
+        .map(|proposal| proposal.pattern.clone())
+        .collect();
+    let grouping_start = std::time::Instant::now();
+    let groups = group_finder_patterns(&patterns);
+    let grouping_latency_ms = grouping_start.elapsed().as_secs_f64() * 1_000.0;
+
+    let proposal_in_symbol = |proposal_index: usize, symbol: &Quadrilateral| {
+        let center = &patterns[proposal_index].center;
+        point_in_quadrilateral([center.x, center.y], symbol)
+    };
+    let finder_hits = expected
+        .iter()
+        .filter(|symbol| {
+            patterns
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| proposal_in_symbol(*index, symbol))
+                .count()
+                >= 3
+        })
+        .count();
+    let grouping_hits = expected
+        .iter()
+        .filter(|symbol| {
+            groups.iter().any(|group| {
+                group.len() == 3 && group.iter().all(|index| proposal_in_symbol(*index, symbol))
+            })
+        })
+        .count();
+    let spurious_proposals = patterns
+        .iter()
+        .filter(|pattern| {
+            !expected
+                .iter()
+                .any(|symbol| point_in_quadrilateral([pattern.center.x, pattern.center.y], symbol))
+        })
+        .count();
+    let spurious_groups = groups
+        .iter()
+        .filter(|group| {
+            !expected.iter().any(|symbol| {
+                group.len() == 3 && group.iter().all(|index| proposal_in_symbol(*index, symbol))
+            })
+        })
+        .count();
+
+    FinderGroupingEvaluation {
+        expected_symbols: expected.len(),
+        finder_hits,
+        grouping_hits,
+        spurious_proposals,
+        spurious_groups,
+        scan_telemetry: report.telemetry,
+        proposal_latency_ms,
+        grouping_latency_ms,
+    }
+}
+
+fn point_in_quadrilateral(point: [f32; 2], quadrilateral: &Quadrilateral) -> bool {
+    let orientation = signed_area(quadrilateral).signum();
+    if orientation == 0.0 {
+        return false;
+    }
+    quadrilateral
+        .iter()
+        .zip(quadrilateral.iter().cycle().skip(1))
+        .take(quadrilateral.len())
+        .all(|(a, b)| {
+            let cross = (b[0] - a[0]) * (point[1] - a[1]) - (b[1] - a[1]) * (point[0] - a[0]);
+            cross * orientation >= -1e-3
+        })
 }
 
 impl PayloadScore {
@@ -669,10 +803,12 @@ pub fn parse_expected_qr_count<P: AsRef<Path>>(txt_path: P) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        dataset_fingerprint, label_fingerprint, normalize_payload, parse_expected_qr_count,
-        parse_localization_labels, parse_payload_label, quadrilateral_iou, scale_quadrilaterals,
-        score_localizations, score_payloads,
+        dataset_fingerprint, evaluate_finder_and_grouping, label_fingerprint, normalize_payload,
+        parse_expected_qr_count, parse_localization_labels, parse_payload_label,
+        point_in_quadrilateral, quadrilateral_iou, scale_quadrilaterals, score_localizations,
+        score_payloads,
     };
+    use crate::models::BitMatrix;
     use std::fs::{self, create_dir_all};
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -752,6 +888,45 @@ mod tests {
 
     fn square(x: f32, y: f32, size: f32) -> [[f32; 2]; 4] {
         [[x, y], [x + size, y], [x + size, y + size], [x, y + size]]
+    }
+
+    fn draw_finder(matrix: &mut BitMatrix, start_x: usize, start_y: usize, module: usize) {
+        for module_y in 0..7 {
+            for module_x in 0..7 {
+                let border = module_x == 0 || module_x == 6 || module_y == 0 || module_y == 6;
+                let centre = (2..=4).contains(&module_x) && (2..=4).contains(&module_y);
+                if border || centre {
+                    for y in start_y + module_y * module..start_y + (module_y + 1) * module {
+                        for x in start_x + module_x * module..start_x + (module_x + 1) * module {
+                            matrix.set(x, y, true);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn proposal_evaluator_separates_finder_and_grouping_stages() {
+        let mut matrix = BitMatrix::new(128, 128);
+        draw_finder(&mut matrix, 12, 12, 3);
+        draw_finder(&mut matrix, 84, 12, 3);
+        draw_finder(&mut matrix, 12, 84, 3);
+        let evaluation = evaluate_finder_and_grouping(&matrix, &[square(0.0, 0.0, 120.0)]);
+        assert_eq!(evaluation.expected_symbols, 1);
+        assert_eq!(evaluation.finder_hits, 1);
+        assert_eq!(evaluation.grouping_hits, 1);
+        assert!(evaluation.proposal_latency_ms >= 0.0);
+        assert!(evaluation.grouping_latency_ms >= 0.0);
+    }
+
+    #[test]
+    fn stage_evaluator_contains_points_for_both_quad_windings() {
+        let clockwise = square(0.0, 0.0, 10.0);
+        let counter_clockwise = [clockwise[3], clockwise[2], clockwise[1], clockwise[0]];
+        assert!(point_in_quadrilateral([5.0, 5.0], &clockwise));
+        assert!(point_in_quadrilateral([5.0, 5.0], &counter_clockwise));
+        assert!(!point_in_quadrilateral([15.0, 5.0], &clockwise));
     }
 
     #[test]

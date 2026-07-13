@@ -49,6 +49,19 @@ class MaterializerTests(unittest.TestCase):
             self.assertGreater(result["capacity_validation"][0]["maximum_units"], 0)
             self.assertTrue(result["capacity_validation"][0]["maximum_plus_one_rejected"])
 
+    def test_full_profile_skips_duplicate_capacity_probes(self):
+        """The full grid proves masks/versions; foundation owns capacity evidence."""
+        manifest = GENERATOR.generate_manifest(full=True)
+        # Keep this unit test tiny while retaining the profile contract.
+        manifest["cases"] = [
+            next(case for case in manifest["cases"] if case["mode"] == "byte")
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            result = MATERIALIZER.materialize(path)
+            self.assertEqual(result["capacity_validation"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

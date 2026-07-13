@@ -4,9 +4,10 @@ use rust_qr::detector::finder::FinderDetector;
 use rust_qr::models::{BitMatrix, Point};
 use rust_qr::tools::{
     bench_limit_from_env, binarize, binary_stats, dataset_fingerprint, dataset_iter,
-    dataset_root_from_env, detect_qr, grayscale_stats, label_fingerprint, load_rgb,
-    load_rgb_with_geometry, parse_localization_labels, parse_payload_label, scale_quadrilaterals,
-    score_localizations, score_payloads, smoke_from_env, to_grayscale,
+    dataset_root_from_env, detect_qr, evaluate_finder_and_grouping, grayscale_stats,
+    label_fingerprint, load_rgb, load_rgb_with_geometry, parse_localization_labels,
+    parse_payload_label, scale_quadrilaterals, score_localizations, score_payloads, smoke_from_env,
+    to_grayscale,
 };
 use rust_qr::utils::geometry::PerspectiveTransform;
 use std::collections::BTreeMap;
@@ -71,6 +72,24 @@ enum Command {
         #[arg(long)]
         payload_validated: bool,
     },
+    /// Measure finder-proposal and grouping stages against localization labels.
+    ProposalEval {
+        /// Dataset root (default: QR_DATASET_ROOT or benches/images/boofcv)
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Max images total (default: QR_BENCH_LIMIT; 0 means all)
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Use the checked-in smoke subset.
+        #[arg(long)]
+        smoke: bool,
+        /// Optional category to run (e.g. nominal, lots, rotations).
+        #[arg(long)]
+        category: Option<String>,
+        /// Write a machine-readable JSON evidence artifact.
+        #[arg(long, value_name = "PATH")]
+        artifact_json: Option<PathBuf>,
+    },
     /// Iterate a dataset and run detection once per image
     DatasetBench {
         #[arg(long)]
@@ -110,8 +129,205 @@ fn main() {
             timeout_ms,
             payload_validated,
         }),
+        Command::ProposalEval {
+            root,
+            limit,
+            smoke,
+            category,
+            artifact_json,
+        } => proposal_eval_cmd(
+            root,
+            limit,
+            smoke,
+            category.as_deref(),
+            artifact_json.as_deref(),
+        ),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
     }
+}
+
+#[derive(Default)]
+struct ProposalEvalStats {
+    images: usize,
+    expected_symbols: usize,
+    finder_hits: usize,
+    grouping_hits: usize,
+    spurious_proposals: usize,
+    spurious_groups: usize,
+    raw_candidates: usize,
+    proposals_after_nms: usize,
+    proposal_ms: Vec<f64>,
+    grouping_ms: Vec<f64>,
+}
+
+impl ProposalEvalStats {
+    fn add(&mut self, evaluation: rust_qr::tools::FinderGroupingEvaluation) {
+        self.images += 1;
+        self.expected_symbols += evaluation.expected_symbols;
+        self.finder_hits += evaluation.finder_hits;
+        self.grouping_hits += evaluation.grouping_hits;
+        self.spurious_proposals += evaluation.spurious_proposals;
+        self.spurious_groups += evaluation.spurious_groups;
+        self.raw_candidates += evaluation.scan_telemetry.raw_candidates;
+        self.proposals_after_nms += evaluation.scan_telemetry.proposals_after_nms;
+        self.proposal_ms.push(evaluation.proposal_latency_ms);
+        self.grouping_ms.push(evaluation.grouping_latency_ms);
+    }
+}
+
+fn proposal_eval_cmd(
+    root: Option<PathBuf>,
+    limit: Option<usize>,
+    smoke: bool,
+    category: Option<&str>,
+    artifact_json: Option<&Path>,
+) {
+    let root = root.unwrap_or_else(dataset_root_from_env);
+    let limit = limit.or_else(bench_limit_from_env);
+    let smoke = smoke || smoke_from_env();
+    let evaluation_root = category.map_or_else(|| root.clone(), |name| root.join(name));
+    if !evaluation_root.exists() {
+        eprintln!("Dataset root not found: {}", evaluation_root.display());
+        std::process::exit(2);
+    }
+
+    let mut stats = ProposalEvalStats::default();
+    for image_path in dataset_iter(&evaluation_root, limit, smoke) {
+        let label_path = image_path.with_extension("txt");
+        if !label_path.exists() {
+            continue;
+        }
+        let labels = parse_localization_labels(&label_path).unwrap_or_else(|error| {
+            eprintln!("invalid label {}: {error}", label_path.display());
+            std::process::exit(2);
+        });
+        let loaded = load_rgb_with_geometry(&image_path).unwrap_or_else(|error| {
+            eprintln!("failed to load {}: {error}", image_path.display());
+            std::process::exit(2);
+        });
+        let expected = scale_quadrilaterals(
+            &labels.quadrilaterals,
+            (loaded.source_width, loaded.source_height),
+            (loaded.width, loaded.height),
+        );
+        let gray = to_grayscale(&loaded.pixels, loaded.width, loaded.height);
+        let binary = binarize(&gray, loaded.width, loaded.height);
+        stats.add(evaluate_finder_and_grouping(&binary, &expected));
+    }
+
+    if stats.images == 0 {
+        eprintln!(
+            "No labeled images found under {}",
+            evaluation_root.display()
+        );
+        std::process::exit(2);
+    }
+    let finder_recall = metric_ratio(stats.finder_hits, stats.expected_symbols);
+    let grouping_recall = metric_ratio(stats.grouping_hits, stats.expected_symbols);
+    let proposal_summary = latency_summary(&stats.proposal_ms);
+    let grouping_summary = latency_summary(&stats.grouping_ms);
+    println!("Finder/grouping stage evaluation");
+    println!("Dataset: {}", evaluation_root.display());
+    println!(
+        "Images: {} | annotated symbols: {}",
+        stats.images, stats.expected_symbols
+    );
+    println!(
+        "Finder recall: {}/{} ({:.2}%) | grouping recall: {}/{} ({:.2}%)",
+        stats.finder_hits,
+        stats.expected_symbols,
+        finder_recall * 100.0,
+        stats.grouping_hits,
+        stats.expected_symbols,
+        grouping_recall * 100.0,
+    );
+    println!(
+        "Spurious proposals/groups: {}/{} | raw/NMS proposals: {}/{}",
+        stats.spurious_proposals,
+        stats.spurious_groups,
+        stats.raw_candidates,
+        stats.proposals_after_nms,
+    );
+    println!(
+        "Proposal ms (mean/p50/p95): {:.3}/{:.3}/{:.3} | grouping: {:.3}/{:.3}/{:.3}",
+        proposal_summary.0,
+        proposal_summary.1,
+        proposal_summary.2,
+        grouping_summary.0,
+        grouping_summary.1,
+        grouping_summary.2,
+    );
+    if let Some(path) = artifact_json {
+        let artifact = format!(
+            r#"{{
+  "schema_version": 1,
+  "evaluator": "finder-proposal-grouping-contained-centres-v1",
+  "dataset": "{}",
+  "dataset_fingerprint": "{}",
+  "label_fingerprint": "{}",
+  "images": {},
+  "expected_symbols": {},
+  "finder_hits": {},
+  "grouping_hits": {},
+  "finder_recall": {:.8},
+  "grouping_recall": {:.8},
+  "spurious_proposals": {},
+  "spurious_groups": {},
+  "raw_candidates": {},
+  "proposals_after_nms": {},
+  "proposal_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}},
+  "grouping_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}}
+}}
+"#,
+            json_escape(&evaluation_root.to_string_lossy()),
+            dataset_fingerprint(&evaluation_root),
+            label_fingerprint(&evaluation_root),
+            stats.images,
+            stats.expected_symbols,
+            stats.finder_hits,
+            stats.grouping_hits,
+            finder_recall,
+            grouping_recall,
+            stats.spurious_proposals,
+            stats.spurious_groups,
+            stats.raw_candidates,
+            stats.proposals_after_nms,
+            proposal_summary.0,
+            proposal_summary.1,
+            proposal_summary.2,
+            grouping_summary.0,
+            grouping_summary.1,
+            grouping_summary.2,
+        );
+        fs::write(path, artifact).unwrap_or_else(|error| {
+            eprintln!("failed to write {}: {error}", path.display());
+            std::process::exit(2);
+        });
+        println!("Artifact: {}", path.display());
+    }
+}
+
+fn metric_ratio(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        numerator as f64 / denominator as f64
+    }
+}
+
+fn latency_summary(samples: &[f64]) -> (f64, f64, f64) {
+    if samples.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(|a, b| a.total_cmp(b));
+    let percentile =
+        |fraction: f64| sorted[((sorted.len() - 1) as f64 * fraction).round() as usize];
+    (
+        samples.iter().sum::<f64>() / samples.len() as f64,
+        percentile(0.5),
+        percentile(0.95),
+    )
 }
 
 fn detect_cmd(image: &Path) {

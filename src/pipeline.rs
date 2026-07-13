@@ -6,7 +6,6 @@ use crate::models::{BitMatrix, ECLevel, Point, QRCode};
 use crate::utils::geometry::PerspectiveTransform;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::env;
 
 const MAX_GROUP_CANDIDATES: usize = 40;
 const DEFAULT_DECODE_TOP_K: usize = 6;
@@ -782,46 +781,9 @@ fn decode_top_k_limit(total_candidates: usize) -> usize {
     if total_candidates == 0 {
         return 0;
     }
-    let parsed = env::var("QR_DECODE_TOP_K")
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .filter(|&v| v > 0)
-        .unwrap_or(DEFAULT_DECODE_TOP_K)
-        .clamp(1, MAX_DECODE_TOP_K);
-    parsed.min(total_candidates)
-}
-
-fn decode_f32_env(key: &str, default: f32, min: f32, max: f32) -> f32 {
-    env::var(key)
-        .ok()
-        .and_then(|v| v.trim().parse::<f32>().ok())
-        .map(|v| v.clamp(min, max))
-        .unwrap_or(default)
-}
-
-fn decode_usize_env(key: &str, default: usize, min: usize, max: usize) -> usize {
-    env::var(key)
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .map(|v| v.clamp(min, max))
-        .unwrap_or(default)
-}
-
-fn high_group_confidence() -> f32 {
-    decode_f32_env("QR_GROUP_HIGH_CONF", HIGH_GROUP_CONFIDENCE, 0.3, 0.99)
-}
-
-fn low_top_group_confidence() -> f32 {
-    decode_f32_env("QR_GROUP_LOW_TOP_CONF", LOW_TOP_GROUP_CONFIDENCE, 0.2, 0.95)
-}
-
-fn single_qr_confidence_floor() -> f32 {
-    decode_f32_env(
-        "QR_SINGLE_QR_CONF_FLOOR",
-        SINGLE_QR_CONFIDENCE_FLOOR,
-        0.2,
-        0.99,
-    )
+    DEFAULT_DECODE_TOP_K
+        .clamp(1, MAX_DECODE_TOP_K)
+        .min(total_candidates)
 }
 
 fn decode_proxy_confidence(qr: &QRCode) -> f32 {
@@ -988,13 +950,8 @@ fn bbox_iou(a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)) -> f32 {
     inter / denom
 }
 
-fn decode_acceptance_floor() -> f32 {
-    decode_f32_env("QR_ACCEPTANCE_MIN", 0.56, 0.2, 0.98)
-}
-
-fn decode_relaxed_acceptance_floor() -> f32 {
-    decode_f32_env("QR_ACCEPTANCE_RELAXED_MIN", 0.64, 0.2, 0.99)
-}
+const DECODE_ACCEPTANCE_FLOOR: f32 = 0.56;
+const DECODE_RELAXED_ACCEPTANCE_FLOOR: f32 = 0.64;
 
 fn payload_plausibility(content: &str) -> f32 {
     if content.is_empty() {
@@ -1335,12 +1292,7 @@ fn decode_ranked_groups(
     }
 
     let top_k = decode_top_k_limit(candidates.len());
-    let mut max_decode_attempts = decode_usize_env(
-        "QR_MAX_DECODE_ATTEMPTS",
-        DEFAULT_MAX_DECODE_ATTEMPTS,
-        1,
-        1024,
-    );
+    let mut max_decode_attempts = DEFAULT_MAX_DECODE_ATTEMPTS;
     if let Some(limit) = attempt_limit {
         max_decode_attempts = max_decode_attempts.min(limit);
     }
@@ -1350,22 +1302,16 @@ fn decode_ranked_groups(
         }
         return Vec::new();
     }
-    let mut max_transforms = decode_usize_env("QR_MAX_TRANSFORMS", DEFAULT_MAX_TRANSFORMS, 1, 512)
-        .min(max_decode_attempts.max(1));
-    let high_group_conf = high_group_confidence();
-    let low_top_group_conf = low_top_group_confidence();
-    let single_qr_floor = single_qr_confidence_floor();
+    let mut max_transforms = DEFAULT_MAX_TRANSFORMS.min(max_decode_attempts.max(1));
+    let high_group_conf = HIGH_GROUP_CONFIDENCE;
+    let low_top_group_conf = LOW_TOP_GROUP_CONFIDENCE;
+    let single_qr_floor = SINGLE_QR_CONFIDENCE_FLOOR;
     let top = candidates[0];
     let fast_signals = extract_fast_signals(gray, width, height, candidates);
     let strategy = select_strategy(candidates, fast_signals);
     if matches!(strategy, StrategyProfile::MultiQrHeavy) {
-        let base_regions = decode_usize_env("QR_MAX_REGIONS", DEFAULT_MAX_REGIONS, 1, 64);
-        let mut base_top_k = decode_usize_env(
-            "QR_PER_REGION_TOP_K",
-            DEFAULT_PER_REGION_TOP_K,
-            1,
-            MAX_DECODE_TOP_K,
-        );
+        let base_regions = DEFAULT_MAX_REGIONS;
+        let mut base_top_k = DEFAULT_PER_REGION_TOP_K;
         base_top_k = base_top_k.max(16);
         let scaled_budget = (base_regions * base_top_k * 2).min(512);
         // Multi-QR images require substantially larger attempt budgets.
@@ -1387,7 +1333,7 @@ fn decode_ranked_groups(
         tel.router_region_density_proxy = fast_signals.region_density_proxy;
     }
     let mut lane_budget = lane_budget_from_attempts(max_decode_attempts, strategy);
-    let heavy_recovery_top_n = decode_usize_env("QR_HEAVY_RECOVERY_TOP_N", 2, 0, 16);
+    let heavy_recovery_top_n = 2;
     let mut should_expand = candidates
         .iter()
         .filter(|c| c.geometry_confidence >= high_group_conf)
@@ -1436,7 +1382,7 @@ fn decode_ranked_groups(
             context,
         ) {
             let acceptance = acceptance_score(&qr, first.geometry_confidence);
-            let floor = decode_acceptance_floor();
+            let floor = DECODE_ACCEPTANCE_FLOOR;
             if acceptance >= floor {
                 if let Some(tel) = telemetry.as_mut() {
                     tel.rs_decode_ok += 1;
@@ -1477,14 +1423,9 @@ fn decode_ranked_groups(
         return results;
     }
 
-    let mut max_regions = decode_usize_env("QR_MAX_REGIONS", DEFAULT_MAX_REGIONS, 1, 64);
-    let mut per_region_top_k = decode_usize_env(
-        "QR_PER_REGION_TOP_K",
-        DEFAULT_PER_REGION_TOP_K,
-        1,
-        MAX_DECODE_TOP_K,
-    );
-    let mut per_region_attempt_cap = decode_usize_env("QR_PER_REGION_ATTEMPTS", 3, 1, 64);
+    let mut max_regions = DEFAULT_MAX_REGIONS;
+    let mut per_region_top_k = DEFAULT_PER_REGION_TOP_K;
+    let mut per_region_attempt_cap = 3;
     match strategy {
         StrategyProfile::MultiQrHeavy => {
             max_regions = max_regions.max(32);
@@ -1514,7 +1455,7 @@ fn decode_ranked_groups(
         per_region_attempt_cap = per_region_attempt_cap.max(remaining_attempts.min(128));
     }
 
-    let relaxed_floor = decode_relaxed_acceptance_floor();
+    let relaxed_floor = DECODE_RELAXED_ACCEPTANCE_FLOOR;
     for region in regions {
         for (region_attempts, &idx) in region.indices.iter().take(per_region_top_k).enumerate() {
             if used_transforms >= max_transforms || used_attempts >= max_decode_attempts {
