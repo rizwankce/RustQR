@@ -1125,6 +1125,19 @@ and category-level gates for high_version, perspective, curved, rotations,
 brightness, bright_spots, glare, and shadows still need reproducible
 before/after evidence.
 
+**2026-07-13 high-version deadline probe:** A one-image `high_version` run at
+`QR_MAX_DIM=800` with `--timeout-ms 2500` scored 0/1 and one timeout, but took
+11,680.04 ms end-to-end (11,630.31 ms core). Its 29 decode attempts included
+2,925 subpixel samples and 48 bounded refinement attempts, with no refinement
+success. The request deadline is cooperative: decoder recovery polls it, but
+the outer binarization-policy scheduler does not check it before starting a
+new binarization/finder pass, and those scan APIs cannot yet be interrupted.
+The deadline therefore discards a late result rather than imposing a hard
+wall-clock cap. This is an evidence-backed pipeline cancellation gap, not a
+geometry-only change; see `docs/wp011_high_version_probe.md`. Preserve the
+in-progress status until the scheduler is bounded and category-level
+before/after artifacts are collected.
+
 **Acceptance criteria:**
 
 - Improvements are demonstrated separately for `high_version`, `perspective`,
