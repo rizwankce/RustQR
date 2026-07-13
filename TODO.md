@@ -1224,6 +1224,18 @@ the earlier 32/50 run, not completion: the 90%/<500 ms target remains unmet.
 See `docs/wp012_raster_scenes.md` and
 `artifacts/wp012_controlled_dense_by_density_qrmax0.json`.
 
+**2026-07-13 bounded strict-transform scheduling:** The first two dense
+recovery-eligible candidates preserve the existing 25-point bottom-right
+transform sweep. Every later retained candidate still receives a strict ISO
+decode, but uses a fixed center-plus-cardinal five-point sweep instead of the
+full recovery frontier. A three-iteration in-process release probe retained
+48 decoded symbols per call and reduced warm `dense_50` time from 1779.29 ms
+to 414.72 ms; requested bytes fell from 94,802,508 to 36,307,489. The public
+geometry evaluator measured 43/50 (86.00%) in 455.85 ms with zero false
+positives, zero duplicates, and no timeouts. This clears the controlled
+latency half of the target, not the 90% recall half, so WP-012 remains in
+progress.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.

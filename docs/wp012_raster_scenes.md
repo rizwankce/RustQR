@@ -58,3 +58,20 @@ met**: this corpus gives 86% recall in 2139.27 ms. The flat-scene failure
 rules out treating camera distortion as the main current blocker; candidate
 sampling/ranking still needs work, and throughput remains well outside the
 target.
+
+## 2026-07-13 bounded strict-transform scheduling
+
+Dense requests keep the full 25-point bottom-right transform sweep for the
+first two recovery-eligible candidates. Every later retained candidate still
+receives a strict ISO Model 2 decode, but uses a fixed center-plus-cardinal
+five-point sweep; it does not consume the recovery transform frontier. This is
+bounded candidate scheduling, not a relaxation of matrix validation or an
+increase to the 128-candidate request cap.
+
+A three-iteration in-process release probe of `dense_50` retained 48 decoded
+symbols per call and reduced warm `detect` time from 1,779.29 ms to 414.72 ms.
+Per-call allocations fell from 444,857 to 183,493 and requested bytes from
+94,802,508 to 36,307,489. The public geometry evaluator recorded 43/50
+(86.00%) in 455.85 ms with zero false positives, zero duplicates, and no
+timeouts. Therefore the latency half of the 50-symbol target is met on this
+controlled lane, but recall is still below 90%; WP-012 remains in progress.

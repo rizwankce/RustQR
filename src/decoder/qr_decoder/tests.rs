@@ -16,6 +16,18 @@ fn matrix_api_rejects_invalid_and_mismatched_dimensions() {
 }
 
 #[test]
+fn dense_strict_transform_sweep_is_centered_and_bounded() {
+    assert_eq!(DENSE_STRICT_BOTTOM_RIGHT_OFFSETS.len(), 5);
+    assert_eq!(DENSE_STRICT_BOTTOM_RIGHT_OFFSETS[0], (0.0, 0.0));
+    assert!(
+        DENSE_STRICT_BOTTOM_RIGHT_OFFSETS
+            .iter()
+            .all(|(x, y)| x.abs() <= 2.0 && y.abs() <= 2.0)
+    );
+    assert!(BOTTOM_RIGHT_OFFSETS.len() > DENSE_STRICT_BOTTOM_RIGHT_OFFSETS.len());
+}
+
+#[test]
 fn matrix_api_advertises_supported_metadata_modes() {
     let matrix = BitMatrix::new(21, 21);
     for mode in [

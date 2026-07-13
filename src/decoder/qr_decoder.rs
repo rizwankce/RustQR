@@ -38,6 +38,14 @@ const BOTTOM_RIGHT_OFFSETS: [(f32, f32); 25] = [
     (4.0, 4.0),
 ];
 
+// Dense routing still gives every retained candidate a strict Model 2 decode,
+// but after the request's two recovery-eligible attempts it must not spend the
+// complete 25-point transform sweep on each clean late candidate.  Keep the
+// central hypothesis plus one module in each cardinal direction; the full
+// sweep above remains available to bounded recovery attempts.
+const DENSE_STRICT_BOTTOM_RIGHT_OFFSETS: [(f32, f32); 5] =
+    [(0.0, 0.0), (-2.0, 0.0), (2.0, 0.0), (0.0, -2.0), (0.0, 2.0)];
+
 /// Main QR decoder that processes a detected QR region
 pub struct QrDecoder;
 
@@ -440,9 +448,15 @@ impl QrDecoder {
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
         let (candidates, candidate_count) = Self::version_candidates(estimated_version);
 
+        let bottom_right_offsets: &[(f32, f32)] = if allow_matrix_recovery {
+            &BOTTOM_RIGHT_OFFSETS
+        } else {
+            &DENSE_STRICT_BOTTOM_RIGHT_OFFSETS
+        };
+
         for &version_num in &candidates[..candidate_count] {
             let dimension = 17 + 4 * version_num as usize;
-            for &(dx, dy) in &BOTTOM_RIGHT_OFFSETS {
+            for &(dx, dy) in bottom_right_offsets {
                 let br = Point::new(bottom_right.x + dx * step, bottom_right.y + dy * step);
                 let transform =
                     match Self::build_transform(top_left, top_right, bottom_left, &br, dimension) {
