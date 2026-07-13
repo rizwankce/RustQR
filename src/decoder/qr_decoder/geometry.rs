@@ -350,34 +350,102 @@ pub(super) fn refine_transform_with_alignment(
     top_right: &Point,
     bottom_left: &Point,
 ) -> Option<PerspectiveTransform> {
+    refine_transform_with_timing_and_alignment(
+        binary,
+        None,
+        0,
+        0,
+        transform,
+        version_num,
+        dimension,
+        module_size,
+        top_left,
+        top_right,
+        bottom_left,
+    )
+}
+
+/// Refine a finder-derived homography with a fixed number of alignment probes
+/// and, when available, grayscale timing residuals.
+///
+/// The fit deliberately remains bounded: it inspects at most six alignment
+/// centers and evaluates nine sub-module offsets for each observed center.
+/// Every spec-relevant alignment center still contributes to ranking, so a
+/// high-version candidate is not selected solely by its far-corner pattern.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn refine_transform_with_timing_and_alignment(
+    binary: &BitMatrix,
+    gray: Option<&[u8]>,
+    gray_width: usize,
+    gray_height: usize,
+    transform: &PerspectiveTransform,
+    version_num: u8,
+    dimension: usize,
+    module_size: f32,
+    top_left: &Point,
+    top_right: &Point,
+    bottom_left: &Point,
+) -> Option<PerspectiveTransform> {
     if version_num < 2 || module_size < 1.0 {
         return None;
     }
 
-    let centers = alignment_centers(version_num, dimension);
-    let (ax, ay) = centers.iter().max_by_key(|(x, y)| x + y)?;
-    let align_src = Point::new(*ax as f32 + 0.5, *ay as f32 + 0.5);
-    let predicted = transform.transform(&align_src);
-    let found = find_alignment_center(binary, predicted, module_size)?;
-    let best = best_refined_transform(
+    let centers = prioritized_alignment_centers(version_num, dimension);
+    let original_score = refinement_quality(
         binary,
+        gray,
+        gray_width,
+        gray_height,
+        transform,
         dimension,
         version_num,
-        top_left,
-        top_right,
-        bottom_left,
-        align_src,
-        found,
         module_size,
-    )?;
+    );
+    let mut best: Option<(PerspectiveTransform, f32)> = None;
 
-    let base_score = transform_quality(binary, &best, dimension, version_num, module_size);
-    let original_score = transform_quality(binary, transform, dimension, version_num, module_size);
-    if original_score > base_score {
-        return None;
+    for (ax, ay) in centers {
+        let align_src = Point::new(ax as f32 + 0.5, ay as f32 + 0.5);
+        let predicted = transform.transform(&align_src);
+        let Some(found) = find_alignment_center(binary, predicted, module_size) else {
+            continue;
+        };
+        let Some(candidate) = best_refined_transform(
+            binary,
+            gray,
+            gray_width,
+            gray_height,
+            dimension,
+            version_num,
+            top_left,
+            top_right,
+            bottom_left,
+            align_src,
+            found,
+            module_size,
+        ) else {
+            continue;
+        };
+        let score = refinement_quality(
+            binary,
+            gray,
+            gray_width,
+            gray_height,
+            &candidate,
+            dimension,
+            version_num,
+            module_size,
+        );
+        match &best {
+            Some((_, best_score)) if score <= *best_score => {}
+            _ => best = Some((candidate, score)),
+        }
     }
 
-    Some(best)
+    let (best, score) = best?;
+    // A refinement is only allowed to replace the finder homography when the
+    // combined residual improves by a small margin. This prevents a noisy
+    // alignment-like blob from adding recovery work without improving samples.
+    (score > original_score + 0.002).then_some(best)
 }
 
 fn alignment_centers(version: u8, dimension: usize) -> Vec<(usize, usize)> {
@@ -398,6 +466,23 @@ fn alignment_centers(version: u8, dimension: usize) -> Vec<(usize, usize)> {
             centers.push((cx, cy));
         }
     }
+    centers
+}
+
+fn prioritized_alignment_centers(version: u8, dimension: usize) -> Vec<(usize, usize)> {
+    const MAX_ALIGNMENT_PROBES: usize = 6;
+    let mut centers = alignment_centers(version, dimension);
+    // The far corner is normally most informative for perspective, but use a
+    // deterministic spatial spread after it so high versions do not depend on
+    // a single (possibly occluded) pattern.
+    centers.sort_by(|left, right| {
+        let left_distance = left.0 * left.0 + left.1 * left.1;
+        let right_distance = right.0 * right.0 + right.1 * right.1;
+        right_distance
+            .cmp(&left_distance)
+            .then_with(|| right.cmp(left))
+    });
+    centers.truncate(MAX_ALIGNMENT_PROBES);
     centers
 }
 
@@ -571,6 +656,27 @@ fn transform_quality(
     score
 }
 
+#[allow(clippy::too_many_arguments)] // Mirrors the transform refinement inputs.
+fn refinement_quality(
+    binary: &BitMatrix,
+    gray: Option<&[u8]>,
+    gray_width: usize,
+    gray_height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+    version_num: u8,
+    module_size: f32,
+) -> f32 {
+    let binary_quality = transform_quality(binary, transform, dimension, version_num, module_size);
+    let gray_quality = gray
+        .filter(|_| gray_width > 0 && gray_height > 0)
+        .map(|values| timing_quality_gray(values, gray_width, gray_height, transform, dimension));
+    match gray_quality {
+        Some(timing) => binary_quality * 0.7 + timing * 0.3,
+        None => binary_quality,
+    }
+}
+
 fn timing_quality(binary: &BitMatrix, transform: &PerspectiveTransform, dimension: usize) -> f32 {
     let mut h_bits = Vec::new();
     for m in 8..=(dimension.saturating_sub(9)) {
@@ -614,9 +720,25 @@ fn alternation_ratio(bits: &[bool]) -> f32 {
     transitions as f32 / (bits.len() - 1) as f32
 }
 
+fn timing_quality_gray(
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    transform: &PerspectiveTransform,
+    dimension: usize,
+) -> f32 {
+    let h = score_timing_line_gray(gray, width, height, transform, dimension, true);
+    let v = score_timing_line_gray(gray, width, height, transform, dimension, false);
+    let transitions = dimension.saturating_sub(17).saturating_sub(1).max(1) as f32;
+    ((h + v) / (2.0 * 255.0 * transitions)).clamp(0.0, 1.0)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn best_refined_transform(
     binary: &BitMatrix,
+    gray: Option<&[u8]>,
+    gray_width: usize,
+    gray_height: usize,
     dimension: usize,
     version_num: u8,
     top_left: &Point,
@@ -646,7 +768,16 @@ fn best_refined_transform(
             let Some(t) = PerspectiveTransform::from_points(&src, &dst) else {
                 continue;
             };
-            let s = transform_quality(binary, &t, dimension, version_num, module_size);
+            let s = refinement_quality(
+                binary,
+                gray,
+                gray_width,
+                gray_height,
+                &t,
+                dimension,
+                version_num,
+                module_size,
+            );
             match &best {
                 Some((_, bs)) if s <= *bs => {}
                 _ => best = Some((t, s)),
@@ -777,6 +908,56 @@ fn shift_transform(
 mod tests {
     use super::*;
 
+    fn synthetic_v7_geometry() -> (BitMatrix, Vec<u8>, PerspectiveTransform, [Point; 3]) {
+        const DIMENSION: usize = 45;
+        const SCALE: f32 = 4.0;
+        const OFFSET: f32 = 16.0;
+        const IMAGE: usize = 224;
+
+        let src = [
+            Point::new(3.5, 3.5),
+            Point::new(DIMENSION as f32 - 3.5, 3.5),
+            Point::new(3.5, DIMENSION as f32 - 3.5),
+            Point::new(DIMENSION as f32 - 3.5, DIMENSION as f32 - 3.5),
+        ];
+        let point = |x: f32, y: f32| Point::new(OFFSET + x * SCALE, OFFSET + y * SCALE);
+        let finders = [point(3.5, 3.5), point(41.5, 3.5), point(3.5, 41.5)];
+        let actual = [finders[0], finders[1], finders[2], point(41.5, 41.5)];
+        let base = PerspectiveTransform::from_points(
+            &src,
+            &[actual[0], actual[1], actual[2], point(43.0, 43.0)],
+        )
+        .unwrap();
+
+        let mut binary = BitMatrix::new(IMAGE, IMAGE);
+        let mut gray = vec![232u8; IMAGE * IMAGE];
+        let mut set = |module_x: f32, module_y: f32, black: bool| {
+            let x = (OFFSET + module_x * SCALE).round() as usize;
+            let y = (OFFSET + module_y * SCALE).round() as usize;
+            binary.set(x, y, black);
+            gray[y * IMAGE + x] = if black { 18 } else { 232 };
+        };
+
+        for module in 8..=(DIMENSION - 9) {
+            let black = module % 2 == 0;
+            set(module as f32 + 0.5, 6.5, black);
+            set(6.5, module as f32 + 0.5, black);
+        }
+        for (ax, ay) in alignment_centers(7, DIMENSION) {
+            for dy in -2i32..=2 {
+                for dx in -2i32..=2 {
+                    let black = dx.abs() == 2 || dy.abs() == 2 || (dx == 0 && dy == 0);
+                    set(
+                        ax as f32 + 0.5 + dx as f32,
+                        ay as f32 + 0.5 + dy as f32,
+                        black,
+                    );
+                }
+            }
+        }
+        (binary, gray, base, finders)
+    }
+
     #[test]
     fn radial_estimate_is_none_for_uniform_scale() {
         let src = [
@@ -842,5 +1023,34 @@ mod tests {
         assert_eq!(adaptive_kernel_radius(0.9), 0);
         assert_eq!(adaptive_kernel_radius(1.4), 0);
         assert_eq!(adaptive_kernel_radius(1.5), 1);
+    }
+
+    #[test]
+    fn bounded_refinement_improves_timing_and_alignment_residuals() {
+        let (binary, gray, base, finders) = synthetic_v7_geometry();
+        let before = refinement_quality(&binary, Some(&gray), 224, 224, &base, 45, 7, 4.0);
+        let refined = refine_transform_with_timing_and_alignment(
+            &binary,
+            Some(&gray),
+            224,
+            224,
+            &base,
+            7,
+            45,
+            4.0,
+            &finders[0],
+            &finders[1],
+            &finders[2],
+        )
+        .expect("synthetic alignment pattern should produce an improved fit");
+        let after = refinement_quality(&binary, Some(&gray), 224, 224, &refined, 45, 7, 4.0);
+        assert!(after > before + 0.002, "before={before}, after={after}");
+    }
+
+    #[test]
+    fn refinement_probes_have_a_fixed_upper_bound() {
+        let probes = prioritized_alignment_centers(40, 177);
+        assert_eq!(probes.len(), 6);
+        assert!(alignment_centers(40, 177).len() > probes.len());
     }
 }

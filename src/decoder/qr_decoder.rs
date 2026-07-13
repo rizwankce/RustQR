@@ -435,8 +435,11 @@ impl QrDecoder {
                         Some(t) => t,
                         None => continue,
                     };
-                let transform = Self::refine_transform_with_alignment(
+                let transform = geometry::refine_transform_with_timing_and_alignment(
                     binary,
+                    Some(gray),
+                    width,
+                    height,
                     &transform,
                     version_num,
                     dimension,
@@ -548,16 +551,21 @@ impl QrDecoder {
 
                 if allow_heavy_recovery && version_num >= 7 && !budget_exhausted() {
                     context.counters_mut().hv_refine_attempts += 1;
-                    if let Some(refined_hv_transform) = Self::refine_transform_with_alignment(
-                        binary,
-                        &transform,
-                        version_num,
-                        dimension,
-                        (module_size * 0.9).max(1.0),
-                        top_left,
-                        top_right,
-                        bottom_left,
-                    ) {
+                    if let Some(refined_hv_transform) =
+                        geometry::refine_transform_with_timing_and_alignment(
+                            binary,
+                            Some(gray),
+                            width,
+                            height,
+                            &transform,
+                            version_num,
+                            dimension,
+                            (module_size * 0.9).max(1.0),
+                            top_left,
+                            top_right,
+                            bottom_left,
+                        )
+                    {
                         let (hv_matrix, hv_conf) =
                             Self::extract_qr_region_gray_with_transform_and_confidence_scaled(
                                 gray,

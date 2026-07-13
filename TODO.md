@@ -1029,6 +1029,18 @@ is 71/78 (91.03%)/59/78 (75.64%), while dense lots is 80/420 (19.05%)/3/420
 raster processing, allocation-light scanline state machines, region-aware
 grouping, full-corpus evidence, and agreed category gates remain outstanding.
 
+**2026-07-13 spatial grouping follow-up:** Dense module-size buckets now take
+a bounded, region-aware path rather than a scene-wide cubic expansion. It
+first preserves isolated three-finder local components using each proposal's
+nearest compatible scale as the routing radius, then evaluates bounded
+scale-compatible neighborhoods and retains the best remaining geometry. The
+controlled 25-symbol grouping regression keeps every symbol's own finder
+triple. On the existing `lots` stage evaluator at `QR_MAX_DIM=800`, grouping
+recall improves from 3/420 (0.71%) to 52/420 (12.38%), with proposal recall
+unchanged at 80/420 (19.05%) and grouping p95 1.322 ms. This is a measurable
+grouping improvement, not WP-010/WP-012 completion: raster ROI rescanning,
+finder recall, decoded dense-scene recall, and category gates remain open.
+
 Verified with:
 
 ```bash
@@ -1088,6 +1100,19 @@ a performance claim: `high_version --limit 3` decoded 0/3 and `glare --limit
 3` decoded 1/3. The probes confirm the bounded path executes on the intended
 categories; their misses show that this slice alone does not satisfy the
 remaining homography/refinement and glare-recovery work.
+
+**2026-07-13 bounded homography slice:** Grayscale decoding now refines the
+finder-derived transform against timing contrast and alignment residuals. It
+probes at most six deterministic alignment locations and nine sub-module
+offsets per observed location; each candidate is ranked by both timing lines
+and every spec-relevant alignment pattern, then replaces the original only on
+a measurable score improvement. The geometry unit probe builds a synthetic
+v7 perspective grid with timing and alignment patterns and verifies that the
+bounded fit improves the combined residual. This is not curved-surface
+completion: the mesh path remains disabled after its zero-success benchmark,
+and category-level gates for high_version, perspective, curved, rotations,
+brightness, bright_spots, glare, and shadows still need reproducible
+before/after evidence.
 
 **Acceptance criteria:**
 

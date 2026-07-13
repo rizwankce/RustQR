@@ -5,7 +5,7 @@ use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
 use crate::utils::geometry::PerspectiveTransform;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 const MAX_GROUP_CANDIDATES: usize = 40;
 const DEFAULT_DECODE_TOP_K: usize = 6;
@@ -19,10 +19,12 @@ const DEFAULT_MAX_REGIONS: usize = 8;
 const DEFAULT_PER_REGION_TOP_K: usize = 4;
 const HIGH_CONFIDENCE_LANE_MIN: f32 = 0.78;
 const MEDIUM_CONFIDENCE_LANE_MIN: f32 = 0.56;
-const CLUSTER_GROUP_TRIGGER: usize = 64;
-const CLUSTER_TARGET_SIZE: usize = 28;
-// Increased from 40 to 64 for better multi-QR coverage in "lots" category
-const CLUSTER_MAX_SIZE: usize = 64;
+// Dense scenes need local grouping well before the old global cubic path gets
+// expensive.  This is deliberately a proposal-count threshold, not an image
+// dimension: a uniformly scaled scene follows the same path.
+const SPATIAL_GROUP_TRIGGER: usize = 12;
+const SPATIAL_NEIGHBOR_LIMIT: usize = 6;
+const DENSE_MAX_GROUP_CANDIDATES: usize = 128;
 // The largest possible finder-to-finder pair in a Model 2 symbol is the
 // diagonal of a version-40 grid.  Keep a little perspective headroom, but
 // express the bound in modules rather than image pixels: the same QR must be
@@ -250,7 +252,11 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
 
     // Try each bin and its neighbor to allow slight size mismatch.
     let mut all_groups = Vec::new();
-    let max_groups = crate::decoder::config::max_groups_to_rank();
+    let max_groups = if patterns.len() > SPATIAL_GROUP_TRIGGER {
+        DENSE_MAX_GROUP_CANDIDATES
+    } else {
+        crate::decoder::config::max_groups_to_rank()
+    };
     for i in 0..bins.len() {
         if all_groups.len() >= max_groups {
             break;
@@ -273,22 +279,12 @@ pub(crate) fn group_finder_patterns(patterns: &[FinderPattern]) -> Vec<Vec<usize
 
 fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
     let mut groups = Vec::new();
-    let max_groups = crate::decoder::config::max_groups_to_rank();
 
     for idx_i in 0..indices.len() {
-        if groups.len() >= max_groups {
-            break;
-        }
         let i = indices[idx_i];
         for idx_j in (idx_i + 1)..indices.len() {
-            if groups.len() >= max_groups {
-                break;
-            }
             let j = indices[idx_j];
             for &k in indices.iter().skip(idx_j + 1) {
-                if groups.len() >= max_groups {
-                    break;
-                }
                 let pi = &patterns[i];
                 let pj = &patterns[j];
                 let pk = &patterns[k];
@@ -339,114 +335,125 @@ fn build_groups(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>
     groups
 }
 
-fn trim_cluster_indices(
-    patterns: &[FinderPattern],
-    cluster_indices: &[usize],
-    cx: usize,
-    cy: usize,
-    cell_w: f32,
-    cell_h: f32,
-) -> Vec<usize> {
-    if cluster_indices.len() <= CLUSTER_MAX_SIZE {
-        return cluster_indices.to_vec();
-    }
-    let center_x = (cx as f32 + 0.5) * cell_w;
-    let center_y = (cy as f32 + 0.5) * cell_h;
-    let mut scored = cluster_indices
-        .iter()
-        .map(|&idx| {
-            let p = &patterns[idx];
-            let dx = p.center.x - center_x;
-            let dy = p.center.y - center_y;
-            (idx, dx * dx + dy * dy)
-        })
-        .collect::<Vec<_>>();
-    scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
-    scored
-        .into_iter()
-        .take(CLUSTER_MAX_SIZE)
-        .map(|(idx, _)| idx)
-        .collect()
-}
-
 fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<Vec<usize>> {
-    if indices.len() <= CLUSTER_GROUP_TRIGGER {
+    if indices.len() <= SPATIAL_GROUP_TRIGGER {
         return build_groups(patterns, indices);
     }
 
-    let mut min_x = f32::INFINITY;
-    let mut max_x = 0.0f32;
-    let mut min_y = f32::INFINITY;
-    let mut max_y = 0.0f32;
-    for &idx in indices {
-        let p = &patterns[idx];
-        min_x = min_x.min(p.center.x);
-        max_x = max_x.max(p.center.x);
-        min_y = min_y.min(p.center.y);
-        max_y = max_y.max(p.center.y);
-    }
-    let span_x = (max_x - min_x).max(1.0);
-    let span_y = (max_y - min_y).max(1.0);
-    let grid = (((indices.len() as f32) / (CLUSTER_TARGET_SIZE as f32))
-        .sqrt()
-        .ceil() as usize)
-        .clamp(2, 8);
-    let cell_w = span_x / grid as f32;
-    let cell_h = span_y / grid as f32;
-
-    let mut cells: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
-    for &idx in indices {
-        let p = &patterns[idx];
-        let mut cx = ((p.center.x - min_x) / cell_w).floor() as usize;
-        let mut cy = ((p.center.y - min_y) / cell_h).floor() as usize;
-        if cx >= grid {
-            cx = grid - 1;
-        }
-        if cy >= grid {
-            cy = grid - 1;
-        }
-        cells.entry((cx, cy)).or_default().push(idx);
-    }
-
-    let mut groups = Vec::new();
+    // Each finder owns a bounded neighbourhood of similarly scaled nearby
+    // proposals.  A QR's other two finders are local at its own module scale,
+    // whereas unrelated symbols are usually farther away.  This replaces the
+    // scene-wide cubic expansion with O(n^2 + n*k^3), and importantly does not
+    // use a fixed pixel radius.
+    let mut groups: Vec<Vec<usize>> = Vec::new();
     let mut seen = HashSet::new();
-    let max_groups = crate::decoder::config::max_groups_to_rank();
-    for cy in 0..grid {
-        for cx in 0..grid {
-            if groups.len() >= max_groups {
-                break;
-            }
-            let mut cluster_indices = Vec::new();
-            for oy in cy.saturating_sub(1)..=(cy + 1).min(grid - 1) {
-                for ox in cx.saturating_sub(1)..=(cx + 1).min(grid - 1) {
-                    if let Some(cell) = cells.get(&(ox, oy)) {
-                        cluster_indices.extend_from_slice(cell);
-                    }
-                }
-            }
-            if cluster_indices.len() < 3 {
-                continue;
-            }
-            cluster_indices.sort_unstable();
-            cluster_indices.dedup();
-            let cluster_indices =
-                trim_cluster_indices(patterns, &cluster_indices, cx, cy, cell_w, cell_h);
-            if cluster_indices.len() < 3 {
-                continue;
-            }
-            for triple in build_groups(patterns, &cluster_indices) {
-                if groups.len() >= max_groups {
-                    break;
-                }
-                let mut key = [triple[0], triple[1], triple[2]];
-                key.sort_unstable();
-                if seen.insert((key[0], key[1], key[2])) {
-                    groups.push(triple);
-                }
+    // First retain isolated local components.  In a dense raster the three
+    // finders of a small symbol are often separated from the next symbol by a
+    // visible gap even when a global triplet search can manufacture many
+    // cross-symbol right angles.  The component threshold is derived from
+    // each proposal's nearest compatible neighbour, so it scales with pitch.
+    let nearest = indices
+        .iter()
+        .map(|&idx| {
+            indices
+                .iter()
+                .copied()
+                .filter(|&other| other != idx)
+                .filter_map(|other| {
+                    let a = &patterns[idx];
+                    let b = &patterns[other];
+                    let size_ratio =
+                        a.module_size.max(b.module_size) / a.module_size.min(b.module_size);
+                    (size_ratio <= 2.5).then(|| a.center.distance(&b.center))
+                })
+                .min_by(|a, b| a.total_cmp(b))
+                .unwrap_or(f32::INFINITY)
+        })
+        .collect::<Vec<_>>();
+    let mut adjacency = vec![Vec::new(); indices.len()];
+    for left in 0..indices.len() {
+        for right in (left + 1)..indices.len() {
+            let distance = patterns[indices[left]]
+                .center
+                .distance(&patterns[indices[right]].center);
+            let local_limit = nearest[left].min(nearest[right]) * 1.55;
+            if distance <= local_limit {
+                adjacency[left].push(right);
+                adjacency[right].push(left);
             }
         }
     }
-
+    let mut visited = vec![false; indices.len()];
+    for start in 0..indices.len() {
+        if visited[start] {
+            continue;
+        }
+        let mut stack = vec![start];
+        visited[start] = true;
+        let mut component = Vec::new();
+        while let Some(current) = stack.pop() {
+            component.push(indices[current]);
+            for &next in &adjacency[current] {
+                if !visited[next] {
+                    visited[next] = true;
+                    stack.push(next);
+                }
+            }
+        }
+        if component.len() == 3 && !build_groups(patterns, &component).is_empty() {
+            component.sort_unstable();
+            seen.insert((component[0], component[1], component[2]));
+            groups.push(component);
+        }
+    }
+    let seeded_count = groups.len();
+    for &anchor in indices {
+        let anchor_pattern = &patterns[anchor];
+        let mut neighbors = indices
+            .iter()
+            .copied()
+            .filter(|&other| other != anchor)
+            .filter_map(|other| {
+                let candidate = &patterns[other];
+                let size_ratio = anchor_pattern.module_size.max(candidate.module_size)
+                    / anchor_pattern.module_size.min(candidate.module_size);
+                let distance = anchor_pattern.center.distance(&candidate.center);
+                (size_ratio <= 2.5
+                    && distance
+                        <= anchor_pattern.module_size.max(candidate.module_size)
+                            * MAX_FINDER_PAIR_MODULES)
+                    .then_some((other, distance))
+            })
+            .collect::<Vec<_>>();
+        neighbors.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        let mut local = Vec::with_capacity(SPATIAL_NEIGHBOR_LIMIT + 1);
+        local.push(anchor);
+        local.extend(
+            neighbors
+                .into_iter()
+                .take(SPATIAL_NEIGHBOR_LIMIT)
+                .map(|(idx, _)| idx),
+        );
+        local.sort_unstable();
+        for triple in build_groups(patterns, &local) {
+            let mut key = [triple[0], triple[1], triple[2]];
+            key.sort_unstable();
+            if seen.insert((key[0], key[1], key[2])) {
+                groups.push(triple);
+            }
+        }
+    }
+    // The exact local components are kept first.  The remaining decode budget
+    // is intentionally finite, so rank generic neighbourhood triples by
+    // geometry rather than by visit order.
+    let (seeded, remaining) = groups.split_at_mut(seeded_count);
+    remaining.sort_by(|a, b| {
+        group_raw_score(patterns, a)
+            .total_cmp(&group_raw_score(patterns, b))
+            .then_with(|| a.cmp(b))
+    });
+    seeded.sort_unstable();
+    groups.truncate(DENSE_MAX_GROUP_CANDIDATES);
     groups
 }
 
@@ -477,9 +484,19 @@ fn group_raw_score(patterns: &[FinderPattern], group: &[usize]) -> f32 {
     let cos_i = ((a2 + b2 - c2) / (2.0 * d01 * d02)).abs();
     let cos_j = ((a2 + c2 - b2) / (2.0 * d01 * d12)).abs();
     let cos_k = ((b2 + c2 - a2) / (2.0 * d02 * d12)).abs();
-    let best_cos = cos_i.min(cos_j).min(cos_k);
+    let (best_cos, arm_a, arm_b) = if cos_i <= cos_j && cos_i <= cos_k {
+        (cos_i, d01, d02)
+    } else if cos_j <= cos_k {
+        (cos_j, d01, d12)
+    } else {
+        (cos_k, d02, d12)
+    };
+    let arm_imbalance = (arm_a - arm_b).abs() / arm_a.max(arm_b).max(1.0);
 
-    size_ratio * 2.0 + distortion + best_cos
+    // A real QR's two legs originate at the same finder and have closely
+    // related lengths.  Crossing finders from neighboring symbols can make a
+    // nominal right angle, but usually fail this local scale relationship.
+    size_ratio * 2.0 + distortion + best_cos + arm_imbalance * 4.0
 }
 
 fn geometry_confidence(patterns: &[FinderPattern], group: &[usize]) -> f32 {
@@ -1712,5 +1729,38 @@ mod tests {
             FinderPattern::new(1_000.0, 11_000.0, 30.0),
         ];
         assert!(group_finder_patterns(&patterns).is_empty());
+    }
+
+    #[test]
+    fn spatial_grouping_preserves_independent_dense_symbols() {
+        // 25 nearby symbols exercise the region-aware path.  The expected
+        // triples are deliberately interleaved in one module-size bucket, so
+        // this catches a regression back to first-visited global grouping.
+        let mut patterns = Vec::new();
+        for symbol in 0..25usize {
+            let x = 20.0 + (symbol % 5) as f32 * 110.0;
+            let y = 20.0 + (symbol / 5) as f32 * 110.0;
+            patterns.extend([
+                FinderPattern::new(x, y, 2.0),
+                FinderPattern::new(x + 42.0, y, 2.0),
+                FinderPattern::new(x, y + 42.0, 2.0),
+            ]);
+        }
+
+        let groups = group_finder_patterns(&patterns);
+        let found = groups
+            .iter()
+            .map(|group| {
+                let mut key = [group[0], group[1], group[2]];
+                key.sort_unstable();
+                key
+            })
+            .collect::<HashSet<_>>();
+        for symbol in 0..25usize {
+            assert!(
+                found.contains(&[symbol * 3, symbol * 3 + 1, symbol * 3 + 2]),
+                "symbol {symbol} must retain its own local finder triple"
+            );
+        }
     }
 }
