@@ -1978,6 +1978,15 @@ and reduced first-call allocations from 69,411 to 66,119, reallocations from
 all-feature tests and ignored release photographic regressions passed. See
 `docs/wp014_baseline.md` for the reproducible command and timing boundary.
 
+**2026-07-13 rank-frontier copy removal:** `rank_groups` now iterates the
+existing capped raw-group frontier directly instead of first allocating and
+copying `groups_to_process`. Ordering, the dense/normal caps, and all group
+contents are unchanged. One-call release allocation probes retained the clean
+1-symbol and controlled dense_50 48-symbol results; dense_50 recorded 285,750
+allocations and 33,155,609 requested bytes. This is allocation evidence only;
+the 86.13 ms dense and 42.76 ms clean samples are not latency claims. Passed
+pipeline grouping tests and `cargo test --all-features`.
+
 ---
 
 ## WP-015: Platform and packaging roadmap

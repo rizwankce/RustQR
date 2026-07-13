@@ -81,6 +81,8 @@ before editing. `TODO.md` is the canonical detailed queue.
    `Vec`/`String` without `alloc` imports. First define one alloc-facing
    matrix-result/recovery-budget API, then move the hosted implementation to
    depend on it and share conformance fixtures before adding a `no_std` target.
+   WP-014 also removed the rank-frontier copy without changing group order or
+   caps; preserve it as allocation-only evidence, not a latency claim.
 
 Run targeted checks while iterating, then record exact commands, metrics, and
 remaining work in `TODO.md` before handoff. Full benchmark comparisons belong

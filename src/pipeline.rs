@@ -810,12 +810,10 @@ fn rank_groups(
         crate::decoder::config::max_groups_to_rank()
     };
     // Hard cap: truncate groups early to prevent O(n) slowdown on pathological images
-    let groups_to_process: Vec<_> = raw_groups.into_iter().take(max_groups).collect();
-
-    let mut ranked = Vec::with_capacity(groups_to_process.len().min(max_groups));
+    let mut ranked = Vec::with_capacity(raw_groups.len().min(max_groups));
     let mut rejected = 0usize;
 
-    for group in &groups_to_process {
+    for group in raw_groups.iter().take(max_groups) {
         if ranked.len() >= max_groups {
             break;
         }
