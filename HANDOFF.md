@@ -14,11 +14,13 @@ before editing. `TODO.md` is the canonical detailed queue.
 
 ## Highest-value open packets
 
-1. **WP-012 dense multi-QR recall:** controlled `dense_50` is 43/50 (86%) in
-   485.14 ms with zero false positives, duplicates, or timeouts. The latency
-   leg is met, but recall must reach 45/50. Finder coverage is already 50/50;
-   the measured gap is post-group brightness-route geometry/decode. Direct
-   Otsu reaches 48 but takes about 690 ms, so do not enable it globally.
+1. **WP-012 dense multi-QR recall:** after rebuilding the release CLI,
+   controlled `dense_50` is 43/50 (86%) in 394.62 ms with zero false
+   positives, duplicates, or timeouts. The latency leg is met, but recall must
+   reach 45/50. The fresh route audit identifies five Otsu-only payloads
+   (`011`, `014`, `039`, `043`, `046`) and two absent from both routes
+   (`021`, `047`). Direct Otsu is too slow as a global substitute; any hybrid
+   must choose non-duplicate candidates generically and stay under 500 ms.
 2. **WP-011 geometry/sampling:** expiry now prevents scheduling new image-wide
    passes, but scans already in flight cannot be interrupted. Continue only
    with bounded category-specific geometry or cancellable-stage evidence.
@@ -27,8 +29,12 @@ before editing. `TODO.md` is the canonical detailed queue.
    budget.
 4. **WP-013 competitors:** harness is implemented; pinned adapter builds must
    be supplied locally before comparative claims are possible.
-5. **WP-005/WP-007/WP-010/WP-014/WP-015:** use their explicit acceptance gaps
-   in `TODO.md`; do not upgrade their statuses based on component-only tests.
+5. **WP-010:** the bounded contour supplement improves `lots` finder/group
+   recall to 102/420 and 87/420, but 215 labels still have no contained
+   proposal. Preserve the capped primary/ROI/contour staging and do not relax
+   thresholds without evidence carried through the evaluator.
+6. **WP-005/WP-007/WP-014/WP-015:** use their explicit acceptance gaps in
+   `TODO.md`; do not upgrade their statuses based on component-only tests.
 
 Run targeted checks while iterating, then record exact commands, metrics, and
 remaining work in `TODO.md` before handoff. Full benchmark comparisons belong
