@@ -1196,6 +1196,15 @@ category, dimensions, and zero-QR annotation) plus the required FPR-budget
 decision. This is a durable selection path, not a claim that an external corpus
 or production FPR gate exists.
 
+**2026-07-13 external-photo source rejection:** Open Images is a plausible
+route for photographed text, screens, and packaging, but its published
+metadata says image licensing must be verified per image and its image-level
+labels cannot establish that a selected image contains zero QR symbols. It is
+therefore not admitted on the dataset-level license alone. A future intake must
+pin each image's source/license metadata and add a manual zero-QR annotation;
+until then, use only the locally verified ZXing slices below for external
+negative evidence.
+
 **2026-07-13 licensed ZXing corpus admission:** Vendored exactly 47 PNGs from
 the Apache-2.0 `zxing/zxing` commit
 `82333b3ed894ef097d41dd8c922689ede8880e01`: 22 `falsepositives` and 25
