@@ -152,3 +152,23 @@ truth manifest from that fixed list, normalize each stream independently, and
 only then use the v2 comparator. A successful adapter build/export proves
 serialization compatibility only; it is neither an accuracy comparison nor a
 latency claim.
+
+## Pinned-adapter smoke (2026-07-13)
+
+Reviewed source files now live in `scripts/wp005_adapters/` and were copied
+unchanged into detached worktrees at the two pinned commits. Both release bins
+built with their own historical dependency sets and exported the same
+`nominal/image001.jpg` 1024px-or-smaller slice. Both streams have the same
+image ID, `fnv1a64:d684f3ec5eccd229` dataset fingerprint, and the required
+preprocessing fingerprint. A single truth manifest made from that fixed slice
+successfully normalized each stream through the shared v2 scorer. The retained
+evidence is `artifacts/wp005_pinned_adapter_smoke_2026-07-13.md`.
+
+`main@5b9b41e` can return a decoded payload with its public `position` left at
+four zero points. That has no localizable quadrilateral, and the normalizer
+correctly rejects it as zero-area geometry. The main adapter therefore drops
+that payload-and-geometry pair together; it never emits a fabricated box or a
+payload-only prediction. This makes the smoke stream valid but means a full
+comparison needs a main geometry-producing path or must explicitly record the
+resulting localization loss. The smoke is adapter compatibility evidence only;
+both normalized results are 0% localization rate on this one two-label image.

@@ -665,6 +665,20 @@ No worktree was created or altered and no comparison was claimed. This removes
 the interface-discovery blocker; reviewed adapters and actual exports remain
 pending.
 
+**2026-07-13 pinned-adapter smoke:** Detached disposable worktrees at
+`main@5b9b41e` and `scratch_from_scratch_rebuild@295b97c` now each built a
+reviewed standalone `wp005_prediction_export` bin from
+`scripts/wp005_adapters/`. Both exported the exact same one-image
+`nominal/image001.jpg` slice, with matching image identity, FNV dataset
+fingerprint, and 1024px Triangle preprocessing fingerprint; one shared truth
+manifest normalized both valid streams with the v2 scorer. This proves the
+historical API adapters and shared-normalization handoff. It is not a
+cross-branch result: main's public fast path returned a decoded payload with
+an all-zero position, which the adapter deliberately dropped rather than
+fabricating a quadrilateral, and both one-image localization scores were 0/2.
+The required seven-category 25-image-per-category export, geometry-capable
+main result, matched Fast Benchmark run, and comparison table remain pending.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
@@ -1298,14 +1312,21 @@ glare remained 0/1 with zero false positives (52 attempts; 1,918.88 ms
 end-to-end). Neither probe produced a successful scale retry. This excludes a
 global tighter sampling retry as a bounded category fix.
 
-**2026-07-13 bright-spots format trace:** The exact `bright_spots/image001`
-probe at `QR_MAX_DIM=800` and a 2,500 ms cooperative deadline remained 0/3
-with zero false positives/duplicates in 463.25 ms end-to-end. Binarization,
-finder detection, grouping, and transform construction all succeeded, but
-`format_extracted` stayed zero across 23 bounded decode attempts. Saturation
-masking and confidence-guided RS erasures were never entered. The failure is
-therefore sampled-format extraction, not an upstream proposal miss; its trace
-is `/tmp/wp011_bright_trace.json`.
+**2026-07-13 bright-spots format audit:** The exact `bright_spots/image001`
+probe at `QR_MAX_DIM=800` and a 2,500 ms cooperative deadline remains 0/3
+with zero false positives/duplicates. Binarization, finder detection,
+grouping, and transform construction all succeed, but the old `format-fail`
+classification cannot prove a sampled-format failure: `format_extracted` is
+not populated by the decoder, so it is zero for every no-decode request. A
+decoder-only candidate-targeted trial moved the existing four nearest soft-BCH
+format hypotheses (distance 4--6) ahead of recovery, only after an exact
+format miss and only for recovery-eligible candidates. It remained 0/3 with
+zero false positives/duplicates and 23 candidate attempts; it was reverted.
+The decoder already considers those soft candidates and then all 32 EC/mask
+pairs in bounded recovery. Future work must first add truthful per-candidate
+format/BCH and RS evidence, then retain a change only with matched recall gain;
+the transient artifacts are `/tmp/wp011_format_baseline.json` and
+`/tmp/wp011_format_early_soft.json`.
 
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It

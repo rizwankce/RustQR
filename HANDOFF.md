@@ -27,14 +27,23 @@ before editing. `TODO.md` is the canonical detailed queue.
 3. **WP-009 safety:** synthetic baseline is present; acceptance requires a
    licensed, representative negative corpus and explicit false-positive
    budget.
-4. **WP-013 competitors:** harness is implemented; pinned adapter builds must
-   be supplied locally before comparative claims are possible.
+4. **WP-005/WP-013 comparisons:** pinned standalone adapters for
+   `main@5b9b41e` and `scratch_from_scratch_rebuild@295b97c` now live in
+   `scripts/wp005_adapters/`. A one-image smoke built and normalized both
+   streams, but it is not a comparison: main's historical fast path exposes
+   zero-area geometry and both scored 0/2 localization. The seven-category
+   25-image exports, geometry-capable main path, matched comparison, and
+   pinned competitor runners remain open.
 5. **WP-010:** the bounded contour supplement improves `lots` finder/group
    recall to 102/420 and 87/420, but 215 labels still have no contained
    proposal. Preserve the capped primary/ROI/contour staging and do not relax
    thresholds without evidence carried through the evaluator.
-6. **WP-005/WP-007/WP-014/WP-015:** use their explicit acceptance gaps in
+6. **WP-011/WP-007/WP-014/WP-015:** use their explicit acceptance gaps in
    `TODO.md`; do not upgrade their statuses based on component-only tests.
+   In particular, `format_extracted` currently has no writer, so a
+   `format-fail` classification does not prove format-sampling failure. Add
+   truthful candidate-level decoder evidence before attempting another format
+   recovery change.
 
 Run targeted checks while iterating, then record exact commands, metrics, and
 remaining work in `TODO.md` before handoff. Full benchmark comparisons belong

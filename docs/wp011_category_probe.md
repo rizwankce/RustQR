@@ -64,9 +64,23 @@ Neither run had a successful scale retry. The extra bounded work therefore had
 no recall value and is not retained.
 
 The exact bright_spots/image001 trace at `QR_MAX_DIM=800` and a 2,500 ms
-cooperative deadline remained 0/3 with zero false positives/duplicates in
-463.25 ms end-to-end. Binarization, finder, grouping, and transform stages all
-succeeded, while `format_extracted` stayed zero across 23 bounded decode
-attempts. Saturation masking and confidence-guided RS erasures were never
-entered. The bounded failure is sampled-format extraction rather than proposal
-or grouping loss; the transient trace is `/tmp/wp011_bright_trace.json`.
+cooperative deadline remained 0/3 with zero false positives/duplicates. The
+classifier labels it `format-fail`, but this is not yet proof that sampling the
+format strips is the fault: `format_extracted` was not populated by the
+decoder, so every no-decode request is labelled that way. The retained evidence
+is therefore only that binarization, finder, grouping, and transform all
+succeeded; it does not identify the downstream failure stage.
+
+### Rejected targeted format recovery (2026-07-13)
+
+A decoder-only experiment tried the four nearest soft-BCH format candidates
+(distance 4--6) on the canonical traversal immediately after an exact-format
+miss, and only on recovery-eligible candidates. The normal recovery phase
+already tries those candidates and eventually enumerates all 32 EC/mask pairs;
+moving this bounded work earlier produced no match on the exact bright-spots
+probe (0/3, zero false positives/duplicates, 23 candidate attempts). The
+transient artifacts were `/tmp/wp011_format_baseline.json` and
+`/tmp/wp011_format_early_soft.json`; their 491.42 ms and 445.53 ms single-run
+times are not a latency comparison. The code was reverted. A retained change
+needs per-candidate format/BCH and RS evidence plus a matched recall gain, not
+the old unpopulated telemetry field.
