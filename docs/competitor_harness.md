@@ -56,6 +56,23 @@ Missing ZXing-C++, quirc, BoofCV, or rqrr wrappers are written as
 PGM paths, so it can be published alongside the exact lock and raw source
 dataset fingerprint.
 
+Every report also has a `setup` record per selected adapter. It says whether
+the expected local runner was present and, when it was not, names the exact
+missing executable or jar. This lets a setup-only smoke artifact document the
+environment without incorrectly treating a missing adapter as a benchmark
+result. The harness passes `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
+`MKL_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS`, and `NUMEXPR_NUM_THREADS` as `1`
+to every adapter child process; those settings are recorded in the artifact.
+
+The 2026-07-13 local smoke artifact at
+`artifacts/competitors/wp013-local-smoke-2026-07-13.json` was generated with
+all six adapters on `monitor/image001.jpg`. Its available pinned adapters were
+ZBar 0.23.93 and OpenCV 4.12.0. ZXing-C++ needs
+`competitors/bin/ZXingReader`; quirc needs `competitors/bin/quirc_decode`;
+BoofCV needs `competitors/bin/boofcv_decode.jar`; and rqrr needs
+`competitors/bin/rqrr_decode`. Those are build prerequisites, not negative
+benchmark observations.
+
 ## Licenses and redistribution
 
 | Adapter | Pinned license | Redistribution rule |

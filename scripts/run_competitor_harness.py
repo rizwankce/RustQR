@@ -26,6 +26,19 @@ from typing import Any
 SCHEMA = "rustqr.competitor-report.v1"
 CASE_SCHEMA = "rustqr.competitor-case-manifest.v1"
 ADAPTERS = ("zxing_cpp", "quirc", "zbar", "boofcv", "opencv", "rqrr")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+# Keep process based adapters on the same one-thread contract as the OpenCV
+# child process.  Some libraries ignore one or more of these knobs, but setting
+# the common OpenMP/BLAS variables is both observable in the artifact and avoids
+# silently granting a locally configured adapter extra worker threads.
+THREAD_ENVIRONMENT = {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+}
 
 
 def sha256(path: Path) -> str:
@@ -109,7 +122,7 @@ def materialize_pgm(source: Path, destination: Path, max_dim: int) -> tuple[int,
 
 
 def adapter_command(adapter: str, pgm: Path) -> tuple[list[str] | None, str | None]:
-    binary = Path("competitors/bin")
+    binary = REPOSITORY_ROOT / "competitors/bin"
     commands: dict[str, list[str]] = {
         "zxing_cpp": [str(binary / "ZXingReader"), "-formats", "QRCode", str(pgm)],
         "quirc": [str(binary / "quirc_decode"), str(pgm)],
@@ -124,12 +137,25 @@ def adapter_command(adapter: str, pgm: Path) -> tuple[list[str] | None, str | No
             return None, "cv2 is not installed"
         return [sys.executable, __file__, "--opencv-one", str(pgm)], None
     command = commands[adapter]
+    if adapter == "boofcv" and not Path(command[2]).is_file():
+        return None, f"required executable is unavailable: {command[2]}"
     executable = command[0]
     if "/" not in executable:
         available = shutil.which(executable) is not None
     else:
         available = Path(executable).is_file()
     return (command, None) if available else (None, f"required executable is unavailable: {executable}")
+
+
+def adapter_setup(adapter: str) -> dict[str, Any]:
+    """Describe the local runnable artifact without treating it as pinned."""
+    command, unavailable = adapter_command(adapter, Path("<shared-pixels>.pgm"))
+    if command is None:
+        return {"status": "missing", "detail": unavailable}
+    return {
+        "status": "available",
+        "command": command[:-1] + ["<shared-pixels>.pgm"],
+    }
 
 
 def decode_opencv_one(path: Path) -> int:
@@ -157,7 +183,13 @@ def run_adapter(adapter: str, pgm: Path, timeout_ms: int) -> dict[str, Any]:
                 "latency_ms": None}
     try:
         started = time.perf_counter_ns()
-        result = subprocess.run(command, capture_output=True, timeout=timeout_ms / 1000, check=False)
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            timeout=timeout_ms / 1000,
+            check=False,
+            env={**os.environ, **THREAD_ENVIRONMENT},
+        )
         elapsed = (time.perf_counter_ns() - started) / 1_000_000
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "detail": f"exceeded {timeout_ms} ms", "payloads_hex": [], "metadata": [],
@@ -223,6 +255,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     adapters = args.adapter or list(ADAPTERS)
     cases = collect_cases(Path(args.dataset_root), args.category, args.limit)
     observed_versions = {adapter: observed_version(adapter) for adapter in adapters}
+    setup = {adapter: adapter_setup(adapter) for adapter in adapters}
     results: dict[str, list[dict[str, Any]]] = {adapter: [] for adapter in adapters}
     with tempfile.TemporaryDirectory(prefix="rustqr-competitor-pixels-") as temporary:
         pixel_root = Path(temporary)
@@ -260,16 +293,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "lock": {"path": str(lock_path), "sha256": sha256(lock_path)},
         "case_manifest": case_manifest,
         "hardware": hardware_metadata(),
-        "adapters": {adapter: {"lock": lock["adapters"][adapter], "version_observed": observed_versions[adapter],
+        "thread_environment": THREAD_ENVIRONMENT,
+        "adapters": {adapter: {"lock": lock["adapters"][adapter], "setup": setup[adapter],
+                                "version_observed": observed_versions[adapter],
                                 "summary": summarize(rows), "cases": rows}
                      for adapter, rows in results.items()},
     }
 
 
 def observed_version(adapter: str) -> str | None:
-    commands = {"zbar": ["zbarimg", "--version"], "zxing_cpp": ["competitors/bin/ZXingReader", "--version"],
-                "quirc": ["competitors/bin/quirc_decode", "--version"], "boofcv": ["java", "-jar", "competitors/bin/boofcv_decode.jar", "--version"],
-                "rqrr": ["competitors/bin/rqrr_decode", "--version"], "opencv": [sys.executable, "-c", "import cv2; print(cv2.__version__)"]}
+    binary = REPOSITORY_ROOT / "competitors/bin"
+    if adapter == "boofcv" and not (binary / "boofcv_decode.jar").is_file():
+        return None
+    commands = {"zbar": ["zbarimg", "--version"], "zxing_cpp": [str(binary / "ZXingReader"), "--version"],
+                "quirc": [str(binary / "quirc_decode"), "--version"], "boofcv": ["java", "-jar", str(binary / "boofcv_decode.jar"), "--version"],
+                "rqrr": [str(binary / "rqrr_decode"), "--version"], "opencv": [sys.executable, "-c", "import cv2; print(cv2.__version__)"]}
     return command_version(commands[adapter])
 
 

@@ -49,6 +49,18 @@ class CompetitorHarnessTests(unittest.TestCase):
         self.assertEqual(lock["schema_version"], "rustqr.competitor-lock.v1")
         self.assertEqual(set(lock["adapters"]), set(HARNESS.ADAPTERS))
 
+    def test_setup_reports_runner_state(self):
+        setup = HARNESS.adapter_setup("quirc")
+        self.assertIn(setup["status"], {"available", "missing"})
+        if setup["status"] == "available":
+            self.assertIn("command", setup)
+        else:
+            self.assertIn("quirc_decode", setup["detail"])
+
+    def test_thread_environment_is_explicitly_single_threaded(self):
+        self.assertEqual(HARNESS.THREAD_ENVIRONMENT["OMP_NUM_THREADS"], "1")
+        self.assertEqual(HARNESS.THREAD_ENVIRONMENT["OPENBLAS_NUM_THREADS"], "1")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -78,15 +78,87 @@ commits are quarantined candidates for a later, narrowly scoped experiment:
 
 ## Required follow-up and rollback points
 
-1. Add a v2-localization adapter to a throwaway rebuild comparison branch, or
-   a shared external evaluator that consumes normalized prediction JSON from
-   both implementations.  It must use the current pixels, the same resize
-   implementation, `QR_MAX_DIM=1024`, and identical timeout semantics.
-2. Run the seven targeted categories at their documented local limits, then
-   dispatch the same Fast Benchmark configuration for `main`, current, and the
-   adapter branch.  Preserve the v2 artifacts and comparator output.
-3. Only then trial one quarantined slice at a time behind a feature flag.  Each
-   slice needs the full conformance gate, the v2 category report, and a commit
-   that cleanly reverts it.  Revert immediately on a category regression,
-   increased timeout rate, false-positive increase, or failed conformance case.
+### Fresh normalization audit (2026-07-13)
 
+The comparison remains blocked by an **artifact-contract** gap, rather than by
+missing input pixels or an unavailable local build:
+
+- `scratch_from_scratch_rebuild` remains at `295b97c`.  Its public
+  `QrCode` type contains four `corners`, but its `qrtool reading-rate` JSON
+  serializes only `matched`, `runtime_ms`, and a failure signature per case.
+  It therefore cannot be rescored for localization after the fact.
+- More importantly, its evaluator treats a BoofCV `SETS` annotation as
+  successful whenever `report.codes` is nonempty.  It does not serialize a
+  prediction quadrilateral, apply IoU, count duplicate predictions, or retain
+  false positives.  The `wp007-reading-rate-v1` artifact is consequently not
+  an alternate representation of `rustqr.reading_rate.v2`.
+- `main` is also not a v2 producer.  A comparison needs adapter outputs for
+  both historical candidates, with the current branch's evaluator used only
+  as the scoring authority.
+
+This audit inspected the checked-out source and refs, not a new benchmark run.
+It intentionally does not alter the diagnostic table above or claim a new
+accuracy/latency result.
+
+### Required adapter contract
+
+Create throwaway comparison refs from `main` and
+`scratch_from_scratch_rebuild` (do not merge either adapter).  Each adapter
+must add a machine-readable prediction stream with, for every input image:
+
+```text
+image identity, original width and height, working width and height,
+all predicted quadrilaterals in original-image coordinates, decoded payload
+when available, core elapsed time, end-to-end elapsed time, timeout status
+```
+
+The adapter must use the current image loader and resize implementation, or
+delegate both implementations to one shared external runner.  It must not turn
+an image-level nonempty decode into a localization hit.  The shared scorer must
+use `mode=localization;quad-iou=0.5;matching=max-cardinality`, emit the
+current v2 fields (including false positives, duplicates, and timeouts), and
+record separate image and label fingerprints.  A schema name distinct from
+`rustqr.reading_rate.v2` is acceptable only if
+`scripts/compare_reading_rate_artifacts.py` accepts it after an explicit,
+tested compatibility check.
+
+### Reproducible run sequence
+
+After the adapters exist, run the same fixed commands from clean checkouts.
+Use an explicit 1024-pixel working limit and an explicit 25-image category
+limit; neither `QR_SMOKE` nor an implicit environment default may be present.
+
+```sh
+unset QR_SMOKE QR_BENCH_LIMIT QR_MAX_DIM
+for category in nominal rotations perspective high_version lots brightness bright_spots; do
+  QR_BENCH_LIMIT=25 QR_MAX_DIM=1024 \
+    cargo run --features tools --bin qrtool --release -- \
+    reading-rate --non-interactive --category "$category" \
+    --artifact-json "wp005_<candidate>_${category}_v2.json"
+done
+
+python3 scripts/compare_reading_rate_artifacts.py \
+  --baseline wp005_main_targeted_v2.json \
+  --candidate wp005_rebuild_targeted_v2.json
+```
+
+The current `qrtool` accepts one category per invocation, while Fast Benchmark
+splits comma-separated categories in its shell loop.  The loop is therefore
+deliberate. Preserve all seven JSON artifacts; do not pass the comma-separated
+value directly to the current CLI. The comparison command is required only
+after those artifacts have been merged by the proposed adapter tool; it does
+not currently exist and must be tested before it becomes evidence.
+
+The remote validation step remains necessary because the acceptance criterion
+requires a matched hardware class.  Dispatch `.github/workflows/fast-benchmark.yml`
+on each comparison ref with `platform=macos`, `bench_limit=25`, and
+`category=nominal,rotations,perspective,high_version,lots,brightness,bright_spots`.
+Preserve the uploaded `reading_rate_*.json` artifacts and the comparator output
+under immutable run-ID directories before interpreting a delta.  The workflow
+already fixes `QR_MAX_DIM=1024`; a non-adapter historical ref cannot satisfy
+this gate because it still emits an incompatible artifact.
+
+Only then trial one quarantined slice at a time behind a feature flag.  Each
+slice needs the full conformance gate, the v2 category report, and a commit
+that cleanly reverts it.  Revert immediately on a category regression,
+increased timeout rate, false-positive increase, or failed conformance case.
