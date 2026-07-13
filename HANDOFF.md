@@ -36,10 +36,11 @@ before editing. `TODO.md` is the canonical detailed queue.
    `scripts/wp005_adapters/`. A detached main-only geometry projection patch
    now shows 17/17 monitor hits without fabricating boxes. Both adapters now
    use a shared explicit category allow-list and deterministic shard offsets.
-   The first normalized 25-image nominal slice is tied at 18/29 (62.07%) for
-   both refs, with zero false positives, duplicates, and timeouts; it is
-   diagnostic only until all seven categories and Actions are complete.
-   Matched comparison and pinned competitor runners remain open.
+   A complete local seven-category comparison now covers 157 matching images
+   and 727 labels: rebuild is 74/727 versus main 36/727 (one main false
+   positive, neither has duplicates/timeouts). It is diagnostic timing only;
+   the matched Fast Benchmark Actions comparison and pinned competitor runners
+   remain open.
 5. **WP-010:** the bounded contour supplement improves `lots` finder/group
    recall to 102/420 and 87/420, but 215 labels still have no contained
    proposal. Preserve the capped primary/ROI/contour staging and do not relax

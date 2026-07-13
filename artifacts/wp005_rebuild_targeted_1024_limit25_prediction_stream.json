@@ -1,0 +1,3574 @@
+{
+  "schema_version": "rustqr.wp005.prediction-stream.v1",
+  "metadata": {
+    "commit_sha": "295b97c",
+    "dataset_fingerprint": "fnv1a64:812bbf57f2ce9c36",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024",
+    "limit_per_category": 25
+  },
+  "images": [
+    {
+      "image_id": "bright_spots/image001.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.833959,
+      "end_to_end_elapsed_ms": 298.086666,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image002.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.808042,
+      "end_to_end_elapsed_ms": 322.770500,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image003.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.500958,
+      "end_to_end_elapsed_ms": 299.365083,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image004.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.100791,
+      "end_to_end_elapsed_ms": 294.060000,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image005.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.982000,
+      "end_to_end_elapsed_ms": 302.572125,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image006.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.894709,
+      "end_to_end_elapsed_ms": 306.914000,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image007.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.740709,
+      "end_to_end_elapsed_ms": 294.560542,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image008.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.450083,
+      "end_to_end_elapsed_ms": 297.429125,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image009.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.437375,
+      "end_to_end_elapsed_ms": 298.936125,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image010.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.851375,
+      "end_to_end_elapsed_ms": 292.138417,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image011.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.829042,
+      "end_to_end_elapsed_ms": 311.416375,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image012.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.662583,
+      "end_to_end_elapsed_ms": 310.462750,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image013.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.034833,
+      "end_to_end_elapsed_ms": 297.600375,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image014.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.548709,
+      "end_to_end_elapsed_ms": 314.262292,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image015.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.902167,
+      "end_to_end_elapsed_ms": 291.497458,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image016.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.551166,
+      "end_to_end_elapsed_ms": 300.949708,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image017.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.834500,
+      "end_to_end_elapsed_ms": 295.028541,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image018.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.991542,
+      "end_to_end_elapsed_ms": 290.359459,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image019.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.893375,
+      "end_to_end_elapsed_ms": 291.301458,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image020.jpg",
+      "category": "bright_spots",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.083208,
+      "end_to_end_elapsed_ms": 176.364666,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image021.jpg",
+      "category": "bright_spots",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.292125,
+      "end_to_end_elapsed_ms": 313.848000,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image022.jpg",
+      "category": "bright_spots",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.905834,
+      "end_to_end_elapsed_ms": 178.443833,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image023.jpg",
+      "category": "bright_spots",
+      "original_width": 756,
+      "original_height": 1008,
+      "working_width": 756,
+      "working_height": 1008,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.169042,
+      "end_to_end_elapsed_ms": 131.534375,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image024.jpg",
+      "category": "bright_spots",
+      "original_width": 378,
+      "original_height": 504,
+      "working_width": 378,
+      "working_height": 504,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 74.425125,
+      "end_to_end_elapsed_ms": 76.778750,
+      "timed_out": false
+    },
+    {
+      "image_id": "bright_spots/image025.jpg",
+      "category": "bright_spots",
+      "original_width": 756,
+      "original_height": 1008,
+      "working_width": 756,
+      "working_height": 1008,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.031458,
+      "end_to_end_elapsed_ms": 130.823500,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image001.jpg",
+      "category": "brightness",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            980.437500,
+            1191.093750
+          ],
+          [
+            1179.281250,
+            1200.937500
+          ],
+          [
+            1167.468750,
+            1397.812500
+          ],
+          [
+            968.625000,
+            1386.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 127.021917,
+      "end_to_end_elapsed_ms": 187.800000,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image002.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.341083,
+      "end_to_end_elapsed_ms": 326.969167,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image003.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            1933.312500,
+            2464.875000
+          ],
+          [
+            2327.062500,
+            2488.500000
+          ],
+          [
+            2307.375000,
+            2870.437500
+          ],
+          [
+            1917.562500,
+            2846.812500
+          ]
+        ]
+      ],
+      "payloads": [
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 126.305250,
+      "end_to_end_elapsed_ms": 310.364708,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image004.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            1460.812500,
+            1732.500000
+          ],
+          [
+            1488.375000,
+            2441.250000
+          ],
+          [
+            783.562500,
+            2453.062500
+          ],
+          [
+            744.187500,
+            1756.125000
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789"
+      ],
+      "core_elapsed_ms": 124.552541,
+      "end_to_end_elapsed_ms": 300.377041,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image005.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.402917,
+      "end_to_end_elapsed_ms": 299.478125,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image006.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.013667,
+      "end_to_end_elapsed_ms": 312.546041,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image007.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.900458,
+      "end_to_end_elapsed_ms": 297.620042,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image008.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.341167,
+      "end_to_end_elapsed_ms": 296.241291,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image009.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.730875,
+      "end_to_end_elapsed_ms": 298.655958,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image010.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            1858.500000,
+            2338.875000
+          ],
+          [
+            2252.250000,
+            2354.625000
+          ],
+          [
+            2240.437500,
+            2748.375000
+          ],
+          [
+            1838.812500,
+            2732.625000
+          ]
+        ]
+      ],
+      "payloads": [
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 128.161834,
+      "end_to_end_elapsed_ms": 293.861417,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image011.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.594708,
+      "end_to_end_elapsed_ms": 307.185833,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image012.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.097750,
+      "end_to_end_elapsed_ms": 312.908917,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image013.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.574875,
+      "end_to_end_elapsed_ms": 298.366834,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image014.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.498416,
+      "end_to_end_elapsed_ms": 294.461167,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image015.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.633542,
+      "end_to_end_elapsed_ms": 325.811792,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image016.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.816333,
+      "end_to_end_elapsed_ms": 313.347375,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image017.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.624916,
+      "end_to_end_elapsed_ms": 302.247708,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image018.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.374833,
+      "end_to_end_elapsed_ms": 301.706041,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image019.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.277625,
+      "end_to_end_elapsed_ms": 300.869208,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image020.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.193750,
+      "end_to_end_elapsed_ms": 299.742292,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image021.jpg",
+      "category": "brightness",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.504958,
+      "end_to_end_elapsed_ms": 314.280375,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image022.jpg",
+      "category": "brightness",
+      "original_width": 756,
+      "original_height": 1008,
+      "working_width": 756,
+      "working_height": 1008,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.430542,
+      "end_to_end_elapsed_ms": 135.593375,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image023.jpg",
+      "category": "brightness",
+      "original_width": 378,
+      "original_height": 504,
+      "working_width": 378,
+      "working_height": 504,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 74.466917,
+      "end_to_end_elapsed_ms": 76.912291,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image024.jpg",
+      "category": "brightness",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            730.406250,
+            866.250000
+          ],
+          [
+            746.156250,
+            1220.625000
+          ],
+          [
+            391.781250,
+            1226.531250
+          ],
+          [
+            372.093750,
+            878.062500
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789"
+      ],
+      "core_elapsed_ms": 126.242791,
+      "end_to_end_elapsed_ms": 186.220084,
+      "timed_out": false
+    },
+    {
+      "image_id": "brightness/image025.jpg",
+      "category": "brightness",
+      "original_width": 756,
+      "original_height": 1008,
+      "working_width": 756,
+      "working_height": 1008,
+      "predicted_quadrilaterals": [
+        [
+          [
+            365.000000,
+            432.000000
+          ],
+          [
+            372.000000,
+            610.000000
+          ],
+          [
+            197.000000,
+            614.000000
+          ],
+          [
+            185.000000,
+            438.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789"
+      ],
+      "core_elapsed_ms": 124.734708,
+      "end_to_end_elapsed_ms": 132.868250,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image000.jpg",
+      "category": "high_version",
+      "original_width": 1196,
+      "original_height": 1196,
+      "working_width": 1024,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.128166,
+      "end_to_end_elapsed_ms": 178.185875,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image001.jpg",
+      "category": "high_version",
+      "original_width": 1641,
+      "original_height": 1734,
+      "working_width": 969,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.153416,
+      "end_to_end_elapsed_ms": 207.946084,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image002.jpg",
+      "category": "high_version",
+      "original_width": 1464,
+      "original_height": 1578,
+      "working_width": 950,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 131.923417,
+      "end_to_end_elapsed_ms": 200.892875,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image003.jpg",
+      "category": "high_version",
+      "original_width": 1587,
+      "original_height": 1749,
+      "working_width": 929,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 134.610750,
+      "end_to_end_elapsed_ms": 218.399208,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image004.jpg",
+      "category": "high_version",
+      "original_width": 1803,
+      "original_height": 1893,
+      "working_width": 975,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 129.645834,
+      "end_to_end_elapsed_ms": 236.080625,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image005.jpg",
+      "category": "high_version",
+      "original_width": 1773,
+      "original_height": 1596,
+      "working_width": 1024,
+      "working_height": 922,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 130.069917,
+      "end_to_end_elapsed_ms": 234.680625,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image006.jpg",
+      "category": "high_version",
+      "original_width": 1602,
+      "original_height": 1590,
+      "working_width": 1024,
+      "working_height": 1016,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 131.924375,
+      "end_to_end_elapsed_ms": 216.110000,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image007.jpg",
+      "category": "high_version",
+      "original_width": 1600,
+      "original_height": 1585,
+      "working_width": 1024,
+      "working_height": 1014,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 133.301083,
+      "end_to_end_elapsed_ms": 224.209458,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image008.jpg",
+      "category": "high_version",
+      "original_width": 2000,
+      "original_height": 1964,
+      "working_width": 1024,
+      "working_height": 1006,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 133.995250,
+      "end_to_end_elapsed_ms": 247.120750,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image009.jpg",
+      "category": "high_version",
+      "original_width": 2000,
+      "original_height": 1865,
+      "working_width": 1024,
+      "working_height": 955,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 132.792166,
+      "end_to_end_elapsed_ms": 262.374750,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image010.jpg",
+      "category": "high_version",
+      "original_width": 1800,
+      "original_height": 1736,
+      "working_width": 1024,
+      "working_height": 988,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 126.186834,
+      "end_to_end_elapsed_ms": 226.130459,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image011.jpg",
+      "category": "high_version",
+      "original_width": 990,
+      "original_height": 960,
+      "working_width": 990,
+      "working_height": 960,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 138.523958,
+      "end_to_end_elapsed_ms": 158.173250,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image012.jpg",
+      "category": "high_version",
+      "original_width": 2458,
+      "original_height": 2409,
+      "working_width": 1024,
+      "working_height": 1004,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.996458,
+      "end_to_end_elapsed_ms": 284.514541,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image013.jpg",
+      "category": "high_version",
+      "original_width": 1200,
+      "original_height": 1225,
+      "working_width": 1003,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.997000,
+      "end_to_end_elapsed_ms": 178.576083,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image014.jpg",
+      "category": "high_version",
+      "original_width": 1809,
+      "original_height": 1950,
+      "working_width": 950,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.232084,
+      "end_to_end_elapsed_ms": 218.438917,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image015.jpg",
+      "category": "high_version",
+      "original_width": 1200,
+      "original_height": 1264,
+      "working_width": 972,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            116.049383,
+            217.250000
+          ],
+          [
+            974.074074,
+            40.734375
+          ],
+          [
+            1143.209877,
+            887.515625
+          ],
+          [
+            307.407407,
+            1075.140625
+          ]
+        ]
+      ],
+      "payloads": [
+        "QR code (abbreviated from Quick Response Code) is the trademark for a type of matrix barcode (or two-dimensional barcode) first designed in 1994 for the automotive industry in Japan.[1] A barcode is a machine-readable optical label that contains information about the item to which it is attached. In practice, QR codes often contain data for a locator, identifier, or tracker that points to a website or application. A QR code uses four standardized encoding modes (numeric, alphanumeric, byte/binary, and kanji) to store data efficiently; extensions may also be used.[2]\nsdfgksjdflkgjsdkfgiotmbx,cmvbofghjoaasdfaERYYKLLDFGSDFFFFFFFFFFFFFFFFFFFFFF"
+      ],
+      "core_elapsed_ms": 128.744417,
+      "end_to_end_elapsed_ms": 186.605000,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image016.jpg",
+      "category": "high_version",
+      "original_width": 1400,
+      "original_height": 1516,
+      "working_width": 946,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.416750,
+      "end_to_end_elapsed_ms": 192.967958,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image017.jpg",
+      "category": "high_version",
+      "original_width": 1200,
+      "original_height": 1248,
+      "working_width": 985,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.086459,
+      "end_to_end_elapsed_ms": 180.786500,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image018.jpg",
+      "category": "high_version",
+      "original_width": 1200,
+      "original_height": 1320,
+      "working_width": 931,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.008084,
+      "end_to_end_elapsed_ms": 184.968125,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image019.jpg",
+      "category": "high_version",
+      "original_width": 1500,
+      "original_height": 1722,
+      "working_width": 892,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.208209,
+      "end_to_end_elapsed_ms": 207.108667,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image020.jpg",
+      "category": "high_version",
+      "original_width": 1600,
+      "original_height": 1539,
+      "working_width": 1024,
+      "working_height": 985,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 129.520541,
+      "end_to_end_elapsed_ms": 226.134500,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image021.jpg",
+      "category": "high_version",
+      "original_width": 1800,
+      "original_height": 1734,
+      "working_width": 1024,
+      "working_height": 986,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 130.641125,
+      "end_to_end_elapsed_ms": 224.693959,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image022.jpg",
+      "category": "high_version",
+      "original_width": 1461,
+      "original_height": 1449,
+      "working_width": 1024,
+      "working_height": 1016,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.845125,
+      "end_to_end_elapsed_ms": 203.387167,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image023.jpg",
+      "category": "high_version",
+      "original_width": 1497,
+      "original_height": 1509,
+      "working_width": 1016,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.884000,
+      "end_to_end_elapsed_ms": 196.207166,
+      "timed_out": false
+    },
+    {
+      "image_id": "high_version/image024.jpg",
+      "category": "high_version",
+      "original_width": 1113,
+      "original_height": 1038,
+      "working_width": 1024,
+      "working_height": 955,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.661125,
+      "end_to_end_elapsed_ms": 173.669916,
+      "timed_out": false
+    },
+    {
+      "image_id": "lots/image001.jpg",
+      "category": "lots",
+      "original_width": 4032,
+      "original_height": 3024,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 128.974500,
+      "end_to_end_elapsed_ms": 317.294500,
+      "timed_out": false
+    },
+    {
+      "image_id": "lots/image002.jpg",
+      "category": "lots",
+      "original_width": 4032,
+      "original_height": 3024,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 129.009916,
+      "end_to_end_elapsed_ms": 305.374292,
+      "timed_out": false
+    },
+    {
+      "image_id": "lots/image003.jpg",
+      "category": "lots",
+      "original_width": 4032,
+      "original_height": 3024,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 129.933417,
+      "end_to_end_elapsed_ms": 304.938708,
+      "timed_out": false
+    },
+    {
+      "image_id": "lots/image004.jpg",
+      "category": "lots",
+      "original_width": 4032,
+      "original_height": 3024,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 130.093542,
+      "end_to_end_elapsed_ms": 305.403667,
+      "timed_out": false
+    },
+    {
+      "image_id": "lots/image005.jpg",
+      "category": "lots",
+      "original_width": 4032,
+      "original_height": 3024,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.696125,
+      "end_to_end_elapsed_ms": 300.997417,
+      "timed_out": false
+    },
+    {
+      "image_id": "lots/image006.jpg",
+      "category": "lots",
+      "original_width": 4032,
+      "original_height": 3024,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.692875,
+      "end_to_end_elapsed_ms": 320.372041,
+      "timed_out": false
+    },
+    {
+      "image_id": "lots/image007.jpg",
+      "category": "lots",
+      "original_width": 4032,
+      "original_height": 3024,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.937917,
+      "end_to_end_elapsed_ms": 300.627083,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image001.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 308,
+      "working_width": 550,
+      "working_height": 308,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 72.420750,
+      "end_to_end_elapsed_ms": 75.157417,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image002.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 310,
+      "working_width": 550,
+      "working_height": 310,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 67.067333,
+      "end_to_end_elapsed_ms": 69.634625,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image003.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 308,
+      "working_width": 550,
+      "working_height": 308,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 69.224584,
+      "end_to_end_elapsed_ms": 71.609625,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image004.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 311,
+      "working_width": 550,
+      "working_height": 311,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 71.802208,
+      "end_to_end_elapsed_ms": 74.204584,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image005.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 309,
+      "working_width": 550,
+      "working_height": 309,
+      "predicted_quadrilaterals": [
+        [
+          [
+            401.000000,
+            265.000000
+          ],
+          [
+            216.000000,
+            223.000000
+          ],
+          [
+            253.000000,
+            52.000000
+          ],
+          [
+            439.000000,
+            86.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "{\"lastNode\":\"OAK5\",\"cids\":{\"pkey\":\"171227103636638907587520201AZ\"}}"
+      ],
+      "core_elapsed_ms": 72.048417,
+      "end_to_end_elapsed_ms": 74.209292,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image006.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 309,
+      "working_width": 550,
+      "working_height": 309,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 75.870250,
+      "end_to_end_elapsed_ms": 80.281834,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image007.jpg",
+      "category": "nominal",
+      "original_width": 886,
+      "original_height": 546,
+      "working_width": 886,
+      "working_height": 546,
+      "predicted_quadrilaterals": [
+        [
+          [
+            301.000000,
+            212.000000
+          ],
+          [
+            520.000000,
+            182.000000
+          ],
+          [
+            520.000000,
+            370.000000
+          ],
+          [
+            330.000000,
+            405.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.495791,
+      "end_to_end_elapsed_ms": 129.870792,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image008.jpg",
+      "category": "nominal",
+      "original_width": 913,
+      "original_height": 544,
+      "working_width": 913,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            376.000000,
+            156.000000
+          ],
+          [
+            626.000000,
+            93.000000
+          ],
+          [
+            627.000000,
+            320.000000
+          ],
+          [
+            425.000000,
+            393.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.780458,
+      "end_to_end_elapsed_ms": 129.685917,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image009.jpg",
+      "category": "nominal",
+      "original_width": 909,
+      "original_height": 544,
+      "working_width": 909,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            360.000000,
+            172.000000
+          ],
+          [
+            632.000000,
+            111.000000
+          ],
+          [
+            643.000000,
+            342.000000
+          ],
+          [
+            421.000000,
+            382.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.308542,
+      "end_to_end_elapsed_ms": 129.503709,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image010.jpg",
+      "category": "nominal",
+      "original_width": 707,
+      "original_height": 538,
+      "working_width": 707,
+      "working_height": 538,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.861167,
+      "end_to_end_elapsed_ms": 127.342500,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image011.jpg",
+      "category": "nominal",
+      "original_width": 911,
+      "original_height": 544,
+      "working_width": 911,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            136.000000,
+            234.000000
+          ],
+          [
+            317.000000,
+            186.000000
+          ],
+          [
+            363.000000,
+            337.000000
+          ],
+          [
+            204.000000,
+            388.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.985500,
+      "end_to_end_elapsed_ms": 131.123333,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image012.jpg",
+      "category": "nominal",
+      "original_width": 900,
+      "original_height": 573,
+      "working_width": 900,
+      "working_height": 573,
+      "predicted_quadrilaterals": [
+        [
+          [
+            373.000000,
+            159.000000
+          ],
+          [
+            537.000000,
+            198.000000
+          ],
+          [
+            464.000000,
+            338.000000
+          ],
+          [
+            281.000000,
+            276.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 123.431166,
+      "end_to_end_elapsed_ms": 137.420292,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image013.jpg",
+      "category": "nominal",
+      "original_width": 902,
+      "original_height": 570,
+      "working_width": 902,
+      "working_height": 570,
+      "predicted_quadrilaterals": [
+        [
+          [
+            517.000000,
+            177.000000
+          ],
+          [
+            687.000000,
+            212.000000
+          ],
+          [
+            618.000000,
+            354.000000
+          ],
+          [
+            439.000000,
+            296.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 124.858500,
+      "end_to_end_elapsed_ms": 130.867791,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image014.jpg",
+      "category": "nominal",
+      "original_width": 762,
+      "original_height": 479,
+      "working_width": 762,
+      "working_height": 479,
+      "predicted_quadrilaterals": [
+        [
+          [
+            278.000000,
+            190.000000
+          ],
+          [
+            386.000000,
+            202.000000
+          ],
+          [
+            325.000000,
+            313.000000
+          ],
+          [
+            207.000000,
+            290.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 122.874708,
+      "end_to_end_elapsed_ms": 127.338667,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image015.jpg",
+      "category": "nominal",
+      "original_width": 854,
+      "original_height": 564,
+      "working_width": 854,
+      "working_height": 564,
+      "predicted_quadrilaterals": [
+        [
+          [
+            418.000000,
+            276.000000
+          ],
+          [
+            491.000000,
+            292.000000
+          ],
+          [
+            461.000000,
+            356.000000
+          ],
+          [
+            387.000000,
+            333.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 123.470125,
+      "end_to_end_elapsed_ms": 133.888042,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image016.jpg",
+      "category": "nominal",
+      "original_width": 896,
+      "original_height": 571,
+      "working_width": 896,
+      "working_height": 571,
+      "predicted_quadrilaterals": [
+        [
+          [
+            365.000000,
+            105.000000
+          ],
+          [
+            552.000000,
+            111.000000
+          ],
+          [
+            509.000000,
+            245.000000
+          ],
+          [
+            285.000000,
+            222.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 123.829625,
+      "end_to_end_elapsed_ms": 130.057959,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image017.jpg",
+      "category": "nominal",
+      "original_width": 858,
+      "original_height": 567,
+      "working_width": 858,
+      "working_height": 567,
+      "predicted_quadrilaterals": [
+        [
+          [
+            335.000000,
+            348.000000
+          ],
+          [
+            88.000000,
+            314.000000
+          ],
+          [
+            201.000000,
+            194.000000
+          ],
+          [
+            387.000000,
+            214.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 124.389666,
+      "end_to_end_elapsed_ms": 131.237416,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image018.jpg",
+      "category": "nominal",
+      "original_width": 901,
+      "original_height": 563,
+      "working_width": 901,
+      "working_height": 563,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.486958,
+      "end_to_end_elapsed_ms": 129.144750,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image019.jpg",
+      "category": "nominal",
+      "original_width": 934,
+      "original_height": 567,
+      "working_width": 934,
+      "working_height": 567,
+      "predicted_quadrilaterals": [
+        [
+          [
+            542.000000,
+            257.000000
+          ],
+          [
+            493.000000,
+            240.000000
+          ],
+          [
+            512.000000,
+            192.000000
+          ],
+          [
+            561.000000,
+            210.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 124.342042,
+      "end_to_end_elapsed_ms": 132.479542,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image020.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            677.000000,
+            449.000000
+          ],
+          [
+            421.000000,
+            516.000000
+          ],
+          [
+            330.000000,
+            273.000000
+          ],
+          [
+            624.000000,
+            193.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 124.429625,
+      "end_to_end_elapsed_ms": 130.674000,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image021.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            715.000000,
+            161.000000
+          ],
+          [
+            617.000000,
+            196.000000
+          ],
+          [
+            584.000000,
+            119.000000
+          ],
+          [
+            693.000000,
+            78.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 123.508958,
+      "end_to_end_elapsed_ms": 130.862916,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image022.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            624.000000,
+            197.000000
+          ],
+          [
+            529.000000,
+            246.000000
+          ],
+          [
+            477.000000,
+            149.000000
+          ],
+          [
+            570.000000,
+            91.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 123.598792,
+      "end_to_end_elapsed_ms": 130.179542,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image023.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            708.000000,
+            386.000000
+          ],
+          [
+            528.000000,
+            499.000000
+          ],
+          [
+            407.000000,
+            328.000000
+          ],
+          [
+            598.000000,
+            202.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 128.216792,
+      "end_to_end_elapsed_ms": 134.223416,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image024.jpg",
+      "category": "nominal",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            1897.875000,
+            1126.125000
+          ],
+          [
+            2334.937500,
+            1118.250000
+          ],
+          [
+            2283.750000,
+            1500.187500
+          ],
+          [
+            1886.062500,
+            1512.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "https://mobile-now.us/?l=10043659"
+      ],
+      "core_elapsed_ms": 124.471709,
+      "end_to_end_elapsed_ms": 355.765417,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image025.jpg",
+      "category": "nominal",
+      "original_width": 2175,
+      "original_height": 1326,
+      "working_width": 1024,
+      "working_height": 624,
+      "predicted_quadrilaterals": [
+        [
+          [
+            431.176758,
+            541.875000
+          ],
+          [
+            826.245117,
+            522.750000
+          ],
+          [
+            849.609375,
+            911.625000
+          ],
+          [
+            460.913086,
+            924.375000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://onramp.ehi.com/HYUN/ACNT/4SE/US/?v=KMHCT4AE3GU107709"
+      ],
+      "core_elapsed_ms": 124.422750,
+      "end_to_end_elapsed_ms": 225.208625,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image001.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            419.000000,
+            514.000000
+          ],
+          [
+            420.000000,
+            336.000000
+          ],
+          [
+            607.000000,
+            342.000000
+          ],
+          [
+            600.000000,
+            522.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 126.861459,
+      "end_to_end_elapsed_ms": 136.068042,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image002.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            409.000000,
+            502.000000
+          ],
+          [
+            409.000000,
+            326.000000
+          ],
+          [
+            593.000000,
+            335.000000
+          ],
+          [
+            585.000000,
+            515.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 128.149667,
+      "end_to_end_elapsed_ms": 152.357083,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image003.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            408.000000,
+            478.000000
+          ],
+          [
+            407.000000,
+            308.000000
+          ],
+          [
+            584.000000,
+            315.000000
+          ],
+          [
+            579.000000,
+            495.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 139.088583,
+      "end_to_end_elapsed_ms": 168.818916,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image004.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            398.000000,
+            466.000000
+          ],
+          [
+            391.000000,
+            300.000000
+          ],
+          [
+            562.000000,
+            306.000000
+          ],
+          [
+            561.000000,
+            484.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 123.989750,
+      "end_to_end_elapsed_ms": 136.374708,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image005.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            402.000000,
+            455.000000
+          ],
+          [
+            393.000000,
+            295.000000
+          ],
+          [
+            553.000000,
+            306.000000
+          ],
+          [
+            551.000000,
+            478.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 123.945083,
+      "end_to_end_elapsed_ms": 133.598083,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image006.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            410.000000,
+            442.000000
+          ],
+          [
+            397.000000,
+            284.000000
+          ],
+          [
+            547.000000,
+            293.000000
+          ],
+          [
+            549.000000,
+            468.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.303541,
+      "end_to_end_elapsed_ms": 132.778250,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image007.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            395.000000,
+            446.000000
+          ],
+          [
+            382.000000,
+            294.000000
+          ],
+          [
+            511.000000,
+            309.000000
+          ],
+          [
+            518.000000,
+            478.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.049584,
+      "end_to_end_elapsed_ms": 132.536208,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image008.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            400.000000,
+            447.000000
+          ],
+          [
+            383.000000,
+            301.000000
+          ],
+          [
+            497.000000,
+            315.000000
+          ],
+          [
+            505.000000,
+            479.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.133917,
+      "end_to_end_elapsed_ms": 132.624084,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image009.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            423.000000,
+            435.000000
+          ],
+          [
+            412.000000,
+            297.000000
+          ],
+          [
+            508.000000,
+            316.000000
+          ],
+          [
+            512.000000,
+            475.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 123.868791,
+      "end_to_end_elapsed_ms": 132.130167,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image010.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            475.000000,
+            440.000000
+          ],
+          [
+            466.000000,
+            307.000000
+          ],
+          [
+            549.000000,
+            327.000000
+          ],
+          [
+            554.000000,
+            481.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 123.718417,
+      "end_to_end_elapsed_ms": 131.295666,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image011.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            479.000000,
+            426.000000
+          ],
+          [
+            468.000000,
+            294.000000
+          ],
+          [
+            545.000000,
+            313.000000
+          ],
+          [
+            552.000000,
+            468.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.792542,
+      "end_to_end_elapsed_ms": 134.067792,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image012.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 127.233792,
+      "end_to_end_elapsed_ms": 136.024417,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image013.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.396584,
+      "end_to_end_elapsed_ms": 132.896625,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image014.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.570375,
+      "end_to_end_elapsed_ms": 133.738792,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image015.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 126.785208,
+      "end_to_end_elapsed_ms": 135.285208,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image016.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.068083,
+      "end_to_end_elapsed_ms": 133.376667,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image017.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            482.000000,
+            254.000000
+          ],
+          [
+            601.000000,
+            427.000000
+          ],
+          [
+            433.000000,
+            537.000000
+          ],
+          [
+            310.000000,
+            375.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.161125,
+      "end_to_end_elapsed_ms": 132.569500,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image018.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            477.000000,
+            258.000000
+          ],
+          [
+            599.000000,
+            427.000000
+          ],
+          [
+            435.000000,
+            538.000000
+          ],
+          [
+            312.000000,
+            380.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.148167,
+      "end_to_end_elapsed_ms": 132.135458,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image019.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            477.000000,
+            255.000000
+          ],
+          [
+            600.000000,
+            425.000000
+          ],
+          [
+            440.000000,
+            529.000000
+          ],
+          [
+            323.000000,
+            372.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.176000,
+      "end_to_end_elapsed_ms": 132.219625,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image020.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            494.000000,
+            257.000000
+          ],
+          [
+            612.000000,
+            424.000000
+          ],
+          [
+            462.000000,
+            520.000000
+          ],
+          [
+            353.000000,
+            369.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.172792,
+      "end_to_end_elapsed_ms": 132.390709,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image021.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            456.000000,
+            263.000000
+          ],
+          [
+            572.000000,
+            432.000000
+          ],
+          [
+            433.000000,
+            524.000000
+          ],
+          [
+            328.000000,
+            374.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.688875,
+      "end_to_end_elapsed_ms": 133.960125,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image022.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            439.000000,
+            259.000000
+          ],
+          [
+            545.000000,
+            429.000000
+          ],
+          [
+            414.000000,
+            512.000000
+          ],
+          [
+            321.000000,
+            361.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.124458,
+      "end_to_end_elapsed_ms": 131.373833,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image023.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            435.000000,
+            237.000000
+          ],
+          [
+            529.000000,
+            405.000000
+          ],
+          [
+            411.000000,
+            480.000000
+          ],
+          [
+            328.000000,
+            332.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 124.062583,
+      "end_to_end_elapsed_ms": 132.592250,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image024.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            421.000000,
+            219.000000
+          ],
+          [
+            508.000000,
+            385.000000
+          ],
+          [
+            400.000000,
+            460.000000
+          ],
+          [
+            324.000000,
+            313.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 123.947125,
+      "end_to_end_elapsed_ms": 131.472333,
+      "timed_out": false
+    },
+    {
+      "image_id": "perspective/image025.jpg",
+      "category": "perspective",
+      "original_width": 1024,
+      "original_height": 768,
+      "working_width": 1024,
+      "working_height": 768,
+      "predicted_quadrilaterals": [
+        [
+          [
+            454.000000,
+            230.000000
+          ],
+          [
+            536.000000,
+            390.000000
+          ],
+          [
+            437.000000,
+            459.000000
+          ],
+          [
+            369.000000,
+            319.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "TEST 10 CM"
+      ],
+      "core_elapsed_ms": 123.981542,
+      "end_to_end_elapsed_ms": 131.899791,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image001.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            683.156250,
+            858.375000
+          ],
+          [
+            693.000000,
+            1240.312500
+          ],
+          [
+            301.218750,
+            1254.093750
+          ],
+          [
+            301.218750,
+            872.156250
+          ]
+        ],
+        [
+          [
+            945.000000,
+            1234.406250
+          ],
+          [
+            1161.562500,
+            1244.250000
+          ],
+          [
+            1155.656250,
+            1468.687500
+          ],
+          [
+            935.156250,
+            1456.875000
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 127.900500,
+      "end_to_end_elapsed_ms": 216.892292,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image002.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            628.031250,
+            937.125000
+          ],
+          [
+            777.656250,
+            1328.906250
+          ],
+          [
+            378.000000,
+            1484.437500
+          ],
+          [
+            232.312500,
+            1088.718750
+          ]
+        ],
+        [
+          [
+            1006.031250,
+            830.812500
+          ],
+          [
+            1181.250000,
+            765.843750
+          ],
+          [
+            1248.187500,
+            943.031250
+          ],
+          [
+            1074.937500,
+            1011.937500
+          ]
+        ],
+        [
+          [
+            1031.625000,
+            1228.500000
+          ],
+          [
+            1248.187500,
+            1159.593750
+          ],
+          [
+            1324.968750,
+            1387.968750
+          ],
+          [
+            1104.468750,
+            1460.812500
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 1 QR",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 126.355291,
+      "end_to_end_elapsed_ms": 213.745500,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image003.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 133.205500,
+      "end_to_end_elapsed_ms": 199.894500,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image004.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            523.687500,
+            1078.875000
+          ],
+          [
+            878.062500,
+            1269.843750
+          ],
+          [
+            679.218750,
+            1641.937500
+          ],
+          [
+            320.906250,
+            1443.093750
+          ]
+        ],
+        [
+          [
+            1002.093750,
+            1043.437500
+          ],
+          [
+            1116.281250,
+            858.375000
+          ],
+          [
+            1309.218750,
+            976.500000
+          ],
+          [
+            1193.062500,
+            1167.468750
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 126.060792,
+      "end_to_end_elapsed_ms": 204.587541,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image005.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            547.312500,
+            1179.281250
+          ],
+          [
+            945.000000,
+            1224.562500
+          ],
+          [
+            899.718750,
+            1638.000000
+          ],
+          [
+            494.156250,
+            1592.718750
+          ]
+        ],
+        [
+          [
+            631.968750,
+            813.093750
+          ],
+          [
+            657.562500,
+            639.843750
+          ],
+          [
+            834.750000,
+            657.562500
+          ],
+          [
+            815.062500,
+            838.687500
+          ]
+        ],
+        [
+          [
+            974.531250,
+            970.593750
+          ],
+          [
+            1009.968750,
+            759.937500
+          ],
+          [
+            1224.562500,
+            801.281250
+          ],
+          [
+            1191.093750,
+            1011.937500
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 1 QR",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 125.993041,
+      "end_to_end_elapsed_ms": 192.866917,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image006.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.474584,
+      "end_to_end_elapsed_ms": 191.731291,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image007.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.230375,
+      "end_to_end_elapsed_ms": 185.680583,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image008.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            691.031250,
+            1387.968750
+          ],
+          [
+            1000.125000,
+            1137.937500
+          ],
+          [
+            1254.093750,
+            1456.875000
+          ],
+          [
+            943.031250,
+            1718.718750
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789"
+      ],
+      "core_elapsed_ms": 125.275167,
+      "end_to_end_elapsed_ms": 190.507542,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image009.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.932167,
+      "end_to_end_elapsed_ms": 184.390625,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image010.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.628167,
+      "end_to_end_elapsed_ms": 185.594167,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image011.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.209209,
+      "end_to_end_elapsed_ms": 200.602792,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image012.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.677875,
+      "end_to_end_elapsed_ms": 183.851083,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image013.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 124.179708,
+      "end_to_end_elapsed_ms": 199.079334,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image014.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            868.218750,
+            1393.875000
+          ],
+          [
+            769.781250,
+            1561.218750
+          ],
+          [
+            608.343750,
+            1452.937500
+          ],
+          [
+            712.687500,
+            1291.500000
+          ]
+        ]
+      ],
+      "payloads": [
+        "Version 1 QR"
+      ],
+      "core_elapsed_ms": 124.839125,
+      "end_to_end_elapsed_ms": 205.248417,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image015.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            974.531250,
+            1360.406250
+          ],
+          [
+            923.343750,
+            1545.468750
+          ],
+          [
+            742.218750,
+            1486.406250
+          ],
+          [
+            799.312500,
+            1305.281250
+          ]
+        ]
+      ],
+      "payloads": [
+        "Version 1 QR"
+      ],
+      "core_elapsed_ms": 131.271417,
+      "end_to_end_elapsed_ms": 192.423292,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image016.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.095958,
+      "end_to_end_elapsed_ms": 190.622833,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image017.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            1090.687500,
+            893.812500
+          ],
+          [
+            724.500000,
+            1043.437500
+          ],
+          [
+            576.843750,
+            673.312500
+          ],
+          [
+            939.093750,
+            531.562500
+          ]
+        ],
+        [
+          [
+            1208.812500,
+            1260.000000
+          ],
+          [
+            1283.625000,
+            1439.156250
+          ],
+          [
+            1106.437500,
+            1508.062500
+          ],
+          [
+            1031.625000,
+            1328.906250
+          ]
+        ],
+        [
+          [
+            819.000000,
+            1285.593750
+          ],
+          [
+            889.875000,
+            1508.062500
+          ],
+          [
+            673.312500,
+            1578.937500
+          ],
+          [
+            600.468750,
+            1356.468750
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 1 QR",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 126.167959,
+      "end_to_end_elapsed_ms": 221.733166,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image018.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 125.904000,
+      "end_to_end_elapsed_ms": 194.528042,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image019.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            958.781250,
+            720.562500
+          ],
+          [
+            730.406250,
+            1037.531250
+          ],
+          [
+            407.531250,
+            801.281250
+          ],
+          [
+            641.812500,
+            496.125000
+          ]
+        ],
+        [
+          [
+            1244.250000,
+            968.625000
+          ],
+          [
+            1393.875000,
+            1078.875000
+          ],
+          [
+            1287.562500,
+            1234.406250
+          ],
+          [
+            1134.000000,
+            1116.281250
+          ]
+        ],
+        [
+          [
+            937.125000,
+            1191.093750
+          ],
+          [
+            1110.375000,
+            1336.781250
+          ],
+          [
+            960.750000,
+            1515.937500
+          ],
+          [
+            791.437500,
+            1366.312500
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 1 QR",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 173.514375,
+      "end_to_end_elapsed_ms": 239.188417,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image020.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            803.250000,
+            724.500000
+          ],
+          [
+            704.812500,
+            1102.500000
+          ],
+          [
+            313.031250,
+            1000.125000
+          ],
+          [
+            419.343750,
+            622.125000
+          ]
+        ],
+        [
+          [
+            1155.656250,
+            852.468750
+          ],
+          [
+            1330.875000,
+            901.687500
+          ],
+          [
+            1289.531250,
+            1076.906250
+          ],
+          [
+            1108.406250,
+            1029.656250
+          ]
+        ],
+        [
+          [
+            952.875000,
+            1171.406250
+          ],
+          [
+            1165.500000,
+            1242.281250
+          ],
+          [
+            1094.625000,
+            1460.812500
+          ],
+          [
+            882.000000,
+            1389.937500
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 1 QR",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 127.801417,
+      "end_to_end_elapsed_ms": 203.354583,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image021.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            706.781250,
+            826.875000
+          ],
+          [
+            720.562500,
+            1181.250000
+          ],
+          [
+            210.656250,
+            1181.250000
+          ],
+          [
+            277.593750,
+            819.000000
+          ]
+        ],
+        [
+          [
+            1023.750000,
+            1181.250000
+          ],
+          [
+            1281.656250,
+            1195.031250
+          ],
+          [
+            1326.937500,
+            1449.000000
+          ],
+          [
+            1041.468750,
+            1435.218750
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 126.500167,
+      "end_to_end_elapsed_ms": 188.090875,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image022.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            600.468750,
+            876.093750
+          ],
+          [
+            712.687500,
+            1232.437500
+          ],
+          [
+            198.843750,
+            1346.625000
+          ],
+          [
+            157.500000,
+            948.937500
+          ]
+        ],
+        [
+          [
+            984.375000,
+            840.656250
+          ],
+          [
+            1151.718750,
+            813.093750
+          ],
+          [
+            1230.468750,
+            950.906250
+          ],
+          [
+            1047.375000,
+            988.312500
+          ]
+        ],
+        [
+          [
+            1002.093750,
+            1171.406250
+          ],
+          [
+            1238.343750,
+            1134.000000
+          ],
+          [
+            1340.718750,
+            1360.406250
+          ],
+          [
+            1082.812500,
+            1415.531250
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 1 QR",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 126.093791,
+      "end_to_end_elapsed_ms": 183.887833,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image023.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            606.375000,
+            897.750000
+          ],
+          [
+            805.218750,
+            1230.468750
+          ],
+          [
+            332.718750,
+            1427.343750
+          ],
+          [
+            179.156250,
+            1035.562500
+          ]
+        ],
+        [
+          [
+            1061.156250,
+            1124.156250
+          ],
+          [
+            1265.906250,
+            1053.281250
+          ],
+          [
+            1409.625000,
+            1258.031250
+          ],
+          [
+            1193.062500,
+            1342.687500
+          ]
+        ]
+      ],
+      "payloads": [
+        "ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789 ABC 123456789",
+        "Version 2 QR Code Test Image"
+      ],
+      "core_elapsed_ms": 126.173916,
+      "end_to_end_elapsed_ms": 185.017958,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image024.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 126.504917,
+      "end_to_end_elapsed_ms": 196.109583,
+      "timed_out": false
+    },
+    {
+      "image_id": "rotations/image025.jpg",
+      "category": "rotations",
+      "original_width": 1512,
+      "original_height": 2016,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 126.849250,
+      "end_to_end_elapsed_ms": 184.874333,
+      "timed_out": false
+    }
+  ]
+}

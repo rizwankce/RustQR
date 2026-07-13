@@ -710,6 +710,23 @@ the direction decision or satisfy the seven-category/Actions acceptance gate.
 Exact raw, normalized, and caveat evidence:
 `artifacts/wp005_nominal_cross_branch_2026-07-13.md`.
 
+**2026-07-13 complete local normalized comparison:** The same detached,
+historical adapters and shared v2 scorer now cover all seven requested
+categories from matching 1024px pixels: 25 deterministic images per category,
+except all 7 available `lots` images (157 images / 727 labels total). The
+streams have identical ordered image IDs, dimensions, dataset fingerprint
+`fnv1a64:812bbf57f2ce9c36`, and Triangle preprocessing fingerprint. `main`
+hit 36/727 labels (4.95%; one false positive) and rebuild hit 74/727 (10.18%;
+zero false positives); neither emitted duplicates or timeouts. Rebuild gained
+in rotations (+27 labels) and perspective (+10) but lost main's one `lots`
+label. The two historical release binaries had locally observed median
+end-to-end times of 2167.191 ms and 192.968 ms respectively; that is
+diagnostic timing, not a cross-run performance claim. This closes the local
+normalized-stream gap but does **not** satisfy the remaining matched remote
+Fast Benchmark gate or authorize a rebuild merge/transplant. Exact raw,
+truth, normalized, checksum, category-table, and reproduction evidence:
+`artifacts/wp005_targeted_cross_branch_2026-07-13.md`.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
