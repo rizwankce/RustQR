@@ -23,7 +23,11 @@ const MEDIUM_CONFIDENCE_LANE_MIN: f32 = 0.56;
 // expensive.  This is deliberately a proposal-count threshold, not an image
 // dimension: a uniformly scaled scene follows the same path.
 const SPATIAL_GROUP_TRIGGER: usize = 12;
-const SPATIAL_NEIGHBOR_LIMIT: usize = 6;
+// Finder scans in dense raster scenes can retain harmless nearby evidence in
+// addition to the three true markers.  Keep enough local neighbours to form
+// the valid triple without returning to scene-wide cubic grouping.  This is a
+// fixed per-anchor bound; the resulting group frontier remains capped below.
+const SPATIAL_NEIGHBOR_LIMIT: usize = 16;
 const DENSE_MAX_GROUP_CANDIDATES: usize = 128;
 // The largest possible finder-to-finder pair in a Model 2 symbol is the
 // diagonal of a version-40 grid.  Keep a little perspective headroom, but
@@ -406,6 +410,57 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
             groups.push(component);
         }
     }
+    // Keep each anchor's strongest local hypothesis before adding the broader
+    // neighbourhood alternatives.  A dense finder scan often has extra
+    // observations around a real marker; globally sorting every combination
+    // lets those cross-symbol triples crowd out the actual symbol.  This
+    // produces at most one seed per proposal and remains bounded by the
+    // proposal frontier.
+    let mut anchor_seeds = Vec::new();
+    for &anchor in indices {
+        let anchor_pattern = &patterns[anchor];
+        let mut neighbors = indices
+            .iter()
+            .copied()
+            .filter(|&other| other != anchor)
+            .filter_map(|other| {
+                let candidate = &patterns[other];
+                let size_ratio = anchor_pattern.module_size.max(candidate.module_size)
+                    / anchor_pattern.module_size.min(candidate.module_size);
+                let distance = anchor_pattern.center.distance(&candidate.center);
+                (size_ratio <= 2.5
+                    && distance
+                        <= anchor_pattern.module_size.max(candidate.module_size)
+                            * MAX_FINDER_PAIR_MODULES)
+                    .then_some((other, distance))
+            })
+            .collect::<Vec<_>>();
+        neighbors.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        let mut local = Vec::with_capacity(SPATIAL_NEIGHBOR_LIMIT + 1);
+        local.push(anchor);
+        local.extend(
+            neighbors
+                .into_iter()
+                .take(SPATIAL_NEIGHBOR_LIMIT)
+                .map(|(idx, _)| idx),
+        );
+        local.sort_unstable();
+        let local_groups = build_groups(patterns, &local);
+        if let Some(best) = local_groups.iter().min_by(|a, b| {
+            group_raw_score(patterns, a)
+                .total_cmp(&group_raw_score(patterns, b))
+                .then_with(|| a.cmp(b))
+        }) {
+            anchor_seeds.push(best.clone());
+        }
+    }
+    for triple in anchor_seeds {
+        let mut key = [triple[0], triple[1], triple[2]];
+        key.sort_unstable();
+        if seen.insert((key[0], key[1], key[2])) {
+            groups.push(triple);
+        }
+    }
     let seeded_count = groups.len();
     for &anchor in indices {
         let anchor_pattern = &patterns[anchor];
@@ -721,7 +776,17 @@ fn rank_groups(
     patterns: &[FinderPattern],
     raw_groups: Vec<Vec<usize>>,
 ) -> (Vec<RankedGroupCandidate>, usize) {
-    let max_groups = crate::decoder::config::max_groups_to_rank();
+    // The normal path only needs a compact ranking frontier.  Once the
+    // spatial grouper is active, however, its first entries are isolated
+    // local triples for distinct symbols.  Retaining that bounded frontier is
+    // necessary for dense routing; collapsing it back to the ordinary 16
+    // candidates discards most of a 50-symbol scene before request budgets
+    // can make the final decision.
+    let max_groups = if patterns.len() > SPATIAL_GROUP_TRIGGER {
+        DENSE_MAX_GROUP_CANDIDATES
+    } else {
+        crate::decoder::config::max_groups_to_rank()
+    };
     // Hard cap: truncate groups early to prevent O(n) slowdown on pathological images
     let groups_to_process: Vec<_> = raw_groups.into_iter().take(max_groups).collect();
 
@@ -1276,7 +1341,15 @@ fn decode_ranked_groups(
         finder_patterns,
         raw_groups,
     );
-    let consider = ranked.len().min(MAX_GROUP_CANDIDATES);
+    // Keep the complete bounded dense frontier.  `attempt_limit`, supplied by
+    // the public request context, remains the hard decode/transform budget;
+    // this only prevents an arbitrary pre-routing truncation.
+    let consider_limit = if finder_patterns.len() > SPATIAL_GROUP_TRIGGER {
+        DENSE_MAX_GROUP_CANDIDATES
+    } else {
+        MAX_GROUP_CANDIDATES
+    };
+    let consider = ranked.len().min(consider_limit);
     let pre_probe = &ranked[..consider];
 
     let candidates = pre_probe;

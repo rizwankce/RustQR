@@ -693,7 +693,16 @@ fn budgeted_decode(
     if *remaining == 0 {
         return Vec::new();
     }
-    let cap = (*remaining).min(24);
+    // A normal recovery lane is intentionally compact, but once the finder
+    // stage has entered pipeline's spatial-routing regime, 24 trials cannot
+    // possibly cover a dense scene.  The request's remaining candidate budget
+    // is still the strict upper bound (128 by default), so this does not turn
+    // a brightness fallback into an unbounded scan.
+    let cap = if patterns.len() > 12 {
+        *remaining
+    } else {
+        (*remaining).min(24)
+    };
     let (decoded, tel) =
         pipeline::decode_groups_with_telemetry_limited(binary, gray, width, height, patterns, cap);
     *remaining = remaining.saturating_sub(tel.decode_attempts);
@@ -788,8 +797,13 @@ fn run_brightness_detection<F: Fn() -> bool>(
 }
 
 /// Threshold for early termination when too many finder patterns are detected.
-/// Avoids pathological case of trying O(n^3) combinations with 100+ patterns.
-const FINDER_PATTERN_THRESHOLD: usize = 50;
+///
+/// The pipeline now switches to a spatial, bounded grouping path above twelve
+/// proposals, so a real dense scene must not be diverted before that path can
+/// route its local triples.  The value is deliberately finite: grouping keeps
+/// at most 128 candidates and the request-wide decode budget still caps the
+/// expensive work.
+const FINDER_PATTERN_THRESHOLD: usize = 384;
 
 fn histogram_median(gray: &[u8]) -> u8 {
     let mut hist = [0u32; 256];

@@ -1177,6 +1177,18 @@ release baseline is 14/193 (7.25%) with zero false positives/duplicates and
 `docs/wp012_raster_scenes.md` and
 `artifacts/wp012_controlled_dense_by_density_qrmax0.json`.
 
+**2026-07-13 bounded dense-routing follow-up:** The scanline finder cap now
+permits a finite 64 independent markers per row/column (rather than silently
+stopping after five), dense inputs can enter the bounded spatial path up to
+384 finder proposals, and its ranked/group frontier remains capped at 128 by
+the request candidate budget. Local anchor-best grouping seeds (16 nearby
+same-scale proposals per anchor) raise the controlled 50-symbol scene from
+the prior 2/50 (4.00%) baseline to 29/50 (58.00%) with zero false positives
+or duplicates. Finder recall is now 50/50, but grouping/decode remains 29/50
+and takes 2323.97 ms, so the 90%/<500 ms target remains unmet. This is a
+bounded routing improvement, not completion; the remaining failure is
+spurious local finder evidence preventing all true triples from being routed.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.

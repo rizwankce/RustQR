@@ -289,8 +289,11 @@ impl FinderDetector {
         let mut run_start = 0usize;
         let mut current_color = matrix.get(0, y);
 
-        // Early termination 2: Max patterns per row
-        const MAX_PATTERNS_PER_ROW: usize = 5;
+        // Keep a finite scanline budget, but do not make a five-symbol row an
+        // implicit scene limit.  Controlled dense scenes can legitimately
+        // place many independent finder centres on one horizontal or vertical
+        // scanline.  NMS and the later spatial group frontier remain bounded.
+        const MAX_PATTERNS_PER_ROW: usize = 64;
 
         for x in 1..width {
             let color = matrix.get(x, y);
@@ -372,7 +375,7 @@ impl FinderDetector {
         let mut current_color = matrix.get(start_x, y);
 
         // Early termination: Max patterns per row
-        const MAX_PATTERNS_PER_ROW: usize = 5;
+        const MAX_PATTERNS_PER_ROW: usize = 64;
 
         for x in (start_x + 1)..=end_x {
             let color = matrix.get(x, y);
@@ -754,7 +757,7 @@ impl FinderDetector {
         let mut run_start = 0usize;
         let mut current_color = matrix.get(x, 0);
 
-        const MAX_PATTERNS_PER_COL: usize = 5;
+        const MAX_PATTERNS_PER_COL: usize = 64;
 
         for y in 1..height {
             let color = matrix.get(x, y);
@@ -840,7 +843,7 @@ impl FinderDetector {
         let mut run_start = start_y;
         let mut current_color = matrix.get(x, start_y);
 
-        const MAX_PATTERNS_PER_COL: usize = 5;
+        const MAX_PATTERNS_PER_COL: usize = 64;
 
         for y in (start_y + 1)..=end_y {
             let color = matrix.get(x, y);
@@ -1011,6 +1014,64 @@ mod tests {
             found,
             "Expected pattern near ({}, {}), found: {:?}",
             expected_center, expected_center, patterns
+        );
+    }
+
+    #[test]
+    fn scanline_keeps_more_than_five_independent_finders() {
+        // A dense grid can put many finder centres on the same scanline.  The
+        // scan-stage cap must not silently discard the sixth and later symbol
+        // before proposal NMS/spatial routing get a chance to bound the work.
+        let mut matrix = BitMatrix::new(320, 30);
+        let module = 2;
+        for finder in 0..8 {
+            let start = 4 + finder * 39;
+            for my in 0..7 {
+                for mx in 0..7 {
+                    let black = mx == 0
+                        || mx == 6
+                        || my == 0
+                        || my == 6
+                        || ((2..=4).contains(&mx) && (2..=4).contains(&my));
+                    if black {
+                        for y in 4 + my * module..4 + (my + 1) * module {
+                            for x in start + mx * module..start + (mx + 1) * module {
+                                matrix.set(x, y, true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(
+            FinderDetector::scan_row(&matrix, 11, matrix.width()).len() >= 8,
+            "dense scanline must retain every independent finder"
+        );
+
+        let mut vertical = BitMatrix::new(30, 320);
+        for finder in 0..8 {
+            let start = 4 + finder * 39;
+            for my in 0..7 {
+                for mx in 0..7 {
+                    let black = mx == 0
+                        || mx == 6
+                        || my == 0
+                        || my == 6
+                        || ((2..=4).contains(&mx) && (2..=4).contains(&my));
+                    if black {
+                        for y in start + my * module..start + (my + 1) * module {
+                            for x in 4 + mx * module..4 + (mx + 1) * module {
+                                vertical.set(x, y, true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            FinderDetector::scan_column(&vertical, 11, vertical.height()).len() >= 8,
+            "dense scanline must retain every independent finder"
         );
     }
 
