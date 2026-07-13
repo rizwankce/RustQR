@@ -1778,6 +1778,16 @@ codes in 505.77 ms with zero false positives, duplicates, or timeouts; the
 transient artifact is `/tmp/wp012_lots_round_robin_limit1.json`. This keeps
 WP-010 proposal recall and realistic-scene localization as the next blockers.
 
+**2026-07-13 realistic-lots route rejection:** On `lots/image001`, stage
+telemetry reaches 34/60 contained finder proposals and 29/60 grouped symbols,
+but the public fast/brightness route returns only 1/60. Bypassing its dense
+early returns was tested without changing candidate caps: the full bypass
+stayed at 1/60 in 1.16 s, while a sparse-return variant reached 4/60 in 1.02 s.
+Both exceed the 500 ms controlled dense latency target and do not approach
+acceptable recall, so they were reverted. The next route must
+select/decode the existing grouped candidates under the bounded budget; do not
+disable these early returns globally.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.
