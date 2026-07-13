@@ -1,0 +1,712 @@
+{
+  "schema_version": "rustqr.wp005.prediction-stream.v1",
+  "metadata": {
+    "commit_sha": "5b9b41e",
+    "dataset_fingerprint": "fnv1a64:812bbf57f2ce9c36",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024",
+    "limit_per_category": 25
+  },
+  "images": [
+    {
+      "image_id": "nominal/image001.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 308,
+      "working_width": 550,
+      "working_height": 308,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2014.201459,
+      "end_to_end_elapsed_ms": 2017.045709,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image002.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 310,
+      "working_width": 550,
+      "working_height": 310,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2039.063792,
+      "end_to_end_elapsed_ms": 2041.165750,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image003.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 308,
+      "working_width": 550,
+      "working_height": 308,
+      "predicted_quadrilaterals": [
+        [
+          [
+            271.250000,
+            148.124985
+          ],
+          [
+            354.384583,
+            209.048080
+          ],
+          [
+            287.750000,
+            288.375000
+          ],
+          [
+            204.615387,
+            227.451889
+          ]
+        ],
+        [
+          [
+            153.129807,
+            58.576923
+          ],
+          [
+            224.841354,
+            113.788460
+          ],
+          [
+            156.620193,
+            180.423080
+          ],
+          [
+            84.908653,
+            125.211533
+          ]
+        ]
+      ],
+      "payloads": [
+        "https://www.instagram.com/lethmik/",
+        "https://www.facebook.com/Lethmik/"
+      ],
+      "core_elapsed_ms": 2026.848500,
+      "end_to_end_elapsed_ms": 2028.901000,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image004.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 311,
+      "working_width": 550,
+      "working_height": 311,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2488.687375,
+      "end_to_end_elapsed_ms": 2490.503083,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image005.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 309,
+      "working_width": 550,
+      "working_height": 309,
+      "predicted_quadrilaterals": [
+        [
+          [
+            401.457672,
+            266.625000
+          ],
+          [
+            213.891586,
+            224.105820
+          ],
+          [
+            251.294174,
+            43.874969
+          ],
+          [
+            438.860291,
+            86.394173
+          ]
+        ]
+      ],
+      "payloads": [
+        "{\"lastNode\":\"OAK5\",\"cids\":{\"pkey\":\"171227103636638907587520201AZ\"}}"
+      ],
+      "core_elapsed_ms": 1846.201250,
+      "end_to_end_elapsed_ms": 1847.866208,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image006.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 309,
+      "working_width": 550,
+      "working_height": 309,
+      "predicted_quadrilaterals": [
+        [
+          [
+            505.442566,
+            289.798065
+          ],
+          [
+            276.981018,
+            252.355789
+          ],
+          [
+            265.555420,
+            60.701935
+          ],
+          [
+            494.016968,
+            98.144211
+          ]
+        ]
+      ],
+      "payloads": [
+        "{\"lastNode\":\"OAK5\",\"cids\":{\"pkey\":\"171227103636638907587520201AZ\"}}"
+      ],
+      "core_elapsed_ms": 612.076000,
+      "end_to_end_elapsed_ms": 616.960875,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image007.jpg",
+      "category": "nominal",
+      "original_width": 886,
+      "original_height": 546,
+      "working_width": 886,
+      "working_height": 546,
+      "predicted_quadrilaterals": [
+        [
+          [
+            302.804047,
+            215.750000
+          ],
+          [
+            519.006409,
+            182.795456
+          ],
+          [
+            544.713562,
+            375.250000
+          ],
+          [
+            328.511139,
+            408.204590
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 2042.817666,
+      "end_to_end_elapsed_ms": 2048.965250,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image008.jpg",
+      "category": "nominal",
+      "original_width": 913,
+      "original_height": 544,
+      "working_width": 913,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            382.032745,
+            162.954559
+          ],
+          [
+            623.919006,
+            94.409088
+          ],
+          [
+            663.476013,
+            329.045441
+          ],
+          [
+            421.589722,
+            397.590881
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 1682.298542,
+      "end_to_end_elapsed_ms": 1690.258000,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image009.jpg",
+      "category": "nominal",
+      "original_width": 909,
+      "original_height": 544,
+      "working_width": 909,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            359.531982,
+            179.022736
+          ],
+          [
+            625.454529,
+            117.068176
+          ],
+          [
+            680.468140,
+            327.977295
+          ],
+          [
+            414.545471,
+            389.931854
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 2038.090083,
+      "end_to_end_elapsed_ms": 2042.559708,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image010.jpg",
+      "category": "nominal",
+      "original_width": 707,
+      "original_height": 538,
+      "working_width": 707,
+      "working_height": 538,
+      "predicted_quadrilaterals": [
+        [
+          [
+            312.759216,
+            187.488647
+          ],
+          [
+            555.943176,
+            114.988625
+          ],
+          [
+            600.740784,
+            316.011353
+          ],
+          [
+            357.556824,
+            388.511353
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 1070.006125,
+      "end_to_end_elapsed_ms": 1073.329667,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image011.jpg",
+      "category": "nominal",
+      "original_width": 911,
+      "original_height": 544,
+      "working_width": 911,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            136.601425,
+            237.170532
+          ],
+          [
+            317.212952,
+            186.420532
+          ],
+          [
+            384.461670,
+            339.328613
+          ],
+          [
+            203.850174,
+            390.078522
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 681.615083,
+      "end_to_end_elapsed_ms": 691.374291,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image012.jpg",
+      "category": "nominal",
+      "original_width": 900,
+      "original_height": 573,
+      "working_width": 900,
+      "working_height": 573,
+      "predicted_quadrilaterals": [
+        [
+          [
+            371.061737,
+            154.864883
+          ],
+          [
+            538.769165,
+            197.919006
+          ],
+          [
+            449.659241,
+            320.136902
+          ],
+          [
+            281.951843,
+            277.082733
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 653.144125,
+      "end_to_end_elapsed_ms": 658.618709,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image013.jpg",
+      "category": "nominal",
+      "original_width": 902,
+      "original_height": 570,
+      "working_width": 902,
+      "working_height": 570,
+      "predicted_quadrilaterals": [
+        [
+          [
+            513.745239,
+            173.973175
+          ],
+          [
+            687.047485,
+            212.211182
+          ],
+          [
+            610.458069,
+            334.878265
+          ],
+          [
+            437.155853,
+            296.640259
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 188.685291,
+      "end_to_end_elapsed_ms": 197.788167,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image014.jpg",
+      "category": "nominal",
+      "original_width": 762,
+      "original_height": 479,
+      "working_width": 762,
+      "working_height": 479,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2047.971583,
+      "end_to_end_elapsed_ms": 2054.141708,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image015.jpg",
+      "category": "nominal",
+      "original_width": 854,
+      "original_height": 564,
+      "working_width": 854,
+      "working_height": 564,
+      "predicted_quadrilaterals": [
+        [
+          [
+            417.316467,
+            275.111115
+          ],
+          [
+            490.601990,
+            293.166840
+          ],
+          [
+            459.699219,
+            352.889069
+          ],
+          [
+            386.413635,
+            334.833313
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 654.793375,
+      "end_to_end_elapsed_ms": 662.276083,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image016.jpg",
+      "category": "nominal",
+      "original_width": 896,
+      "original_height": 571,
+      "working_width": 896,
+      "working_height": 571,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2155.836041,
+      "end_to_end_elapsed_ms": 2165.163791,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image017.jpg",
+      "category": "nominal",
+      "original_width": 858,
+      "original_height": 567,
+      "working_width": 858,
+      "working_height": 567,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2406.025375,
+      "end_to_end_elapsed_ms": 2410.923417,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image018.jpg",
+      "category": "nominal",
+      "original_width": 901,
+      "original_height": 563,
+      "working_width": 901,
+      "working_height": 563,
+      "predicted_quadrilaterals": [
+        [
+          [
+            381.013885,
+            402.763885
+          ],
+          [
+            328.236115,
+            372.208344
+          ],
+          [
+            359.486084,
+            318.736145
+          ],
+          [
+            412.263885,
+            349.291687
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 755.681542,
+      "end_to_end_elapsed_ms": 760.171000,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image019.jpg",
+      "category": "nominal",
+      "original_width": 934,
+      "original_height": 567,
+      "working_width": 934,
+      "working_height": 567,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2084.424833,
+      "end_to_end_elapsed_ms": 2089.726333,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image020.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            681.174927,
+            457.244934
+          ],
+          [
+            419.196838,
+            520.178467
+          ],
+          [
+            356.585419,
+            260.497253
+          ],
+          [
+            618.563416,
+            197.563675
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 1259.205042,
+      "end_to_end_elapsed_ms": 1270.143542,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image021.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 2059.150916,
+      "end_to_end_elapsed_ms": 2070.286042,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image022.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            625.219421,
+            199.183609
+          ],
+          [
+            529.707764,
+            247.294647
+          ],
+          [
+            474.032654,
+            139.694855
+          ],
+          [
+            569.544189,
+            91.583778
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 541.497209,
+      "end_to_end_elapsed_ms": 549.017625,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image023.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            711.670349,
+            388.601135
+          ],
+          [
+            527.280518,
+            500.573730
+          ],
+          [
+            411.056366,
+            318.764008
+          ],
+          [
+            595.445984,
+            206.791351
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 487.263833,
+      "end_to_end_elapsed_ms": 492.792500,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image024.jpg",
+      "category": "nominal",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            1902.687527,
+            1130.390665
+          ],
+          [
+            2334.718563,
+            1122.187500
+          ],
+          [
+            2318.312473,
+            1507.734455
+          ],
+          [
+            1886.281317,
+            1515.937500
+          ]
+        ]
+      ],
+      "payloads": [
+        "https://mobile-now.us/?l=10043659"
+      ],
+      "core_elapsed_ms": 400.193792,
+      "end_to_end_elapsed_ms": 563.999292,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image025.jpg",
+      "category": "nominal",
+      "original_width": 2175,
+      "original_height": 1326,
+      "working_width": 1024,
+      "working_height": 624,
+      "predicted_quadrilaterals": [
+        [
+          [
+            429.685864,
+            542.426710
+          ],
+          [
+            824.631681,
+            524.895428
+          ],
+          [
+            854.286271,
+            907.885757
+          ],
+          [
+            459.340519,
+            925.417007
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://onramp.ehi.com/HYUN/ACNT/4SE/US/?v=KMHCT4AE3GU107709"
+      ],
+      "core_elapsed_ms": 616.431458,
+      "end_to_end_elapsed_ms": 694.552375,
+      "timed_out": false
+    }
+  ]
+}

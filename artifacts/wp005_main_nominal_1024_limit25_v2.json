@@ -1,0 +1,88 @@
+{
+  "categories": [
+    {
+      "core_runtime": {
+        "max_per_image_ms": 2488.687375,
+        "mean_per_image_ms": 1394.0884116000002,
+        "median_per_image_ms": 1682.298542,
+        "min_per_image_ms": 188.685291,
+        "p50_per_image_ms": 1682.298542,
+        "p90_per_image_ms": 2127.2715578,
+        "p95_per_image_ms": 2355.9875081999994,
+        "p99_per_image_ms": 2468.8484949999997,
+        "samples": 25,
+        "total_ms": 34852.21029
+      },
+      "description": "WP-005 normalized prediction stream",
+      "duplicate_predictions": 0,
+      "end_to_end_runtime": {
+        "max_per_image_ms": 2490.503083,
+        "mean_per_image_ms": 1409.141205,
+        "median_per_image_ms": 1690.258,
+        "min_per_image_ms": 197.788167,
+        "p50_per_image_ms": 1690.258,
+        "p90_per_image_ms": 2134.9888078,
+        "p95_per_image_ms": 2361.7714917999992,
+        "p99_per_image_ms": 2471.40396316,
+        "samples": 25,
+        "total_ms": 35228.530125
+      },
+      "false_negatives": 11,
+      "false_positives": 0,
+      "hits": 18,
+      "images_with_labels": 25,
+      "name": "nominal",
+      "rate_percent": 62.06896551724138,
+      "timeout_rate": 0.0,
+      "timeouts": 0,
+      "total_expected": 29
+    }
+  ],
+  "metadata": {
+    "commit_sha": "5b9b41e",
+    "dataset_fingerprint": "fnv1a64:812bbf57f2ce9c36",
+    "evaluator_fingerprint": "mode=localization;quad-iou=0.5;matching=max-cardinality",
+    "label_fingerprint": "af223ad3fe503d6d3ceaed8cae8a17b9b2bcc213bdc07f38c2c92ebdf413078b",
+    "limit_per_category": 25,
+    "normalization_source_schema": "rustqr.wp005.prediction-stream.v1",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024",
+    "selected_category": null,
+    "smoke": false
+  },
+  "schema_version": "rustqr.reading_rate.v2",
+  "summary": {
+    "core_runtime": {
+      "max_per_image_ms": 2488.687375,
+      "mean_per_image_ms": 1394.0884116000002,
+      "median_per_image_ms": 1682.298542,
+      "min_per_image_ms": 188.685291,
+      "p50_per_image_ms": 1682.298542,
+      "p90_per_image_ms": 2127.2715578,
+      "p95_per_image_ms": 2355.9875081999994,
+      "p99_per_image_ms": 2468.8484949999997,
+      "samples": 25,
+      "total_ms": 34852.21029
+    },
+    "duplicate_predictions": 0,
+    "end_to_end_runtime": {
+      "max_per_image_ms": 2490.503083,
+      "mean_per_image_ms": 1409.141205,
+      "median_per_image_ms": 1690.258,
+      "min_per_image_ms": 197.788167,
+      "p50_per_image_ms": 1690.258,
+      "p90_per_image_ms": 2134.9888078,
+      "p95_per_image_ms": 2361.7714917999992,
+      "p99_per_image_ms": 2471.40396316,
+      "samples": 25,
+      "total_ms": 35228.530125
+    },
+    "false_negatives": 11,
+    "false_positives": 0,
+    "timeout_rate": 0.0,
+    "timeouts": 0,
+    "total_expected": 29,
+    "total_hits": 18,
+    "total_images_with_labels": 25,
+    "weighted_global_rate_percent": 62.06896551724138
+  }
+}

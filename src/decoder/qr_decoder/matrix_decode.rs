@@ -126,7 +126,8 @@ fn decode_from_matrix_internal(
             if !orientation::validate_structural_patterns(oriented, 0) {
                 continue;
             }
-            if let Some(format_info) = FormatInfo::extract(oriented) {
+            if let Some((format_info, distance)) = FormatInfo::extract_with_distance(oriented) {
+                record_format_bch_evidence(context, distance);
                 if let Some(qr) =
                     try_decode_canonical(oriented, v_num, &format_info, module_confidence, context)
                 {
@@ -214,7 +215,8 @@ fn decode_recovery_phase(
 
             // First keep the BCH-derived format candidate, but permit only
             // non-canonical traversal hypotheses here.
-            if let Some(format_info) = FormatInfo::extract(oriented) {
+            if let Some((format_info, distance)) = FormatInfo::extract_with_distance(oriented) {
+                record_format_bch_evidence(context, distance);
                 for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
                     if context.deadline_expired() {
                         return None;
@@ -329,6 +331,14 @@ fn decode_recovery_phase(
         }
     }
     None
+}
+
+fn record_format_bch_evidence(context: &mut DecodeRequestContext, distance: u32) {
+    let counters = context.counters_mut();
+    counters.format_bch_candidates += 1;
+    if let Some(bucket) = counters.format_bch_distance_hist.get_mut(distance as usize) {
+        *bucket += 1;
+    }
 }
 
 fn attempt_uncertain_module_beam_repair(
@@ -466,4 +476,21 @@ fn decode_with_flips(
         mutated.set(x, y, !mutated.get(x, y));
     }
     decode_from_matrix_internal(&mutated, version_num, None, true, context)
+}
+
+#[cfg(test)]
+mod telemetry_tests {
+    use super::*;
+
+    #[test]
+    fn format_bch_evidence_records_only_valid_distance_buckets() {
+        let mut context = DecodeRequestContext::default();
+        record_format_bch_evidence(&mut context, 0);
+        record_format_bch_evidence(&mut context, 3);
+        record_format_bch_evidence(&mut context, 4);
+
+        let counters = context.counters();
+        assert_eq!(counters.format_bch_candidates, 3);
+        assert_eq!(counters.format_bch_distance_hist, [1, 0, 0, 1]);
+    }
 }

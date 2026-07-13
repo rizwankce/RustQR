@@ -1,0 +1,782 @@
+{
+  "images": [
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            211.6417910447761,
+            153.13432835820896
+          ],
+          [
+            211.49253731343282,
+            89.1044776119403
+          ],
+          [
+            278.95522388059703,
+            89.1044776119403
+          ],
+          [
+            283.7313432835821,
+            151.94029850746267
+          ]
+        ],
+        [
+          [
+            327.76119402985074,
+            149.8507462686567
+          ],
+          [
+            321.04477611940297,
+            86.86567164179104
+          ],
+          [
+            389.8507462686567,
+            81.7910447761194
+          ],
+          [
+            402.08955223880594,
+            145.37313432835822
+          ]
+        ]
+      ],
+      "image_id": "nominal/image001.jpg",
+      "original_height": 308,
+      "original_width": 550,
+      "working_height": 308,
+      "working_width": 550
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            178.9189189189189,
+            145.0
+          ],
+          [
+            223.24324324324323,
+            97.7027027027027
+          ],
+          [
+            274.5945945945946,
+            136.75675675675674
+          ],
+          [
+            232.70270270270268,
+            187.56756756756755
+          ]
+        ],
+        [
+          [
+            267.2972972972973,
+            215.13513513513513
+          ],
+          [
+            309.4594594594594,
+            160.94594594594594
+          ],
+          [
+            370.8108108108108,
+            202.2972972972973
+          ],
+          [
+            327.7027027027027,
+            262.7027027027027
+          ]
+        ]
+      ],
+      "image_id": "nominal/image002.jpg",
+      "original_height": 310,
+      "original_width": 550,
+      "working_height": 310,
+      "working_width": 550
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            84.5945945945946,
+            125.0
+          ],
+          [
+            153.9189189189189,
+            58.91891891891892
+          ],
+          [
+            224.32432432432432,
+            113.78378378378378
+          ],
+          [
+            157.16216216216216,
+            186.08108108108107
+          ]
+        ],
+        [
+          [
+            205.4054054054054,
+            226.75675675675674
+          ],
+          [
+            271.48648648648646,
+            148.9189189189189
+          ],
+          [
+            353.78378378378375,
+            208.9189189189189
+          ],
+          [
+            289.3243243243243,
+            298.78378378378375
+          ]
+        ]
+      ],
+      "image_id": "nominal/image003.jpg",
+      "original_height": 308,
+      "original_width": 550,
+      "working_height": 308,
+      "working_width": 550
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            192.97297297297297,
+            137.43243243243242
+          ],
+          [
+            194.32432432432432,
+            61.62162162162162
+          ],
+          [
+            275.5405405405405,
+            63.37837837837837
+          ],
+          [
+            279.3243243243243,
+            137.16216216216216
+          ]
+        ],
+        [
+          [
+            331.6216216216216,
+            135.94594594594594
+          ],
+          [
+            324.72972972972974,
+            62.16216216216216
+          ],
+          [
+            404.7297297297297,
+            57.29729729729729
+          ],
+          [
+            419.7297297297297,
+            130.8108108108108
+          ]
+        ]
+      ],
+      "image_id": "nominal/image004.jpg",
+      "original_height": 311,
+      "original_width": 550,
+      "working_height": 311,
+      "working_width": 550
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            438.9189189189189,
+            86.48648648648648
+          ],
+          [
+            402.16216216216213,
+            265.4054054054054
+          ],
+          [
+            214.59459459459458,
+            222.70270270270268
+          ],
+          [
+            251.6216216216216,
+            48.108108108108105
+          ]
+        ]
+      ],
+      "image_id": "nominal/image005.jpg",
+      "original_height": 309,
+      "original_width": 550,
+      "working_height": 309,
+      "working_width": 550
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            489.7058823529411,
+            101.4705882352941
+          ],
+          [
+            503.82352941176464,
+            291.17647058823525
+          ],
+          [
+            273.52941176470586,
+            254.41176470588232
+          ],
+          [
+            300.9090909090909,
+            73.52941176470587
+          ]
+        ]
+      ],
+      "image_id": "nominal/image006.jpg",
+      "original_height": 309,
+      "original_width": 550,
+      "working_height": 309,
+      "working_width": 550
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            330.3225806451613,
+            402.9032258064516
+          ],
+          [
+            300.0,
+            211.29032258064515
+          ],
+          [
+            520.6451612903226,
+            180.32258064516128
+          ],
+          [
+            518.7096774193549,
+            368.4882041405873
+          ]
+        ]
+      ],
+      "image_id": "nominal/image007.jpg",
+      "original_height": 546,
+      "original_width": 886,
+      "working_height": 546,
+      "working_width": 886
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            423.235294117647,
+            392.9411764705882
+          ],
+          [
+            376.17647058823525,
+            156.76470588235293
+          ],
+          [
+            624.9999999999999,
+            90.88235294117646
+          ],
+          [
+            625.2941176470588,
+            317.96312554872674
+          ]
+        ]
+      ],
+      "image_id": "nominal/image008.jpg",
+      "original_height": 544,
+      "original_width": 913,
+      "working_height": 544,
+      "working_width": 913
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            420.3225806451613,
+            381.61290322580646
+          ],
+          [
+            359.6774193548387,
+            171.93548387096774
+          ],
+          [
+            630.9677419354839,
+            108.06451612903226
+          ],
+          [
+            644.41615452151,
+            339.1483757682174
+          ]
+        ]
+      ],
+      "image_id": "nominal/image009.jpg",
+      "original_height": 544,
+      "original_width": 909,
+      "working_height": 544,
+      "working_width": 909
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            360.5405405405405,
+            381.6216216216216
+          ],
+          [
+            313.2432432432432,
+            182.43243243243242
+          ],
+          [
+            555.4054054054054,
+            111.08108108108108
+          ],
+          [
+            570.810810810811,
+            325.67567567567556
+          ]
+        ]
+      ],
+      "image_id": "nominal/image010.jpg",
+      "original_height": 538,
+      "original_width": 707,
+      "working_height": 538,
+      "working_width": 707
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            204.59459459459458,
+            387.2972972972973
+          ],
+          [
+            135.94594594594594,
+            235.4054054054054
+          ],
+          [
+            317.02702702702703,
+            184.86486486486484
+          ],
+          [
+            363.7594898269055,
+            334.8587913756451
+          ]
+        ]
+      ],
+      "image_id": "nominal/image011.jpg",
+      "original_height": 544,
+      "original_width": 911,
+      "working_height": 544,
+      "working_width": 911
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            282.5806451612903,
+            276.7741935483871
+          ],
+          [
+            373.5483870967742,
+            158.06451612903226
+          ],
+          [
+            538.0645161290322,
+            198.70967741935485
+          ],
+          [
+            466.1290322580645,
+            340.96774193548384
+          ]
+        ]
+      ],
+      "image_id": "nominal/image012.jpg",
+      "original_height": 573,
+      "original_width": 900,
+      "working_height": 573,
+      "working_width": 900
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            440.5405405405405,
+            295.6756756756757
+          ],
+          [
+            517.2972972972973,
+            176.48648648648648
+          ],
+          [
+            688.3783783783783,
+            212.70270270270268
+          ],
+          [
+            621.8918918918919,
+            357.56756756756755
+          ]
+        ]
+      ],
+      "image_id": "nominal/image013.jpg",
+      "original_height": 570,
+      "original_width": 902,
+      "working_height": 570,
+      "working_width": 902
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            208.64864864864865,
+            290.8108108108108
+          ],
+          [
+            278.35820895522386,
+            189.55223880597015
+          ],
+          [
+            387.0149253731343,
+            202.08955223880596
+          ],
+          [
+            326.56716417910445,
+            316.7164179104478
+          ]
+        ]
+      ],
+      "image_id": "nominal/image014.jpg",
+      "original_height": 479,
+      "original_width": 762,
+      "working_height": 479,
+      "working_width": 762
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            386.88524590163934,
+            334.2622950819672
+          ],
+          [
+            418.6885245901639,
+            275.73770491803276
+          ],
+          [
+            491.19402985074623,
+            293.13432835820896
+          ],
+          [
+            462.23880597014926,
+            357.3134328358209
+          ]
+        ]
+      ],
+      "image_id": "nominal/image015.jpg",
+      "original_height": 564,
+      "original_width": 854,
+      "working_height": 564,
+      "working_width": 854
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            287.56756756756755,
+            221.35135135135135
+          ],
+          [
+            365.1351351351351,
+            104.5945945945946
+          ],
+          [
+            552.1621621621622,
+            111.89189189189189
+          ],
+          [
+            510.8108108108108,
+            247.56756756756755
+          ]
+        ]
+      ],
+      "image_id": "nominal/image016.jpg",
+      "original_height": 571,
+      "original_width": 896,
+      "working_height": 571,
+      "working_width": 896
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            386.82926829268285,
+            213.65853658536582
+          ],
+          [
+            335.8536585365853,
+            349.26829268292676
+          ],
+          [
+            90.73170731707316,
+            314.1463414634146
+          ],
+          [
+            198.04878048780486,
+            194.390243902439
+          ]
+        ]
+      ],
+      "image_id": "nominal/image017.jpg",
+      "original_height": 567,
+      "original_width": 858,
+      "working_height": 567,
+      "working_width": 858
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            412.4324324324324,
+            349.3243243243243
+          ],
+          [
+            380.8108108108108,
+            402.7027027027027
+          ],
+          [
+            329.18918918918916,
+            371.48648648648646
+          ],
+          [
+            360.6756756756757,
+            319.4594594594594
+          ]
+        ]
+      ],
+      "image_id": "nominal/image018.jpg",
+      "original_height": 563,
+      "original_width": 901,
+      "working_height": 563,
+      "working_width": 901
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            562.0987654320988,
+            209.13580246913583
+          ],
+          [
+            542.5925925925926,
+            258.14814814814815
+          ],
+          [
+            493.4567901234568,
+            240.37037037037038
+          ],
+          [
+            512.5925925925926,
+            192.22222222222223
+          ]
+        ]
+      ],
+      "image_id": "nominal/image019.jpg",
+      "original_height": 567,
+      "original_width": 934,
+      "working_height": 567,
+      "working_width": 934
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            623.2142857142857,
+            191.07142857142856
+          ],
+          [
+            678.5714285714286,
+            450.35714285714283
+          ],
+          [
+            422.49999999999994,
+            514.2857142857142
+          ],
+          [
+            331.07142857142856,
+            271.07142857142856
+          ]
+        ]
+      ],
+      "image_id": "nominal/image020.jpg",
+      "original_height": 576,
+      "original_width": 1024,
+      "working_height": 576,
+      "working_width": 1024
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            692.9850746268656,
+            76.56716417910448
+          ],
+          [
+            716.5671641791045,
+            161.34328358208955
+          ],
+          [
+            617.1641791044776,
+            195.07462686567163
+          ],
+          [
+            583.9189189189188,
+            118.24324324324324
+          ]
+        ]
+      ],
+      "image_id": "nominal/image021.jpg",
+      "original_height": 576,
+      "original_width": 1024,
+      "working_height": 576,
+      "working_width": 1024
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            570.1818181818181,
+            89.45454545454545
+          ],
+          [
+            626.5454545454545,
+            198.0
+          ],
+          [
+            530.7272727272727,
+            245.27272727272728
+          ],
+          [
+            476.90909090909093,
+            148.54545454545453
+          ]
+        ]
+      ],
+      "image_id": "nominal/image022.jpg",
+      "original_height": 576,
+      "original_width": 1024,
+      "working_height": 576,
+      "working_width": 1024
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            596.6,
+            203.6
+          ],
+          [
+            710.8,
+            386.0
+          ],
+          [
+            528.8,
+            498.2
+          ],
+          [
+            407.2,
+            326.6
+          ]
+        ]
+      ],
+      "image_id": "nominal/image023.jpg",
+      "original_height": 576,
+      "original_width": 1024,
+      "working_height": 576,
+      "working_width": 1024
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            1891.5384615384614,
+            1513.076923076923
+          ],
+          [
+            1902.3076923076922,
+            1124.6153846153845
+          ],
+          [
+            2338.235294117647,
+            1117.0588235294117
+          ],
+          [
+            2291.7647058823527,
+            1505.2941176470586
+          ]
+        ]
+      ],
+      "image_id": "nominal/image024.jpg",
+      "original_height": 4032,
+      "original_width": 3024,
+      "working_height": 1024,
+      "working_width": 768
+    },
+    {
+      "category": "nominal",
+      "expected_quadrilaterals": [
+        [
+          [
+            460.0,
+            924.4
+          ],
+          [
+            430.4,
+            540.8
+          ],
+          [
+            825.2,
+            522.4
+          ],
+          [
+            848.4,
+            911.2
+          ]
+        ]
+      ],
+      "image_id": "nominal/image025.jpg",
+      "original_height": 1326,
+      "original_width": 2175,
+      "working_height": 624,
+      "working_width": 1024
+    }
+  ],
+  "metadata": {
+    "dataset_fingerprint": "fnv1a64:812bbf57f2ce9c36",
+    "label_fingerprint": "af223ad3fe503d6d3ceaed8cae8a17b9b2bcc213bdc07f38c2c92ebdf413078b",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024"
+  },
+  "schema_version": "rustqr.wp005.localization-truth.v1"
+}

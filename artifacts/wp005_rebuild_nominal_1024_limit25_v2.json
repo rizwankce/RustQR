@@ -1,0 +1,88 @@
+{
+  "categories": [
+    {
+      "core_runtime": {
+        "max_per_image_ms": 128.216792,
+        "mean_per_image_ms": 111.40785663999999,
+        "median_per_image_ms": 123.495791,
+        "min_per_image_ms": 67.067333,
+        "p50_per_image_ms": 123.495791,
+        "p90_per_image_ms": 124.4548754,
+        "p95_per_image_ms": 124.7811418,
+        "p99_per_image_ms": 127.41080192,
+        "samples": 25,
+        "total_ms": 2785.1964159999998
+      },
+      "description": "WP-005 normalized prediction stream",
+      "duplicate_predictions": 0,
+      "end_to_end_runtime": {
+        "max_per_image_ms": 355.765417,
+        "mean_per_image_ms": 130.07888012,
+        "median_per_image_ms": 130.057959,
+        "min_per_image_ms": 69.634625,
+        "p50_per_image_ms": 130.057959,
+        "p90_per_image_ms": 136.14154159999998,
+        "p95_per_image_ms": 207.65095839999975,
+        "p99_per_image_ms": 324.43178691999975,
+        "samples": 25,
+        "total_ms": 3251.972003
+      },
+      "false_negatives": 11,
+      "false_positives": 0,
+      "hits": 18,
+      "images_with_labels": 25,
+      "name": "nominal",
+      "rate_percent": 62.06896551724138,
+      "timeout_rate": 0.0,
+      "timeouts": 0,
+      "total_expected": 29
+    }
+  ],
+  "metadata": {
+    "commit_sha": "295b97c",
+    "dataset_fingerprint": "fnv1a64:812bbf57f2ce9c36",
+    "evaluator_fingerprint": "mode=localization;quad-iou=0.5;matching=max-cardinality",
+    "label_fingerprint": "af223ad3fe503d6d3ceaed8cae8a17b9b2bcc213bdc07f38c2c92ebdf413078b",
+    "limit_per_category": 25,
+    "normalization_source_schema": "rustqr.wp005.prediction-stream.v1",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024",
+    "selected_category": null,
+    "smoke": false
+  },
+  "schema_version": "rustqr.reading_rate.v2",
+  "summary": {
+    "core_runtime": {
+      "max_per_image_ms": 128.216792,
+      "mean_per_image_ms": 111.40785663999999,
+      "median_per_image_ms": 123.495791,
+      "min_per_image_ms": 67.067333,
+      "p50_per_image_ms": 123.495791,
+      "p90_per_image_ms": 124.4548754,
+      "p95_per_image_ms": 124.7811418,
+      "p99_per_image_ms": 127.41080192,
+      "samples": 25,
+      "total_ms": 2785.1964159999998
+    },
+    "duplicate_predictions": 0,
+    "end_to_end_runtime": {
+      "max_per_image_ms": 355.765417,
+      "mean_per_image_ms": 130.07888012,
+      "median_per_image_ms": 130.057959,
+      "min_per_image_ms": 69.634625,
+      "p50_per_image_ms": 130.057959,
+      "p90_per_image_ms": 136.14154159999998,
+      "p95_per_image_ms": 207.65095839999975,
+      "p99_per_image_ms": 324.43178691999975,
+      "samples": 25,
+      "total_ms": 3251.972003
+    },
+    "false_negatives": 11,
+    "false_positives": 0,
+    "timeout_rate": 0.0,
+    "timeouts": 0,
+    "total_expected": 29,
+    "total_hits": 18,
+    "total_images_with_labels": 25,
+    "weighted_global_rate_percent": 62.06896551724138
+  }
+}

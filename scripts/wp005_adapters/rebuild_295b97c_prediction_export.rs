@@ -13,6 +13,8 @@ const SCHEMA: &str = "rustqr.wp005.prediction-stream.v1";
 const PREPROCESSING: &str = "rgb8;triangle-resize;max-dim=1024";
 struct Args {
     root: PathBuf,
+    categories: Vec<String>,
+    offset: usize,
     limit: usize,
     timeout_ms: u64,
     output: PathBuf,
@@ -20,18 +22,22 @@ struct Args {
 }
 fn usage() -> ! {
     eprintln!(
-        "usage: wp005_prediction_export --root PATH --limit N --timeout-ms 0 --commit-sha SHA --output PATH"
+        "usage: wp005_prediction_export --root PATH --category NAME [--category NAME ...] [--offset N] --limit N --timeout-ms 0 --commit-sha SHA --output PATH"
     );
     std::process::exit(2)
 }
 fn parse_args() -> Args {
     let (mut root, mut limit, mut timeout_ms, mut output, mut commit_sha) =
         (None, None, None, None, None);
+    let mut categories = Vec::new();
+    let mut offset = 0;
     let mut it = env::args().skip(1);
     while let Some(f) = it.next() {
         let v = it.next().unwrap_or_else(|| usage());
         match f.as_str() {
             "--root" => root = Some(PathBuf::from(v)),
+            "--category" => categories.push(v),
+            "--offset" => offset = v.parse().unwrap_or_else(|_| usage()),
             "--limit" => limit = v.parse().ok(),
             "--timeout-ms" => timeout_ms = v.parse().ok(),
             "--output" => output = Some(PathBuf::from(v)),
@@ -41,12 +47,14 @@ fn parse_args() -> Args {
     }
     let a = Args {
         root: root.unwrap_or_else(|| usage()),
+        categories,
+        offset,
         limit: limit.unwrap_or_else(|| usage()),
         timeout_ms: timeout_ms.unwrap_or_else(|| usage()),
         output: output.unwrap_or_else(|| usage()),
         commit_sha: commit_sha.unwrap_or_else(|| usage()),
     };
-    if a.timeout_ms != 0 || a.limit == 0 {
+    if a.timeout_ms != 0 || a.limit == 0 || a.categories.is_empty() {
         usage()
     }
     a
@@ -105,6 +113,10 @@ fn fingerprint(root: &Path) -> String {
 }
 fn main() {
     let a = parse_args();
+    let allowed_categories = a
+        .categories
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>();
     let fp = fingerprint(&a.root);
     let mut rows = Vec::new();
     let mut n = std::collections::BTreeMap::<String, usize>::new();
@@ -115,7 +127,15 @@ fn main() {
             .to_string_lossy()
             .replace('\\', "/");
         let category = id.split('/').next().unwrap_or("").to_owned();
-        if n.get(&category).copied().unwrap_or(0) >= a.limit {
+        if !allowed_categories.contains(&category) {
+            continue;
+        }
+        let seen = n.get(&category).copied().unwrap_or(0);
+        if seen >= a.offset.saturating_add(a.limit) {
+            continue;
+        }
+        if seen < a.offset {
+            *n.entry(category).or_default() += 1;
             continue;
         }
         let total = Instant::now();

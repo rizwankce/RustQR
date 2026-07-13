@@ -240,8 +240,20 @@ pub struct DetectionTelemetry {
     pub groups_found: usize,
     /// Number of groups where a perspective transform could be built.
     pub transforms_built: usize,
-    /// Number of groups where format info was extractable from the sampled grid.
+    /// Number of sampled matrix candidates with BCH-valid format information.
+    ///
+    /// This is observed decoder evidence, not an inferred failure label.
     pub format_extracted: usize,
+    /// BCH distances of observed format candidates: [0, 1, 2, 3].
+    pub format_bch_distance_hist: [usize; 4],
+    /// Candidate payload paths that reached Reed-Solomon correction.
+    pub rs_candidate_attempts: usize,
+    /// Individual Reed-Solomon block decodes attempted.
+    pub rs_block_attempts: usize,
+    /// Individual Reed-Solomon blocks corrected successfully.
+    pub rs_block_successes: usize,
+    /// Individual Reed-Solomon blocks that remained uncorrectable.
+    pub rs_block_failures: usize,
     /// Number of groups where Reed-Solomon decoding succeeded.
     pub rs_decode_ok: usize,
     /// Number of QR codes whose payload parsed into valid content.
@@ -362,6 +374,13 @@ impl DetectionTelemetry {
         self.groups_found = self.groups_found.max(other.groups_found);
         self.transforms_built = self.transforms_built.max(other.transforms_built);
         self.format_extracted = self.format_extracted.max(other.format_extracted);
+        for i in 0..self.format_bch_distance_hist.len() {
+            self.format_bch_distance_hist[i] += other.format_bch_distance_hist[i];
+        }
+        self.rs_candidate_attempts += other.rs_candidate_attempts;
+        self.rs_block_attempts += other.rs_block_attempts;
+        self.rs_block_successes += other.rs_block_successes;
+        self.rs_block_failures += other.rs_block_failures;
         self.rs_decode_ok = self.rs_decode_ok.max(other.rs_decode_ok);
         self.payload_decoded = self.payload_decoded.max(other.payload_decoded);
         self.unsupported_content += other.unsupported_content;
@@ -1627,6 +1646,12 @@ fn detect_with_telemetry_budget(
 
     tel.qr_codes_found = results.len();
     let counters = decode_context.counters();
+    tel.format_extracted = counters.format_bch_candidates;
+    tel.format_bch_distance_hist = counters.format_bch_distance_hist;
+    tel.rs_candidate_attempts = counters.rs_candidate_attempts;
+    tel.rs_block_attempts = counters.rs_block_attempts;
+    tel.rs_block_successes = counters.rs_block_successes;
+    tel.rs_block_failures = counters.rs_block_failures;
     tel.deskew_attempts = counters.deskew_attempts;
     tel.deskew_successes = counters.deskew_successes;
     tel.high_version_precision_attempts = counters.high_version_precision_attempts;

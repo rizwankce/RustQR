@@ -65,11 +65,12 @@ no recall value and is not retained.
 
 The exact bright_spots/image001 trace at `QR_MAX_DIM=800` and a 2,500 ms
 cooperative deadline remained 0/3 with zero false positives/duplicates. The
-classifier labels it `format-fail`, but this is not yet proof that sampling the
-format strips is the fault: `format_extracted` was not populated by the
-decoder, so every no-decode request is labelled that way. The retained evidence
-is therefore only that binarization, finder, grouping, and transform all
-succeeded; it does not identify the downstream failure stage.
+old classifier label alone was not proof of a format-strip sampling fault:
+`format_extracted` was then never populated by the decoder. The retained
+instrumentation now reports observed BCH-valid format candidates and their
+winning distances (0--3), plus RS candidate/block attempts, successes, and
+uncorrectable blocks. A fresh matched trace must use those fields before it
+attributes the miss to format extraction or RS correction.
 
 ### Rejected targeted format recovery (2026-07-13)
 
@@ -82,5 +83,5 @@ probe (0/3, zero false positives/duplicates, 23 candidate attempts). The
 transient artifacts were `/tmp/wp011_format_baseline.json` and
 `/tmp/wp011_format_early_soft.json`; their 491.42 ms and 445.53 ms single-run
 times are not a latency comparison. The code was reverted. A retained change
-needs per-candidate format/BCH and RS evidence plus a matched recall gain, not
-the old unpopulated telemetry field.
+needs the retained per-candidate format/BCH and RS evidence plus a matched
+recall gain, not the old unpopulated telemetry field.

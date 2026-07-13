@@ -141,6 +141,7 @@ fn try_decode_single_internal(
         bits_to_codewords_with_confidence(&bits, &bit_confidence, false)
     };
 
+    context.counters_mut().rs_candidate_attempts += 1;
     let data_codewords = deinterleave_and_correct_with_confidence(
         &codewords,
         version_num,
@@ -301,6 +302,7 @@ pub(super) fn deinterleave_and_correct_with_confidence(
     let rs = ReedSolomonDecoder::new(info.ecc_per_block);
     let mut data_out = Vec::with_capacity(data_total);
     for (b, block) in blocks.iter_mut().enumerate() {
+        context.counters_mut().rs_block_attempts += 1;
         let mut corrected = rs.decode(block).is_ok();
         if !corrected {
             if let Some(conf) = codeword_confidence {
@@ -328,8 +330,10 @@ pub(super) fn deinterleave_and_correct_with_confidence(
             }
         }
         if !corrected {
+            context.counters_mut().rs_block_failures += 1;
             return None;
         }
+        context.counters_mut().rs_block_successes += 1;
         let data_len = if b < num_short_blocks {
             short_len
         } else {
@@ -416,6 +420,39 @@ fn try_erasure_with_cap(
         return true;
     }
     false
+}
+
+#[cfg(test)]
+mod telemetry_tests {
+    use super::*;
+
+    #[test]
+    fn rs_block_failure_is_recorded_once_per_attempted_block() {
+        // Version 1-L has a single 26-codeword block. Eight corrupt symbols
+        // exceed its correction capacity, so this exercises a real RS miss
+        // without relying on an image-level recovery route.
+        let mut codewords = vec![0u8; 26];
+        for (index, value) in codewords.iter_mut().take(8).enumerate() {
+            *value = (index + 1) as u8;
+        }
+        let mut context = DecodeRequestContext::default();
+        assert!(
+            deinterleave_and_correct_with_confidence(
+                &codewords,
+                1,
+                ECLevel::L,
+                None,
+                false,
+                &mut context,
+            )
+            .is_none()
+        );
+
+        let counters = context.counters();
+        assert_eq!(counters.rs_block_attempts, 1);
+        assert_eq!(counters.rs_block_successes, 0);
+        assert_eq!(counters.rs_block_failures, 1);
+    }
 }
 
 #[allow(dead_code)]

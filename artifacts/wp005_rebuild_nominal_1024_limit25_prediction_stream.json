@@ -1,0 +1,714 @@
+{
+  "schema_version": "rustqr.wp005.prediction-stream.v1",
+  "metadata": {
+    "commit_sha": "295b97c",
+    "dataset_fingerprint": "fnv1a64:812bbf57f2ce9c36",
+    "preprocessing_fingerprint": "rgb8;triangle-resize;max-dim=1024",
+    "limit_per_category": 25
+  },
+  "images": [
+    {
+      "image_id": "nominal/image001.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 308,
+      "working_width": 550,
+      "working_height": 308,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 72.420750,
+      "end_to_end_elapsed_ms": 75.157417,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image002.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 310,
+      "working_width": 550,
+      "working_height": 310,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 67.067333,
+      "end_to_end_elapsed_ms": 69.634625,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image003.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 308,
+      "working_width": 550,
+      "working_height": 308,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 69.224584,
+      "end_to_end_elapsed_ms": 71.609625,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image004.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 311,
+      "working_width": 550,
+      "working_height": 311,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 71.802208,
+      "end_to_end_elapsed_ms": 74.204584,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image005.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 309,
+      "working_width": 550,
+      "working_height": 309,
+      "predicted_quadrilaterals": [
+        [
+          [
+            401.000000,
+            265.000000
+          ],
+          [
+            216.000000,
+            223.000000
+          ],
+          [
+            253.000000,
+            52.000000
+          ],
+          [
+            439.000000,
+            86.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "{\"lastNode\":\"OAK5\",\"cids\":{\"pkey\":\"171227103636638907587520201AZ\"}}"
+      ],
+      "core_elapsed_ms": 72.048417,
+      "end_to_end_elapsed_ms": 74.209292,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image006.jpg",
+      "category": "nominal",
+      "original_width": 550,
+      "original_height": 309,
+      "working_width": 550,
+      "working_height": 309,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 75.870250,
+      "end_to_end_elapsed_ms": 80.281834,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image007.jpg",
+      "category": "nominal",
+      "original_width": 886,
+      "original_height": 546,
+      "working_width": 886,
+      "working_height": 546,
+      "predicted_quadrilaterals": [
+        [
+          [
+            301.000000,
+            212.000000
+          ],
+          [
+            520.000000,
+            182.000000
+          ],
+          [
+            520.000000,
+            370.000000
+          ],
+          [
+            330.000000,
+            405.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.495791,
+      "end_to_end_elapsed_ms": 129.870792,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image008.jpg",
+      "category": "nominal",
+      "original_width": 913,
+      "original_height": 544,
+      "working_width": 913,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            376.000000,
+            156.000000
+          ],
+          [
+            626.000000,
+            93.000000
+          ],
+          [
+            627.000000,
+            320.000000
+          ],
+          [
+            425.000000,
+            393.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.780458,
+      "end_to_end_elapsed_ms": 129.685917,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image009.jpg",
+      "category": "nominal",
+      "original_width": 909,
+      "original_height": 544,
+      "working_width": 909,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            360.000000,
+            172.000000
+          ],
+          [
+            632.000000,
+            111.000000
+          ],
+          [
+            643.000000,
+            342.000000
+          ],
+          [
+            421.000000,
+            382.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.308542,
+      "end_to_end_elapsed_ms": 129.503709,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image010.jpg",
+      "category": "nominal",
+      "original_width": 707,
+      "original_height": 538,
+      "working_width": 707,
+      "working_height": 538,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 122.861167,
+      "end_to_end_elapsed_ms": 127.342500,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image011.jpg",
+      "category": "nominal",
+      "original_width": 911,
+      "original_height": 544,
+      "working_width": 911,
+      "working_height": 544,
+      "predicted_quadrilaterals": [
+        [
+          [
+            136.000000,
+            234.000000
+          ],
+          [
+            317.000000,
+            186.000000
+          ],
+          [
+            363.000000,
+            337.000000
+          ],
+          [
+            204.000000,
+            388.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.facebook.com/LangersJuice"
+      ],
+      "core_elapsed_ms": 123.985500,
+      "end_to_end_elapsed_ms": 131.123333,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image012.jpg",
+      "category": "nominal",
+      "original_width": 900,
+      "original_height": 573,
+      "working_width": 900,
+      "working_height": 573,
+      "predicted_quadrilaterals": [
+        [
+          [
+            373.000000,
+            159.000000
+          ],
+          [
+            537.000000,
+            198.000000
+          ],
+          [
+            464.000000,
+            338.000000
+          ],
+          [
+            281.000000,
+            276.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 123.431166,
+      "end_to_end_elapsed_ms": 137.420292,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image013.jpg",
+      "category": "nominal",
+      "original_width": 902,
+      "original_height": 570,
+      "working_width": 902,
+      "working_height": 570,
+      "predicted_quadrilaterals": [
+        [
+          [
+            517.000000,
+            177.000000
+          ],
+          [
+            687.000000,
+            212.000000
+          ],
+          [
+            618.000000,
+            354.000000
+          ],
+          [
+            439.000000,
+            296.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 124.858500,
+      "end_to_end_elapsed_ms": 130.867791,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image014.jpg",
+      "category": "nominal",
+      "original_width": 762,
+      "original_height": 479,
+      "working_width": 762,
+      "working_height": 479,
+      "predicted_quadrilaterals": [
+        [
+          [
+            278.000000,
+            190.000000
+          ],
+          [
+            386.000000,
+            202.000000
+          ],
+          [
+            325.000000,
+            313.000000
+          ],
+          [
+            207.000000,
+            290.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 122.874708,
+      "end_to_end_elapsed_ms": 127.338667,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image015.jpg",
+      "category": "nominal",
+      "original_width": 854,
+      "original_height": 564,
+      "working_width": 854,
+      "working_height": 564,
+      "predicted_quadrilaterals": [
+        [
+          [
+            418.000000,
+            276.000000
+          ],
+          [
+            491.000000,
+            292.000000
+          ],
+          [
+            461.000000,
+            356.000000
+          ],
+          [
+            387.000000,
+            333.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 123.470125,
+      "end_to_end_elapsed_ms": 133.888042,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image016.jpg",
+      "category": "nominal",
+      "original_width": 896,
+      "original_height": 571,
+      "working_width": 896,
+      "working_height": 571,
+      "predicted_quadrilaterals": [
+        [
+          [
+            365.000000,
+            105.000000
+          ],
+          [
+            552.000000,
+            111.000000
+          ],
+          [
+            509.000000,
+            245.000000
+          ],
+          [
+            285.000000,
+            222.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 123.829625,
+      "end_to_end_elapsed_ms": 130.057959,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image017.jpg",
+      "category": "nominal",
+      "original_width": 858,
+      "original_height": 567,
+      "working_width": 858,
+      "working_height": 567,
+      "predicted_quadrilaterals": [
+        [
+          [
+            335.000000,
+            348.000000
+          ],
+          [
+            88.000000,
+            314.000000
+          ],
+          [
+            201.000000,
+            194.000000
+          ],
+          [
+            387.000000,
+            214.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 124.389666,
+      "end_to_end_elapsed_ms": 131.237416,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image018.jpg",
+      "category": "nominal",
+      "original_width": 901,
+      "original_height": 563,
+      "working_width": 901,
+      "working_height": 563,
+      "predicted_quadrilaterals": [],
+      "payloads": [],
+      "core_elapsed_ms": 123.486958,
+      "end_to_end_elapsed_ms": 129.144750,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image019.jpg",
+      "category": "nominal",
+      "original_width": 934,
+      "original_height": 567,
+      "working_width": 934,
+      "working_height": 567,
+      "predicted_quadrilaterals": [
+        [
+          [
+            542.000000,
+            257.000000
+          ],
+          [
+            493.000000,
+            240.000000
+          ],
+          [
+            512.000000,
+            192.000000
+          ],
+          [
+            561.000000,
+            210.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.lonelyplanet.com/"
+      ],
+      "core_elapsed_ms": 124.342042,
+      "end_to_end_elapsed_ms": 132.479542,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image020.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            677.000000,
+            449.000000
+          ],
+          [
+            421.000000,
+            516.000000
+          ],
+          [
+            330.000000,
+            273.000000
+          ],
+          [
+            624.000000,
+            193.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 124.429625,
+      "end_to_end_elapsed_ms": 130.674000,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image021.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            715.000000,
+            161.000000
+          ],
+          [
+            617.000000,
+            196.000000
+          ],
+          [
+            584.000000,
+            119.000000
+          ],
+          [
+            693.000000,
+            78.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 123.508958,
+      "end_to_end_elapsed_ms": 130.862916,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image022.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            624.000000,
+            197.000000
+          ],
+          [
+            529.000000,
+            246.000000
+          ],
+          [
+            477.000000,
+            149.000000
+          ],
+          [
+            570.000000,
+            91.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 123.598792,
+      "end_to_end_elapsed_ms": 130.179542,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image023.jpg",
+      "category": "nominal",
+      "original_width": 1024,
+      "original_height": 576,
+      "working_width": 1024,
+      "working_height": 576,
+      "predicted_quadrilaterals": [
+        [
+          [
+            708.000000,
+            386.000000
+          ],
+          [
+            528.000000,
+            499.000000
+          ],
+          [
+            407.000000,
+            328.000000
+          ],
+          [
+            598.000000,
+            202.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://www.teagoetz.com/"
+      ],
+      "core_elapsed_ms": 128.216792,
+      "end_to_end_elapsed_ms": 134.223416,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image024.jpg",
+      "category": "nominal",
+      "original_width": 3024,
+      "original_height": 4032,
+      "working_width": 768,
+      "working_height": 1024,
+      "predicted_quadrilaterals": [
+        [
+          [
+            1897.875000,
+            1126.125000
+          ],
+          [
+            2334.937500,
+            1118.250000
+          ],
+          [
+            2283.750000,
+            1500.187500
+          ],
+          [
+            1886.062500,
+            1512.000000
+          ]
+        ]
+      ],
+      "payloads": [
+        "https://mobile-now.us/?l=10043659"
+      ],
+      "core_elapsed_ms": 124.471709,
+      "end_to_end_elapsed_ms": 355.765417,
+      "timed_out": false
+    },
+    {
+      "image_id": "nominal/image025.jpg",
+      "category": "nominal",
+      "original_width": 2175,
+      "original_height": 1326,
+      "working_width": 1024,
+      "working_height": 624,
+      "predicted_quadrilaterals": [
+        [
+          [
+            431.176758,
+            541.875000
+          ],
+          [
+            826.245117,
+            522.750000
+          ],
+          [
+            849.609375,
+            911.625000
+          ],
+          [
+            460.913086,
+            924.375000
+          ]
+        ]
+      ],
+      "payloads": [
+        "http://onramp.ehi.com/HYUN/ACNT/4SE/US/?v=KMHCT4AE3GU107709"
+      ],
+      "core_elapsed_ms": 124.422750,
+      "end_to_end_elapsed_ms": 225.208625,
+      "timed_out": false
+    }
+  ]
+}

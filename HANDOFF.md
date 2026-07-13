@@ -34,20 +34,22 @@ before editing. `TODO.md` is the canonical detailed queue.
 4. **WP-005/WP-013 comparisons:** pinned standalone adapters for
    `main@5b9b41e` and `scratch_from_scratch_rebuild@295b97c` now live in
    `scripts/wp005_adapters/`. A detached main-only geometry projection patch
-   now shows 17/17 monitor hits without fabricating boxes, but all adapters
-   still need an identical seven-category allow-list (or fixed input tree)
-   before the 25-per-category comparison can run. Matched comparison and
-   pinned competitor runners remain open.
+   now shows 17/17 monitor hits without fabricating boxes. Both adapters now
+   use a shared explicit category allow-list and deterministic shard offsets.
+   The first normalized 25-image nominal slice is tied at 18/29 (62.07%) for
+   both refs, with zero false positives, duplicates, and timeouts; it is
+   diagnostic only until all seven categories and Actions are complete.
+   Matched comparison and pinned competitor runners remain open.
 5. **WP-010:** the bounded contour supplement improves `lots` finder/group
    recall to 102/420 and 87/420, but 215 labels still have no contained
    proposal. Preserve the capped primary/ROI/contour staging and do not relax
    thresholds without evidence carried through the evaluator.
 6. **WP-011/WP-007/WP-014/WP-015:** use their explicit acceptance gaps in
    `TODO.md`; do not upgrade their statuses based on component-only tests.
-   In particular, `format_extracted` currently has no writer, so a
-   `format-fail` classification does not prove format-sampling failure. Add
-   truthful candidate-level decoder evidence before attempting another format
-   recovery change.
+   `format_extracted` is now a real strict-BCH observation count with distance
+   buckets; RS candidate/block attempts, successes, and failures are separate
+   from accepted decodes. Collect matched category traces before attempting a
+   recovery change or attributing a failure to sampling.
 
 Run targeted checks while iterating, then record exact commands, metrics, and
 remaining work in `TODO.md` before handoff. Full benchmark comparisons belong

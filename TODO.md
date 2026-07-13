@@ -696,6 +696,20 @@ until all throwaway adapters share one (or use the same materialized input
 tree). Evidence and exact patch instructions:
 `artifacts/wp005_main_geometry_monitor_2026-07-13.md`.
 
+**2026-07-13 bounded nominal normalized comparison:** Both retained historical
+adapters now require the same explicit repeated category allow-list and accept
+an optional deterministic per-category offset for bounded sharding. Five
+non-overlapping five-image shards per ref gave the same complete 25-image
+`nominal` selection at 1024 px, matching IDs and fingerprints, then one shared
+truth manifest and v2 scorer. `main@5b9b41e` and rebuild `295b97c` each hit
+18/29 labels (62.07%) with 0 false positives, duplicates, and timeouts;
+observed local median end-to-end times were 1690.258 ms and 130.058 ms. The
+normal comparator correctly fails this partial artifact because the required
+`rotations`, `high_version`, and `lots` gates are absent. This does not change
+the direction decision or satisfy the seven-category/Actions acceptance gate.
+Exact raw, normalized, and caveat evidence:
+`artifacts/wp005_nominal_cross_branch_2026-07-13.md`.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
@@ -1343,14 +1357,18 @@ global tighter sampling retry as a bounded category fix.
 probe at `QR_MAX_DIM=800` and a 2,500 ms cooperative deadline remains 0/3
 with zero false positives/duplicates. Binarization, finder detection,
 grouping, and transform construction all succeed, but the old `format-fail`
-classification cannot prove a sampled-format failure: `format_extracted` is
-not populated by the decoder, so it is zero for every no-decode request. A
+classification could not prove a sampled-format failure: `format_extracted`
+was not populated by the decoder, so it was zero for every no-decode request.
+The retained request-scoped telemetry now records observed BCH-valid format
+candidates and their 0--3 distance histogram, plus RS candidate/block
+attempts, successes, and uncorrectable blocks; a new matched probe must use
+that evidence before naming a downstream failure. A
 decoder-only candidate-targeted trial moved the existing four nearest soft-BCH
 format hypotheses (distance 4--6) ahead of recovery, only after an exact
 format miss and only for recovery-eligible candidates. It remained 0/3 with
 zero false positives/duplicates and 23 candidate attempts; it was reverted.
 The decoder already considers those soft candidates and then all 32 EC/mask
-pairs in bounded recovery. Future work must first add truthful per-candidate
+pairs in bounded recovery. Future work must use the truthful per-candidate
 format/BCH and RS evidence, then retain a change only with matched recall gain;
 the transient artifacts are `/tmp/wp011_format_baseline.json` and
 `/tmp/wp011_format_early_soft.json`.

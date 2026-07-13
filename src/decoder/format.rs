@@ -12,6 +12,15 @@ pub struct FormatInfo {
 impl FormatInfo {
     /// Extract format info from QR code matrix
     pub fn extract(matrix: &BitMatrix) -> Option<Self> {
+        Self::extract_with_distance(matrix).map(|(info, _)| info)
+    }
+
+    /// Extract format information and the BCH distance of the selected copy.
+    ///
+    /// The distance is measured against the winning orientation of the better
+    /// of QR's two redundant format-information copies.  Callers that only
+    /// need the decoded fields should use [`Self::extract`].
+    pub(crate) fn extract_with_distance(matrix: &BitMatrix) -> Option<(Self, u32)> {
         let bits_a = Self::read_format_bits_top_left(matrix)?;
         let bits_b = Self::read_format_bits_other(matrix)?;
 
@@ -21,13 +30,12 @@ impl FormatInfo {
         match (result_a, result_b) {
             (Some((a, dist_a)), Some((b, dist_b))) => {
                 if dist_a <= dist_b {
-                    Some(a)
+                    Some((a, dist_a))
                 } else {
-                    Some(b)
+                    Some((b, dist_b))
                 }
             }
-            (Some((a, _)), None) => Some(a),
-            (None, Some((b, _))) => Some(b),
+            (Some(result), None) | (None, Some(result)) => Some(result),
             (None, None) => None,
         }
     }
@@ -187,6 +195,28 @@ mod tests {
         // exposes its least-significant bit first to the extraction traversal.
         let placed_bits = FormatInfo::reverse_15(0x1689);
         let (info, distance) = FormatInfo::decode_best_direction(placed_bits).unwrap();
+        assert_eq!(distance, 0);
+        assert_eq!(info.ec_level, ECLevel::H);
+        assert_eq!(info.mask_pattern, MaskPattern::Pattern0);
+    }
+
+    #[test]
+    fn extraction_reports_the_selected_bch_distance() {
+        let mut matrix = BitMatrix::new(21, 21);
+        // Populate both copies through the same placement order as the QR
+        // specification. H / mask 0 has an exact masked codeword of 0x1689.
+        let bits = FormatInfo::reverse_15(0x1689);
+        for row in 0..6 {
+            matrix.set(8, row, ((bits >> (14 - row)) & 1) != 0);
+        }
+        matrix.set(8, 7, ((bits >> 8) & 1) != 0);
+        matrix.set(8, 8, ((bits >> 7) & 1) != 0);
+        matrix.set(7, 8, ((bits >> 6) & 1) != 0);
+        for (offset, col) in (0..6).rev().enumerate() {
+            matrix.set(col, 8, ((bits >> (5 - offset)) & 1) != 0);
+        }
+
+        let (info, distance) = FormatInfo::extract_with_distance(&matrix).unwrap();
         assert_eq!(distance, 0);
         assert_eq!(info.ec_level, ECLevel::H);
         assert_eq!(info.mask_pattern, MaskPattern::Pattern0);

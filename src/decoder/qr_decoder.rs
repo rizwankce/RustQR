@@ -84,6 +84,18 @@ pub enum MatrixErasureEvidence<'a> {
 
 #[derive(Clone, Copy)]
 pub(crate) struct DecodeCounters {
+    /// Exact BCH format candidates accepted from a sampled matrix.
+    pub format_bch_candidates: usize,
+    /// BCH distances of accepted format candidates: [0, 1, 2, 3].
+    pub format_bch_distance_hist: [usize; 4],
+    /// Candidate payload paths that reached Reed-Solomon correction.
+    pub rs_candidate_attempts: usize,
+    /// Individual Reed-Solomon block decodes attempted.
+    pub rs_block_attempts: usize,
+    /// Individual Reed-Solomon blocks corrected successfully.
+    pub rs_block_successes: usize,
+    /// Individual Reed-Solomon blocks that remained uncorrectable.
+    pub rs_block_failures: usize,
     pub deskew_attempts: usize,
     pub deskew_successes: usize,
     pub high_version_precision_attempts: usize,
@@ -180,6 +192,12 @@ impl Default for DecodeRequestContext {
 impl DecodeCounters {
     const fn new() -> Self {
         Self {
+            format_bch_candidates: 0,
+            format_bch_distance_hist: [0; 4],
+            rs_candidate_attempts: 0,
+            rs_block_attempts: 0,
+            rs_block_successes: 0,
+            rs_block_failures: 0,
             deskew_attempts: 0,
             deskew_successes: 0,
             high_version_precision_attempts: 0,

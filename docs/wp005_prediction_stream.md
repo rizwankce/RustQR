@@ -118,7 +118,16 @@ checked out, changed, built, or compared.
 The shared adapter body must itself own deterministic recursive image
 enumeration, original-image RGB dimensions, JSON escaping, FNV dataset
 fingerprinting, output-path creation, and JSON serialization. It accepts
-explicit `--root`, `--limit`, `--timeout-ms`, `--output`, and `--commit-sha`
+explicit `--root`, one or more `--category` values, `--limit`, `--timeout-ms`,
+`--output`, and `--commit-sha`. Requiring categories prevents an accidental
+full-tree export from silently changing the comparison scope.
+
+`--offset N` is optional and skips the first `N` sorted images within each
+selected category before applying `--limit`. It exists solely to shard a fixed
+selection where a process deadline makes a single exporter invocation
+impractical. Merge only non-overlapping shards with the same root, category
+allow-list, limit, commit, and metadata fingerprints; the merged rows must
+cover the selected IDs exactly once before truth generation.
 arguments. For these pinned target refs, `--timeout-ms` must be `0`: neither
 target exposes the current request-timeout API, and fabricating timeout
 semantics would invalidate the stream. The preprocessing fingerprint is
@@ -137,12 +146,18 @@ git worktree add --detach /tmp/rustqr-wp005-rebuild scratch_from_scratch_rebuild
 # src/bin/wp005_prediction_export.rs, then build and export the same slice.
 cd /tmp/rustqr-wp005-main
 cargo run --release --features tools --bin wp005_prediction_export -- \
-  --root benches/images/boofcv --limit 25 --timeout-ms 0 \
+  --root benches/images/boofcv \
+  --category nominal --category rotations --category perspective \
+  --category high_version --category lots --category brightness \
+  --category bright_spots --limit 25 --timeout-ms 0 \
   --commit-sha 5b9b41e --output /tmp/wp005_main_predictions.json
 
 cd /tmp/rustqr-wp005-rebuild
 cargo run --release --features tools --bin wp005_prediction_export -- \
-  --root benches/images/boofcv --limit 25 --timeout-ms 0 \
+  --root benches/images/boofcv \
+  --category nominal --category rotations --category perspective \
+  --category high_version --category lots --category brightness \
+  --category bright_spots --limit 25 --timeout-ms 0 \
   --commit-sha 295b97c --output /tmp/wp005_rebuild_predictions.json
 ```
 
@@ -190,9 +205,26 @@ exact patch application command are in
 The monitor command deliberately exposed an adapter selection caveat: passing
 `--root benches/images/boofcv/monitor --limit 1` treats each filename as a
 separate category and therefore exports all 17 images. This is useful probe
-evidence, not a one-image result. The seven-category comparison must pass
-`--root benches/images/boofcv --limit 25`, but the reviewed historical
-exporters do not yet have a category allow-list and would include every
-BoofCV directory. Add identical filtering to all throwaway adapters (or use a
-fixed materialized input tree) and verify matching image-ID lists before
-shared-truth normalization.
+evidence, not a one-image result. The seven-category comparison must pass the
+explicit repeated `--category` allow-list above from
+`--root benches/images/boofcv --limit 25`. The adapters reject invocations
+without that allow-list, enumerate deterministic sorted IDs, and take the same
+prefix per category. Verify matching image-ID lists before shared-truth
+normalization.
+
+## Bounded nominal comparison (2026-07-13)
+
+Both pinned historical adapters now require the same repeated `--category`
+allow-list. On an environment with a short per-process command window, the
+adapter's optional `--offset` produced five non-overlapping five-image shards
+for the 25-image `nominal` selection. The merged streams passed exact ID,
+dimension, and metadata-fingerprint checks before one shared truth manifest
+and v2 normalization.
+
+`main@5b9b41e` and `scratch_from_scratch_rebuild@295b97c` each hit 18 of 29
+nominal labels (62.07%), with no false positives, duplicate predictions, or
+timeouts. Their local median end-to-end times were respectively 1690.258 ms
+and 130.058 ms. This is a bounded diagnostic only: the standard comparator
+correctly fails the partial artifacts because `rotations`, `high_version`, and
+`lots` are missing. The exact raw streams, normalized artifacts, and caveats
+are retained in `artifacts/wp005_nominal_cross_branch_2026-07-13.md`.
