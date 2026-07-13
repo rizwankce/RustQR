@@ -52,8 +52,10 @@ before editing. `TODO.md` is the canonical detailed queue.
    recovery change or attributing a failure to sampling.
    Fresh traces place bright-spots at the ISO non-zero-remainder-bit gate after
    exact format validation and before RS (48 strict BCH candidates, 7,056
-   bounded payload-path rejections), while glare/high-version do not reach
-   decoder evidence at all.
+   bounded payload-path rejections). On clean revision `135d311`, glare and
+   high-version both reach finder/group/transform but no strict-BCH, remainder,
+   or RS evidence; their next work is bounded sampling/geometry observation,
+   not decoder recovery.
    WP-007 now has a clean V1-M path guard: exactly one strict payload attempt,
    one RS candidate, and no recovery payload attempts. It remains component
    evidence, not a photographic or packet-completion claim. WP-015's current

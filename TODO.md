@@ -1474,6 +1474,22 @@ artifact is
 `artifacts/wp011_category_bright_spots_remainder_trace_qrmax800_limit1_2500.json`.
 No recovery heuristic was added.
 
+**2026-07-13 clean scheduler stage traces:** On committed revision `135d311`,
+fresh one-image release probes at `QR_MAX_DIM=800` and a 2,500 ms cooperative
+deadline show that glare and high-version are not detector-only failures. Both
+reach finder, grouping, and transform stages (each counter is 1), but reach no
+strict-BCH format candidate, non-zero-remainder rejection, RS candidate/block,
+or RS-erasure evidence (all zero). `glare/image001` remains 0/1 with 51 decode
+attempts and 1,125 high-version subpixel attempts; it completed before the
+cooperative deadline. The selected `high_version/image000` remains 0/1 with a
+late result discarded by the deadline, 11 decode attempts, 420 subpixel
+attempts, and six refinement attempts with zero successes. These are distinct
+pre-decoder sampling/geometry boundaries, while bright spots remains the
+separate post-format remainder-bit boundary. The retained artifacts are
+`artifacts/wp011_category_glare_stage_trace_135d311.json` and
+`artifacts/wp011_category_high_version_stage_trace_135d311.json`; they are
+control-flow evidence, not latency or category-improvement claims.
+
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It
 probes at most six deterministic alignment locations and nine sub-module
