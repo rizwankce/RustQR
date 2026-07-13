@@ -67,6 +67,27 @@ These values are machine-, revision-, and input-specific. They identify the
 large hard/dense allocation surfaces for later profiling; they are not a
 performance comparison or an acceptance result.
 
+## Controlled dense-lane allocation probe
+
+WP-012's checked-in `density_050.png` is a successful 50-symbol lane, so the
+probe also supports measuring it in isolation:
+
+```bash
+WP014_ALLOCATION_ONLY=1 WP014_PROFILE_ITERATIONS=1 \
+WP014_PROFILE_LANE=dense_50 \
+cargo bench --bench wp014_profiles --features tools -- --noplot
+```
+
+On the local 2026-07-13 release probe, the unoptimized path decoded 48
+symbols in 1.742 s and made 451,223 allocations (246,725 reallocations,
+95,470,388 requested bytes). Replacing the two fixed per-candidate temporary
+vectors—25 bottom-right hypotheses and at-most-five version hypotheses—with
+stack arrays retained the same 48 decoded symbols and reduced that to 451,087
+allocations (246,521 reallocations, 95,437,204 requested bytes). Its single
+warm call was 1.726 s. The allocation reduction is deterministic for this
+input; the 0.9% latency difference is only a single-run observation, not a
+throughput claim.
+
 ## Remaining gates
 
 - Establish at least one successful real multi-code lane through WP-012.

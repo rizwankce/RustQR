@@ -81,7 +81,7 @@ struct ProfileCase {
     requires_success: bool,
 }
 
-const CASES: [ProfileCase; 3] = [
+const CASES: [ProfileCase; 4] = [
     ProfileCase {
         lane: "clean",
         path: "benches/images/boofcv/nominal/image005.jpg",
@@ -99,6 +99,14 @@ const CASES: [ProfileCase; 3] = [
         lane: "multi_candidate",
         path: "benches/images/boofcv/lots/image001.jpg",
         requires_success: false,
+    },
+    // WP-012's labeled 50-symbol raster scene is the first successful dense
+    // lane.  Keep it distinct from the historical real-image negative
+    // control above: allocation and latency claims must name their input.
+    ProfileCase {
+        lane: "dense_50",
+        path: "tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png",
+        requires_success: true,
     },
 ];
 
@@ -179,7 +187,20 @@ fn emit_probe(case: &LoadedCase, iterations: usize) {
 }
 
 fn bench_profiles(c: &mut Criterion) {
-    let cases: Vec<_> = CASES.into_iter().map(load_case).collect();
+    let requested_lane = std::env::var("WP014_PROFILE_LANE").ok();
+    let cases: Vec<_> = CASES
+        .into_iter()
+        .filter(|case| {
+            requested_lane
+                .as_deref()
+                .is_none_or(|lane| case.lane == lane)
+        })
+        .map(load_case)
+        .collect();
+    assert!(
+        !cases.is_empty(),
+        "WP014_PROFILE_LANE did not match a known lane"
+    );
     if std::env::var_os("WP014_ALLOCATION_ONLY").is_some() {
         let iterations = std::env::var("WP014_PROFILE_ITERATIONS")
             .ok()

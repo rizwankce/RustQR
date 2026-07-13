@@ -65,15 +65,22 @@ pub(super) fn estimate_dimension(
     }
 }
 
-pub(super) fn version_candidates(estimated_version: i32) -> Vec<u8> {
-    let mut candidates = Vec::new();
+/// Return the at-most-five version hypotheses without allocating.
+///
+/// Candidate decoding calls this for every retained finder triple.  A dense
+/// request can visit dozens of triples, so the tiny fixed result belongs on
+/// the stack rather than creating a short-lived `Vec` per candidate.
+pub(super) fn version_candidates(estimated_version: i32) -> ([u8; 5], usize) {
+    let mut candidates = [0; 5];
+    let mut len = 0;
     for delta in -2..=2 {
         let v = estimated_version + delta;
         if (1..=40).contains(&v) {
-            candidates.push(v as u8);
+            candidates[len] = v as u8;
+            len += 1;
         }
     }
-    candidates
+    (candidates, len)
 }
 
 pub(super) fn build_transform(
@@ -1052,5 +1059,14 @@ mod tests {
         let probes = prioritized_alignment_centers(40, 177);
         assert_eq!(probes.len(), 6);
         assert!(alignment_centers(40, 177).len() > probes.len());
+    }
+
+    #[test]
+    fn version_hypotheses_keep_the_historical_bounded_order() {
+        let (middle, middle_len) = version_candidates(10);
+        assert_eq!(&middle[..middle_len], &[8, 9, 10, 11, 12]);
+
+        let (edge, edge_len) = version_candidates(1);
+        assert_eq!(&edge[..edge_len], &[1, 2, 3]);
     }
 }

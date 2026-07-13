@@ -8,6 +8,36 @@ mod matrix_decode;
 mod orientation;
 mod payload;
 
+// Preserve the historical bottom-right hypothesis order (row-major in y,
+// then x) without allocating a `Vec<Point>` for every candidate decode.
+const BOTTOM_RIGHT_OFFSETS: [(f32, f32); 25] = [
+    (-4.0, -4.0),
+    (-2.0, -4.0),
+    (0.0, -4.0),
+    (2.0, -4.0),
+    (4.0, -4.0),
+    (-4.0, -2.0),
+    (-2.0, -2.0),
+    (0.0, -2.0),
+    (2.0, -2.0),
+    (4.0, -2.0),
+    (-4.0, 0.0),
+    (-2.0, 0.0),
+    (0.0, 0.0),
+    (2.0, 0.0),
+    (4.0, 0.0),
+    (-4.0, 2.0),
+    (-2.0, 2.0),
+    (0.0, 2.0),
+    (2.0, 2.0),
+    (4.0, 2.0),
+    (-4.0, 4.0),
+    (-2.0, 4.0),
+    (0.0, 4.0),
+    (2.0, 4.0),
+    (4.0, 4.0),
+];
+
 /// Main QR decoder that processes a detected QR region
 pub struct QrDecoder;
 
@@ -304,27 +334,17 @@ impl QrDecoder {
         }
 
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
-        let candidates = Self::version_candidates(estimated_version);
-
-        let mut br_candidates = Vec::new();
+        let (candidates, candidate_count) = Self::version_candidates(estimated_version);
         let step = module_size.max(1.0) * 2.0;
-        for dy in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
-            for dx in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
-                br_candidates.push(Point::new(
-                    bottom_right.x + dx * step,
-                    bottom_right.y + dy * step,
-                ));
-            }
-        }
-
-        for version_num in candidates {
+        for &version_num in &candidates[..candidate_count] {
             if version_num >= 7 {
                 context.counters_mut().high_version_precision_attempts += 1;
             }
             let dimension = 17 + 4 * version_num as usize;
-            for br in &br_candidates {
+            for &(dx, dy) in &BOTTOM_RIGHT_OFFSETS {
+                let br = Point::new(bottom_right.x + dx * step, bottom_right.y + dy * step);
                 let transform =
-                    match Self::build_transform(top_left, top_right, bottom_left, br, dimension) {
+                    match Self::build_transform(top_left, top_right, bottom_left, &br, dimension) {
                         Some(t) => t,
                         None => continue,
                     };
@@ -411,27 +431,19 @@ impl QrDecoder {
         let candidate_budget_ms = crate::decoder::config::candidate_time_budget_ms();
         let budget_exhausted = || started.elapsed().as_millis() as u64 >= candidate_budget_ms;
         let bottom_right = Self::calculate_bottom_right(top_left, top_right, bottom_left)?;
-        let mut br_candidates = Vec::new();
         let step = module_size.max(1.0) * 2.0;
-        for dy in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
-            for dx in [-4.0f32, -2.0, 0.0, 2.0, 4.0] {
-                br_candidates.push(Point::new(
-                    bottom_right.x + dx * step,
-                    bottom_right.y + dy * step,
-                ));
-            }
-        }
         let estimated_dimension =
             Self::estimate_dimension(top_left, top_right, &bottom_right, module_size)?;
 
         let estimated_version = ((estimated_dimension - 17) / 4) as i32;
-        let candidates = Self::version_candidates(estimated_version);
+        let (candidates, candidate_count) = Self::version_candidates(estimated_version);
 
-        for version_num in candidates {
+        for &version_num in &candidates[..candidate_count] {
             let dimension = 17 + 4 * version_num as usize;
-            for br in &br_candidates {
+            for &(dx, dy) in &BOTTOM_RIGHT_OFFSETS {
+                let br = Point::new(bottom_right.x + dx * step, bottom_right.y + dy * step);
                 let transform =
-                    match Self::build_transform(top_left, top_right, bottom_left, br, dimension) {
+                    match Self::build_transform(top_left, top_right, bottom_left, &br, dimension) {
                         Some(t) => t,
                         None => continue,
                     };
@@ -687,7 +699,7 @@ impl QrDecoder {
         geometry::estimate_dimension(top_left, top_right, bottom_right, module_size)
     }
 
-    fn version_candidates(estimated_version: i32) -> Vec<u8> {
+    fn version_candidates(estimated_version: i32) -> ([u8; 5], usize) {
         geometry::version_candidates(estimated_version)
     }
 
