@@ -1443,6 +1443,12 @@ fn detect_with_telemetry_budget(
     let mut best_finder_patterns: Vec<FinderPattern> = Vec::new();
     tel.binarize_ok = true;
     for (i, &policy) in policies.iter().enumerate() {
+        // Do not begin another full-image binarization/finder pass after the
+        // request has expired. Individual passes remain cooperative and may
+        // finish late, but the scheduler must not compound that overrun.
+        if is_expired_tel() {
+            break;
+        }
         if i > 0 {
             record_binarization_transition(&mut tel, prev_policy, policy);
             prev_policy = policy;
@@ -1453,6 +1459,11 @@ fn detect_with_telemetry_budget(
         }
 
         let binary = binarize_with_policy(&gray, width, height, policy);
+        // Binarization itself is not preemptible; do not start a finder scan
+        // if it consumed the remaining request budget.
+        if is_expired_tel() {
+            break;
+        }
         let finder_patterns = if width >= 1600 && height >= 1600 {
             FinderDetector::detect_with_pyramid(&binary)
         } else {
@@ -1508,6 +1519,9 @@ fn detect_with_telemetry_budget(
 
         // If too many finder patterns, skip directly to contour detection
         if too_many_patterns {
+            if is_expired_tel() {
+                break;
+            }
             let contour_patterns = ContourDetector::detect(&binary);
             if contour_patterns.len() >= 3 {
                 let (decoded, decode_tel) =
@@ -1540,6 +1554,9 @@ fn detect_with_telemetry_budget(
                 break;
             }
             let binary = binarize_with_policy(&gray, width, height, policy);
+            if is_expired_tel() {
+                break;
+            }
             let contour_patterns = ContourDetector::detect(&binary);
             if contour_patterns.len() >= 3 && contour_patterns.len() <= FINDER_PATTERN_THRESHOLD {
                 let (decoded, decode_tel) =
@@ -1564,36 +1581,44 @@ fn detect_with_telemetry_budget(
 
     if results.is_empty() {
         let weak_contrast = grayscale_contrast_span(&gray) <= 90;
-        if remaining_attempts == 0 || !weak_contrast {
+        if is_expired_tel() || remaining_attempts == 0 || !weak_contrast {
             tel.roi_norm_skipped += 1;
         } else if let Some(roi) = finder_roi_bounds(&best_finder_patterns, width, height) {
-            tel.roi_norm_attempts += 1;
-            let normalized_gray = normalize_roi_local_contrast(&gray, width, height, roi);
-            let norm_binary = adaptive_binarize(&normalized_gray, width, height, 31);
-            let norm_patterns = if width >= 1600 && height >= 1600 {
-                FinderDetector::detect_with_pyramid(&norm_binary)
-            } else {
-                FinderDetector::detect(&norm_binary)
-            };
-            tel.finder_patterns_found = tel.finder_patterns_found.max(norm_patterns.len());
-            if norm_patterns.len() >= 3 {
-                let (decoded, decode_tel) =
-                    pipeline::decode_groups_with_telemetry_limited_in_context(
-                        &norm_binary,
-                        &normalized_gray,
-                        width,
-                        height,
-                        &norm_patterns,
-                        remaining_attempts,
-                        &mut decode_context,
-                    );
-                tel.merge_high_water_from(&decode_tel);
-                if !decoded.is_empty() {
-                    tel.roi_norm_successes += 1;
-                    results = decoded;
-                }
-            } else {
+            if is_expired_tel() {
                 tel.roi_norm_skipped += 1;
+            } else {
+                let normalized_gray = normalize_roi_local_contrast(&gray, width, height, roi);
+                let norm_binary = adaptive_binarize(&normalized_gray, width, height, 31);
+                if is_expired_tel() {
+                    tel.roi_norm_skipped += 1;
+                } else {
+                    tel.roi_norm_attempts += 1;
+                    let norm_patterns = if width >= 1600 && height >= 1600 {
+                        FinderDetector::detect_with_pyramid(&norm_binary)
+                    } else {
+                        FinderDetector::detect(&norm_binary)
+                    };
+                    tel.finder_patterns_found = tel.finder_patterns_found.max(norm_patterns.len());
+                    if norm_patterns.len() >= 3 {
+                        let (decoded, decode_tel) =
+                            pipeline::decode_groups_with_telemetry_limited_in_context(
+                                &norm_binary,
+                                &normalized_gray,
+                                width,
+                                height,
+                                &norm_patterns,
+                                remaining_attempts,
+                                &mut decode_context,
+                            );
+                        tel.merge_high_water_from(&decode_tel);
+                        if !decoded.is_empty() {
+                            tel.roi_norm_successes += 1;
+                            results = decoded;
+                        }
+                    } else {
+                        tel.roi_norm_skipped += 1;
+                    }
+                }
             }
         } else {
             tel.roi_norm_skipped += 1;
@@ -1890,6 +1915,18 @@ mod tests {
             live.diagnostics.failure_stage,
             Some(FailureStage::Detection)
         );
+    }
+
+    #[test]
+    fn expired_deadline_does_not_schedule_binarization_or_finder() {
+        let image = vec![255u8; 64 * 64 * 3];
+        let (codes, telemetry) =
+            detect_with_telemetry_timeout(&image, 64, 64, std::time::Duration::ZERO);
+
+        assert!(codes.is_empty());
+        assert!(!telemetry.binarize_ok);
+        assert_eq!(telemetry.finder_patterns_found, 0);
+        assert_eq!(telemetry.decode_attempts, 0);
     }
 
     #[test]

@@ -31,26 +31,35 @@ reported as a category result. The prior recorded `0/3` observation in
 ## Control-flow finding
 
 The request deadline is passed to decoder recovery through
-`DecodeRequestContext`, whose recovery loops poll it. It is not, however,
-polled at the start of each primary binarization-policy iteration in
-`detect_with_telemetry_budget`, nor can the current `binarize_with_policy` and
-`FinderDetector::detect[_with_pyramid]` APIs stop part-way through their image
-scans. After a late decode returns empty, the outer policy loop can therefore
-continue through additional adaptive binarization and finder scans before the
-later contour-fallback loop reaches its deadline check.
+`DecodeRequestContext`, whose recovery loops poll it. The scheduler now also
+checks the request gate before each primary binarization pass, after each
+uninterruptible binarization before starting its finder scan, before contour
+fallback scans, and before ROI normalization work. Cancellation uses the same
+gate. A deterministic zero-deadline unit test verifies that no binarization or
+finder pass is scheduled for an already-expired request.
 
-This is a pipeline-wide cooperative-cancellation gap, not a narrowly scoped
-geometry refinement. It is intentionally left unchanged by this WP-011 probe
-to avoid silently changing WP-010/WP-014 pipeline ownership. It also means
-the existing timeout telemetry must be read as "late result discarded", not as
-a hard per-image latency cap.
+The current `binarize_with_policy` and `FinderDetector::detect[_with_pyramid]`
+APIs still cannot stop part-way through an image scan. Thus this closes the
+extra-pass scheduling gap but does not turn the deadline into a hard per-image
+latency cap; timeout telemetry still means that an in-flight operation may
+have returned late and its result was discarded.
+
+## Scheduler recheck
+
+After the scheduler change, the same one-image command completed with the
+same 0/1 result and one timeout. The saved local artifact at
+`/tmp/wp011_high_version_scheduler_1_2500.json` recorded 3,406.17 ms core and
+3,455.38 ms end-to-end, with 11 decode attempts, 420 high-version subpixel
+samples, six refinement attempts, and no refinement success. This single
+recheck demonstrates that no later primary-policy fallback was scheduled (the
+fallback-transition counters were both zero); it is not an attributable
+before/after performance comparison because other in-progress pipeline work
+shares the worktree, nor is it a category acceptance result.
 
 ## Next bounded implementation slice
 
-Before claiming candidate-level deadline behavior, pass the same request
-deadline into the outer policy scheduler and stop before starting each new
-binarization/finder/contour/ROI-normalization operation. A later, separately
-scoped pipeline change can add periodic cancellation polling to the finder and
-binarization loops. Re-run the one-image probe first; only then collect
+Before claiming a hard per-operation deadline, add periodic cancellation
+polling to the finder and binarization loops. Re-run the one-image probe first;
+only then collect
 `high_version --limit 3` and `--limit 5` artifacts under an explicit external
 wall-clock harness if hard timing evidence is required.

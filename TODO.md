@@ -1129,14 +1129,24 @@ before/after evidence.
 `QR_MAX_DIM=800` with `--timeout-ms 2500` scored 0/1 and one timeout, but took
 11,680.04 ms end-to-end (11,630.31 ms core). Its 29 decode attempts included
 2,925 subpixel samples and 48 bounded refinement attempts, with no refinement
-success. The request deadline is cooperative: decoder recovery polls it, but
-the outer binarization-policy scheduler does not check it before starting a
-new binarization/finder pass, and those scan APIs cannot yet be interrupted.
-The deadline therefore discards a late result rather than imposing a hard
-wall-clock cap. This is an evidence-backed pipeline cancellation gap, not a
-geometry-only change; see `docs/wp011_high_version_probe.md`. Preserve the
-in-progress status until the scheduler is bounded and category-level
-before/after artifacts are collected.
+success. The request deadline is cooperative. The outer scheduler now checks
+it before every primary binarization pass, after binarization before finder
+scans, before contour fallback scans, and before ROI normalization;
+cancellation uses the same gate. A deterministic zero-deadline unit test
+proves no binarization or finder pass starts for an already-expired request.
+The scan APIs themselves cannot yet be interrupted, so a late in-flight
+operation can still exceed the budget and its result is discarded. This closes
+the extra-pass scheduling gap, not the hard wall-clock-cap gap; see
+`docs/wp011_high_version_probe.md`. Preserve the in-progress status until
+category-level before/after artifacts are collected.
+
+**2026-07-13 scheduler recheck:** The same `high_version --limit 1` command
+still scored 0/1 with one timeout, recording 3,406.17 ms core and 3,455.38 ms
+end-to-end. It made 11 decode attempts and scheduled no later primary-policy
+fallbacks. This is a local control-flow recheck only, not a comparable
+performance claim while WP-014 changes share the worktree; the full artifact
+is `/tmp/wp011_high_version_scheduler_1_2500.json` and details are in
+`docs/wp011_high_version_probe.md`.
 
 **Acceptance criteria:**
 
@@ -1394,6 +1404,12 @@ CI now checks the minimal feature set and MSRV in addition to its hosted
 Linux/macOS/Windows test lanes. This is build/test evidence only: WASM, iOS,
 Android, bindings, and `no_std` remain explicitly unsupported/planned until
 dedicated extraction and continuous target lanes exist.
+
+**2026-07-13 local MSRV evidence:** on the installed `rustc 1.85.0`
+toolchain, `cargo +1.85 test --lib --no-default-features` and
+`cargo +1.85 test --lib` each passed 112 library tests on macOS AArch64. An
+all-features MSRV rerun must be repeated after the in-progress shared scheduler
+edit compiles; it is not claimed as WP-015 evidence here.
 
 **Validation:**
 
