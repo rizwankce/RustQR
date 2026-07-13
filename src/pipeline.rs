@@ -416,6 +416,14 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
     // lets those cross-symbol triples crowd out the actual symbol.  This
     // produces at most one seed per proposal and remains bounded by the
     // proposal frontier.
+    // Before admitting broad neighbourhood combinations, ask each finder for
+    // a triangle at its nearest local scale.  On a dense raster grid a
+    // symbol's two companion finders are the closest compatible pair; the
+    // next symbol is separated by its quiet zone.  This preserves the true
+    // triple ahead of cross-symbol right angles without using an image-wide
+    // pixel radius.  The broad seed below remains as the perspective-tolerant
+    // fallback.
+    let mut tight_anchor_seeds = Vec::new();
     let mut anchor_seeds = Vec::new();
     for &anchor in indices {
         let anchor_pattern = &patterns[anchor];
@@ -436,6 +444,25 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
             })
             .collect::<Vec<_>>();
         neighbors.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        if let Some((_, nearest_distance)) = neighbors.first() {
+            let mut tight = Vec::with_capacity(SPATIAL_NEIGHBOR_LIMIT + 1);
+            tight.push(anchor);
+            tight.extend(
+                neighbors
+                    .iter()
+                    .take(SPATIAL_NEIGHBOR_LIMIT)
+                    .filter(|(_, distance)| *distance <= *nearest_distance * 1.20)
+                    .map(|(idx, _)| *idx),
+            );
+            tight.sort_unstable();
+            if let Some(best) = build_groups(patterns, &tight).iter().min_by(|a, b| {
+                group_raw_score(patterns, a)
+                    .total_cmp(&group_raw_score(patterns, b))
+                    .then_with(|| a.cmp(b))
+            }) {
+                tight_anchor_seeds.push(best.clone());
+            }
+        }
         let mut local = Vec::with_capacity(SPATIAL_NEIGHBOR_LIMIT + 1);
         local.push(anchor);
         local.extend(
@@ -454,7 +481,7 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
             anchor_seeds.push(best.clone());
         }
     }
-    for triple in anchor_seeds {
+    for triple in tight_anchor_seeds.into_iter().chain(anchor_seeds) {
         let mut key = [triple[0], triple[1], triple[2]];
         key.sort_unstable();
         if seen.insert((key[0], key[1], key[2])) {
@@ -501,13 +528,15 @@ fn build_groups_clustered(patterns: &[FinderPattern], indices: &[usize]) -> Vec<
     // The exact local components are kept first.  The remaining decode budget
     // is intentionally finite, so rank generic neighbourhood triples by
     // geometry rather than by visit order.
-    let (seeded, remaining) = groups.split_at_mut(seeded_count);
+    let (_, remaining) = groups.split_at_mut(seeded_count);
     remaining.sort_by(|a, b| {
         group_raw_score(patterns, a)
             .total_cmp(&group_raw_score(patterns, b))
             .then_with(|| a.cmp(b))
     });
-    seeded.sort_unstable();
+    // `groups` deliberately retains its deterministic insertion order here:
+    // isolated components and tight local seeds must remain ahead of the
+    // generic broad-neighbourhood frontier when the bounded cap is applied.
     groups.truncate(DENSE_MAX_GROUP_CANDIDATES);
     groups
 }
@@ -1833,6 +1862,40 @@ mod tests {
             assert!(
                 found.contains(&[symbol * 3, symbol * 3 + 1, symbol * 3 + 2]),
                 "symbol {symbol} must retain its own local finder triple"
+            );
+        }
+    }
+
+    #[test]
+    fn spatial_grouping_retains_tight_raster_grid_triples() {
+        // This mirrors the controlled raster corpus: a symbol's finders are
+        // 70 pixels apart, while the next symbol starts 87 pixels beyond the
+        // bottom-left finder. The gap is small enough for broad neighbourhood
+        // grouping to manufacture cross-symbol triangles.
+        let mut patterns = Vec::new();
+        for symbol in 0..50usize {
+            let x = 53.5 + (symbol % 5) as f32 * 157.0;
+            let y = 53.5 + (symbol / 5) as f32 * 157.0;
+            patterns.extend([
+                FinderPattern::new(x, y, 5.0),
+                FinderPattern::new(x + 70.0, y, 5.0),
+                FinderPattern::new(x, y + 70.0, 5.0),
+            ]);
+        }
+
+        let groups = group_finder_patterns(&patterns);
+        let found = groups
+            .iter()
+            .map(|group| {
+                let mut key = [group[0], group[1], group[2]];
+                key.sort_unstable();
+                key
+            })
+            .collect::<HashSet<_>>();
+        for symbol in 0..50usize {
+            assert!(
+                found.contains(&[symbol * 3, symbol * 3 + 1, symbol * 3 + 2]),
+                "tight raster symbol {symbol} must retain its own finder triple"
             );
         }
     }
