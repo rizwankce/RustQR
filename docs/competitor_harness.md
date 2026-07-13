@@ -148,6 +148,21 @@ library directly, avoiding an image-loader difference. The repository stores
 the adapter source and Cargo lock, never the generated executable; the lock's
 runner hash identifies the locally tested release artifact on this platform.
 
+## Verified payload-only conformance subset
+
+`scripts/run_competitor_payload_conformance.py` materializes six fixed,
+ASCII-safe generated cases from `conformance/manifest.json` once to the same
+1024px PGM contract and requires digest-verified ZBar and quircs runners. It
+checks each returned raw payload line against the manifest's exact payload hex
+and records source/matrix and materialized-pixel hashes. It deliberately has
+no RustQR timing or localization result: the two competitor CLIs do not expose
+geometry and RustQR does not currently use this shared-PGM runner protocol.
+
+```sh
+python3 scripts/run_competitor_payload_conformance.py \
+  --output artifacts/competitors/wp013-payload-conformance.json
+```
+
 ## Verified ZBar monitor observation (2026-07-13)
 
 `artifacts/competitors/wp013-zbar-monitor-2026-07-13.json` records 17 monitor

@@ -1890,6 +1890,16 @@ only a runnable-adapter/count observation: the monitor labels do not provide
 payload truth or quadrilaterals from the competitor, so it is not accuracy,
 localization, or a RustQR comparison claim.
 
+**2026-07-13 verified payload-only subset:**
+`artifacts/competitors/wp013-payload-conformance-2026-07-13.json` uses six
+fixed ASCII-safe generated conformance matrices with exact raw-payload truth,
+source hashes, and shared materialized-PGM hashes. Both SHA-pinned runners
+(ZBar 0.23.93 and quircs 0.10.3) returned the one expected payload line for
+all six cases. This is reproducible payload-only competitor evidence, not a
+RustQR accuracy/latency comparison or localization evidence: neither CLI
+reports quadrilaterals and RustQR is not yet an adapter on the shared-PGM
+timing boundary.
+
 ---
 
 ## WP-014: Performance engineering after correctness

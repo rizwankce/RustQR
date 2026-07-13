@@ -44,10 +44,11 @@ before editing. `TODO.md` is the canonical detailed queue.
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both
    refs. Keep the current Model 2 implementation; do not merge rebuild code.
-   WP-013 has SHA-pinned local ZBar and offline-built quircs runners. ZBar has
-   a 17-image raw monitor observation; quircs has a one-image verified smoke.
-   Both still need payload/geometry truth and broader matched manifests before
-   a fair competitor comparison.
+   WP-013 has SHA-pinned local ZBar and offline-built quircs runners. A six
+   fixture shared-PGM subset now supplies exact payload truth for both; ZBar
+   also has a 17-image raw monitor observation. Neither CLI exposes geometry,
+   and RustQR is not yet on the shared-PGM timing boundary, so broader matched
+   payload/geometry evidence is still required before a fair comparison.
 5. **WP-010:** deterministic raster ordering now removes hash-map variance
    before the contour family's nearby merge. The reproducible `lots` artifact
    reports 104/420 finder and 91/420 grouping recall, but 214 labels still
