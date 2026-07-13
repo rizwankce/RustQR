@@ -1246,6 +1246,19 @@ positives, zero duplicates, and no timeouts. This clears the controlled
 latency half of the target, not the 90% recall half, so WP-012 remains in
 progress.
 
+**2026-07-13 post-scheduling miss diagnosis:** A fresh public evaluator run
+was 43/50 in 485.14 ms with zero false positives, duplicates, or timeouts.
+The missing payloads are `WP012-011`, `-014`, `-021`, `-039`, `-043`, `-046`,
+and `-047`; finder evidence remains 50/50. The bounded telemetry evaluator
+selects the brightness route for this white-background raster, and that route
+returns 43. The direct fast Otsu API returns 48 valid payloads but takes about
+690 ms, so it cannot be substituted under the 500 ms acceptance budget. No
+matrix-validation, RS-recovery, or request-cap relaxation is justified. The
+next task is per-candidate brightness-route diagnostics followed only by a
+time-capped strict sampling/geometry recovery that proves >=45/50, FP=0,
+duplicates=0, and <500 ms in the public evaluator. See
+`docs/wp012_raster_scenes.md`.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.

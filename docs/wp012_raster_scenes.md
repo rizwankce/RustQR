@@ -75,3 +75,25 @@ Per-call allocations fell from 444,857 to 183,493 and requested bytes from
 (86.00%) in 455.85 ms with zero false positives, zero duplicates, and no
 timeouts. Therefore the latency half of the 50-symbol target is met on this
 controlled lane, but recall is still below 90%; WP-012 remains in progress.
+
+## 2026-07-13 post-scheduling miss diagnosis
+
+A fresh public-evaluator run was 43/50 (86.00%) in 485.14 ms, with zero false
+positives, zero duplicates, and no timeout. The seven absent payloads were
+`WP012-011`, `WP012-014`, `WP012-021`, `WP012-039`, `WP012-043`,
+`WP012-046`, and `WP012-047`. Controlled finder-stage evidence remains 50/50,
+so this is downstream of proposal recall.
+
+The evaluator uses the bounded telemetry entry point. Its white background
+selects the existing brightness shortcut, whose first successful dense decode
+returns 43 results. The ordinary direct API's fast Otsu path returns 48 valid,
+distinct Model 2 payloads on the same raster, but this local probe took about
+690 ms. It cannot be promoted into the evaluator as-is because that violates
+the controlled 500 ms budget.
+
+This evidence does not justify relaxing matrix validation, RS recovery, or the
+128-candidate request cap. The next bounded experiment is per-candidate
+brightness-route instrumentation followed by a time-capped strict
+Otsu-derived geometry/sampling variant. It must reach >=45/50 with zero false
+positives, zero duplicates, and <500 ms in the public evaluator before any
+default-route change.
