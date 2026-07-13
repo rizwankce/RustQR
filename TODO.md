@@ -313,7 +313,7 @@ baseline.
 
 ## WP-002: Repair reading-rate scoring and timing
 
-**Status:** Local implementation complete; Fast Benchmark Actions pending
+**Status:** Completed locally and validated in Fast Benchmark Actions
 
 **Goal:** Make benchmark results trustworthy enough to compare branches and
 competitors.
@@ -387,9 +387,12 @@ competitors.
   timeout, a 1.0 timeout rate, and accepted no late result.
 - `cargo fmt -- --check`, strict all-target/all-feature Clippy, all-feature
   tests, three comparator tests, and `git diff --check` pass.
-- Remaining validation: run Fast Benchmark in Actions after these local changes
-  are committed and pushed. Running it against the current remote branch would
-  exercise the old evaluator, so it is intentionally not triggered yet.
+- Fast Benchmark Actions run `29199249805` completed successfully on
+  `codex/wp006-conformance` (macOS, 25 images per category). It used the v2
+  localization evaluator and reported 8.9231% weighted-global localization
+  rate, 1.0 precision, 0.089231 recall, zero timeouts, and 901.00 ms median
+  end-to-end image time. These are validation evidence, not a performance
+  claim; the run's low recall is intentionally carried into WP-005/WP-014.
 
 ---
 
