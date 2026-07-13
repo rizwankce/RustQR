@@ -2,10 +2,10 @@
 
 use crate::detector::finder::{FinderDetector, FinderScanTelemetry};
 use crate::models::BitMatrix;
-use crate::pipeline::group_finder_patterns;
+use crate::pipeline::{decode_groups, group_finder_patterns};
 use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
 use crate::utils::grayscale::rgb_to_grayscale;
-use crate::{QRCode, detect};
+use crate::{QRCode, detect_with_telemetry_timeout};
 use image::GenericImageView;
 use std::env;
 use std::fs;
@@ -75,6 +75,48 @@ pub struct FinderGroupingEvaluation {
     pub proposal_latency_ms: f64,
     /// Time spent grouping the retained proposal patterns.
     pub grouping_latency_ms: f64,
+}
+
+/// Comparable observations from the normal brightness-aware route and one
+/// direct strict-Otsu route. This is a diagnostic surface only: it does not
+/// merge results or alter production route selection.
+#[derive(Debug, Clone)]
+pub struct DenseRouteAudit {
+    pub brightness_codes: Vec<QRCode>,
+    pub brightness_elapsed_ms: f64,
+    pub otsu_codes: Vec<QRCode>,
+    pub otsu_elapsed_ms: f64,
+    pub otsu_finder_patterns: usize,
+    pub otsu_group_candidates: usize,
+}
+
+/// Audit dense route divergence from the same RGB input using fresh work.
+pub fn audit_brightness_vs_otsu(
+    rgb: &[u8],
+    width: usize,
+    height: usize,
+    timeout: std::time::Duration,
+) -> DenseRouteAudit {
+    let brightness_start = std::time::Instant::now();
+    let brightness_codes = detect_with_telemetry_timeout(rgb, width, height, timeout).0;
+    let brightness_elapsed_ms = brightness_start.elapsed().as_secs_f64() * 1_000.0;
+
+    let gray = rgb_to_grayscale(rgb, width, height);
+    let otsu_start = std::time::Instant::now();
+    let otsu = otsu_binarize(&gray, width, height);
+    let finder_patterns = FinderDetector::detect(&otsu);
+    let otsu_group_candidates = group_finder_patterns(&finder_patterns).len();
+    let otsu_codes = decode_groups(&otsu, &gray, width, height, &finder_patterns);
+    let otsu_elapsed_ms = otsu_start.elapsed().as_secs_f64() * 1_000.0;
+
+    DenseRouteAudit {
+        brightness_codes,
+        brightness_elapsed_ms,
+        otsu_codes,
+        otsu_elapsed_ms,
+        otsu_finder_patterns: finder_patterns.len(),
+        otsu_group_candidates,
+    }
 }
 
 impl FinderGroupingEvaluation {
@@ -574,7 +616,7 @@ pub fn binarize_otsu(gray: &[u8], width: usize, height: usize) -> BitMatrix {
 
 /// Detect QR codes in an RGB image.
 pub fn detect_qr(rgb: &[u8], width: usize, height: usize) -> Vec<QRCode> {
-    detect(rgb, width, height)
+    crate::detect(rgb, width, height)
 }
 
 /// Summary statistics for grayscale data.

@@ -97,3 +97,33 @@ brightness-route instrumentation followed by a time-capped strict
 Otsu-derived geometry/sampling variant. It must reach >=45/50 with zero false
 positives, zero duplicates, and <500 ms in the public evaluator before any
 default-route change.
+
+## 2026-07-13 fresh route audit after `fed7d19`
+
+`qrtool dense-route-audit` rebuilt from `fed7d19` compares the public
+deadline-aware brightness route with a direct strict-Otsu observation from the
+same `density_050.png` pixels. The artifact
+`artifacts/wp012_dense50_route_audit_fed7d19.json` records raw payloads and
+bounding boxes, matched at IoU >= 0.72.
+
+The brightness route returns 43 codes; direct Otsu returns 48. All 43
+brightness geometries are present in Otsu. The five Otsu-only, geometrically
+distinct payloads are `WP012-011`, `-014`, `-039`, `-043`, and `-046`.
+`WP012-021` and `-047` appear in neither route. Otsu exposes 161 finder
+patterns and the bounded 128 group frontier. Thus the five-route divergence is
+not caused by an already accepted brightness geometry; a future candidate
+change must specifically recover these Otsu-only groups without re-running a
+full Otsu decode. The fresh public evaluator remains 43/50 in 394.62 ms, with
+zero false positives, duplicates, or timeouts, so the 90% recall target is
+still unmet.
+
+### Release-binary reproducibility correction
+
+A transient 27/50, 4.8-second observation was produced by a stale
+`target/release/qrtool` and is invalid for source diagnosis. Rebuilding with
+`cargo build --release --features tools --bin qrtool` before the same isolated
+temporary-category evaluator restored the current `bbeefb9` result to 43/50
+in 364.4408 ms, with zero false positives, duplicates, and timeouts. The raw
+single-scene artifact is `artifacts/wp012_dense50_rebuild_check.json`.
+Future evaluator evidence must rebuild the release CLI first; this correction
+does not improve the outstanding 90% recall gate.

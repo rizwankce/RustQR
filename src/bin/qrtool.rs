@@ -3,8 +3,8 @@ use rust_qr::decoder::format::FormatInfo;
 use rust_qr::detector::finder::FinderDetector;
 use rust_qr::models::{BitMatrix, Point};
 use rust_qr::tools::{
-    bench_limit_from_env, binarize, binary_stats, dataset_fingerprint, dataset_iter,
-    dataset_root_from_env, detect_qr, evaluate_finder_and_grouping, grayscale_stats,
+    audit_brightness_vs_otsu, bench_limit_from_env, binarize, binary_stats, dataset_fingerprint,
+    dataset_iter, dataset_root_from_env, detect_qr, evaluate_finder_and_grouping, grayscale_stats,
     label_fingerprint, load_rgb, load_rgb_with_geometry, parse_localization_labels,
     parse_payload_label, scale_quadrilaterals, score_localizations, score_payloads, smoke_from_env,
     to_grayscale,
@@ -90,6 +90,17 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         artifact_json: Option<PathBuf>,
     },
+    /// Compare fresh brightness-route and strict-Otsu dense observations.
+    DenseRouteAudit {
+        #[arg(long)]
+        image: PathBuf,
+        /// Cooperative deadline shared with the public reading-rate evaluator.
+        #[arg(long, default_value_t = 10_000)]
+        timeout_ms: u64,
+        /// Write a machine-readable route/geometry comparison.
+        #[arg(long, value_name = "PATH")]
+        output: PathBuf,
+    },
     /// Iterate a dataset and run detection once per image
     DatasetBench {
         #[arg(long)]
@@ -160,6 +171,11 @@ fn main() {
             category.as_deref(),
             artifact_json.as_deref(),
         ),
+        Command::DenseRouteAudit {
+            image,
+            timeout_ms,
+            output,
+        } => dense_route_audit_cmd(&image, timeout_ms, &output),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
         Command::PredictionExport {
             root,
@@ -403,6 +419,151 @@ fn proposal_eval_cmd(
         });
         println!("Artifact: {}", path.display());
     }
+}
+
+fn dense_route_audit_cmd(image: &Path, timeout_ms: u64, output: &Path) {
+    let loaded = load_rgb_with_geometry(image).unwrap_or_else(|error| {
+        eprintln!("failed to load {}: {error}", image.display());
+        std::process::exit(2);
+    });
+    let audit = audit_brightness_vs_otsu(
+        &loaded.pixels,
+        loaded.width,
+        loaded.height,
+        std::time::Duration::from_millis(timeout_ms),
+    );
+    let brightness_boxes: Vec<_> = audit.brightness_codes.iter().map(qr_bbox).collect();
+    let otsu_boxes: Vec<_> = audit.otsu_codes.iter().map(qr_bbox).collect();
+    let brightness_shared: Vec<_> = brightness_boxes
+        .iter()
+        .map(|&bbox| {
+            otsu_boxes
+                .iter()
+                .any(|&other| bbox_iou(bbox, other) >= 0.72)
+        })
+        .collect();
+    let otsu_shared: Vec<_> = otsu_boxes
+        .iter()
+        .map(|&bbox| {
+            brightness_boxes
+                .iter()
+                .any(|&other| bbox_iou(bbox, other) >= 0.72)
+        })
+        .collect();
+    let mut json = String::new();
+    let _ = writeln!(&mut json, "{{");
+    let _ = writeln!(&mut json, "  \"schema_version\": 1,");
+    let _ = writeln!(
+        &mut json,
+        "  \"image\": \"{}\",",
+        json_escape(&image.to_string_lossy())
+    );
+    let _ = writeln!(
+        &mut json,
+        "  \"working_dimensions\": [{}, {}],",
+        loaded.width, loaded.height
+    );
+    let _ = writeln!(&mut json, "  \"timeout_ms\": {},", timeout_ms);
+    let _ = writeln!(
+        &mut json,
+        "  \"brightness_elapsed_ms\": {:.6},",
+        audit.brightness_elapsed_ms
+    );
+    let _ = writeln!(
+        &mut json,
+        "  \"otsu_elapsed_ms\": {:.6},",
+        audit.otsu_elapsed_ms
+    );
+    let _ = writeln!(
+        &mut json,
+        "  \"otsu_finder_patterns\": {},",
+        audit.otsu_finder_patterns
+    );
+    let _ = writeln!(
+        &mut json,
+        "  \"otsu_group_candidates\": {},",
+        audit.otsu_group_candidates
+    );
+    write_route_codes(
+        &mut json,
+        "brightness",
+        &audit.brightness_codes,
+        &brightness_shared,
+    );
+    json.push_str(",\n");
+    write_route_codes(&mut json, "otsu", &audit.otsu_codes, &otsu_shared);
+    json.push_str("\n}\n");
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent).unwrap_or_else(|error| {
+            eprintln!("failed to create {}: {error}", parent.display());
+            std::process::exit(2);
+        });
+    }
+    fs::write(output, json).unwrap_or_else(|error| {
+        eprintln!("failed to write {}: {error}", output.display());
+        std::process::exit(2);
+    });
+    println!(
+        "Brightness/Otsu: {}/{} codes, shared geometry {}/{}; artifact: {}",
+        audit.brightness_codes.len(),
+        audit.otsu_codes.len(),
+        brightness_shared.iter().filter(|shared| **shared).count(),
+        otsu_shared.iter().filter(|shared| **shared).count(),
+        output.display(),
+    );
+}
+
+fn qr_bbox(qr: &rust_qr::QRCode) -> (f32, f32, f32, f32) {
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+    for point in &qr.position {
+        min_x = min_x.min(point.x);
+        min_y = min_y.min(point.y);
+        max_x = max_x.max(point.x);
+        max_y = max_y.max(point.y);
+    }
+    (min_x, min_y, max_x, max_y)
+}
+
+fn bbox_iou(left: (f32, f32, f32, f32), right: (f32, f32, f32, f32)) -> f32 {
+    let overlap_x = (left.2.min(right.2) - left.0.max(right.0)).max(0.0);
+    let overlap_y = (left.3.min(right.3) - left.1.max(right.1)).max(0.0);
+    let intersection = overlap_x * overlap_y;
+    let left_area = ((left.2 - left.0).max(0.0)) * ((left.3 - left.1).max(0.0));
+    let right_area = ((right.2 - right.0).max(0.0)) * ((right.3 - right.1).max(0.0));
+    let union = left_area + right_area - intersection;
+    if union <= f32::EPSILON {
+        0.0
+    } else {
+        intersection / union
+    }
+}
+
+fn write_route_codes(json: &mut String, route: &str, codes: &[rust_qr::QRCode], shared: &[bool]) {
+    let _ = write!(json, "  \"{}_codes\": [", route);
+    for (index, (code, shared)) in codes.iter().zip(shared).enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        let (min_x, min_y, max_x, max_y) = qr_bbox(code);
+        let _ = write!(
+            json,
+            "\n    {{\"payload\": \"{}\", \"shared_geometry\": {}, \"bbox\": [{:.3}, {:.3}, {:.3}, {:.3}]}},",
+            json_escape(&code.content),
+            shared,
+            min_x,
+            min_y,
+            max_x,
+            max_y,
+        );
+        json.pop();
+    }
+    if !codes.is_empty() {
+        json.push('\n');
+    }
+    json.push_str("  ]");
 }
 
 fn metric_ratio(numerator: usize, denominator: usize) -> f64 {

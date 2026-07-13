@@ -1416,6 +1416,26 @@ time-capped strict sampling/geometry recovery that proves >=45/50, FP=0,
 duplicates=0, and <500 ms in the public evaluator. See
 `docs/wp012_raster_scenes.md`.
 
+**2026-07-13 rebuilt route classification (`fed7d19`):** A fresh
+`dense-route-audit` uses the same public 10,000ms deadline for brightness and
+compares it with direct strict Otsu on `density_050`. Brightness yields 43;
+Otsu yields 48; every brightness geometry is shared. The Otsu-only geometries
+are `WP012-011`, `-014`, `-039`, `-043`, and `-046`; `-021` and `-047` are
+absent from both. The audit records 161 Otsu finders and the bounded 128-group
+frontier with raw payload/bbox evidence. A fresh public evaluator is still
+43/50 in 394.62ms with FP=0, duplicates=0, and no timeout. Therefore no route
+policy changed: the remaining safe task is to select only the five Otsu-only
+candidate regions without a full second decode.
+
+**2026-07-13 release-binary correction:** A transient 27/50, 4.8-second
+`density_050` result came from stale `target/release/qrtool` bytes, not a
+source regression. After `cargo build --release --features tools --bin qrtool`,
+the identical isolated evaluator command at current `bbeefb9` returned 43/50
+in 364.4408 ms with zero false positives, duplicates, and timeouts; see
+`artifacts/wp012_dense50_rebuild_check.json`. Rebuild the release CLI before
+every evaluator run. This invalidates the stale artifact only and does not
+change WP-012's still-unmet 90% recall criterion.
+
 **2026-07-13 release-build reproducibility check:** A transient 27/50,
 4.8-second result was traced to a stale `target/release/qrtool` binary and is
 invalid as source evidence. After `cargo build --release --features tools --bin
@@ -1612,6 +1632,14 @@ CI now checks the minimal feature set and MSRV in addition to its hosted
 Linux/macOS/Windows test lanes. This is build/test evidence only: WASM, iOS,
 Android, bindings, and `no_std` remain explicitly unsupported/planned until
 dedicated extraction and continuous target lanes exist.
+
+**2026-07-13 product-readiness documentation:** Added
+`docs/product_readiness.md`, grounding the current `0.1.0` experimental
+versioning boundary, Rust 1.85 MSRV evidence, no-claim security intake limits,
+BoofCV-versus-self-authored-corpus provenance boundary, and unsupported
+platform/binding status in tracked repository state. This is documentation
+completion only; crates.io publication, tags, a response-time commitment,
+license verification for external datasets, and binding releases remain open.
 
 **2026-07-13 MSRV evidence:** on the installed `rustc 1.85.0` toolchain,
 `cargo +1.85 test --lib --no-default-features` and `cargo +1.85 test --lib`

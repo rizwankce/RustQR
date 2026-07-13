@@ -62,6 +62,9 @@ checked in CI on Rust 1.85 with `cargo test --all-features`. It is still a
 `std` crate: a separate `no_std + alloc` matrix-decoding crate has not yet been
 extracted.
 
+Product-facing versioning, security-intake, dataset-provenance, and current
+support boundaries are documented in [Product readiness](docs/product_readiness.md).
+
 ## Usage
 
 New code should use the checked API:
