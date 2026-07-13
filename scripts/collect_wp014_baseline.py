@@ -33,7 +33,12 @@ CASES = {
     "clean": "benches/images/boofcv/nominal/image005.jpg",
     "hard": "benches/images/boofcv/damaged/image002.jpg",
     "multi_candidate": "benches/images/boofcv/lots/image001.jpg",
+    # Unlike the historical BoofCV `lots` control, this is a labelled,
+    # successful controlled dense route.  It remains opt-in so the original
+    # baseline command keeps its three-lane scope.
+    "dense_50": "tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png",
 }
+DEFAULT_LANES = ("clean", "hard", "multi_candidate")
 PROFILE_PREFIX = "WP014_PROFILE "
 
 
@@ -103,7 +108,9 @@ def run_process_case(qrtool: Path, image: Path) -> dict[str, Any]:
     }
 
 
-def run_allocation_probe(repo: Path, iterations: int) -> tuple[list[dict[str, Any]], str]:
+def run_allocation_probe(
+    repo: Path, iterations: int, lanes: tuple[str, ...]
+) -> tuple[dict[str, dict[str, Any]], dict[str, str], str]:
     environment = os.environ.copy()
     environment["WP014_ALLOCATION_ONLY"] = "1"
     environment["WP014_PROFILE_ITERATIONS"] = str(iterations)
@@ -117,18 +124,27 @@ def run_allocation_probe(repo: Path, iterations: int) -> tuple[list[dict[str, An
         "--",
         "--noplot",
     ]
-    completed = subprocess.run(command, cwd=repo, text=True, capture_output=True, env=environment)
-    output = completed.stdout + completed.stderr
-    if completed.returncode:
-        raise RuntimeError(f"allocation probe failed ({completed.returncode}):\n{output}")
-    records = [
-        json.loads(line[len(PROFILE_PREFIX) :])
-        for line in output.splitlines()
-        if line.startswith(PROFILE_PREFIX)
-    ]
-    if len(records) != len(CASES):
-        raise RuntimeError(f"expected {len(CASES)} allocation records, got {len(records)}:\n{output}")
-    return records, " ".join(command)
+    records: dict[str, dict[str, Any]] = {}
+    errors: dict[str, str] = {}
+    for lane in lanes:
+        lane_environment = environment | {"WP014_PROFILE_LANE": lane}
+        completed = subprocess.run(
+            command, cwd=repo, text=True, capture_output=True, env=lane_environment
+        )
+        output = completed.stdout + completed.stderr
+        lane_records = [
+            json.loads(line[len(PROFILE_PREFIX) :])
+            for line in output.splitlines()
+            if line.startswith(PROFILE_PREFIX)
+        ]
+        if completed.returncode or len(lane_records) != 1:
+            errors[lane] = (
+                f"allocation probe exit={completed.returncode}; "
+                f"records={len(lane_records)}; {output.strip()}"
+            )
+            continue
+        records[lane] = lane_records[0]
+    return records, errors, " ".join(command)
 
 
 def summarize_process_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -151,10 +167,19 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True, help="JSON baseline artifact path")
     parser.add_argument("--process-runs", type=int, default=5, help="fresh-process runs per lane")
     parser.add_argument("--in-process-iterations", type=int, default=5, help="detect calls per warm allocation lane")
+    parser.add_argument(
+        "--lanes",
+        default=",".join(DEFAULT_LANES),
+        help="comma-separated lanes to collect (default: clean,hard,multi_candidate)",
+    )
     parser.add_argument("--skip-build", action="store_true", help="reuse target/release/qrtool")
     args = parser.parse_args()
     if args.process_runs < 1 or args.in_process_iterations < 1:
         parser.error("run counts must be positive")
+    selected_lanes = tuple(lane.strip() for lane in args.lanes.split(",") if lane.strip())
+    unknown_lanes = sorted(set(selected_lanes) - set(CASES))
+    if not selected_lanes or unknown_lanes:
+        parser.error(f"--lanes must name one or more of {', '.join(CASES)}")
 
     repo = Path(__file__).resolve().parents[1]
     if not args.skip_build:
@@ -167,20 +192,27 @@ def main() -> int:
     if not qrtool.is_file():
         parser.error(f"missing {qrtool}; omit --skip-build or build it first")
 
-    allocation_records, allocation_command = run_allocation_probe(repo, args.in_process_iterations)
-    allocation_by_lane = {record["lane"]: record for record in allocation_records}
+    allocation_by_lane, allocation_errors, allocation_command = run_allocation_probe(
+        repo, args.in_process_iterations, selected_lanes
+    )
     lanes: dict[str, Any] = {}
-    for lane, relative_image in CASES.items():
+    for lane in selected_lanes:
+        relative_image = CASES[lane]
         image = repo / relative_image
         if not image.is_file():
             raise FileNotFoundError(image)
         process_runs = [run_process_case(qrtool, image) for _ in range(args.process_runs)]
-        probe = allocation_by_lane[lane]
+        probe = allocation_by_lane.get(lane)
         lanes[lane] = {
             "image": relative_image,
-            "successful_first_call": probe["first_call_decoded"] > 0,
-            "successful_warm_calls": probe["warm_decoded_total"] == probe["warm_iterations"],
+            "successful_first_call": probe is not None and probe["first_call_decoded"] > 0,
+            # A lane can legitimately return more than one QR per call.  The
+            # profile's success contract is at least one result for every warm
+            # invocation, not exactly one total result per invocation.
+            "successful_warm_calls": probe is not None
+            and probe["warm_decoded_total"] >= probe["warm_iterations"],
             "in_process_detect_only": probe,
+            "in_process_probe_error": allocation_errors.get(lane),
             "fresh_process_end_to_end": summarize_process_runs(process_runs),
         }
 
@@ -200,6 +232,8 @@ def main() -> int:
             "process_boundary": "qrtool startup, image load, detect, and formatting",
             "rss": "best-effort sampled process RSS in KiB; not an allocation metric",
             "multi_lane": "negative candidate until WP-012 supplies a successful dense-scene fixture",
+            "selected_lanes": list(selected_lanes),
+            "qr_max_dim": os.environ.get("QR_MAX_DIM", "unset"),
         },
         "lanes": lanes,
     }
@@ -208,8 +242,11 @@ def main() -> int:
     print(f"WP-014 baseline: {args.output}")
     for lane, result in lanes.items():
         status = "success" if result["successful_warm_calls"] else "NOT-SUCCESSFUL"
-        median_ms = result["in_process_detect_only"]["warm_per_call_ns"] / 1_000_000
-        print(f"  {lane}: {status}; warm detect median-equivalent={median_ms:.3f} ms")
+        if result["in_process_detect_only"] is None:
+            print(f"  {lane}: {status}; in-process probe unavailable")
+        else:
+            median_ms = result["in_process_detect_only"]["warm_per_call_ns"] / 1_000_000
+            print(f"  {lane}: {status}; warm detect median-equivalent={median_ms:.3f} ms")
     return 0
 
 

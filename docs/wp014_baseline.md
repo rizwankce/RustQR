@@ -107,6 +107,39 @@ which is within this small local run's noise; this is an allocation and bounded
 work reduction, not a latency claim. The dense output, candidate cap, and
 strict-path behavior are unchanged.
 
+## 1024-pixel credibility sample (2026-07-13)
+
+`artifacts/wp014_credibility_1024_a60d082.json` is a bounded five-process-run,
+five-warm-call sample collected at commit `a60d082` with `QR_MAX_DIM=1024`:
+
+```bash
+QR_MAX_DIM=1024 python3 -B scripts/collect_wp014_baseline.py \
+  --skip-build --process-runs 5 --in-process-iterations 5 \
+  --lanes clean,hard,dense_50 \
+  --output artifacts/wp014_credibility_1024_a60d082.json
+```
+
+| Lane | Process p50 | Process p95 | Warm detect-only average | Result | Credibility-target reading |
+| --- | ---: | ---: | ---: | --- | --- |
+| clean | 54.50 ms | 266.26 ms | 37.46 ms | 1/1 in all five runs | Does not pass the 100 ms p95 bound. |
+| hard | 2516.36 ms | 2717.33 ms | unavailable | 0/1 in all five runs | Not a successful lane; the profile's required-success assertion aborts. |
+| controlled `dense_50` | 354.12 ms | 355.46 ms | 369.69 ms | 48/50 direct results in all five runs | Does not pass the 25 ms p50 or 100 ms p95 bounds. |
+
+The controlled dense source is 1276x1119 and was Triangle-resized to
+1024x898 before detection, so its process values use the stated 1024-pixel
+boundary. Clean and hard are already below that limit (550x309 and 1008x756).
+The artifact preserves each raw process duration and decoded count.
+
+The allocation probe deliberately emits only one aggregate duration for its
+five warm calls; it cannot establish in-process p50/p95. The process-isolated
+distribution above is the available p50/p95 evidence. Five samples are a
+bounded credibility check, not a stable throughput or regression claim.
+
+The collector now accepts `--lanes` and runs the allocation probe one lane at
+a time. That both makes the successful controlled dense route explicit and
+preserves a required lane's failed profile as an artifact error instead of
+misreporting it as a successful timing result.
+
 ## Remaining gates
 
 - Establish at least one successful real multi-code lane through WP-012.

@@ -1,0 +1,323 @@
+{
+  "commit_sha": "fb23fd54cfaa77c97bd4c8745c8101c2e4abdd8d",
+  "dirty_worktree": true,
+  "generated_at_unix_ms": 1783927495375,
+  "host": {
+    "cpu_count": 10,
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "python": "3.13.2"
+  },
+  "lanes": {
+    "clean": {
+      "fresh_process_end_to_end": {
+        "decoded_symbols_per_run": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "images_per_second_from_median": 19.788265558523797,
+        "median_ns": 50535000,
+        "p95_ns": 341230566.79999995,
+        "runs": [
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/nominal/image005.jpg"
+            ],
+            "decoded_symbols": 1,
+            "elapsed_ns": 410034792,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/nominal/image005.jpg"
+            ],
+            "decoded_symbols": 1,
+            "elapsed_ns": 50535000,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/nominal/image005.jpg"
+            ],
+            "decoded_symbols": 1,
+            "elapsed_ns": 66013666,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/nominal/image005.jpg"
+            ],
+            "decoded_symbols": 1,
+            "elapsed_ns": 48032166,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/nominal/image005.jpg"
+            ],
+            "decoded_symbols": 1,
+            "elapsed_ns": 46311458,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          }
+        ],
+        "sampled_peak_rss_kb_max": null
+      },
+      "image": "benches/images/boofcv/nominal/image005.jpg",
+      "in_process_detect_only": {
+        "first_call_allocated_bytes": 2208420,
+        "first_call_allocations": 14849,
+        "first_call_decoded": 1,
+        "first_call_ns": 43659000,
+        "first_call_reallocations": 3409,
+        "image": "benches/images/boofcv/nominal/image005.jpg",
+        "lane": "clean",
+        "requires_success": true,
+        "warm_allocated_bytes": 11037060,
+        "warm_allocations": 74155,
+        "warm_deallocated_bytes": 11037060,
+        "warm_deallocations": 74155,
+        "warm_decoded_total": 5,
+        "warm_iterations": 5,
+        "warm_per_call_ns": 37902483.4,
+        "warm_reallocations": 17045,
+        "warm_total_ns": 189512417
+      },
+      "in_process_probe_error": null,
+      "successful_first_call": true,
+      "successful_warm_calls": true
+    },
+    "dense_50": {
+      "fresh_process_end_to_end": {
+        "decoded_symbols_per_run": [
+          48,
+          48,
+          48,
+          48,
+          48
+        ],
+        "images_per_second_from_median": 2.815940617444259,
+        "median_ns": 355121125,
+        "p95_ns": 356469491.4,
+        "runs": [
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png"
+            ],
+            "decoded_symbols": 48,
+            "elapsed_ns": 356512083,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png"
+            ],
+            "decoded_symbols": 48,
+            "elapsed_ns": 355021500,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png"
+            ],
+            "decoded_symbols": 48,
+            "elapsed_ns": 356299125,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png"
+            ],
+            "decoded_symbols": 48,
+            "elapsed_ns": 355121125,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png"
+            ],
+            "decoded_symbols": 48,
+            "elapsed_ns": 354116167,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          }
+        ],
+        "sampled_peak_rss_kb_max": null
+      },
+      "image": "tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png",
+      "in_process_detect_only": {
+        "first_call_allocated_bytes": 35837906,
+        "first_call_allocations": 187771,
+        "first_call_decoded": 48,
+        "first_call_ns": 331893250,
+        "first_call_reallocations": 67028,
+        "image": "tests/fixtures/wp012_raster_scenes/controlled_dense/density_050.png",
+        "lane": "dense_50",
+        "requires_success": true,
+        "warm_allocated_bytes": 179189530,
+        "warm_allocations": 938855,
+        "warm_deallocated_bytes": 179189530,
+        "warm_deallocations": 938855,
+        "warm_decoded_total": 240,
+        "warm_iterations": 5,
+        "warm_per_call_ns": 389842066.6,
+        "warm_reallocations": 335140,
+        "warm_total_ns": 1949210333
+      },
+      "in_process_probe_error": null,
+      "successful_first_call": true,
+      "successful_warm_calls": true
+    },
+    "hard": {
+      "fresh_process_end_to_end": {
+        "decoded_symbols_per_run": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "images_per_second_from_median": 0.3908965280277208,
+        "median_ns": 2558221750,
+        "p95_ns": 2594171091.4,
+        "runs": [
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/damaged/image002.jpg"
+            ],
+            "decoded_symbols": 0,
+            "elapsed_ns": 2475646000,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/damaged/image002.jpg"
+            ],
+            "decoded_symbols": 0,
+            "elapsed_ns": 2589826125,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/damaged/image002.jpg"
+            ],
+            "decoded_symbols": 0,
+            "elapsed_ns": 2332593417,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/damaged/image002.jpg"
+            ],
+            "decoded_symbols": 0,
+            "elapsed_ns": 2595257333,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          },
+          {
+            "command": [
+              "/Users/rizwan/Documents/2-personal/RustQR/target/release/qrtool",
+              "detect",
+              "--image",
+              "/Users/rizwan/Documents/2-personal/RustQR/benches/images/boofcv/damaged/image002.jpg"
+            ],
+            "decoded_symbols": 0,
+            "elapsed_ns": 2558221750,
+            "exit_code": 0,
+            "sampled_peak_rss_kb": null,
+            "stderr": null
+          }
+        ],
+        "sampled_peak_rss_kb_max": null
+      },
+      "image": "benches/images/boofcv/damaged/image002.jpg",
+      "in_process_detect_only": null,
+      "in_process_probe_error": "allocation probe exit=101; records=0; Finished `bench` profile [optimized] target(s) in 0.06s\n     Running benches/wp014_profiles.rs (target/release/deps/wp014_profiles-b2d1af02c799bd09)\nGnuplot not found, using plotters backend\n\nthread 'main' panicked at benches/wp014_profiles.rs:148:9:\nbenches/images/boofcv/damaged/image002.jpg must decode\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nerror: bench failed, to rerun pass `--bench wp014_profiles`",
+      "successful_first_call": false,
+      "successful_warm_calls": false
+    }
+  },
+  "methodology": {
+    "allocation_probe_command": "cargo bench --bench wp014_profiles --features tools -- --noplot",
+    "in_process_boundary": "loaded RGB bytes to rust_qr::detect return",
+    "multi_lane": "negative candidate until WP-012 supplies a successful dense-scene fixture",
+    "process_boundary": "qrtool startup, image load, detect, and formatting",
+    "qr_max_dim": "1024",
+    "rss": "best-effort sampled process RSS in KiB; not an allocation metric",
+    "selected_lanes": [
+      "clean",
+      "hard",
+      "dense_50"
+    ]
+  },
+  "schema_version": "rustqr.wp014.performance-baseline.v1"
+}

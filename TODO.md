@@ -1401,6 +1401,21 @@ call, reduced allocations from 451,087 to 444,857 and requested bytes from
 latency improvement is claimed. See `docs/wp014_baseline.md` for the exact
 command and raw probe boundaries.
 
+**2026-07-13 1024-pixel credibility sample:** A bounded five-process-run,
+five-warm-call collection at `QR_MAX_DIM=1024` is recorded in
+`artifacts/wp014_credibility_1024_a60d082.json`. Clean returned one result in
+every run (process p50 54.50 ms, p95 266.26 ms; warm detect-only average
+37.46 ms), so it does not meet the 100 ms p95 bound. The required hard lane
+returned zero results in all five runs (process p50 2516.36 ms, p95 2717.33
+ms) and its allocation profile correctly aborts rather than producing a
+success timing. The successful controlled `dense_50` route was Triangle
+resized from 1276x1119 to 1024x898 and returned 48 direct results in every
+run (process p50 354.12 ms, p95 355.46 ms; warm detect-only average 369.69
+ms), so it misses both near-term latency bounds. The allocation harness emits
+one five-call aggregate, not per-call samples, therefore cannot establish an
+in-process p50/p95. This is evidence of non-passage, not a target claim; the
+full boundary and raw observations are in `docs/wp014_baseline.md`.
+
 ---
 
 ## WP-015: Platform and packaging roadmap
@@ -1440,11 +1455,16 @@ Linux/macOS/Windows test lanes. This is build/test evidence only: WASM, iOS,
 Android, bindings, and `no_std` remain explicitly unsupported/planned until
 dedicated extraction and continuous target lanes exist.
 
-**2026-07-13 local MSRV evidence:** on the installed `rustc 1.85.0`
-toolchain, `cargo +1.85 test --lib --no-default-features` and
-`cargo +1.85 test --lib` each passed 112 library tests on macOS AArch64. An
-all-features MSRV rerun must be repeated after the in-progress shared scheduler
-edit compiles; it is not claimed as WP-015 evidence here.
+**2026-07-13 MSRV evidence:** on the installed `rustc 1.85.0` toolchain,
+`cargo +1.85 test --lib --no-default-features` and `cargo +1.85 test --lib`
+each passed 112 library tests on macOS AArch64 before the later scheduler and
+corpus work. After that work stabilized, `cargo +1.85 test --all-features`
+passed on macOS AArch64: 133 library tests, 5 CLI tests, 3 adversarial tests,
+7 regular conformance tests (with the 3,840-case full-grid test intentionally
+ignored), 4 mutation tests, 7 input API tests, 6 synthetic negative-corpus
+tests, and 7 intentionally ignored photographic regressions. The MSRV CI lane
+now runs that exact all-features command. This verifies the supported desktop
+feature matrix, not WASM, iOS, Android, bindings, or `no_std`.
 
 **Validation:**
 
