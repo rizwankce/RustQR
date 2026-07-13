@@ -17,19 +17,19 @@ incomplete.
 | Capability | Status | Evidence / limitation |
 |---|---|---|
 | Model 2 | Partial | Unit tests cover known v1 matrices and modes; ignored real-image regressions exercise selected images in `tests/decode_regression_tests.rs` |
-| Versions 1-40 | Partial | Tables and parsing cover 1-40; high-version decoding has an ignored, non-strict regression test and remains weak in the published dataset |
-| EC levels L/M/Q/H | Partial | Format parsing and block tables support all four; there is no end-to-end fixture for every level/version pair |
-| Masks 0-7 | Partial | `MaskPattern` implements all masks, but unit and matrix tests do not exhaust all eight end to end |
+| Versions 1-40 | Tested at matrix level | Generated Model 2 conformance fixtures cover all supported versions; photographic high-version decoding remains partial |
+| EC levels L/M/Q/H | Tested at matrix level | Generated conformance fixtures cover all four levels; real-image coverage remains partial |
+| Masks 0-7 | Tested at matrix level | Generated conformance fixtures exercise every mask; real-image coverage remains partial |
 | Numeric, alphanumeric, byte | Tested at unit level | Payload tests cover each mode and mixed-mode decoding |
-| ECI | Partial | Assignment numbers are parsed but ignored; byte payloads are rendered as UTF-8 lossily |
-| Kanji | Partial | Shift-JIS code units are reconstructed, but text is rendered lossily and lacks a dedicated test |
+| ECI | Partial | Assignment numbers are recorded as metadata; character-set conversion is intentionally not applied |
+| Kanji | Tested at matrix level | Shift-JIS code units are reconstructed and a materialized matrix asserts the raw bytes for `漢字` |
 | Inverted symbols | Partial | The decoder retries an inverted sampled matrix; no dedicated end-to-end regression fixture |
 | Rotated / mirrored symbols | Partial | Orientation retries include rotations and reflections; a rotated real-image test is ignored by default |
 | Multiple symbols per image | Partial | The pipeline can return multiple results, but the ignored regression only requires at least one result |
 | Model 1 | Unsupported | `Version::Model1` is a data-model placeholder; the detector/decoder implements Model 2 geometry |
 | Micro QR | Unsupported | `Version::Micro` is a data-model placeholder; single-finder Micro QR detection is not implemented |
-| GS1 / FNC1 | Unsupported | FNC1 mode indicators are not parsed |
-| Structured Append | Unsupported | Structured Append mode is not parsed |
+| GS1 / FNC1 | Partial | FNC1 first/second headers and alphanumeric `%` substitution are decoded; fixture coverage is limited |
+| Structured Append | Partial | Sequence index, total count, and parity are recorded; fixture coverage is limited |
 | Linux, macOS, Windows | Tested in CI | `.github/workflows/ci.yml` runs library tests on native hosted runners; this is not mobile support |
 | WASM, iOS, Android | Planned | No build or test lane currently verifies these targets |
 | `no_std` | Unsupported | The crate still exposes a `std`-based public API; feature separation is not an alloc-only core |
