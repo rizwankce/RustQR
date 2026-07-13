@@ -59,6 +59,18 @@ class CompetitorHarnessTests(unittest.TestCase):
 
     def test_thread_environment_is_explicitly_single_threaded(self):
         self.assertEqual(HARNESS.THREAD_ENVIRONMENT["OMP_NUM_THREADS"], "1")
+
+    def test_preflight_never_claims_pinned_build_provenance(self):
+        lock = SCRIPT.parents[1] / "competitors/lock.json"
+        report = HARNESS.preflight(lock, ["zbar", "opencv"])
+        self.assertEqual(report["schema_version"], "rustqr.competitor-preflight.v1")
+        self.assertIn("comparison_claim", report)
+        for adapter in report["adapters"].values():
+            self.assertFalse(adapter["provenance_verified"])
+            self.assertIn(adapter["status"], {
+                "missing_runner", "version_mismatch",
+                "available_version_matches_unverified_provenance",
+            })
         self.assertEqual(HARNESS.THREAD_ENVIRONMENT["OPENBLAS_NUM_THREADS"], "1")
 
 

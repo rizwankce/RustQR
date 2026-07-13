@@ -42,3 +42,16 @@ only when hard-cap evidence is required, and collect a fixed multi-image list
 only after a proposed geometry/sampling change is ready for a matched
 comparison. The curved mesh remains unproven because this run produced no
 successful curved decode.
+
+## Bright-spot and glare sampling audit (2026-07-13)
+
+Both failures reach transform and have `format-fail` as their recorded failure
+cluster, not finder/grouping failure. Their original telemetry has no
+saturation-mask or RS-erasure attempts. A temporary decoder-only experiment
+enabled one additional 1.25x sample-footprint retry after normal and jittered
+sampling, only for the existing small-module/high-version eligibility rule.
+It was a no-op for the exact one-image probes: both reported zero scale-retry
+attempts and remained at bright_spots 0/3 and glare 0/1, with zero false
+positives. The candidate was reverted. This rules out retaining that global
+retry as a category fix; a future change must first demonstrate that its
+sampling predicate reaches the format-fail candidates.

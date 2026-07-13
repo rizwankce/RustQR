@@ -64,6 +64,32 @@ result. The harness passes `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`,
 `MKL_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS`, and `NUMEXPR_NUM_THREADS` as `1`
 to every adapter child process; those settings are recorded in the artifact.
 
+## Local preflight
+
+Use `--preflight` before materializing pixels when checking only whether local
+adapter runners are present. It runs no image decode and emits a separate
+`rustqr.competitor-preflight.v1` artifact:
+
+```sh
+python3 scripts/run_competitor_harness.py --preflight \
+  --adapter zbar --adapter opencv \
+  --output artifacts/competitors/wp013-local-preflight.json
+```
+
+The preflight records the lock hash, expected/observed version, runnable
+command, and a minimal local capability check (`zbarimg --raw` and OpenCV
+`QRCodeDetector`/`detectAndDecodeMulti`). A matching local version is reported
+as `available_version_matches_unverified_provenance`, never as a pinned-build
+verification: the check cannot prove source revision, compiler flags, wheel
+origin, or transitive dependency configuration. Missing runners and mismatched
+versions remain explicit statuses. A preflight is setup evidence only and is
+not a competitor measurement or comparison claim.
+
+On 2026-07-13, the local preflight artifact
+`artifacts/competitors/wp013-local-preflight-2026-07-13.json` found ZBar
+0.23.93 with `--raw` support and OpenCV 4.12.0 with both required detector
+methods. Both remain provenance-unverified local installations.
+
 The 2026-07-13 local smoke artifact at
 `artifacts/competitors/wp013-local-smoke-2026-07-13.json` was generated with
 all six adapters on `monitor/image001.jpg`. Its available pinned adapters were

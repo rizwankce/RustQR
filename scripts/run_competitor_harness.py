@@ -54,6 +54,15 @@ def command_version(command: list[str]) -> str | None:
     return output.splitlines()[0] if output else None
 
 
+def command_output(command: list[str]) -> str | None:
+    """Read bounded local capability text without invoking an adapter on pixels."""
+    try:
+        result = subprocess.run(command, capture_output=True, timeout=10, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return (result.stdout + result.stderr).decode("utf-8", "replace")
+
+
 def hardware_metadata() -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "platform": platform.platform(),
@@ -155,6 +164,60 @@ def adapter_setup(adapter: str) -> dict[str, Any]:
     return {
         "status": "available",
         "command": command[:-1] + ["<shared-pixels>.pgm"],
+    }
+
+
+def adapter_preflight(adapter: str, expected_version: str) -> dict[str, Any]:
+    """Record local runnable capability without asserting build provenance."""
+    setup = adapter_setup(adapter)
+    observed = observed_version(adapter)
+    expected = expected_version.removeprefix("v")
+    version_matches = observed is not None and expected in observed
+    capabilities: dict[str, Any] = {}
+    if adapter == "opencv" and setup["status"] == "available":
+        try:
+            import cv2  # type: ignore
+            capabilities = {
+                "qrcode_detector": hasattr(cv2, "QRCodeDetector"),
+                "detect_and_decode_multi": hasattr(cv2.QRCodeDetector(), "detectAndDecodeMulti"),
+            }
+        except (ImportError, AttributeError):
+            capabilities = {"qrcode_detector": False, "detect_and_decode_multi": False}
+    elif adapter == "zbar" and setup["status"] == "available":
+        help_text = command_output(["zbarimg", "--help"])
+        capabilities = {"raw_payload_lines": help_text is not None and "--raw" in help_text}
+    if setup["status"] != "available":
+        status = "missing_runner"
+    elif not version_matches:
+        status = "version_mismatch"
+    else:
+        # A system package/wheel can report the right version while differing
+        # in build flags or origin.  Only a pinned build record can promote it
+        # to a comparison-ready adapter.
+        status = "available_version_matches_unverified_provenance"
+    return {
+        "status": status,
+        "expected_version": expected_version,
+        "version_observed": observed,
+        "setup": setup,
+        "capabilities": capabilities,
+        "provenance_verified": False,
+    }
+
+
+def preflight(lock_path: Path, adapters: list[str]) -> dict[str, Any]:
+    lock = json.loads(lock_path.read_text("utf-8"))
+    if lock.get("schema_version") != "rustqr.competitor-lock.v1":
+        raise ValueError("unexpected competitor lock schema")
+    return {
+        "schema_version": "rustqr.competitor-preflight.v1",
+        "lock": {"path": str(lock_path), "sha256": sha256(lock_path)},
+        "thread_environment": THREAD_ENVIRONMENT,
+        "adapters": {
+            adapter: adapter_preflight(adapter, lock["adapters"][adapter]["version"])
+            for adapter in adapters
+        },
+        "comparison_claim": "none; availability and version are not pinned-build provenance",
     }
 
 
@@ -321,6 +384,7 @@ def main() -> int:
     parser.add_argument("--max-dim", type=int, default=1024)
     parser.add_argument("--timeout-ms", type=int, default=1000)
     parser.add_argument("--adapter", action="append", choices=ADAPTERS)
+    parser.add_argument("--preflight", action="store_true", help="write local adapter availability only; do not select images or decode")
     parser.add_argument("--opencv-one", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.opencv_one:
@@ -328,7 +392,7 @@ def main() -> int:
     if not args.output:
         parser.error("--output is required")
     try:
-        report = run(args)
+        report = preflight(Path(args.lock), args.adapter or list(ADAPTERS)) if args.preflight else run(args)
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

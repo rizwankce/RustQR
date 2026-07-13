@@ -1,0 +1,54 @@
+{
+  "schema_version": "rustqr.competitor-preflight.v1",
+  "lock": {
+    "path": "competitors/lock.json",
+    "sha256": "f8aa50d8a473d66d12406a102d11ce053c671c5f46daee935b3dec7bcaf106c0"
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1"
+  },
+  "adapters": {
+    "zbar": {
+      "status": "available_version_matches_unverified_provenance",
+      "expected_version": "0.23.93",
+      "version_observed": "0.23.93",
+      "setup": {
+        "status": "available",
+        "command": [
+          "zbarimg",
+          "--quiet",
+          "--raw",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "capabilities": {
+        "raw_payload_lines": true
+      },
+      "provenance_verified": false
+    },
+    "opencv": {
+      "status": "available_version_matches_unverified_provenance",
+      "expected_version": "4.12.0",
+      "version_observed": "4.12.0",
+      "setup": {
+        "status": "available",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "/Users/rizwan/Documents/2-personal/RustQR/scripts/run_competitor_harness.py",
+          "--opencv-one",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "capabilities": {
+        "qrcode_detector": true,
+        "detect_and_decode_multi": true
+      },
+      "provenance_verified": false
+    }
+  },
+  "comparison_claim": "none; availability and version are not pinned-build provenance"
+}

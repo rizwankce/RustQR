@@ -1199,6 +1199,18 @@ a performance claim: `high_version --limit 3` decoded 0/3 and `glare --limit
 categories; their misses show that this slice alone does not satisfy the
 remaining homography/refinement and glare-recovery work.
 
+**2026-07-13 bright-spot/glare geometry audit:** Both one-image category
+artifacts reach transform and then fail format decoding, with no false
+positives: bright_spots is 0/3 in 393.66 ms (23 decode attempts) and glare is
+0/1 with a late discarded result in 2,607.54 ms (39 attempts). Neither route
+uses saturation masking or confidence-guided RS erasures. A temporary bounded
+1.25x sample-footprint retry was eligible only for small-module/high-version
+candidates and made zero attempts on both exact probes, so it was reverted
+rather than retained as dormant recovery work. The repeat probes stayed at
+0/3 and 0/1 with zero false positives. A category-level improvement needs
+sampling evidence that reaches the actual format-fail candidates, not a global
+footprint retry.
+
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It
 probes at most six deterministic alignment locations and nine sub-module
@@ -1430,6 +1442,18 @@ python3 scripts/run_competitor_harness.py --category monitor --limit 1 \
   --output /tmp/competitor-smoke.json
 git diff --check
 ```
+
+**2026-07-13 local availability preflight:**
+`rustqr.competitor-preflight.v1` now records no-decode local runner/version/
+capability state before image materialization. The fresh artifact
+`artifacts/competitors/wp013-local-preflight-2026-07-13.json` observed ZBar
+0.23.93 with `zbarimg --raw` and OpenCV 4.12.0 with `QRCodeDetector` plus
+`detectAndDecodeMulti`. Both states are deliberately
+`available_version_matches_unverified_provenance`: they confirm the locally
+available protocol surface but cannot prove a pinned source revision, build
+flags, wheel origin, or comparator eligibility. This advances reproducible
+setup diagnostics only; it creates no pinned-build, accuracy, latency, or
+competitor-comparison claim.
 
 ---
 
