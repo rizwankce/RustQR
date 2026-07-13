@@ -137,6 +137,21 @@ lost accepted symbols and the residual frontier still cost too much. Do not
 repeat this filter-plus-fixed-budget approach; a future hybrid needs a
 materially cheaper candidate-level selector.
 
+## 2026-07-13 bounded breadth-first dense scheduling
+
+The dense router now uses the existing request-wide candidate and transform
+budget breadth-first when it has at least 40 disjoint retained regions: each
+region receives its highest-ranked candidate before any region receives a
+second. Lower-diversity inputs retain the prior region-local ordering. This
+does not add candidates, relax decode acceptance, or increase any cap.
+
+`artifacts/wp012_controlled_dense_round_robin_qrmax0.json` records 48/50
+(96.00%) at density 50 in 97.09 ms, with zero false positives, duplicates, and
+timeouts. Three isolated public-evaluator reruns also scored 48/50 in
+95.84–101.91 ms. The density ladder still records 23/25 and 63/100, so this
+clears the controlled 50-code gate without claiming general dense-scene
+completion.
+
 ### Release-binary reproducibility correction
 
 A transient 27/50, 4.8-second observation was produced by a stale

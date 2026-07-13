@@ -1681,6 +1681,18 @@ with zero false positives, duplicates, or timeouts; the raw observation is
 `artifacts/wp012_dense50_rebuild_check.json`. Rebuild the release CLI before
 comparing any WP-012 artifact to source changes.
 
+**2026-07-13 dense region scheduling:** When the multi-QR router has at least
+40 disjoint retained regions, it now spends the existing bounded decode budget
+round-robin across regions before taking a second candidate from any region.
+This prevents one cluster's near-duplicate triples from starving a distinct
+symbol. The regenerated public raster artifact
+`artifacts/wp012_controlled_dense_round_robin_qrmax0.json` records 48/50
+(96.00%) in 97.09 ms at density 50, with zero false positives, duplicates, or
+timeouts; three isolated reruns were also 48/50 in 95.84–101.91 ms. This
+meets the controlled 50-code acceptance target. WP-012 remains in progress:
+the same density ladder has 23/25 and 63/100, so the broader dense-scene goal
+and realistic-scene evidence are still open.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.

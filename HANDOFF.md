@@ -14,13 +14,14 @@ before editing. `TODO.md` is the canonical detailed queue.
 
 ## Highest-value open packets
 
-1. **WP-012 dense multi-QR recall:** after rebuilding the release CLI,
-   controlled `dense_50` is 43/50 (86%) in 394.62 ms with zero false
-   positives, duplicates, or timeouts. The latency leg is met, but recall must
-   reach 45/50. The fresh route audit identifies five Otsu-only payloads
-   (`011`, `014`, `039`, `043`, `046`) and two absent from both routes
-   (`021`, `047`). Direct Otsu is too slow as a global substitute; any hybrid
-   must choose non-duplicate candidates generically and stay under 500 ms.
+1. **WP-012 dense multi-QR recall:** dense_50 now clears its controlled gate:
+   a bounded breadth-first regional schedule gives 48/50 (96%) in 97.09 ms,
+   with zero false positives, duplicates, or timeouts; repeat samples were
+   95.84–101.91 ms. It does not complete WP-012: the same ladder is 23/25 and
+   63/100, and realistic dense scenes still need evidence. The route audit's
+   five Otsu-only payloads (`011`, `014`, `039`, `043`, `046`) and two absent
+   from both routes (`021`, `047`) remain useful diagnosis, but global or
+   residual Otsu retries are not viable under the bounded request policy.
    A residual-Otsu proposal with eight reserved decode attempts regressed to
    40/50 in 911.42 ms and was reverted; do not repeat that design.
 2. **WP-011 geometry/sampling:** expiry now prevents scheduling new image-wide

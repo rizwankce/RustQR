@@ -1601,74 +1601,94 @@ fn decode_ranked_groups(
     }
 
     let relaxed_floor = DECODE_RELAXED_ACCEPTANCE_FLOOR;
-    for region in regions {
-        for (region_attempts, &idx) in region.indices.iter().take(per_region_top_k).enumerate() {
-            if used_transforms >= max_transforms || used_attempts >= max_decode_attempts {
-                if let Some(tel) = telemetry.as_mut() {
-                    tel.budget_skips += 1;
-                }
-                break;
+    // Only a highly diverse dense frontier needs a breadth-first schedule.
+    // Below that bound, preserve the established region-local ordering. Many
+    // disjoint regions can each contain near-duplicate triples; exhausting one
+    // cluster first can starve a separate symbol even though both were kept.
+    let attempts_per_region = per_region_top_k.min(per_region_attempt_cap);
+    let breadth_first_dense_schedule =
+        matches!(strategy, StrategyProfile::MultiQrHeavy) && regions.len() >= 40;
+    let mut schedule = Vec::with_capacity(regions.len() * attempts_per_region);
+    if breadth_first_dense_schedule {
+        for region_attempts in 0..attempts_per_region {
+            for region_index in 0..regions.len() {
+                schedule.push((region_attempts, region_index));
             }
-            if region_attempts >= per_region_attempt_cap {
-                break;
+        }
+    } else {
+        for region_index in 0..regions.len() {
+            for region_attempts in 0..attempts_per_region {
+                schedule.push((region_attempts, region_index));
             }
-            let candidate = &candidates[idx];
-            if candidate
-                .group
-                .iter()
-                .any(|proposal| accepted_proposals.contains(proposal))
-            {
-                continue;
-            }
-            let lane = confidence_lane(candidate.geometry_confidence);
-            if !lane_budget.consume(lane) {
-                if let Some(tel) = telemetry.as_mut() {
-                    tel.budget_skips += 1;
-                }
-                continue;
-            }
-            record_lane_attempt(&mut telemetry, lane);
+        }
+    }
+    for (region_attempts, region_index) in schedule {
+        let region = &regions[region_index];
+        if used_transforms >= max_transforms || used_attempts >= max_decode_attempts {
             if let Some(tel) = telemetry.as_mut() {
-                tel.transforms_built += 1;
-                tel.decode_attempts += 1;
+                tel.budget_skips += 1;
             }
-            used_transforms += 1;
-            used_attempts += 1;
+            break;
+        }
+        let Some(&idx) = region.indices.get(region_attempts) else {
+            continue;
+        };
+        let candidate = &candidates[idx];
+        if candidate
+            .group
+            .iter()
+            .any(|proposal| accepted_proposals.contains(proposal))
+        {
+            continue;
+        }
+        let lane = confidence_lane(candidate.geometry_confidence);
+        if !lane_budget.consume(lane) {
+            if let Some(tel) = telemetry.as_mut() {
+                tel.budget_skips += 1;
+            }
+            continue;
+        }
+        record_lane_attempt(&mut telemetry, lane);
+        if let Some(tel) = telemetry.as_mut() {
+            tel.transforms_built += 1;
+            tel.decode_attempts += 1;
+        }
+        used_transforms += 1;
+        used_attempts += 1;
 
-            let allow_heavy = used_attempts <= heavy_recovery_top_n;
-            let allow_matrix_recovery = matrix_recovery_allowed(strategy, allow_heavy);
-            if let Some(qr) = decode_candidate(
-                candidate,
-                binary,
-                gray,
-                width,
-                height,
-                allow_heavy,
-                allow_matrix_recovery,
-                fast_signals.blur_metric,
-                context,
-            ) {
-                let acceptance = acceptance_score(&qr, candidate.geometry_confidence);
-                if acceptance < relaxed_floor {
-                    if let Some(tel) = telemetry.as_mut() {
-                        tel.acceptance_rejected += 1;
-                    }
-                    continue;
+        let allow_heavy = used_attempts <= heavy_recovery_top_n;
+        let allow_matrix_recovery = matrix_recovery_allowed(strategy, allow_heavy);
+        if let Some(qr) = decode_candidate(
+            candidate,
+            binary,
+            gray,
+            width,
+            height,
+            allow_heavy,
+            allow_matrix_recovery,
+            fast_signals.blur_metric,
+            context,
+        ) {
+            let acceptance = acceptance_score(&qr, candidate.geometry_confidence);
+            if acceptance < relaxed_floor {
+                if let Some(tel) = telemetry.as_mut() {
+                    tel.acceptance_rejected += 1;
                 }
-                if dedupe_results(
-                    &mut results,
-                    &mut accepted_geometries,
-                    &mut accepted_proposals,
-                    candidate,
-                    qr,
-                ) {
-                    if let Some(tel) = telemetry.as_mut() {
-                        tel.rs_decode_ok += 1;
-                        tel.payload_decoded += 1;
-                        tel.router_region_decodes += 1;
-                        if saturation_mask_enabled && candidate.saturation_coverage > 0.08 {
-                            tel.saturation_mask_decode_successes += 1;
-                        }
+                continue;
+            }
+            if dedupe_results(
+                &mut results,
+                &mut accepted_geometries,
+                &mut accepted_proposals,
+                candidate,
+                qr,
+            ) {
+                if let Some(tel) = telemetry.as_mut() {
+                    tel.rs_decode_ok += 1;
+                    tel.payload_decoded += 1;
+                    tel.router_region_decodes += 1;
+                    if saturation_mask_enabled && candidate.saturation_coverage > 0.08 {
+                        tel.saturation_mask_decode_successes += 1;
                     }
                 }
             }
