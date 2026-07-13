@@ -1209,6 +1209,15 @@ mean latency. Controlled 1–100 scenes retain 193/193 finder-stage symbols.
 This materially narrows the proposal gap but leaves 215 `lots` labels with no
 contained proposal and does not complete WP-010.
 
+**2026-07-13 proposal-evidence buckets:** The stage evaluator now retains
+post-NMS finder evidence and reports fixed weighted-evidence bands separately
+for contained and spurious proposals. The fresh QR_MAX_DIM=800 `lots` v7
+artifact measured contained `[0, 5, 58, 424]` and spurious `[0, 1, 33, 10]`
+bands from 487/44 proposals. High-score spurious proposals are common, so a
+global score-threshold increase is not justified; any next detector change
+must preserve this diagnostic and controlled dense retention. This is a
+diagnostic-only follow-up, not a routing or acceptance change.
+
 Verified with:
 
 ```bash

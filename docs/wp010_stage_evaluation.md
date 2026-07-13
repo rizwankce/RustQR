@@ -42,6 +42,10 @@ only once after a dense scan, requires independent horizontal/vertical/pitch
 finder evidence, preserves the primary scanline proposal order, and appends at
 most 128 non-overlapping secondary proposals.
 
+Version 7 adds four fixed weighted-evidence bands for contained and spurious
+post-NMS proposals. The bands are diagnostic only: they do not alter proposal
+ranking, NMS, grouping, or routing.
+
 Containment deliberately avoids deriving finder centres from an unknown QR
 version or orientation. It is a stage diagnostic, not an IoU localization
 metric and not a final-decode accuracy claim.
@@ -59,6 +63,7 @@ All runs used QR_MAX_DIM=800 and the checked-in BoofCV labels.
 | lots, current containment diagnostic (v2) | 7 | 420 | 80/420 (19.05%) | 76/420 (18.10%) | 5.277/5.174/5.579 | 6.904/7.483/16.651 |
 | lots, bounded ROI proposal recovery (v4) | 7 | 420 | 81/420 (19.29%) | 77/420 (18.33%) | 10.462/11.703/20.390 | 7.293/7.709/19.622 |
 | lots, bounded contour supplement (v6) | 7 | 420 | 102/420 (24.29%) | 87/420 (20.71%) | 13.292/19.349/21.577 | 6.736/9.434/14.554 |
+| lots, evidence buckets (v7) | 7 | 420 | 102/420 (24.29%) | 90/420 (21.43%) | 14.433/19.019/28.619 | 6.807/8.967/15.364 |
 
 The fresh v3 `lots` run has the same 80 finder-stage-eligible and 76 grouped
 symbols, but makes the loss boundary explicit: **263/420 annotations have zero
@@ -79,6 +84,7 @@ The matching JSON artifacts are:
 - artifacts/wp010_proposal_grouping_eval_lots_containment_v3_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_roi_recovery_v4_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_contour_recovery_v6_qrmax800.json
+- artifacts/wp010_proposal_grouping_eval_lots_evidence_v7_qrmax800.json
 
 ## Interpretation and remaining work
 
@@ -114,6 +120,14 @@ spurious proposals rose only 41→44. It retains all 193 controlled dense
 symbols at the finder stage. The detector still has 215 symbols with zero
 contained proposals and is far from the full-corpus acceptance gate; this is
 bounded evidence, not a production recall claim.
+
+The v7 artifact separates retained candidate quality without a threshold
+change. Its contained/spurious weighted-evidence bands are respectively
+`[0, 5, 58, 424]` and `[0, 1, 33, 10]`. Most retained spurious proposals are
+therefore not low-evidence noise, so simply raising a global evidence cutoff
+would likely discard valid finder centres as well. Any next threshold or
+region-specific experiment must preserve these bucket measurements and the
+controlled dense-retention gate.
 
 The remaining WP-010 implementation work is unchanged:
 
