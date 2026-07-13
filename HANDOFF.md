@@ -74,7 +74,13 @@ before editing. `TODO.md` is the canonical detailed queue.
    evidence, not a photographic or packet-completion claim. WP-015's current
    audit confirms that minimal hosted features have no normal third-party
    dependencies, but a true `no_std` core needs a shared matrix-core crate and
-   target/parity validation; do not claim it is supported.
+   target/parity validation; do not claim it is supported. The exact extraction
+   blockers are `QrDecoder`'s public matrix API and `DecodeRequestContext`
+   (`src/decoder/qr_decoder.rs`), plus uncertain-module repair's direct
+   `std::time::Instant` use (`matrix_decode.rs`). Core candidates also use
+   `Vec`/`String` without `alloc` imports. First define one alloc-facing
+   matrix-result/recovery-budget API, then move the hosted implementation to
+   depend on it and share conformance fixtures before adding a `no_std` target.
 
 Run targeted checks while iterating, then record exact commands, metrics, and
 remaining work in `TODO.md` before handoff. Full benchmark comparisons belong
