@@ -59,9 +59,9 @@ jobs:
       - run: cargo test --lib --no-default-features
 
   msrv:
-    name: MSRV (1.85)
+    name: MSRV all features (1.85)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.85
-      - run: cargo test --lib
+      - run: cargo test --all-features

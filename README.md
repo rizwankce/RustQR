@@ -57,9 +57,10 @@ RustQR's default features preserve the normal desktop implementation:
 - `tools` enables `qrtool` and includes `image-loading`.
 
 The minimal supported library configuration is checked in CI with
-`cargo test --lib --no-default-features`. It is still a `std` crate: a separate
-`no_std + alloc` matrix-decoding crate has not yet been extracted. The declared
-minimum supported Rust version is 1.85 and has its own CI lane.
+`cargo test --lib --no-default-features`. The complete feature set is also
+checked in CI on Rust 1.85 with `cargo test --all-features`. It is still a
+`std` crate: a separate `no_std + alloc` matrix-decoding crate has not yet been
+extracted.
 
 ## Usage
 
