@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).parents[1] / "run_differential_decoders.py"
+CONFORMANCE_ROOT = Path(__file__).parents[2] / "conformance"
 SPEC = importlib.util.spec_from_file_location("run_differential_decoders", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -166,6 +167,49 @@ class DifferentialDecoderTests(unittest.TestCase):
         self.assertEqual(
             report["corpus"]["matrix_status_counts"], {"unsupported_mode": 1}
         )
+
+    def test_kanji_text_reencoding_is_not_reported_as_raw_byte_mismatch(self):
+        status, detail = MODULE.compare_payload(
+            "zbar", "kanji", "漢字".encode("shift_jis"), "漢字".encode("utf-8")
+        )
+        self.assertEqual(status, "text_match")
+        self.assertIn("Shift-JIS", detail)
+
+    def test_recorded_evidence_tracks_each_adapter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = self.write_manifest(root)
+            report = MODULE.run(path, ["zbar"])
+            MODULE.record_manifest_evidence(path, report, root / "report.json")
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+        evidence = manifest["cases"][0]["differential"]
+        self.assertEqual(evidence["status"], "recorded")
+        self.assertEqual(evidence["report"], "report.json")
+        self.assertEqual(evidence["decoders"]["zbar"]["status"], "not_generated")
+
+    def test_checked_in_report_and_manifest_evidence_agree(self):
+        manifest_path = CONFORMANCE_ROOT / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        report = json.loads(
+            (CONFORMANCE_ROOT / "differential-report.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            report["manifest"]["sha256"],
+            MODULE.hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        )
+        rows = {row["id"]: row for row in report["cases"]}
+        for case in manifest["cases"]:
+            evidence = case["differential"]
+            self.assertEqual(evidence["status"], "recorded")
+            self.assertEqual(evidence["report"], "differential-report.json")
+            for adapter, adapter_evidence in evidence["decoders"].items():
+                self.assertEqual(
+                    adapter_evidence,
+                    {
+                        key: rows[case["id"]]["decoders"][adapter][key]
+                        for key in ("status", "raw_payload_hex")
+                    },
+                )
 
 
 if __name__ == "__main__":

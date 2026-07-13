@@ -2,7 +2,7 @@
   "schema_version": "rustqr.differential-report.v1",
   "manifest": {
     "path": "conformance/manifest.json",
-    "sha256": "751cf4d6be167b10dd3c6c0015d81a8a390152dac4d52e5f9e717d5d259f7a07",
+    "sha256": "5a065bfe25febd9a9285cb507bd22a85a2ff3d68ea27e42647b89fbff9e5f48c",
     "schema_version": "rustqr.conformance-manifest.v1"
   },
   "adapters": {
@@ -22,28 +22,30 @@
   "corpus": {
     "case_count": 34,
     "matrix_status_counts": {
-      "generated": 30,
-      "unsupported_mode": 4
+      "generated": 34
     }
   },
   "summary": {
     "opencv": {
       "status_counts": {
-        "decode_error": 5,
-        "match": 25,
-        "unsupported": 4
+        "decode_error": 6,
+        "match": 27,
+        "unsupported": 1
       },
-      "generated_total": 30,
-      "matches": 25,
+      "generated_total": 34,
+      "matches": 27,
+      "text_matches": 0,
       "mismatches": 0
     },
     "zbar": {
       "status_counts": {
-        "match": 30,
-        "unsupported": 4
+        "decode_error": 1,
+        "match": 32,
+        "text_match": 1
       },
-      "generated_total": 30,
-      "matches": 30,
+      "generated_total": 34,
+      "matches": 32,
+      "text_matches": 1,
       "mismatches": 0
     }
   },
@@ -329,44 +331,24 @@
       "expected": {
         "ec_level": "M",
         "mask": 3,
+        "metadata": {
+          "eci_assignment": 26
+        },
         "mode": "eci",
-        "raw_payload_hex": "e98e1972",
+        "raw_payload_hex": "52757374515220454349203236",
         "version": 1
       },
-      "matrix_status": "unsupported_mode",
+      "matrix_status": "generated",
       "decoders": {
         "opencv": {
-          "status": "unsupported",
-          "raw_payload_hex": null,
-          "detail": "fixture mode eci is explicitly unsupported"
+          "status": "match",
+          "raw_payload_hex": "52757374515220454349203236",
+          "detail": null
         },
         "zbar": {
-          "status": "unsupported",
-          "raw_payload_hex": null,
-          "detail": "fixture mode eci is explicitly unsupported"
-        }
-      }
-    },
-    {
-      "id": "v01-M-m3-gs1_fnc1",
-      "expected": {
-        "ec_level": "M",
-        "mask": 3,
-        "mode": "gs1_fnc1",
-        "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-        "version": 1
-      },
-      "matrix_status": "unsupported_mode",
-      "decoders": {
-        "opencv": {
-          "status": "unsupported",
-          "raw_payload_hex": null,
-          "detail": "fixture mode gs1_fnc1 is explicitly unsupported"
-        },
-        "zbar": {
-          "status": "unsupported",
-          "raw_payload_hex": null,
-          "detail": "fixture mode gs1_fnc1 is explicitly unsupported"
+          "status": "match",
+          "raw_payload_hex": "52757374515220454349203236",
+          "detail": null
         }
       }
     },
@@ -379,17 +361,17 @@
         "raw_payload_hex": "8abf8e9a",
         "version": 1
       },
-      "matrix_status": "unsupported_mode",
+      "matrix_status": "generated",
       "decoders": {
         "opencv": {
           "status": "unsupported",
           "raw_payload_hex": null,
-          "detail": "fixture mode kanji is explicitly unsupported"
+          "detail": "opencv adapter exposes text and cannot verify arbitrary raw bytes"
         },
         "zbar": {
-          "status": "unsupported",
-          "raw_payload_hex": null,
-          "detail": "fixture mode kanji is explicitly unsupported"
+          "status": "text_match",
+          "raw_payload_hex": "e6bca2e5ad97",
+          "detail": "ZBar returned equivalent UTF-8 text; raw Shift-JIS bytes are not preserved"
         }
       }
     },
@@ -413,29 +395,6 @@
           "status": "match",
           "raw_payload_hex": "3730303036343533",
           "detail": null
-        }
-      }
-    },
-    {
-      "id": "v01-M-m3-structured_append",
-      "expected": {
-        "ec_level": "M",
-        "mask": 3,
-        "mode": "structured_append",
-        "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-        "version": 1
-      },
-      "matrix_status": "unsupported_mode",
-      "decoders": {
-        "opencv": {
-          "status": "unsupported",
-          "raw_payload_hex": null,
-          "detail": "fixture mode structured_append is explicitly unsupported"
-        },
-        "zbar": {
-          "status": "unsupported",
-          "raw_payload_hex": null,
-          "detail": "fixture mode structured_append is explicitly unsupported"
         }
       }
     },
@@ -528,6 +487,64 @@
           "status": "match",
           "raw_payload_hex": "356666613366",
           "detail": null
+        }
+      }
+    },
+    {
+      "id": "v02-M-m3-gs1_fnc1",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "metadata": {
+          "fnc1": {
+            "position": "first"
+          }
+        },
+        "mode": "gs1_fnc1",
+        "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+        "version": 2
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "decode_error",
+          "raw_payload_hex": null,
+          "detail": "OpenCV(4.12.0) /Users/xperience/GHA-Actions-OpenCV/_work/opencv-python/opencv-python/opencv/modules/objdetect/src/qrcode_encoder.cpp:1765: error: (-213:The function/feature is not implemented) mode 5 in function 'decodeSymbols'\n"
+        },
+        "zbar": {
+          "status": "match",
+          "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+          "detail": null
+        }
+      }
+    },
+    {
+      "id": "v02-M-m3-structured_append",
+      "expected": {
+        "ec_level": "M",
+        "mask": 3,
+        "metadata": {
+          "structured_append": {
+            "index": 2,
+            "parity": 167,
+            "total_symbols": 4
+          }
+        },
+        "mode": "structured_append",
+        "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+        "version": 2
+      },
+      "matrix_status": "generated",
+      "decoders": {
+        "opencv": {
+          "status": "match",
+          "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+          "detail": null
+        },
+        "zbar": {
+          "status": "decode_error",
+          "raw_payload_hex": null,
+          "detail": ""
         }
       }
     },

@@ -34,6 +34,11 @@ def deterministic_payload(seed: str, version: int, ec_level: str, mask: int, mod
         return b"0109501101530003\x1d17271231"
     if mode == "structured_append":
         return b"RUSTQR-STRUCTURED-APPEND"
+    if mode == "eci":
+        # Assignment 26 identifies UTF-8. Keep this fixture valid UTF-8 so
+        # both raw-byte and text-only differential decoders can independently
+        # verify its payload as well as its ECI header.
+        return b"RustQR ECI 26"
     if mode == "byte":
         # Keep foundation byte fixtures valid UTF-8 so both raw-byte and
         # text-only differential decoders can verify the same expected bytes.

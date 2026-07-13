@@ -96,6 +96,29 @@ def adapter_metadata(name: str) -> dict:
     }
 
 
+def compare_payload(
+    adapter: str, mode: str | None, expected: bytes, actual: bytes
+) -> tuple[str, str | None]:
+    """Classify a successful adapter decode without overstating byte fidelity.
+
+    ZBar's command-line interface exposes Kanji as UTF-8 text even with
+    ``--raw``. RustQR intentionally preserves the source Shift-JIS bytes, so
+    this is a semantic text agreement rather than an exact raw-byte match.
+    """
+    if actual == expected:
+        return "match", None
+    if adapter == "zbar" and mode == "kanji":
+        try:
+            if actual.decode("utf-8") == expected.decode("shift_jis"):
+                return (
+                    "text_match",
+                    "ZBar returned equivalent UTF-8 text; raw Shift-JIS bytes are not preserved",
+                )
+        except UnicodeDecodeError:
+            pass
+    return "mismatch", None
+
+
 def run(manifest_path: Path, adapter_names: list[str]) -> dict:
     manifest_bytes = manifest_path.read_bytes()
     manifest = json.loads(manifest_bytes)
@@ -159,7 +182,11 @@ def run(manifest_path: Path, adapter_names: list[str]) -> dict:
                 if expected_outcome == "reject":
                     status = "unexpected_accept"
                 else:
-                    status = "match" if payload.hex() == expected_hex else "mismatch"
+                    status, comparison_detail = compare_payload(
+                        name, case.get("mode"), bytes.fromhex(expected_hex), payload
+                    )
+                    if comparison_detail:
+                        detail = comparison_detail
             elif status == "decode_error" and expected_outcome == "reject":
                 status = "expected_rejection"
             result_row["decoders"][name] = {
@@ -175,6 +202,7 @@ def run(manifest_path: Path, adapter_names: list[str]) -> dict:
             "status_counts": dict(sorted(counts.items())),
             "generated_total": corpus_counts["generated"],
             "matches": counts["match"],
+            "text_matches": counts["text_match"],
             "mismatches": counts["mismatch"] + counts["unexpected_accept"],
         }
     return {
@@ -194,15 +222,46 @@ def run(manifest_path: Path, adapter_names: list[str]) -> dict:
     }
 
 
+def record_manifest_evidence(manifest_path: Path, report: dict, report_path: Path) -> None:
+    """Store per-fixture adapter outcomes without changing fixture identities."""
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    rows = {row["id"]: row for row in report["cases"]}
+    relative_report = report_path.name if report_path.parent == manifest_path.parent else str(report_path)
+    for case in manifest["cases"]:
+        row = rows[case["id"]]
+        case["differential"] = {
+            "status": "recorded",
+            "report": relative_report,
+            "decoders": {
+                name: {
+                    "status": result["status"],
+                    "raw_payload_hex": result["raw_payload_hex"],
+                }
+                for name, result in sorted(row["decoders"].items())
+            },
+        }
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, default=Path("conformance/manifest.json"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--adapter", action="append", choices=sorted(ADAPTERS))
+    parser.add_argument(
+        "--record-manifest-evidence",
+        action="store_true",
+        help="write per-case adapter outcomes into manifest.differential before reporting",
+    )
     args = parser.parse_args()
     adapters = args.adapter or sorted(ADAPTERS)
     try:
         report = run(args.manifest, adapters)
+        if args.record_manifest_evidence:
+            record_manifest_evidence(args.manifest, report, args.output)
+            # The report must attest to the manifest that now contains its
+            # evidence, rather than the pre-update manifest hash.
+            report = run(args.manifest, adapters)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

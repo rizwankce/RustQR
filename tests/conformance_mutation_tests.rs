@@ -15,6 +15,10 @@ fn mode(value: &str) -> MatrixDataMode {
         "numeric" => MatrixDataMode::Numeric,
         "alphanumeric" => MatrixDataMode::Alphanumeric,
         "byte" => MatrixDataMode::Byte,
+        "kanji" => MatrixDataMode::Kanji,
+        "eci" => MatrixDataMode::Eci,
+        "gs1_fnc1" => MatrixDataMode::Gs1Fnc1,
+        "structured_append" => MatrixDataMode::StructuredAppend,
         other => panic!("mutation parent has unsupported mode {other}"),
     }
 }
@@ -202,7 +206,7 @@ fn materialized_erasure_sidecars_decode_at_the_supported_boundary() {
         );
         executed += 1;
     }
-    assert_eq!(executed, 30);
+    assert_eq!(executed, 34);
 }
 
 #[test]

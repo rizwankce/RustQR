@@ -162,7 +162,8 @@ fixture is now an invalid-input case rather than an unsupported-mode claim.
 The generated manifest remains `unsupported_mode` because the pinned
 python-qrcode materializer cannot emit a Kanji matrix; add an independently
 generated matrix and exact matrix metadata assertions before changing that
-corpus status.
+corpus status. This historical status was superseded by the 2026-07-12
+completion record below.
 
 **2026-07-12 WP-006B metadata update:** ECI, GS1/FNC1, and Structured Append
 headers are now decoded into `QRCode::metadata`. ECI handles all ISO prefix
@@ -177,6 +178,7 @@ python-qrcode materializer cannot create header-bearing matrices. Passed:
 full-grid test ignored), and `git diff --check`. Follow-up: materialize
 independently generated ECI, GS1/FNC1, Structured Append, and Kanji matrices,
 then change their manifest statuses and add end-to-end matrix metadata checks.
+This historical status was superseded by the completion record below.
 
 **Completion record (2026-07-12):** Materialized deterministic valid Kanji,
 ECI, GS1/FNC1, and Structured Append matrices in the compact foundation
@@ -242,8 +244,11 @@ stop all work merely because Actions cannot yet exercise the dirty worktree.
 - `cargo test --all-features`: 97 library, 5 CLI, 6 conformance matrix,
   4 mutation, 7 input API, 2 timeout, and 1 doc test passed; the full-grid
   conformance gate and 7 slow photographic tests are ignored by design.
-- Supported compact corpus: RustQR 30/30, ZBar 30/30, OpenCV 25/30 with five
-  decoder rejections and zero payload mismatches.
+- Supported compact corpus: RustQR 34/34. Independent decoder evidence is
+  recorded per fixture in `conformance/manifest.json` and
+  `conformance/differential-report.json`; adapter limitations (Kanji text
+  transcoding and unsupported header modes) are explicit and there are zero
+  raw-payload mismatches.
 
 ---
 
@@ -635,21 +640,25 @@ slices from both.
 - The compact profile covers every metadata axis without checking in the full
   Cartesian product; `--full` reproducibly expands all 40 versions, four EC
   levels, eight masks, and seven mode scaffolds.
-- ZBar and OpenCV differential results are recorded for every generated matrix:
-  ZBar matches all 30 fixtures, while OpenCV matches 25 and rejects five; neither
-  decoder reports a payload mismatch. The checked-in report reproduces
-  byte-for-byte with the locally available adapters.
-- Materialized 30 supported numeric, alphanumeric, and byte matrices with
-  pinned `python-qrcode==8.2`, fixed version/EC/mask inputs, reproducible PNG
-  checksums, and explicit rendering metadata. Four Kanji/ECI/GS1/Structured
-  Append scaffolds remain marked `unsupported_mode`, not generated.
+- ZBar and OpenCV differential results are recorded for all 34 generated
+  matrices and copied into each manifest case. ZBar has 32 exact byte matches,
+  one Kanji text match (it transcodes Shift-JIS to UTF-8), and one decode
+  failure for Structured Append. OpenCV has 27 exact matches, six decode
+  failures, and one explicit unsupported raw-byte comparison for Kanji. Neither
+  adapter has a raw-payload mismatch; the checked-in report records versions,
+  fixture checksums, and every limitation rather than treating failures as
+  successes.
+- Materialized 34 supported numeric, alphanumeric, byte, Kanji, ECI,
+  GS1/FNC1, and Structured Append matrices with pinned `python-qrcode==8.2`,
+  fixed version/EC/mask inputs, reproducible PNG checksums, and explicit
+  rendering metadata. Header fixtures use the documented ISO segment adapter.
 - Binary-searched and recorded 22 version/EC/mode capacity maxima using the
   pinned backend; each record asserts maximum accepted and maximum-plus-one
   rejected. The materializer and all emitted checksums are deterministic across
   consecutive runs.
-- Materialized correctable-error mutations for all 30 generated matrices; the
+- Materialized correctable-error mutations for all 34 generated matrices; the
   deterministic matrix decoder exactly reproduces every expected payload.
-  All 30 erasure variants are now executable through the request-scoped
+  All 34 erasure variants are now executable through the request-scoped
   `decode_matrix_with_erasures` API using either row-major module confidence or
   explicit erased-module coordinates. Evidence is validated, mapped to
   per-block codeword erasures, and exact payloads pass at each fixture's full
@@ -672,17 +681,17 @@ slices from both.
   alignment, or alternating padding bits without mistaking them for RS damage.
 - Corrected stale corpus evidence labels: erasure mutations now record
   `materialized` and document their executable
-  `decode_matrix_with_erasures` path, matching the existing 30-fixture test.
+  `decode_matrix_with_erasures` path, matching the existing 34-fixture test.
 - Repository validation passed: formatting, strict all-target/all-feature
   Clippy, 94 library tests, five CLI tests, six conformance matrix tests, three
   mutation tests, seven input API tests, two timeout tests, and one doc test.
   The seven slow photographic regression tests remain intentionally ignored.
 - WP-006 remains in progress because the checked-in corpus is compact rather
-  than the complete versions 1-40 by four EC levels by eight masks grid; Kanji
-  still needs an independently materialized matrix fixture, ECI, GS1/FNC1, and
-  Structured Append remain explicit unsupported scaffolds. The materialized
-  supported corpus is 30/30 in RustQR and ZBar and 25/30 in OpenCV with five
-  decoder rejections and no payload mismatches.
+  than the complete versions 1-40 by four EC levels by eight masks grid and
+  its header-mode fixtures are representative rather than full-grid coverage.
+  Kanji, ECI, GS1/FNC1, and Structured Append are materialized supported
+  fixtures, not unsupported scaffolds. RustQR passes all 34/34 compact cases;
+  independent-adapter outcomes and limitations are recorded per case.
 - WP-006A (2026-07-12): added an on-demand ignored integration gate that
   regenerates the full supported Model 2 grid in a temporary directory rather
   than checking in 3,840 PNGs. It verifies every generated numeric,
@@ -817,12 +826,14 @@ checks.
 
 **Current evidence:** A public immutable `DecoderOptions` API now provides
 fast/balanced/exhaustive deadline presets, a per-request diagnostics switch,
-and `try_detect_with_options`. Library recovery defaults no longer read
-process environment variables. Optional diagnostics return `FailureStage` and
+and `try_detect_with_options`. Optional diagnostics return `FailureStage` and
 `DetectionTelemetry`; the no-diagnostics path does not collect telemetry.
-Focused tests cover preset immutability and diagnostic/no-diagnostic detection
-misses. Candidate limits now propagate through the diagnostics recovery path;
-remaining work is erasure-budget propagation and replacing legacy counters.
+Candidate and erasure budgets propagate through the diagnostics recovery path
+and the legacy decoder/erasure counters have been removed. WP-008 remains in
+progress because `src/pipeline.rs` still reads `QR_*` environment variables
+inside library detection code; those controls must be expressed as options (or
+be moved to explicit CLI translation) before the environment-independence
+acceptance criterion can be claimed.
 
 **2026-07-12 candidate-budget update:** `DecoderOptions` now carries an
 immutable candidate decode-attempt limit: Fast/Balanced/Exhaustive allocate
@@ -851,6 +862,23 @@ passed: `cargo fmt -- --check`, `cargo test --lib --all-features` (113 passed),
 `cargo test --test timeout_api_tests --all-features`, and
 `cargo test --test conformance_mutation_tests --all-features`.
 
+**2026-07-13 cancellation audit:** Added the immutable, cloneable
+`CancellationToken` and `DecoderOptions::with_cancellation`. Its signal is
+carried into the request's `DecodeRequestContext`, so matrix recovery checks
+and image-pipeline deadline checkpoints stop only the request holding that
+token. Diagnostic requests report `FailureStage::Cancelled`; an independently
+configured concurrent request remains unaffected. Passed:
+
+```bash
+cargo test --lib cancellation_is_request_scoped_and_reported --all-features
+```
+
+This closes the cancellation task but does not change WP-008 to completed:
+the remaining library environment reads must be removed or converted to
+request-scoped options, and the structured image API still needs an explicit
+unsupported-content result rather than conflating it with a generic payload
+failure.
+
 **Goal:** Replace global environment-driven and thread-local behavior with a
 production-quality library API.
 
@@ -876,7 +904,8 @@ production-quality library API.
 
 ## WP-009: Create a false-positive and adversarial suite
 
-**Status:** Safety foundation in progress; false-positive rate gate remains blocked
+**Status:** Safety foundation in progress; synthetic false-positive baseline
+reported, broader annotated-corpus gate remains open
 
 **Goal:** Prevent recovery heuristics from trading recall for hallucinated
 payloads.
@@ -904,12 +933,19 @@ for a bounded duration and uploads minimized failures. `cargo fuzz` could not
 be compiled locally because this environment cannot resolve `index.crates.io`
 for `libfuzzer-sys`; the workflow is the first networked validation.
 
-The false-positive metric limitation is explicit in
-`docs/wp009_adversarial.md`: no image-level or per-megapixel rate is reported
-because no licensed annotated negative-image corpus/evaluator exists. Matrix
-rejection and fuzz coverage are safety evidence only, not detector false-
-positive metrics. No false-positive budget claim may be made until that corpus,
-evaluator, and budget are established.
+**2026-07-13 synthetic negative baseline:** Added the self-authored,
+deterministic nine-image corpus in `tests/negative_corpus/manifest.json` and
+its source renderer/test in `tests/negative_image_corpus_tests.rs`. It covers
+synthetic block text, checkerboard, package-panel, screen-grid,
+Data-Matrix-like, Aztec-like, linear-barcode-like, finder-like, and seeded-noise
+patterns; it does not claim external photographs, screenshots, packaging, or
+valid examples of those barcode formats. The public grayscale API evaluator
+reported 0 positive images and 0 false-positive detections across 589,824
+pixels (0.589824 MP): 0.0 false positives/image and 0.0 false
+positives/megapixel. Reproduce it with
+`python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json`.
+This is a reproducible synthetic baseline, not a production FPR budget: the
+broader licensed, annotated corpus and agreed budget remain required.
 
 Focused local validation:
 
@@ -917,6 +953,7 @@ Focused local validation:
 cargo fmt -- --check
 cargo test --test adversarial_matrix_tests --all-features
 cargo test --test input_api_tests --all-features
+python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json
 git diff --check
 ```
 

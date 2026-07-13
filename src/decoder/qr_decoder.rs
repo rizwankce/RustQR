@@ -1,3 +1,4 @@
+use crate::CancellationToken;
 /// Main QR code decoder - wires everything together
 use crate::models::{BitMatrix, Point, QRCode};
 use std::time::Instant;
@@ -68,6 +69,7 @@ pub(crate) struct DecodeCounters {
 /// each other's recovery budget or report one another's counters.
 pub(crate) struct DecodeRequestContext {
     deadline: Option<Instant>,
+    cancellation: Option<CancellationToken>,
     erasure_attempts_remaining: usize,
     counters: DecodeCounters,
 }
@@ -76,22 +78,35 @@ impl DecodeRequestContext {
     pub(crate) const fn new(erasure_attempt_limit: usize) -> Self {
         Self {
             deadline: None,
+            cancellation: None,
             erasure_attempts_remaining: erasure_attempt_limit,
             counters: DecodeCounters::new(),
         }
     }
 
-    pub(crate) const fn with_deadline(erasure_attempt_limit: usize, deadline: Instant) -> Self {
+    /// Build a request context with a cooperative deadline and cancellation
+    /// token. Both controls are request-owned and therefore safe to use from
+    /// concurrent callers.
+    pub(crate) fn with_deadline_and_cancellation(
+        erasure_attempt_limit: usize,
+        deadline: Instant,
+        cancellation: Option<CancellationToken>,
+    ) -> Self {
         Self {
             deadline: Some(deadline),
+            cancellation,
             erasure_attempts_remaining: erasure_attempt_limit,
             counters: DecodeCounters::new(),
         }
     }
 
     pub(crate) fn deadline_expired(&self) -> bool {
-        self.deadline
-            .is_some_and(|deadline| Instant::now() >= deadline)
+        self.cancellation
+            .as_ref()
+            .is_some_and(CancellationToken::is_cancelled)
+            || self
+                .deadline
+                .is_some_and(|deadline| Instant::now() >= deadline)
     }
 
     pub(crate) const fn deadline(&self) -> Option<Instant> {

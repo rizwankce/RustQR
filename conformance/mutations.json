@@ -1449,6 +1449,272 @@
     {
       "changed_modules": [
         [
+          20,
+          12
+        ],
+        [
+          18,
+          9
+        ],
+        [
+          12,
+          3
+        ],
+        [
+          10,
+          13
+        ],
+        [
+          3,
+          12
+        ]
+      ],
+      "errors_per_block": 5,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "52757374515220454349203236",
+      "id": "v01-M-m3-eci--correctable_errors",
+      "kind": "correctable_errors",
+      "matrix": {
+        "path": "mutations/v01-M-m3-eci--correctable-errors.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "af14ac14b2a2bbd92dabf0ddadceaf8684b2daf8beddf4ce980fc563fb73fe01",
+        "symbol_dimension": 21
+      },
+      "parent_id": "v01-M-m3-eci",
+      "seed": "bc41418b71389ee0",
+      "selected_raw_codewords": {
+        "0": [
+          2,
+          3,
+          16,
+          20,
+          24
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "changed_modules": [
+        [
+          3,
+          12
+        ],
+        [
+          5,
+          9
+        ],
+        [
+          16,
+          12
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          12,
+          3
+        ],
+        [
+          18,
+          13
+        ],
+        [
+          14,
+          9
+        ],
+        [
+          10,
+          0
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          20,
+          20
+        ]
+      ],
+      "confidence_sidecar": {
+        "path": "mutations/v01-M-m3-eci--correctable-erasures.confidence.json",
+        "sha256": "1329e862c0e858adf59dfc9c0193e84cbaac01e468e0dec1f1ccdfa11ed76b3e"
+      },
+      "erasures_per_block": 10,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "52757374515220454349203236",
+      "id": "v01-M-m3-eci--correctable_erasures",
+      "kind": "correctable_erasures",
+      "matrix": {
+        "path": "mutations/v01-M-m3-eci--correctable-erasures.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "83d45c98bfdb164c062262504c702d9299d8304701373c392f456f2cadbfeb8f",
+        "symbol_dimension": 21
+      },
+      "parent_id": "v01-M-m3-eci",
+      "reason": "executable through decode_matrix_with_erasures using the recorded sidecar coordinates",
+      "seed": "ed26b23a0869b2ab",
+      "selected_raw_codewords": {
+        "0": [
+          24,
+          23,
+          8,
+          18,
+          16,
+          4,
+          9,
+          17,
+          14,
+          0
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "id": "v01-M-m3-eci--invalid_block_layout",
+      "kind": "invalid_block_layout",
+      "parent_id": "v01-M-m3-eci",
+      "reason": "symbol has one RS block",
+      "status": "not_applicable"
+    },
+    {
+      "changed_modules": [
+        [
+          10,
+          17
+        ],
+        [
+          10,
+          13
+        ],
+        [
+          12,
+          16
+        ],
+        [
+          16,
+          16
+        ],
+        [
+          20,
+          12
+        ]
+      ],
+      "errors_per_block": 5,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--correctable_errors",
+      "kind": "correctable_errors",
+      "matrix": {
+        "path": "mutations/v01-M-m3-kanji--correctable-errors.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "7f9f42d1ed5f9bece57a906a62856afa2a6d51aede8728c29a8d84d35e59bb01",
+        "symbol_dimension": 21
+      },
+      "parent_id": "v01-M-m3-kanji",
+      "seed": "ad35a9a01ab057b2",
+      "selected_raw_codewords": {
+        "0": [
+          21,
+          20,
+          13,
+          7,
+          2
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "changed_modules": [
+        [
+          18,
+          13
+        ],
+        [
+          10,
+          0
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          3
+        ],
+        [
+          5,
+          9
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          20,
+          12
+        ],
+        [
+          10,
+          9
+        ],
+        [
+          12,
+          20
+        ],
+        [
+          12,
+          16
+        ]
+      ],
+      "confidence_sidecar": {
+        "path": "mutations/v01-M-m3-kanji--correctable-erasures.confidence.json",
+        "sha256": "8ba5fd0d1713416f6aa1c9d25c56ce2fc615d891d5dfa7823689e61f5d22004f"
+      },
+      "erasures_per_block": 10,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "8abf8e9a",
+      "id": "v01-M-m3-kanji--correctable_erasures",
+      "kind": "correctable_erasures",
+      "matrix": {
+        "path": "mutations/v01-M-m3-kanji--correctable-erasures.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "499632735326736fc757970c729c6b64be928efa3405dd321c161fd0885950df",
+        "symbol_dimension": 21
+      },
+      "parent_id": "v01-M-m3-kanji",
+      "reason": "executable through decode_matrix_with_erasures using the recorded sidecar coordinates",
+      "seed": "223898616c839259",
+      "selected_raw_codewords": {
+        "0": [
+          4,
+          17,
+          14,
+          16,
+          23,
+          22,
+          2,
+          19,
+          12,
+          13
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "id": "v01-M-m3-kanji--invalid_block_layout",
+      "kind": "invalid_block_layout",
+      "parent_id": "v01-M-m3-kanji",
+      "reason": "symbol has one RS block",
+      "status": "not_applicable"
+    },
+    {
+      "changed_modules": [
+        [
           8,
           12
         ],
@@ -2308,6 +2574,362 @@
       "id": "v02-M-m0-byte--invalid_block_layout",
       "kind": "invalid_block_layout",
       "parent_id": "v02-M-m0-byte",
+      "reason": "symbol has one RS block",
+      "status": "not_applicable"
+    },
+    {
+      "changed_modules": [
+        [
+          13,
+          21
+        ],
+        [
+          4,
+          13
+        ],
+        [
+          9,
+          4
+        ],
+        [
+          11,
+          20
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          24,
+          12
+        ],
+        [
+          18,
+          10
+        ],
+        [
+          16,
+          22
+        ]
+      ],
+      "errors_per_block": 8,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--correctable_errors",
+      "kind": "correctable_errors",
+      "matrix": {
+        "path": "mutations/v02-M-m3-gs1_fnc1--correctable-errors.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "d30e9e76f4daee98912c2cf1d76348afdbe06e2341ac1881f27bde02f6d52440",
+        "symbol_dimension": 25
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1",
+      "seed": "02401ef4a1909b99",
+      "selected_raw_codewords": {
+        "0": [
+          24,
+          40,
+          32,
+          26,
+          28,
+          3,
+          11,
+          14
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "changed_modules": [
+        [
+          22,
+          21
+        ],
+        [
+          15,
+          12
+        ],
+        [
+          20,
+          15
+        ],
+        [
+          16,
+          22
+        ],
+        [
+          11,
+          3
+        ],
+        [
+          13,
+          0
+        ],
+        [
+          15,
+          16
+        ],
+        [
+          4,
+          13
+        ],
+        [
+          7,
+          16
+        ],
+        [
+          13,
+          4
+        ],
+        [
+          11,
+          20
+        ],
+        [
+          13,
+          9
+        ],
+        [
+          4,
+          9
+        ],
+        [
+          13,
+          13
+        ],
+        [
+          7,
+          12
+        ],
+        [
+          18,
+          14
+        ]
+      ],
+      "confidence_sidecar": {
+        "path": "mutations/v02-M-m3-gs1_fnc1--correctable-erasures.confidence.json",
+        "sha256": "04abd921cbc0fd431001d26d129c79e4a419c1ed0ef7e6d4c3e823b52f1363f7"
+      },
+      "erasures_per_block": 16,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--correctable_erasures",
+      "kind": "correctable_erasures",
+      "matrix": {
+        "path": "mutations/v02-M-m3-gs1_fnc1--correctable-erasures.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "981adba954ab7d54cd9545f9344336138b5de1647d750efd2a5b0440efdba95b",
+        "symbol_dimension": 25
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1",
+      "reason": "executable through decode_matrix_with_erasures using the recorded sidecar coordinates",
+      "seed": "a26760f6e6517157",
+      "selected_raw_codewords": {
+        "0": [
+          7,
+          16,
+          9,
+          14,
+          30,
+          19,
+          15,
+          40,
+          37,
+          20,
+          26,
+          21,
+          39,
+          22,
+          38,
+          12
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "id": "v02-M-m3-gs1_fnc1--invalid_block_layout",
+      "kind": "invalid_block_layout",
+      "parent_id": "v02-M-m3-gs1_fnc1",
+      "reason": "symbol has one RS block",
+      "status": "not_applicable"
+    },
+    {
+      "changed_modules": [
+        [
+          22,
+          9
+        ],
+        [
+          13,
+          13
+        ],
+        [
+          15,
+          3
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          7,
+          12
+        ],
+        [
+          9,
+          0
+        ],
+        [
+          22,
+          21
+        ],
+        [
+          2,
+          16
+        ]
+      ],
+      "errors_per_block": 8,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--correctable_errors",
+      "kind": "correctable_errors",
+      "matrix": {
+        "path": "mutations/v02-M-m3-structured_append--correctable-errors.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "7bbcf8d9c4167f5fb8f05a28cb63c7a6bbc89259c9e2a6aa5f356a0c316e94f2",
+        "symbol_dimension": 25
+      },
+      "parent_id": "v02-M-m3-structured_append",
+      "seed": "f7e4a20b95147867",
+      "selected_raw_codewords": {
+        "0": [
+          4,
+          22,
+          18,
+          28,
+          38,
+          31,
+          7,
+          41
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "changed_modules": [
+        [
+          15,
+          3
+        ],
+        [
+          20,
+          24
+        ],
+        [
+          11,
+          24
+        ],
+        [
+          13,
+          21
+        ],
+        [
+          13,
+          0
+        ],
+        [
+          9,
+          0
+        ],
+        [
+          13,
+          13
+        ],
+        [
+          13,
+          9
+        ],
+        [
+          2,
+          12
+        ],
+        [
+          24,
+          12
+        ],
+        [
+          22,
+          13
+        ],
+        [
+          18,
+          10
+        ],
+        [
+          16,
+          22
+        ],
+        [
+          11,
+          16
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          4,
+          13
+        ]
+      ],
+      "confidence_sidecar": {
+        "path": "mutations/v02-M-m3-structured_append--correctable-erasures.confidence.json",
+        "sha256": "cdd7f64d20b4092a9261d2dbd024fff5a35fc38caea4cbf1859dcaaa8996ddbe"
+      },
+      "erasures_per_block": 16,
+      "expected_outcome": "decode_success",
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--correctable_erasures",
+      "kind": "correctable_erasures",
+      "matrix": {
+        "path": "mutations/v02-M-m3-structured_append--correctable-erasures.png",
+        "pixels_per_module": 4,
+        "quiet_zone_modules": 4,
+        "sha256": "549390b6fe67b8e971208fc15775de15aa5ea4724672661e1da442a69bdfaebe",
+        "symbol_dimension": 25
+      },
+      "parent_id": "v02-M-m3-structured_append",
+      "reason": "executable through decode_matrix_with_erasures using the recorded sidecar coordinates",
+      "seed": "fd3988315163c4f2",
+      "selected_raw_codewords": {
+        "0": [
+          18,
+          8,
+          25,
+          24,
+          19,
+          31,
+          22,
+          21,
+          42,
+          3,
+          5,
+          11,
+          14,
+          27,
+          28,
+          40
+        ]
+      },
+      "status": "materialized"
+    },
+    {
+      "id": "v02-M-m3-structured_append--invalid_block_layout",
+      "kind": "invalid_block_layout",
+      "parent_id": "v02-M-m3-structured_append",
       "reason": "symbol has one RS block",
       "status": "not_applicable"
     },
@@ -78215,6 +78837,6 @@
     }
   ],
   "schema_version": "rustqr.conformance-mutations.v1",
-  "source_manifest_sha256": "751cf4d6be167b10dd3c6c0015d81a8a390152dac4d52e5f9e717d5d259f7a07",
+  "source_manifest_sha256": "ee2a1b9536294a6f227b9dafdb7a60022f89ae7fe47e7443757c99ee43aad779",
   "tables_sha256": "db7cbe863cd9206a2c0e664535a76e857b0e9d364fd5e3f19583a00a760d0327"
 }

@@ -1,5 +1,5 @@
 {
-  "manifest_sha256": "751cf4d6be167b10dd3c6c0015d81a8a390152dac4d52e5f9e717d5d259f7a07",
+  "manifest_sha256": "ee2a1b9536294a6f227b9dafdb7a60022f89ae7fe47e7443757c99ee43aad779",
   "mutations": [
     {
       "expected_raw_payload_hex": "323034336163",
@@ -1538,7 +1538,7 @@
       "parent_id": "v01-M-m3-byte"
     },
     {
-      "expected_raw_payload_hex": "e98e1972",
+      "expected_raw_payload_hex": "52757374515220454349203236",
       "id": "v01-M-m3-eci--correctable_errors",
       "mutation": {
         "backend_requirements": [
@@ -1558,7 +1558,7 @@
       "parent_id": "v01-M-m3-eci"
     },
     {
-      "expected_raw_payload_hex": "e98e1972",
+      "expected_raw_payload_hex": "52757374515220454349203236",
       "id": "v01-M-m3-eci--correctable_erasures",
       "mutation": {
         "backend_requirements": [
@@ -1579,7 +1579,7 @@
       "parent_id": "v01-M-m3-eci"
     },
     {
-      "expected_raw_payload_hex": "e98e1972",
+      "expected_raw_payload_hex": "52757374515220454349203236",
       "id": "v01-M-m3-eci--invalid_format",
       "mutation": {
         "backend_requirements": [
@@ -1596,7 +1596,7 @@
       "parent_id": "v01-M-m3-eci"
     },
     {
-      "expected_raw_payload_hex": "e98e1972",
+      "expected_raw_payload_hex": "52757374515220454349203236",
       "id": "v01-M-m3-eci--invalid_version",
       "mutation": {
         "backend_requirements": [
@@ -1613,7 +1613,7 @@
       "parent_id": "v01-M-m3-eci"
     },
     {
-      "expected_raw_payload_hex": "e98e1972",
+      "expected_raw_payload_hex": "52757374515220454349203236",
       "id": "v01-M-m3-eci--invalid_remainder",
       "mutation": {
         "backend_requirements": [
@@ -1630,7 +1630,7 @@
       "parent_id": "v01-M-m3-eci"
     },
     {
-      "expected_raw_payload_hex": "e98e1972",
+      "expected_raw_payload_hex": "52757374515220454349203236",
       "id": "v01-M-m3-eci--invalid_padding",
       "mutation": {
         "backend_requirements": [
@@ -1648,7 +1648,7 @@
       "parent_id": "v01-M-m3-eci"
     },
     {
-      "expected_raw_payload_hex": "e98e1972",
+      "expected_raw_payload_hex": "52757374515220454349203236",
       "id": "v01-M-m3-eci--invalid_block_layout",
       "mutation": {
         "backend_requirements": [
@@ -1664,134 +1664,6 @@
         "status": "planned"
       },
       "parent_id": "v01-M-m3-eci"
-    },
-    {
-      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-      "id": "v01-M-m3-gs1_fnc1--correctable_errors",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "rs_block_map"
-        ],
-        "expected_outcome": "decode_success",
-        "kind": "correctable_errors",
-        "parameters": {
-          "ecc_codewords_per_block": 10,
-          "errors_per_block": 5,
-          "limit_basis": "floor(ecc_codewords_per_block/2)"
-        },
-        "seed": "d1a046077e20e42c",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-gs1_fnc1"
-    },
-    {
-      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-      "id": "v01-M-m3-gs1_fnc1--correctable_erasures",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "rs_block_map",
-          "erasure_confidence_sidecar"
-        ],
-        "expected_outcome": "decode_success",
-        "kind": "correctable_erasures",
-        "parameters": {
-          "ecc_codewords_per_block": 10,
-          "erasures_per_block": 10,
-          "limit_basis": "ecc_codewords_per_block"
-        },
-        "seed": "1db2a0b252c18a1d",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-gs1_fnc1"
-    },
-    {
-      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-      "id": "v01-M-m3-gs1_fnc1--invalid_format",
-      "mutation": {
-        "backend_requirements": [
-          "format_module_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_format",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "5e10026bbcec8b9b",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-gs1_fnc1"
-    },
-    {
-      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-      "id": "v01-M-m3-gs1_fnc1--invalid_version",
-      "mutation": {
-        "backend_requirements": [
-          "version_module_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_version",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "7f2f739dc6e227da",
-        "status": "not_applicable"
-      },
-      "parent_id": "v01-M-m3-gs1_fnc1"
-    },
-    {
-      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-      "id": "v01-M-m3-gs1_fnc1--invalid_remainder",
-      "mutation": {
-        "backend_requirements": [
-          "remainder_module_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_remainder",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "97d6e8f02cf08d29",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-gs1_fnc1"
-    },
-    {
-      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-      "id": "v01-M-m3-gs1_fnc1--invalid_padding",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "padding_codeword_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_padding",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "6d63230713b8e149",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-gs1_fnc1"
-    },
-    {
-      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
-      "id": "v01-M-m3-gs1_fnc1--invalid_block_layout",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "rs_block_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_block_layout",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "a8b24094185b2886",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-gs1_fnc1"
     },
     {
       "expected_raw_payload_hex": "8abf8e9a",
@@ -2048,134 +1920,6 @@
         "status": "planned"
       },
       "parent_id": "v01-M-m3-numeric"
-    },
-    {
-      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-      "id": "v01-M-m3-structured_append--correctable_errors",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "rs_block_map"
-        ],
-        "expected_outcome": "decode_success",
-        "kind": "correctable_errors",
-        "parameters": {
-          "ecc_codewords_per_block": 10,
-          "errors_per_block": 5,
-          "limit_basis": "floor(ecc_codewords_per_block/2)"
-        },
-        "seed": "c219f8e72dc16779",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-structured_append"
-    },
-    {
-      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-      "id": "v01-M-m3-structured_append--correctable_erasures",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "rs_block_map",
-          "erasure_confidence_sidecar"
-        ],
-        "expected_outcome": "decode_success",
-        "kind": "correctable_erasures",
-        "parameters": {
-          "ecc_codewords_per_block": 10,
-          "erasures_per_block": 10,
-          "limit_basis": "ecc_codewords_per_block"
-        },
-        "seed": "f473b8bde43ba65d",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-structured_append"
-    },
-    {
-      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-      "id": "v01-M-m3-structured_append--invalid_format",
-      "mutation": {
-        "backend_requirements": [
-          "format_module_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_format",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "b6b0fcddc7a52c6d",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-structured_append"
-    },
-    {
-      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-      "id": "v01-M-m3-structured_append--invalid_version",
-      "mutation": {
-        "backend_requirements": [
-          "version_module_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_version",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "221ec647c85d71be",
-        "status": "not_applicable"
-      },
-      "parent_id": "v01-M-m3-structured_append"
-    },
-    {
-      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-      "id": "v01-M-m3-structured_append--invalid_remainder",
-      "mutation": {
-        "backend_requirements": [
-          "remainder_module_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_remainder",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "61b5d7ff7cd6986e",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-structured_append"
-    },
-    {
-      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-      "id": "v01-M-m3-structured_append--invalid_padding",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "padding_codeword_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_padding",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "4f8cce691aab39a3",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-structured_append"
-    },
-    {
-      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
-      "id": "v01-M-m3-structured_append--invalid_block_layout",
-      "mutation": {
-        "backend_requirements": [
-          "codeword_to_module_map",
-          "rs_block_map"
-        ],
-        "expected_outcome": "reject",
-        "kind": "invalid_block_layout",
-        "parameters": {
-          "ecc_codewords_per_block": 10
-        },
-        "seed": "eb4b566dd0c903d2",
-        "status": "planned"
-      },
-      "parent_id": "v01-M-m3-structured_append"
     },
     {
       "expected_raw_payload_hex": "353162323839",
@@ -2688,6 +2432,262 @@
         "status": "planned"
       },
       "parent_id": "v02-M-m0-byte"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 16,
+          "errors_per_block": 8,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "af18f434980015b3",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 16,
+          "erasures_per_block": 16,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "a54258678361325e",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "45a02d356d21ac6f",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "7768378022e818fe",
+        "status": "not_applicable"
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "e3f891e278d63129",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "ce614f3c0379c629",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+      "id": "v02-M-m3-gs1_fnc1--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "beb988e0a7e3e291",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-gs1_fnc1"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--correctable_errors",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_errors",
+        "parameters": {
+          "ecc_codewords_per_block": 16,
+          "errors_per_block": 8,
+          "limit_basis": "floor(ecc_codewords_per_block/2)"
+        },
+        "seed": "1c3439829a1a120d",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--correctable_erasures",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map",
+          "erasure_confidence_sidecar"
+        ],
+        "expected_outcome": "decode_success",
+        "kind": "correctable_erasures",
+        "parameters": {
+          "ecc_codewords_per_block": 16,
+          "erasures_per_block": 16,
+          "limit_basis": "ecc_codewords_per_block"
+        },
+        "seed": "036962219d1d3cbf",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--invalid_format",
+      "mutation": {
+        "backend_requirements": [
+          "format_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_format",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "255000c57564d077",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--invalid_version",
+      "mutation": {
+        "backend_requirements": [
+          "version_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_version",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "f7edec0c6c89c85e",
+        "status": "not_applicable"
+      },
+      "parent_id": "v02-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--invalid_remainder",
+      "mutation": {
+        "backend_requirements": [
+          "remainder_module_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_remainder",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "b6b1ac2e31a592d3",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--invalid_padding",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "padding_codeword_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_padding",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "071e795acaccadde",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-structured_append"
+    },
+    {
+      "expected_raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+      "id": "v02-M-m3-structured_append--invalid_block_layout",
+      "mutation": {
+        "backend_requirements": [
+          "codeword_to_module_map",
+          "rs_block_map"
+        ],
+        "expected_outcome": "reject",
+        "kind": "invalid_block_layout",
+        "parameters": {
+          "ecc_codewords_per_block": 16
+        },
+        "seed": "c45edf1f8c21a6fc",
+        "status": "planned"
+      },
+      "parent_id": "v02-M-m3-structured_append"
     },
     {
       "expected_raw_payload_hex": "316634326331",

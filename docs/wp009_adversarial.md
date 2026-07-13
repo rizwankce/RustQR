@@ -1,7 +1,7 @@
 # WP-009 adversarial safety evidence
 
-This document records the safety evidence that is available now and, equally
-important, the false-positive evidence that is not available yet.
+This document records the safety evidence that is available now and the scope
+limits of its false-positive measurements.
 
 ## Deterministic checks
 
@@ -18,22 +18,50 @@ important, the false-positive evidence that is not available yet.
   parsing, and erasure-sidecar validation when arbitrary input survives the
   earlier gates.
 
-## False-positive metric limitation
+## Deterministic negative-image corpus
 
-**No image-level or per-megapixel false-positive rate is reported yet.** This
-repository does not yet contain a licensed, annotated negative-image corpus
-covering text, checkerboards, packaging, screens, Data Matrix, Aztec, linear
-barcodes, finder-like graphics, and random noise. Matrix rejection fixtures
-measure decoder safety only; they do not measure detector false positives.
-Likewise, fuzzing establishes crash/memory-safety coverage, not a false-positive
-rate. No recovery change may claim compliance with a false-positive budget until
-that corpus, an image-level evaluator, and an agreed budget are added.
+`tests/negative_corpus/manifest.json` declares a nine-image, 256 by 256 pixel
+synthetic corpus. Its images are rendered deterministically by
+`tests/negative_image_corpus_tests.rs`, which is the corpus asset: no opaque
+binary image or third-party material is included. The manifest and renderer are
+licensed `MIT OR Apache-2.0` and self-authored by this repository.
+
+The current generators cover these *synthetic approximations*:
+
+- block text, checkerboard, package-panel, and screen-grid graphics;
+- Data-Matrix-like border/data pattern, Aztec-like concentric target, and
+  linear-barcode-like bars;
+- isolated finder-like targets with inconsistent placement; and
+- seeded black/white noise.
+
+They do **not** claim to be photographs, screenshots, commercial packaging, or
+valid Data Matrix/Aztec/barcode examples. Those external categories still need
+appropriately licensed, annotated material before a production false-positive
+budget can be accepted.
+
+The evaluator runs the public grayscale image API and counts every returned QR
+object as a false-positive detection. On the recorded local run it processed 9
+images / 589,824 pixels (0.589824 megapixels) and observed:
+
+| Metric | Result |
+| --- | ---: |
+| positive images | 0 |
+| false-positive detections | 0 |
+| false positives per image | 0.0 |
+| false positives per megapixel | 0.0 |
+
+This is a reproducible synthetic-corpus baseline, not a general detector FPR
+claim. Matrix rejection fixtures measure decoder safety only, and fuzzing
+establishes crash/memory-safety coverage rather than a false-positive rate.
+No recovery change may claim compliance with a production false-positive budget
+until a broader annotated corpus and an agreed budget are added.
 
 ## Reproducing the local checks
 
 ```sh
 cargo test --test adversarial_matrix_tests --all-features
 cargo test --test input_api_tests --all-features
+python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json
 cargo fuzz run public_image_input -- -max_total_time=30
 cargo fuzz run matrix_decode -- -max_total_time=30
 ```

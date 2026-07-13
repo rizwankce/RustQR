@@ -203,8 +203,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "323034336163",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "323034336163",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "H",
       "expected": {
@@ -234,8 +244,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "336233306562",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "336233306562",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -265,8 +285,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "376362393335",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "376362393335",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -296,8 +326,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "643665323633",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "643665323633",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -327,8 +367,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "363139373530",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "363139373530",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -358,8 +408,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "656531613666",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "656531613666",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -389,8 +449,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "643736343435",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "643736343435",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -420,8 +490,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "316236663461",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "316236663461",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -451,8 +531,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "396437316634",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "396437316634",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -482,8 +572,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "323934326161",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "323934326161",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -513,8 +613,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "522f394e4135",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "522f394e4135",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -544,8 +654,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "663465373338",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "663465373338",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -575,8 +695,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "52757374515220454349203236",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "52757374515220454349203236",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -586,7 +716,7 @@
           "eci_assignment": 26
         },
         "mode": "eci",
-        "raw_payload_hex": "e98e1972",
+        "raw_payload_hex": "52757374515220454349203236",
         "version": 1
       },
       "id": "v01-M-m3-eci",
@@ -596,21 +726,31 @@
         "path": "matrices/v01-M-m3-eci.png",
         "pixels_per_module": 4,
         "quiet_zone_modules": 4,
-        "sha256": "3960cec35ba70ba8b10dcd6cbc6eac40c4c4aaaf5d2b10947598a778e2d24e92",
+        "sha256": "2c7b6a0c7f242d11ff1150cab925c18c58570f66192f335100890c246d075c16",
         "status": "generated",
         "symbol_dimension": 21
       },
       "mode": "eci",
       "model": 2,
-      "payload_hex": "e98e1972",
+      "payload_hex": "52757374515220454349203236",
       "seed": "rustqr-model2-conformance-v1",
       "version": 1
     },
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": null,
+            "status": "unsupported"
+          },
+          "zbar": {
+            "raw_payload_hex": "e6bca2e5ad97",
+            "status": "text_match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -640,8 +780,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "3730303036343533",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "3730303036343533",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -671,8 +821,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "353162323839",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "353162323839",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "Q",
       "expected": {
@@ -702,8 +862,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "316661666431",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "316661666431",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "H",
       "expected": {
@@ -733,8 +903,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "313335303762",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "313335303762",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -764,8 +944,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "356666613366",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "356666613366",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -795,8 +985,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": null,
+            "status": "decode_error"
+          },
+          "zbar": {
+            "raw_payload_hex": "303130393530313130313533303030331d3137323731323331",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -831,8 +1031,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "5255535451522d535452554354555245442d415050454e44",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": null,
+            "status": "decode_error"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -869,8 +1079,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "316634326331",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "316634326331",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "Q",
       "expected": {
@@ -900,8 +1120,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "303137306462",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "303137306462",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "H",
       "expected": {
@@ -931,8 +1161,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "373437626465",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "373437626465",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -962,8 +1202,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "653764353934",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "653764353934",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -993,8 +1243,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "356465613332",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "356465613332",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "Q",
       "expected": {
@@ -1024,8 +1284,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": null,
+            "status": "decode_error"
+          },
+          "zbar": {
+            "raw_payload_hex": "646437643533",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "H",
       "expected": {
@@ -1055,8 +1325,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "363439643366",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "363439643366",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -1086,8 +1366,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "313262306231",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "313262306231",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -1117,8 +1407,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": "633238353333",
+            "status": "match"
+          },
+          "zbar": {
+            "raw_payload_hex": "633238353333",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "Q",
       "expected": {
@@ -1148,8 +1448,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": null,
+            "status": "decode_error"
+          },
+          "zbar": {
+            "raw_payload_hex": "353738346535",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "H",
       "expected": {
@@ -1179,8 +1489,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": null,
+            "status": "decode_error"
+          },
+          "zbar": {
+            "raw_payload_hex": "336430343339",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "L",
       "expected": {
@@ -1210,8 +1530,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": null,
+            "status": "decode_error"
+          },
+          "zbar": {
+            "raw_payload_hex": "643337316463",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "M",
       "expected": {
@@ -1241,8 +1571,18 @@
     {
       "capacity_boundary": "representative",
       "differential": {
-        "decoders": [],
-        "status": "pending"
+        "decoders": {
+          "opencv": {
+            "raw_payload_hex": null,
+            "status": "decode_error"
+          },
+          "zbar": {
+            "raw_payload_hex": "366138343336",
+            "status": "match"
+          }
+        },
+        "report": "differential-report.json",
+        "status": "recorded"
       },
       "ec_level": "Q",
       "expected": {

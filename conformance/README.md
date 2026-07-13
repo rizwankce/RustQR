@@ -54,15 +54,17 @@ with:
 ```bash
 python3 scripts/run_differential_decoders.py \
   --manifest conformance/manifest.json \
-  --output conformance/differential-report.json
+  --output conformance/differential-report.json \
+  --record-manifest-evidence
 ```
 
 The report verifies each generated PNG checksum before invoking an adapter and
-accounts separately for matches, mismatches, unavailable engines, decode
-failures, and explicitly unsupported fixtures. With ZBar 0.23.93 and OpenCV
-4.12.0, ZBar matches all 30 generated text fixtures; OpenCV matches 25 and
-reports five decode failures. Neither adapter reports a payload mismatch. The
-four unsupported-mode scaffolds are excluded from generated-fixture totals.
+accounts separately for exact matches, text-only matches, mismatches,
+unavailable engines, decode failures, and unsupported byte comparisons. The
+optional evidence flag copies those per-fixture outcomes into the manifest,
+then regenerates the report so its manifest checksum remains authoritative.
+ZBar exposes Kanji as UTF-8 text rather than the source Shift-JIS bytes, which
+is recorded as a `text_match`, never as an exact raw-byte match.
 
 Kanji payload bytes are Shift-JIS. The decoder records ECI assignment numbers,
 GS1/FNC1 position (including the second-position application indicator), and

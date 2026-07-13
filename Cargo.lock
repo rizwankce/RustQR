@@ -598,6 +598,7 @@ dependencies = [
  "criterion",
  "image",
  "rayon",
+ "serde",
  "serde_json",
 ]
 

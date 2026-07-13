@@ -23,6 +23,37 @@ pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
 
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+
+/// A cooperative cancellation handle for one decoding request.
+///
+/// Clone this handle before passing it to [`DecoderOptions::with_cancellation`]
+/// and call [`Self::cancel`] from another thread when the request is no longer
+/// needed. Cancellation is checked at the same bounded checkpoints as a
+/// request deadline; it cannot interrupt a single in-flight CPU operation.
+#[derive(Clone, Debug, Default)]
+pub struct CancellationToken(Arc<AtomicBool>);
+
+impl CancellationToken {
+    /// Create a token that has not been cancelled.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Cooperatively cancel every request configured with a clone of this token.
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+
+    /// Whether cancellation has been requested.
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+}
+
 /// Recovery effort selected for a decoding request.
 ///
 /// Presets select both a cooperative deadline and a maximum number of image
@@ -44,18 +75,19 @@ pub enum DecoderPreset {
 /// Construct with a preset and use the builder methods to override only the
 /// fields relevant to that request.  Options are never read from environment
 /// variables and may be freely shared between concurrent callers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct DecoderOptions {
     preset: DecoderPreset,
     deadline: std::time::Duration,
     candidate_limit: usize,
     erasure_attempt_limit: usize,
     diagnostics: bool,
+    cancellation: Option<CancellationToken>,
 }
 
 impl DecoderOptions {
     /// Start with the named recovery preset.
-    pub const fn with_preset(preset: DecoderPreset) -> Self {
+    pub fn with_preset(preset: DecoderPreset) -> Self {
         let (deadline, candidate_limit, erasure_attempt_limit) = match preset {
             DecoderPreset::Fast => (std::time::Duration::from_millis(250), 16, 4),
             DecoderPreset::Balanced => (std::time::Duration::from_secs(2), 128, 16),
@@ -67,11 +99,12 @@ impl DecoderOptions {
             candidate_limit,
             erasure_attempt_limit,
             diagnostics: false,
+            cancellation: None,
         }
     }
 
     /// Set a cooperative deadline for this request.
-    pub const fn with_deadline(mut self, deadline: std::time::Duration) -> Self {
+    pub fn with_deadline(mut self, deadline: std::time::Duration) -> Self {
         self.deadline = deadline;
         self
     }
@@ -80,7 +113,7 @@ impl DecoderOptions {
     ///
     /// A value of zero performs no candidate decoding. This is useful for
     /// callers that want to exercise only cheap detection stages.
-    pub const fn with_candidate_limit(mut self, candidate_limit: usize) -> Self {
+    pub fn with_candidate_limit(mut self, candidate_limit: usize) -> Self {
         self.candidate_limit = candidate_limit;
         self
     }
@@ -90,40 +123,60 @@ impl DecoderOptions {
     ///
     /// The budget is shared by all candidate matrices within the request; a
     /// value of zero disables this optional recovery path.
-    pub const fn with_erasure_attempt_limit(mut self, erasure_attempt_limit: usize) -> Self {
+    pub fn with_erasure_attempt_limit(mut self, erasure_attempt_limit: usize) -> Self {
         self.erasure_attempt_limit = erasure_attempt_limit;
         self
     }
 
     /// Request stage diagnostics in the returned result.
-    pub const fn with_diagnostics(mut self, enabled: bool) -> Self {
+    pub fn with_diagnostics(mut self, enabled: bool) -> Self {
         self.diagnostics = enabled;
         self
     }
 
+    /// Stop this request when the supplied token is cancelled.
+    ///
+    /// The token is deliberately owned by the options value rather than held
+    /// in global state, so cancellation cannot affect unrelated requests.
+    pub fn with_cancellation(mut self, cancellation: CancellationToken) -> Self {
+        self.cancellation = Some(cancellation);
+        self
+    }
+
     /// The selected recovery preset.
-    pub const fn preset(self) -> DecoderPreset {
+    pub const fn preset(&self) -> DecoderPreset {
         self.preset
     }
 
     /// The cooperative request deadline.
-    pub const fn deadline(self) -> std::time::Duration {
+    pub const fn deadline(&self) -> std::time::Duration {
         self.deadline
     }
 
     /// Maximum candidate decode attempts available to this request.
-    pub const fn candidate_limit(self) -> usize {
+    pub const fn candidate_limit(&self) -> usize {
         self.candidate_limit
     }
 
     /// Maximum confidence-guided RS erasure recovery attempts for this request.
-    pub const fn erasure_attempt_limit(self) -> usize {
+    pub const fn erasure_attempt_limit(&self) -> usize {
         self.erasure_attempt_limit
     }
 
     /// Whether diagnostics are collected for this request.
-    pub const fn diagnostics_enabled(self) -> bool {
+    pub const fn diagnostics_enabled(&self) -> bool {
         self.diagnostics
+    }
+
+    /// Whether the request's cancellation token has been cancelled.
+    pub fn is_cancelled(&self) -> bool {
+        self.cancellation
+            .as_ref()
+            .is_some_and(CancellationToken::is_cancelled)
+    }
+
+    fn cancellation(&self) -> Option<CancellationToken> {
+        self.cancellation.clone()
     }
 }
 
@@ -140,6 +193,8 @@ pub enum FailureStage {
     InvalidInput,
     /// The cooperative deadline elapsed.
     Timeout,
+    /// The caller cancelled the request through its request-scoped token.
+    Cancelled,
     /// No finder-pattern candidate was detected.
     Detection,
     /// Candidates were found but no usable geometry was built.
@@ -1187,6 +1242,7 @@ pub fn try_detect_with_options(
             Some(options.deadline()),
             Some(options.candidate_limit()),
             Some(options.erasure_attempt_limit()),
+            options.cancellation(),
         );
         return Ok(DetectionResult {
             codes,
@@ -1211,9 +1267,12 @@ pub fn try_detect_with_options(
         Some(options.deadline()),
         Some(options.candidate_limit()),
         Some(options.erasure_attempt_limit()),
+        options.cancellation(),
     );
     let failure_stage = if codes.is_empty() {
-        Some(if started.elapsed() >= options.deadline() {
+        Some(if options.is_cancelled() {
+            FailureStage::Cancelled
+        } else if started.elapsed() >= options.deadline() {
             FailureStage::Timeout
         } else {
             classify_failure_stage(&telemetry)
@@ -1284,7 +1343,7 @@ pub fn detect_with_telemetry(
     width: usize,
     height: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, None, None, None)
+    detect_with_telemetry_budget(image, width, height, None, None, None, None)
 }
 
 /// Detect with telemetry while applying a caller-supplied cooperative budget.
@@ -1299,7 +1358,7 @@ pub fn detect_with_telemetry_timeout(
     height: usize,
     timeout: std::time::Duration,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, Some(timeout), None, None)
+    detect_with_telemetry_budget(image, width, height, Some(timeout), None, None, None)
 }
 
 fn detect_with_telemetry_budget(
@@ -1309,6 +1368,7 @@ fn detect_with_telemetry_budget(
     requested_timeout: Option<std::time::Duration>,
     requested_candidate_limit: Option<usize>,
     requested_erasure_attempt_limit: Option<usize>,
+    cancellation: Option<CancellationToken>,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     if validate_input(ImageInput::new(image, width, height, PixelFormat::Rgb)).is_err() {
         return (Vec::new(), DetectionTelemetry::default());
@@ -1320,11 +1380,17 @@ fn detect_with_telemetry_budget(
         std::time::Duration::from_millis(decoder::config::global_time_budget_ms())
     });
     let deadline_tel = start_tel + budget_tel;
-    let mut decode_context = DecodeRequestContext::with_deadline(
+    let mut decode_context = DecodeRequestContext::with_deadline_and_cancellation(
         requested_erasure_attempt_limit.unwrap_or(0),
         deadline_tel,
+        cancellation.clone(),
     );
-    let is_expired_tel = || start_tel.elapsed() >= budget_tel;
+    let is_expired_tel = || {
+        cancellation
+            .as_ref()
+            .is_some_and(CancellationToken::is_cancelled)
+            || start_tel.elapsed() >= budget_tel
+    };
     let gray = rgb_to_grayscale(image, width, height);
     if is_expired_tel() {
         return (Vec::new(), tel);
@@ -1755,16 +1821,51 @@ mod tests {
         assert!(balanced.candidate_limit() < exhaustive.candidate_limit());
         assert!(fast.erasure_attempt_limit() < balanced.erasure_attempt_limit());
         assert!(balanced.erasure_attempt_limit() < exhaustive.erasure_attempt_limit());
-        assert_eq!(fast.with_candidate_limit(3).candidate_limit(), 3);
+        assert_eq!(fast.clone().with_candidate_limit(3).candidate_limit(), 3);
         assert_eq!(
-            fast.with_erasure_attempt_limit(3).erasure_attempt_limit(),
+            fast.clone()
+                .with_erasure_attempt_limit(3)
+                .erasure_attempt_limit(),
             3
         );
         assert_eq!(fast.candidate_limit(), 16);
         assert_eq!(fast.erasure_attempt_limit(), 4);
         assert!(!fast.diagnostics_enabled());
-        assert!(fast.with_diagnostics(true).diagnostics_enabled());
+        assert!(fast.clone().with_diagnostics(true).diagnostics_enabled());
         assert!(!fast.diagnostics_enabled());
+    }
+
+    #[test]
+    fn cancellation_is_request_scoped_and_reported() {
+        let cancelled = CancellationToken::new();
+        let independent = CancellationToken::new();
+        cancelled.cancel();
+        let image = vec![255u8; 32 * 32 * 3];
+
+        let stopped = try_detect_with_options(
+            ImageInput::new(&image, 32, 32, PixelFormat::Rgb),
+            DecoderOptions::default()
+                .with_diagnostics(true)
+                .with_cancellation(cancelled),
+        )
+        .expect("valid image");
+        assert!(stopped.codes.is_empty());
+        assert_eq!(
+            stopped.diagnostics.failure_stage,
+            Some(FailureStage::Cancelled)
+        );
+
+        let live = try_detect_with_options(
+            ImageInput::new(&image, 32, 32, PixelFormat::Rgb),
+            DecoderOptions::default()
+                .with_diagnostics(true)
+                .with_cancellation(independent),
+        )
+        .expect("valid image");
+        assert_eq!(
+            live.diagnostics.failure_stage,
+            Some(FailureStage::Detection)
+        );
     }
 
     #[test]

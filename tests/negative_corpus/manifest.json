@@ -1,0 +1,16 @@
+{
+  "schema_version": "rustqr.negative-corpus.v1",
+  "license": "MIT OR Apache-2.0",
+  "source": "Self-authored deterministic raster generators in tests/negative_image_corpus_tests.rs; no third-party image material is included.",
+  "cases": [
+    {"id": "block_text", "kind": "block_text", "width": 256, "height": 256},
+    {"id": "checkerboard", "kind": "checkerboard", "width": 256, "height": 256},
+    {"id": "package_panels", "kind": "package_panels", "width": 256, "height": 256},
+    {"id": "screen_grid", "kind": "screen_grid", "width": 256, "height": 256},
+    {"id": "data_matrix_like", "kind": "data_matrix_like", "width": 256, "height": 256},
+    {"id": "aztec_like", "kind": "aztec_like", "width": 256, "height": 256},
+    {"id": "linear_barcode", "kind": "linear_barcode", "width": 256, "height": 256},
+    {"id": "finder_like_graphics", "kind": "finder_like_graphics", "width": 256, "height": 256},
+    {"id": "seeded_noise", "kind": "seeded_noise", "width": 256, "height": 256}
+  ]
+}

@@ -42,6 +42,7 @@ reassemble Structured Append symbols. The compact corpus has end-to-end
 matrices for these headers; adapters that return only text still cannot verify
 non-UTF-8 raw bytes or RustQR metadata fields.
 
-The public matrix decoder reports unsupported advertised modes explicitly. The
-conformance harness treats a decoder failure as a valid outcome only for an
-artifact whose manifest expectation is rejection.
+The public matrix decoder supports the materialized header modes above and
+reports any remaining unrecognized mode explicitly. The conformance harness
+treats a decoder failure as a valid outcome only for an artifact whose manifest
+expectation is rejection.
