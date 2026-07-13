@@ -86,6 +86,46 @@ false-positive budgets, decide whether failures include timeouts, and run the
 same public-API evaluator used by the synthetic corpus. A manifest missing any
 of those provenance fields remains an intake record, not safety evidence.
 
+### Candidate intake: ZXing negative black-box images
+
+One external source now clears the *source-level* intake check, without yet
+being copied into this repository. The candidate is the `falsepositives` (22
+PNGs) and `falsepositives-2` (25 PNGs) directories in
+[`zxing/zxing`](https://github.com/zxing/zxing), pinned to commit
+[`82333b3ed894ef097d41dd8c922689ede8880e01`](https://github.com/zxing/zxing/tree/82333b3ed894ef097d41dd8c922689ede8880e01)
+(commit date `2026-07-11T19:40:42-05:00`). The immutable source paths are:
+
+- `core/src/test/resources/blackbox/falsepositives/{01..22}.png`; and
+- `core/src/test/resources/blackbox/falsepositives-2/{01..25}.png`.
+
+The upstream REUSE declaration, `.reuse/dep5`, assigns `Apache-2.0` to
+`Files: *` with only listed exceptions outside these paths. Its
+[`LICENSE`](https://github.com/zxing/zxing/blob/82333b3ed894ef097d41dd8c922689ede8880e01/LICENSE)
+grants reproduction and distribution in source or object form, including with
+modifications, subject to retaining the license and relevant notices. The
+upstream `NOTICE` contains only Barcode4J and JCommander notices, neither of
+which applies to these image paths. Any eventual vendoring must retain
+`Apache-2.0`, the upstream attribution, and the applicable `NOTICE` text.
+
+The negative annotation is source-authored rather than inferred from an image
+search: at the same commit,
+`FalsePositivesBlackBoxTestCase` describes its images as random high-contrast
+patterns that “do not decode as barcodes,” and
+`FalsePositives2BlackBoxTestCase` describes additional such images that “should
+not find any barcodes.” Their common `AbstractNegativeBlackBoxTestCase` tests
+for a failure to decode every image. Therefore each selected asset may be
+entered as `expected_qr_count: 0` after a RustQR-side visual and decoder audit.
+The legacy ZXing test allows a small aggregate decoder false-positive tolerance;
+that is a tolerance of its implementation, not a claim that any source image
+contains a QR code.
+
+This is a useful licensed negative slice for high-contrast/finder-like
+patterns. It does **not** establish representative coverage of photographs,
+screens, packaging, text, or all required non-QR symbologies, and it is not
+admitted evidence until a local manifest records each downloaded asset's
+SHA-256, dimensions, category, and RustQR audit result. Do not bulk-download
+or vendor the images merely from this record.
+
 ## Reproducing the local checks
 
 ```sh

@@ -1169,6 +1169,17 @@ category, dimensions, and zero-QR annotation) plus the required FPR-budget
 decision. This is a durable selection path, not a claim that an external corpus
 or production FPR gate exists.
 
+**2026-07-13 candidate-source audit:** The Apache-2.0 ZXing repository at
+immutable commit `82333b3ed894ef097d41dd8c922689ede8880e01` is now recorded as
+a source-level candidate for 47 explicitly negative, high-contrast black-box
+images. Its REUSE metadata assigns Apache-2.0 to the image paths; the pinned
+negative tests state that they should contain no decodable barcode, supporting
+an eventual `expected_qr_count: 0` annotation. No image was downloaded or
+vendored: per-asset hash, dimensions, RustQR visual/decoder audit, and category
+manifest are still required before admission. The slice is not a representative
+corpus by itself; photographed text, packaging, screens, and additional
+non-QR-symbology coverage remain open.
+
 Focused local validation:
 
 ```bash
