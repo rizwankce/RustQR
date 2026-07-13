@@ -1,0 +1,106 @@
+{
+  "schema_version": "rustqr.competitor-report.v1",
+  "lock": {
+    "path": "competitors/lock.json",
+    "sha256": "e61a038dc9673a837aa4c7f2593e3230bdb96d361ef7b8d55f44087310b7193b"
+  },
+  "case_manifest": {
+    "schema_version": "rustqr.competitor-case-manifest.v1",
+    "lock_sha256": "e61a038dc9673a837aa4c7f2593e3230bdb96d361ef7b8d55f44087310b7193b",
+    "pixel_contract": {
+      "format": "binary PGM (P5), 8-bit grayscale",
+      "preprocessing": "decode source pixels once, convert RGB to ITU-R BT.601 luma, optionally downscale with Pillow Triangle, then write PGM",
+      "timing_boundary": "adapter process/API invocation only; image decoding, normalization, PGM writing, manifest generation, and report generation are excluded",
+      "threads": 1,
+      "timeout_ms": 1000
+    },
+    "max_dim": 1024,
+    "cases": [
+      {
+        "id": "monitor/image001.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image001.jpg",
+        "source_sha256": "7aee6b038f09ee793cb18e3b09861e717e8d4e78a037a4dfd72ef8d548682093",
+        "expected_symbols": 1,
+        "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+        "pixel_dimensions": [
+          843,
+          1024
+        ]
+      }
+    ]
+  },
+  "hardware": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "processor": "arm",
+    "python": "3.13.2",
+    "cpu_count": 10
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1"
+  },
+  "adapters": {
+    "zbar": {
+      "lock": {
+        "version": "0.23.93",
+        "source": "https://github.com/mchehab/zbar.git",
+        "revision": "0.23.93",
+        "license": "LGPL-2.1-or-later",
+        "runner_sha256": "50a0f12b2353ea921ccb854b7a5271080d7dc295c65374566fe0057628f3d155",
+        "build": "Use the distribution package that reports 0.23.93; record zbarimg --version in the artifact. Do not redistribute its binary with RustQR."
+      },
+      "setup": {
+        "status": "available",
+        "command": [
+          "zbarimg",
+          "--quiet",
+          "--raw",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "version_observed": "0.23.93",
+      "summary": {
+        "cases": 1,
+        "available_cases": 1,
+        "expected_annotation_symbols": 1,
+        "returned_symbols": 0,
+        "annotation_count_coverage": 0.0,
+        "status_counts": {
+          "no_decode": 1
+        },
+        "latency_ms": {
+          "samples": 1,
+          "median": 147.895375,
+          "p95": 147.895375,
+          "median_95_ci": [
+            147.895375,
+            147.895375
+          ]
+        }
+      },
+      "cases": [
+        {
+          "id": "monitor/image001.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 147.895375
+          }
+        }
+      ]
+    }
+  }
+}

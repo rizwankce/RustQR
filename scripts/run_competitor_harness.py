@@ -167,6 +167,17 @@ def adapter_setup(adapter: str) -> dict[str, Any]:
     }
 
 
+def adapter_runner_path(adapter: str, command: list[str]) -> Path | None:
+    """Return the file whose digest identifies a file-based adapter runner."""
+    if adapter == "boofcv":
+        return Path(command[2])
+    executable = command[0]
+    if "/" in executable:
+        return Path(executable).resolve()
+    resolved = shutil.which(executable)
+    return Path(resolved).resolve() if resolved else None
+
+
 def adapter_preflight(adapter: str, record: dict[str, Any]) -> dict[str, Any]:
     """Record local runnable capability without asserting build provenance."""
     setup = adapter_setup(adapter)
@@ -187,8 +198,8 @@ def adapter_preflight(adapter: str, record: dict[str, Any]) -> dict[str, Any]:
     elif adapter == "zbar" and setup["status"] == "available":
         help_text = command_output(["zbarimg", "--help"])
         capabilities = {"raw_payload_lines": help_text is not None and "--raw" in help_text}
-    command = setup.get("command", [])
-    runner = Path(command[0]) if command and "/" in command[0] else None
+    command, _ = adapter_command(adapter, Path("<shared-pixels>.pgm"))
+    runner = adapter_runner_path(adapter, command) if command else None
     verified, verification_detail = verify_runner_provenance(
         runner, record.get("runner_sha256"), version_matches
     )

@@ -120,5 +120,10 @@ dependencies can add notices.
 For a locally built file-based adapter, an operator may add an optional
 `runner_sha256` field to that adapter's lock entry. Preflight promotes it to
 `verified_pinned_runner` only when both the observed version and executable
-SHA-256 match. The checked-in lock intentionally has no such digests, so
-current local runners remain provenance-unverified.
+SHA-256 match. The checked-in lock pins the locally installed ZBar 0.23.93
+executable by SHA-256 (`50a0f12b…f3d155`) as a runnable, byte-identical local
+runner. It remains a Homebrew-distributed LGPL binary: this digest proves the
+runner used by the harness, not an independently reproducible upstream source
+build or its transitive-library provenance. Other adapters remain
+provenance-unverified until their listed pinned sources are built and their
+resulting runner digests are recorded.

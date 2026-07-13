@@ -1732,6 +1732,19 @@ flags, wheel origin, or comparator eligibility. This advances reproducible
 setup diagnostics only; it creates no pinned-build, accuracy, latency, or
 competitor-comparison claim.
 
+**2026-07-13 local pinned-runner verification:** The resolved Homebrew ZBar
+0.23.93 executable is now locked by SHA-256 in `competitors/lock.json` and
+`adapter_runner_path()` resolves PATH commands before hashing them. Fresh
+preflight evidence in
+`artifacts/competitors/wp013-zbar-pinned-preflight-2026-07-13.json` reports
+`verified_pinned_runner`; a one-image monitor smoke in
+`artifacts/competitors/wp013-zbar-pinned-smoke-2026-07-13.json` exercised the
+same byte-identical PGM contract offline (one no-decode, so no accuracy or
+comparison claim). The current local Cargo registry cannot resolve
+`rqrr = 0.9.0` in `--offline` mode, so the Rust adapter still requires its
+pinned crate source/index before it can be built; ZXing-C++, quirc, and BoofCV
+sources/runners are likewise absent locally.
+
 ---
 
 ## WP-014: Performance engineering after correctness

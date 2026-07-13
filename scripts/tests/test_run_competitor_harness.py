@@ -70,17 +70,19 @@ class CompetitorHarnessTests(unittest.TestCase):
             self.assertFalse(HARNESS.verify_runner_provenance(runner, "0" * 64, True)[0])
             self.assertFalse(HARNESS.verify_runner_provenance(runner, None, True)[0])
 
-    def test_preflight_never_claims_pinned_build_provenance(self):
+    def test_preflight_reports_only_digest_verified_runners_as_pinned(self):
         lock = SCRIPT.parents[1] / "competitors/lock.json"
         report = HARNESS.preflight(lock, ["zbar", "opencv"])
         self.assertEqual(report["schema_version"], "rustqr.competitor-preflight.v1")
         self.assertIn("comparison_claim", report)
         for adapter in report["adapters"].values():
-            self.assertFalse(adapter["provenance_verified"])
             self.assertIn(adapter["status"], {
                 "missing_runner", "version_mismatch",
                 "available_version_matches_unverified_provenance",
+                "verified_pinned_runner",
             })
+            self.assertEqual(adapter["provenance_verified"],
+                             adapter["status"] == "verified_pinned_runner")
         self.assertEqual(HARNESS.THREAD_ENVIRONMENT["OPENBLAS_NUM_THREADS"], "1")
 
 
