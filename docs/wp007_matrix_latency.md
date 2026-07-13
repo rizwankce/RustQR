@@ -18,6 +18,23 @@ payload decoding.
 The fixture is deliberately clean and canonical. It supplies the common-case
 path evidence, not damaged-symbol recovery evidence.
 
+## Strict-path cardinality guard (2026-07-13)
+
+The component benchmark above measures elapsed time; it cannot by itself prove
+which decoder branches were taken. The focused unit test
+`clean_matrix_uses_one_strict_payload_path_without_recovery` therefore decodes
+the same checked-in canonical fixture through a request-local
+`DecodeRequestContext`. It requires exactly one strict canonical payload
+attempt, exactly one Reed-Solomon candidate, and zero bounded-recovery payload
+attempts. This is an execution-path regression guard for the clean matrix API,
+not a photographic recall claim.
+
+Run it with:
+
+```bash
+cargo test --lib clean_matrix_uses_one_strict_payload_path_without_recovery --all-features
+```
+
 ## Reproduction
 
 ```bash

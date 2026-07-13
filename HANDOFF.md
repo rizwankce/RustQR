@@ -53,6 +53,12 @@ before editing. `TODO.md` is the canonical detailed queue.
    exact format validation and before RS (48 strict BCH candidates, 7,056
    bounded payload-path rejections), while glare/high-version do not reach
    decoder evidence at all.
+   WP-007 now has a clean V1-M path guard: exactly one strict payload attempt,
+   one RS candidate, and no recovery payload attempts. It remains component
+   evidence, not a photographic or packet-completion claim. WP-015's current
+   audit confirms that minimal hosted features have no normal third-party
+   dependencies, but a true `no_std` core needs a shared matrix-core crate and
+   target/parity validation; do not claim it is supported.
 
 Run targeted checks while iterating, then record exact commands, metrics, and
 remaining work in `TODO.md` before handoff. Full benchmark comparisons belong

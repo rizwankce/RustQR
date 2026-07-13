@@ -128,6 +128,7 @@ fn decode_from_matrix_internal(
             }
             if let Some((format_info, distance)) = FormatInfo::extract_with_distance(oriented) {
                 record_format_bch_evidence(context, distance);
+                context.counters_mut().strict_matrix_payload_attempts += 1;
                 if let Some(qr) =
                     try_decode_canonical(oriented, v_num, &format_info, module_confidence, context)
                 {
@@ -221,14 +222,12 @@ fn decode_recovery_phase(
                     if context.deadline_expired() {
                         return None;
                     }
-                    if let Some(qr) = payload::try_decode_single(
+                    if let Some(qr) = try_decode_recovery_traversal(
                         oriented,
                         v_num,
                         &format_info,
                         start_upward,
                         swap_columns,
-                        true,
-                        false,
                         module_confidence,
                         context,
                     ) {
@@ -243,23 +242,25 @@ fn decode_recovery_phase(
                 if context.deadline_expired() {
                     return None;
                 }
-                if let Some(qr) =
-                    try_decode_canonical(oriented, v_num, &format_info, module_confidence, context)
-                {
+                if let Some(qr) = try_decode_recovery_canonical(
+                    oriented,
+                    v_num,
+                    &format_info,
+                    module_confidence,
+                    context,
+                ) {
                     return Some(qr);
                 }
                 for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
                     if context.deadline_expired() {
                         return None;
                     }
-                    if let Some(qr) = payload::try_decode_single(
+                    if let Some(qr) = try_decode_recovery_traversal(
                         oriented,
                         v_num,
                         &format_info,
                         start_upward,
                         swap_columns,
-                        true,
-                        false,
                         module_confidence,
                         context,
                     ) {
@@ -302,23 +303,25 @@ fn decode_recovery_phase(
                             ec_level: ec,
                             mask_pattern,
                         };
-                        if let Some(qr) =
-                            try_decode_canonical(oriented, v_num, &info, module_confidence, context)
-                        {
+                        if let Some(qr) = try_decode_recovery_canonical(
+                            oriented,
+                            v_num,
+                            &info,
+                            module_confidence,
+                            context,
+                        ) {
                             return Some(qr);
                         }
                         for &(start_upward, swap_columns) in &RECOVERY_TRAVERSALS {
                             if context.deadline_expired() {
                                 return None;
                             }
-                            if let Some(qr) = payload::try_decode_single(
+                            if let Some(qr) = try_decode_recovery_traversal(
                                 oriented,
                                 v_num,
                                 &info,
                                 start_upward,
                                 swap_columns,
-                                true,
-                                false,
                                 module_confidence,
                                 context,
                             ) {
@@ -331,6 +334,46 @@ fn decode_recovery_phase(
         }
     }
     None
+}
+
+fn try_decode_recovery_canonical(
+    oriented: &BitMatrix,
+    version_num: u8,
+    format_info: &FormatInfo,
+    module_confidence: Option<&[u8]>,
+    context: &mut DecodeRequestContext,
+) -> Option<QRCode> {
+    context.counters_mut().matrix_recovery_payload_attempts += 1;
+    try_decode_canonical(
+        oriented,
+        version_num,
+        format_info,
+        module_confidence,
+        context,
+    )
+}
+
+fn try_decode_recovery_traversal(
+    oriented: &BitMatrix,
+    version_num: u8,
+    format_info: &FormatInfo,
+    start_upward: bool,
+    swap_columns: bool,
+    module_confidence: Option<&[u8]>,
+    context: &mut DecodeRequestContext,
+) -> Option<QRCode> {
+    context.counters_mut().matrix_recovery_payload_attempts += 1;
+    payload::try_decode_single(
+        oriented,
+        version_num,
+        format_info,
+        start_upward,
+        swap_columns,
+        true,
+        false,
+        module_confidence,
+        context,
+    )
 }
 
 fn record_format_bch_evidence(context: &mut DecodeRequestContext, distance: u32) {
@@ -482,6 +525,22 @@ fn decode_with_flips(
 mod telemetry_tests {
     use super::*;
 
+    fn canonical_v1_matrix() -> BitMatrix {
+        let rows: Vec<&str> =
+            include_str!("../../../tests/conformance/fixtures/golden-v1-m.matrix")
+                .lines()
+                .collect();
+        let mut matrix = BitMatrix::new(rows[0].len(), rows.len());
+        for (y, row) in rows.iter().enumerate() {
+            for (x, module) in row.bytes().enumerate() {
+                if module == b'1' {
+                    matrix.set(x, y, true);
+                }
+            }
+        }
+        matrix
+    }
+
     #[test]
     fn format_bch_evidence_records_only_valid_distance_buckets() {
         let mut context = DecodeRequestContext::default();
@@ -492,5 +551,20 @@ mod telemetry_tests {
         let counters = context.counters();
         assert_eq!(counters.format_bch_candidates, 3);
         assert_eq!(counters.format_bch_distance_hist, [1, 0, 0, 1]);
+    }
+
+    #[test]
+    fn clean_matrix_uses_one_strict_payload_path_without_recovery() {
+        let matrix = canonical_v1_matrix();
+        let mut context = DecodeRequestContext::default();
+
+        let decoded = decode_from_matrix_in_context(&matrix, 1, &mut context)
+            .expect("clean canonical matrix decodes");
+        assert_eq!(decoded.data, b"4376471154038");
+
+        let counters = context.counters();
+        assert_eq!(counters.strict_matrix_payload_attempts, 1);
+        assert_eq!(counters.matrix_recovery_payload_attempts, 0);
+        assert_eq!(counters.rs_candidate_attempts, 1);
     }
 }

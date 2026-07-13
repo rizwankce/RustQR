@@ -1025,6 +1025,17 @@ cargo test --release --test decode_regression_tests --all-features \
   strict_path_needs_no_decoder_recovery -- --ignored --nocapture
 ```
 
+**2026-07-13 clean-matrix path guard:** The checked-in canonical V1-M matrix
+now has a request-local decoder-path regression test. It requires one strict
+canonical payload attempt, one RS candidate, and zero bounded-recovery payload
+attempts. This directly proves the clean public matrix API returns before the
+bounded recovery frontier; the existing Criterion benchmark remains the timing
+evidence. Passed:
+
+```bash
+cargo test --lib clean_matrix_uses_one_strict_payload_path_without_recovery --all-features
+```
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics

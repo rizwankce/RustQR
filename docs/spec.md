@@ -35,7 +35,7 @@ repository as of 2026-07-11.
 | Mirrored symbols | Partial | Reflection transforms exist in orientation retries; no dedicated fixture |
 | Multiple symbols | Partial | Multiple groups/results are supported, but the existing ignored regression asserts only one or more |
 | Linux x86_64 | Tested | CI build and release-library test lane |
-| macOS x86_64 | Tested | CI build and release-library test lane |
+| macOS hosted runner | Tested | CI library and release-library test lane; do not infer an x86_64 claim from this hosted lane |
 | Windows x86_64 | Tested | CI build and release-library test lane |
 | AArch64 | Partial | NEON kernels compile conditionally; no CI target verifies them |
 | WASM, iOS, Android | Planned | No target-specific build, test, binding, or packaging lane |

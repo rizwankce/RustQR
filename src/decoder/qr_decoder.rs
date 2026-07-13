@@ -102,6 +102,10 @@ pub(crate) struct DecodeCounters {
     pub deskew_successes: usize,
     pub high_version_precision_attempts: usize,
     pub recovery_mode_attempts: usize,
+    /// Strict canonical matrix payload decodes attempted before recovery.
+    pub strict_matrix_payload_attempts: usize,
+    /// Matrix payload decodes attempted by the bounded recovery frontier.
+    pub matrix_recovery_payload_attempts: usize,
     pub scale_retry_attempts: usize,
     pub scale_retry_successes: usize,
     pub scale_retry_skipped_by_budget: usize,
@@ -205,6 +209,8 @@ impl DecodeCounters {
             deskew_successes: 0,
             high_version_precision_attempts: 0,
             recovery_mode_attempts: 0,
+            strict_matrix_payload_attempts: 0,
+            matrix_recovery_payload_attempts: 0,
             scale_retry_attempts: 0,
             scale_retry_successes: 0,
             scale_retry_skipped_by_budget: 0,
