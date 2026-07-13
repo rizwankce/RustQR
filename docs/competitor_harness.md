@@ -114,3 +114,11 @@ benchmark observations.
 it contains no competitor source, jar, wheel, or executable. Review the
 upstream license files at the pinned revision before a release, since transitive
 dependencies can add notices.
+
+## Optional local runner verification
+
+For a locally built file-based adapter, an operator may add an optional
+`runner_sha256` field to that adapter's lock entry. Preflight promotes it to
+`verified_pinned_runner` only when both the observed version and executable
+SHA-256 match. The checked-in lock intentionally has no such digests, so
+current local runners remain provenance-unverified.

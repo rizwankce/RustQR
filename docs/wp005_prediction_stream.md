@@ -103,3 +103,52 @@ decoder branch.
 The included parser tests use synthetic geometry only. They establish the
 protocol (maximum-cardinality duplicate handling, timeout discard, and
 dimension rejection), not real cross-branch accuracy or latency.
+
+## Portability audit and throwaway-adapter setup (2026-07-13)
+
+The current `prediction-export` command is **not** a literal source port to
+either comparison ref. This is an interface audit only; no target ref was
+checked out, changed, built, or compared.
+
+| Ref | Pinned commit | Reusable public API | Required throwaway glue |
+|---|---|---|---|
+| `main` | `5b9b41e` | `rust_qr::detect` returns `QRCode { content, position }`; `image` and Triangle resize already exist under `tools` | Preserve original dimensions before calling `tools::load_rgb`, then scale `position` back to source coordinates. Add the stream writer as a temporary `src/bin/wp005_prediction_export.rs`; do not modify `qrtool` or decoder code. |
+| `scratch_from_scratch_rebuild` | `295b97c` | `rust_qr::detect` returns `QrCode { payload, corners }`; the rebuild's tool loader supports explicit Triangle resize | Add the same temporary bin, call `tools::load_rgb_image(path, Some(1024))`, map `corners`, and scale them to source coordinates. Its hand-written `qrtool` has no Clap subcommand mechanism, so do not attempt to transplant the current command enum. |
+
+The shared adapter body must itself own deterministic recursive image
+enumeration, original-image RGB dimensions, JSON escaping, FNV dataset
+fingerprinting, output-path creation, and JSON serialization. It accepts
+explicit `--root`, `--limit`, `--timeout-ms`, `--output`, and `--commit-sha`
+arguments. For these pinned target refs, `--timeout-ms` must be `0`: neither
+target exposes the current request-timeout API, and fabricating timeout
+semantics would invalidate the stream. The preprocessing fingerprint is
+exactly `rgb8;triangle-resize;max-dim=1024`; its loader and every coordinate
+conversion must be checked against that value before a stream is retained.
+
+Run this later from a disposable directory only, after copying the reviewed
+branch-specific adapter source into each throwaway worktree. The commands are
+intentionally not a comparison and must not be run in the active worktree:
+
+```sh
+git worktree add --detach /tmp/rustqr-wp005-main main
+git worktree add --detach /tmp/rustqr-wp005-rebuild scratch_from_scratch_rebuild
+
+# In each throwaway worktree, copy the matching reviewed adapter to
+# src/bin/wp005_prediction_export.rs, then build and export the same slice.
+cd /tmp/rustqr-wp005-main
+cargo run --release --features tools --bin wp005_prediction_export -- \
+  --root benches/images/boofcv --limit 25 --timeout-ms 0 \
+  --commit-sha 5b9b41e --output /tmp/wp005_main_predictions.json
+
+cd /tmp/rustqr-wp005-rebuild
+cargo run --release --features tools --bin wp005_prediction_export -- \
+  --root benches/images/boofcv --limit 25 --timeout-ms 0 \
+  --commit-sha 295b97c --output /tmp/wp005_rebuild_predictions.json
+```
+
+Before normalization, verify that the two exports enumerate exactly the same
+`image_id` list and share dataset/preprocessing fingerprints. Produce a single
+truth manifest from that fixed list, normalize each stream independently, and
+only then use the v2 comparator. A successful adapter build/export proves
+serialization compatibility only; it is neither an accuracy comparison nor a
+latency claim.

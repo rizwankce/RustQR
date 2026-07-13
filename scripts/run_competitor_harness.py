@@ -167,10 +167,11 @@ def adapter_setup(adapter: str) -> dict[str, Any]:
     }
 
 
-def adapter_preflight(adapter: str, expected_version: str) -> dict[str, Any]:
+def adapter_preflight(adapter: str, record: dict[str, Any]) -> dict[str, Any]:
     """Record local runnable capability without asserting build provenance."""
     setup = adapter_setup(adapter)
     observed = observed_version(adapter)
+    expected_version = record["version"]
     expected = expected_version.removeprefix("v")
     version_matches = observed is not None and expected in observed
     capabilities: dict[str, Any] = {}
@@ -186,10 +187,17 @@ def adapter_preflight(adapter: str, expected_version: str) -> dict[str, Any]:
     elif adapter == "zbar" and setup["status"] == "available":
         help_text = command_output(["zbarimg", "--help"])
         capabilities = {"raw_payload_lines": help_text is not None and "--raw" in help_text}
+    command = setup.get("command", [])
+    runner = Path(command[0]) if command and "/" in command[0] else None
+    verified, verification_detail = verify_runner_provenance(
+        runner, record.get("runner_sha256"), version_matches
+    )
     if setup["status"] != "available":
         status = "missing_runner"
     elif not version_matches:
         status = "version_mismatch"
+    elif verified:
+        status = "verified_pinned_runner"
     else:
         # A system package/wheel can report the right version while differing
         # in build flags or origin.  Only a pinned build record can promote it
@@ -201,8 +209,25 @@ def adapter_preflight(adapter: str, expected_version: str) -> dict[str, Any]:
         "version_observed": observed,
         "setup": setup,
         "capabilities": capabilities,
-        "provenance_verified": False,
+        "provenance_verified": verified,
+        "provenance_verification_detail": verification_detail,
     }
+
+
+def verify_runner_provenance(
+    runner: Path | None, expected_sha256: str | None, version_matches: bool
+) -> tuple[bool, str | None]:
+    """Verify an explicitly locked local runner without inferring its origin."""
+    if not version_matches:
+        return False, "version does not match the lock"
+    if not expected_sha256:
+        return False, "lock has no runner_sha256"
+    if runner is None or not runner.is_file():
+        return False, "runner file is unavailable for hashing"
+    observed = sha256(runner)
+    if observed != expected_sha256:
+        return False, "runner_sha256 mismatch"
+    return True, None
 
 
 def preflight(lock_path: Path, adapters: list[str]) -> dict[str, Any]:
@@ -214,7 +239,7 @@ def preflight(lock_path: Path, adapters: list[str]) -> dict[str, Any]:
         "lock": {"path": str(lock_path), "sha256": sha256(lock_path)},
         "thread_environment": THREAD_ENVIRONMENT,
         "adapters": {
-            adapter: adapter_preflight(adapter, lock["adapters"][adapter]["version"])
+            adapter: adapter_preflight(adapter, lock["adapters"][adapter])
             for adapter in adapters
         },
         "comparison_claim": "none; availability and version are not pinned-build provenance",

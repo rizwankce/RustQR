@@ -1,6 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use crate::detector::finder::{FinderDetector, FinderScanTelemetry};
+use crate::detector::proposal::FinderProposalEvidence;
 use crate::models::BitMatrix;
 use crate::pipeline::{decode_groups, group_finder_patterns};
 use crate::utils::binarization::{adaptive_binarize, otsu_binarize};
@@ -45,6 +46,9 @@ pub struct PayloadScore {
 pub struct FinderGroupingEvaluation {
     /// Number of annotated QR symbols in the image.
     pub expected_symbols: usize,
+    /// Evidence aligned by index with the retained post-NMS proposal centres
+    /// used for grouping. This is diagnostic-only; it does not affect ranking.
+    pub proposal_evidence: Vec<FinderProposalEvidence>,
     /// Symbols containing at least three retained finder proposals.
     pub finder_hits: usize,
     /// Annotated symbols by the number of retained proposal centres they
@@ -172,6 +176,11 @@ pub fn evaluate_finder_and_grouping(
         .iter()
         .map(|proposal| proposal.pattern.clone())
         .collect();
+    let proposal_evidence = report
+        .proposals
+        .iter()
+        .map(|proposal| proposal.evidence)
+        .collect();
     let grouping_start = std::time::Instant::now();
     let groups = group_finder_patterns(&patterns);
     let grouping_latency_ms = grouping_start.elapsed().as_secs_f64() * 1_000.0;
@@ -229,6 +238,7 @@ pub fn evaluate_finder_and_grouping(
 
     FinderGroupingEvaluation {
         expected_symbols: expected.len(),
+        proposal_evidence,
         finder_hits,
         proposal_multiplicity,
         grouping_hits,
@@ -1008,6 +1018,17 @@ mod tests {
         assert_eq!(evaluation.grouping_hits, 1);
         assert_eq!(evaluation.finder_eligible_without_group, 0);
         assert_eq!(evaluation.contained_proposals, 3);
+        assert_eq!(
+            evaluation.proposal_evidence.len(),
+            evaluation.contained_proposals
+        );
+        assert!(
+            evaluation
+                .proposal_evidence
+                .iter()
+                .all(|evidence| (0.0..=1.0).contains(&evidence.horizontal_ratio)
+                    && (0.0..=1.0).contains(&evidence.vertical_ratio))
+        );
         assert_eq!(evaluation.spurious_proposals, 0);
         assert_eq!(evaluation.contained_groups, 1);
         assert_eq!(evaluation.duplicate_contained_groups, 0);

@@ -60,6 +60,16 @@ class CompetitorHarnessTests(unittest.TestCase):
     def test_thread_environment_is_explicitly_single_threaded(self):
         self.assertEqual(HARNESS.THREAD_ENVIRONMENT["OMP_NUM_THREADS"], "1")
 
+    def test_runner_digest_requires_version_and_exact_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = Path(directory) / "runner"
+            runner.write_bytes(b"pinned runner bytes")
+            digest = HARNESS.sha256(runner)
+            self.assertEqual(HARNESS.verify_runner_provenance(runner, digest, True), (True, None))
+            self.assertFalse(HARNESS.verify_runner_provenance(runner, digest, False)[0])
+            self.assertFalse(HARNESS.verify_runner_provenance(runner, "0" * 64, True)[0])
+            self.assertFalse(HARNESS.verify_runner_provenance(runner, None, True)[0])
+
     def test_preflight_never_claims_pinned_build_provenance(self):
         lock = SCRIPT.parents[1] / "competitors/lock.json"
         report = HARNESS.preflight(lock, ["zbar", "opencv"])

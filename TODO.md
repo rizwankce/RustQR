@@ -651,6 +651,20 @@ the current adapter/scorer handoff—not recall, latency, or any cross-branch
 comparison. The main/rebuild throwaway adapters and matched 25-image exports
 remain required.
 
+**2026-07-13 adapter portability audit:** The current `prediction-export`
+subcommand cannot be mechanically cherry-picked as-is: `main` needs
+original-dimension capture around its existing geometry-less loader, and the
+rebuild uses a separate hand-written CLI plus `payload`/`corners` fields
+instead of `content`/`position`. Both expose sufficient public `detect` data
+for temporary standalone exporter bins. The executable, branch-neutral setup
+is documented in `docs/wp005_prediction_stream.md`: create detached disposable
+worktrees at `main` `5b9b41e` and rebuild `295b97c`, add only a matching
+throwaway adapter bin, export the same 25-image 1024px slice with timeout zero,
+then verify image identity/fingerprints before one shared-truth normalization.
+No worktree was created or altered and no comparison was claimed. This removes
+the interface-discovery blocker; reviewed adapters and actual exports remain
+pending.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
