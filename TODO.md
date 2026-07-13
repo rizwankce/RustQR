@@ -1163,6 +1163,18 @@ cap. The controlled 1–100 scene evaluator retains 193/193 finder-stage
 symbols. This is a bounded measured gain, not a sufficient dense recall or
 latency improvement to complete WP-010.
 
+**2026-07-13 bounded contour-family proposal supplement:** A dense scan now
+runs one independent connected-component contour pass only after the primary
+and bounded ROI scan. A contour candidate must independently pass horizontal,
+vertical, and pitch evidence; it is appended after (not re-ranked ahead of)
+the primary proposal order, remains NMS-distinct, and the appended frontier is
+capped at 128. The QR_MAX_DIM=800 `lots` v6 artifact improves finder recall
+81→102/420 (24.29%) and grouping 77→87/420 (20.71%), with 189 raw/112 appended
+contour proposals, contained/spurious proposals 486/44, and 13.292ms proposal
+mean latency. Controlled 1–100 scenes retain 193/193 finder-stage symbols.
+This materially narrows the proposal gap but leaves 215 `lots` labels with no
+contained proposal and does not complete WP-010.
+
 Verified with:
 
 ```bash
@@ -1234,6 +1246,14 @@ rather than retained as dormant recovery work. The repeat probes stayed at
 0/3 and 0/1 with zero false positives. A category-level improvement needs
 sampling evidence that reaches the actual format-fail candidates, not a global
 footprint retry.
+
+**2026-07-13 tighter-footprint rejection:** A second decoder-only experiment
+ran one 0.72x footprint retry after a normal format-path miss. It was fully
+reverted: bright_spots remained 0/3 with zero false positives while attempts
+rose from 23 to 94 (393.66 ms baseline core; 756.34 ms repeat end-to-end), and
+glare remained 0/1 with zero false positives (52 attempts; 1,918.88 ms
+end-to-end). Neither probe produced a successful scale retry. This excludes a
+global tighter sampling retry as a bounded category fix.
 
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It
@@ -1395,6 +1415,14 @@ next task is per-candidate brightness-route diagnostics followed only by a
 time-capped strict sampling/geometry recovery that proves >=45/50, FP=0,
 duplicates=0, and <500 ms in the public evaluator. See
 `docs/wp012_raster_scenes.md`.
+
+**2026-07-13 release-build reproducibility check:** A transient 27/50,
+4.8-second result was traced to a stale `target/release/qrtool` binary and is
+invalid as source evidence. After `cargo build --release --features tools --bin
+qrtool`, the direct `density_050` check again returned 43/50 in 364.4408 ms
+with zero false positives, duplicates, or timeouts; the raw observation is
+`artifacts/wp012_dense50_rebuild_check.json`. Rebuild the release CLI before
+comparing any WP-012 artifact to source changes.
 
 **Acceptance criteria:**
 

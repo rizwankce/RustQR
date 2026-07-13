@@ -190,6 +190,8 @@ struct ProposalEvalStats {
     roi_rows_considered: usize,
     roi_columns_considered: usize,
     roi_raw_candidates: usize,
+    contour_raw_candidates: usize,
+    contour_appended_proposals: usize,
     proposal_ms: Vec<f64>,
     grouping_ms: Vec<f64>,
 }
@@ -219,6 +221,8 @@ impl ProposalEvalStats {
         self.roi_rows_considered += evaluation.scan_telemetry.roi_rows_considered;
         self.roi_columns_considered += evaluation.scan_telemetry.roi_columns_considered;
         self.roi_raw_candidates += evaluation.scan_telemetry.roi_raw_candidates;
+        self.contour_raw_candidates += evaluation.scan_telemetry.contour_raw_candidates;
+        self.contour_appended_proposals += evaluation.scan_telemetry.contour_appended_proposals;
         self.proposal_ms.push(evaluation.proposal_latency_ms);
         self.grouping_ms.push(evaluation.grouping_latency_ms);
     }
@@ -318,6 +322,10 @@ fn proposal_eval_cmd(
         stats.roi_raw_candidates,
     );
     println!(
+        "Dense contour-family raw/appended proposals: {}/{}",
+        stats.contour_raw_candidates, stats.contour_appended_proposals,
+    );
+    println!(
         "Proposal ms (mean/p50/p95): {:.3}/{:.3}/{:.3} | grouping: {:.3}/{:.3}/{:.3}",
         proposal_summary.0,
         proposal_summary.1,
@@ -329,8 +337,8 @@ fn proposal_eval_cmd(
     if let Some(path) = artifact_json {
         let artifact = format!(
             r#"{{
-  "schema_version": 4,
-  "evaluator": "finder-proposal-grouping-contained-centres-v4",
+  "schema_version": 6,
+  "evaluator": "finder-proposal-grouping-contained-centres-v6",
   "dataset": "{}",
   "dataset_fingerprint": "{}",
   "label_fingerprint": "{}",
@@ -350,6 +358,7 @@ fn proposal_eval_cmd(
   "raw_candidates": {},
   "proposals_after_nms": {},
   "roi_recovery": {{"windows": {}, "rows": {}, "columns": {}, "raw_candidates": {}}},
+  "contour_recovery": {{"raw_candidates": {}, "appended_proposals": {}}},
   "proposal_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}},
   "grouping_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}}
 }}
@@ -379,6 +388,8 @@ fn proposal_eval_cmd(
             stats.roi_rows_considered,
             stats.roi_columns_considered,
             stats.roi_raw_candidates,
+            stats.contour_raw_candidates,
+            stats.contour_appended_proposals,
             proposal_summary.0,
             proposal_summary.1,
             proposal_summary.2,

@@ -37,7 +37,7 @@ pub struct FinderProposal {
 }
 
 impl FinderProposal {
-    fn from_pattern(matrix: &BitMatrix, pattern: FinderPattern) -> Self {
+    pub(crate) fn from_pattern(matrix: &BitMatrix, pattern: FinderPattern) -> Self {
         let (horizontal_ratio, horizontal_pitch) = axis_evidence(matrix, &pattern.center, true);
         let (vertical_ratio, vertical_pitch) = axis_evidence(matrix, &pattern.center, false);
         let pitch_agreement = match (horizontal_pitch, vertical_pitch) {

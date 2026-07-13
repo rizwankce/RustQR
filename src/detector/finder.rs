@@ -1,5 +1,6 @@
 /// Finder pattern detection using 1:1:3:1:1 ratio scanning with early termination optimizations
 use crate::detector::connected_components::find_black_regions;
+use crate::detector::contour::ContourDetector;
 use crate::detector::proposal::{FinderProposal, rank_and_suppress};
 use crate::detector::pyramid::ImagePyramid;
 use crate::models::{BitMatrix, Point};
@@ -42,6 +43,10 @@ pub struct FinderScanTelemetry {
     pub roi_columns_considered: usize,
     /// Raw candidates contributed by the supplemental ROI pass before NMS.
     pub roi_raw_candidates: usize,
+    /// Contour-family observations admitted by the one-pass dense supplement.
+    pub contour_raw_candidates: usize,
+    /// Non-overlapping contour-family proposals retained after the fixed cap.
+    pub contour_appended_proposals: usize,
 }
 
 /// Result of the ranked finder-proposal stage.
@@ -104,13 +109,66 @@ impl FinderDetector {
             Self::recover_dense_roi_candidates(matrix, &candidates, &mut telemetry);
         candidates.extend(roi_candidates);
 
-        telemetry.raw_candidates = candidates.len();
-        let proposals = rank_and_suppress(matrix, candidates);
+        // Run a single independent detector family only for dense proposal
+        // fields. This has a fixed one-pass bound and gives marker evidence
+        // that scanline ratios can miss; shared NMS still prevents duplicate
+        // observations from widening the downstream frontier.
+        let contour_candidates = if candidates.len() >= 32 {
+            let candidates = ContourDetector::detect(matrix)
+                .into_iter()
+                .filter(|candidate| {
+                    let evidence = FinderProposal::from_pattern(matrix, candidate.clone()).evidence;
+                    evidence.horizontal_ratio >= 0.70
+                        && evidence.vertical_ratio >= 0.70
+                        && evidence.pitch_agreement >= 0.60
+                })
+                .collect::<Vec<_>>();
+            telemetry.contour_raw_candidates = candidates.len();
+            candidates
+        } else {
+            Vec::new()
+        };
+
+        telemetry.raw_candidates = candidates.len() + contour_candidates.len();
+        // Preserve the primary proposal order before appending secondary
+        // contour-family evidence. The dense grouping frontier is bounded and
+        // order-sensitive; re-ranking both families together could displace a
+        // previously valid scanline triple with a coarse contour observation.
+        let mut proposals = rank_and_suppress(matrix, candidates);
+        let contour_proposals = rank_and_suppress(matrix, contour_candidates);
+        telemetry.contour_appended_proposals =
+            Self::append_distinct_contour_proposals(&mut proposals, contour_proposals);
         telemetry.proposals_after_nms = proposals.len();
         FinderProposalReport {
             proposals,
             telemetry,
         }
+    }
+
+    fn append_distinct_contour_proposals(
+        proposals: &mut Vec<FinderProposal>,
+        contour_proposals: Vec<FinderProposal>,
+    ) -> usize {
+        const MAX_DENSE_CONTOUR_PROPOSALS: usize = 128;
+        let mut appended = 0;
+        for proposal in contour_proposals
+            .into_iter()
+            .take(MAX_DENSE_CONTOUR_PROPOSALS)
+        {
+            let duplicate = proposals.iter().any(|accepted| {
+                let radius = 2.5
+                    * proposal
+                        .pattern
+                        .module_size
+                        .max(accepted.pattern.module_size);
+                proposal.pattern.center.distance(&accepted.pattern.center) <= radius
+            });
+            if !duplicate {
+                appended += 1;
+                proposals.push(proposal);
+            }
+        }
+        appended
     }
 
     fn recover_dense_roi_candidates(
@@ -1268,6 +1326,24 @@ mod tests {
         assert!(telemetry.roi_rows_considered <= 12 * 216);
         assert!(telemetry.roi_columns_considered <= 12 * 216);
         assert_eq!(telemetry.roi_raw_candidates, 0);
+    }
+
+    #[test]
+    fn dense_contour_append_has_a_fixed_proposal_cap() {
+        let matrix = BitMatrix::new(4_000, 32);
+        let contour_proposals = (0..160)
+            .map(|index| {
+                FinderProposal::from_pattern(
+                    &matrix,
+                    FinderPattern::new(8.0 + index as f32 * 24.0, 16.0, 1.0),
+                )
+            })
+            .collect();
+        let mut proposals = Vec::new();
+        let appended =
+            FinderDetector::append_distinct_contour_proposals(&mut proposals, contour_proposals);
+        assert_eq!(appended, 128);
+        assert_eq!(proposals.len(), 128);
     }
 
     #[test]

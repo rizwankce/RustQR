@@ -37,6 +37,11 @@ Version 4 also records candidate-backed ROI recovery windows, rows, columns,
 and raw observations. Each image can select no more than twelve 192px windows;
 this keeps the exact-edge supplemental scan bounded and auditable.
 
+Version 6 additionally records the dense contour-family supplement. It runs
+only once after a dense scan, requires independent horizontal/vertical/pitch
+finder evidence, preserves the primary scanline proposal order, and appends at
+most 128 non-overlapping secondary proposals.
+
 Containment deliberately avoids deriving finder centres from an unknown QR
 version or orientation. It is a stage diagnostic, not an IoU localization
 metric and not a final-decode accuracy claim.
@@ -53,6 +58,7 @@ All runs used QR_MAX_DIM=800 and the checked-in BoofCV labels.
 | lots, ROI/spatial follow-up | 7 | 420 | 80/420 (19.05%) | 52/420 (12.38%) | 5.115/4.994/5.513 | 0.551/0.547/1.322 |
 | lots, current containment diagnostic (v2) | 7 | 420 | 80/420 (19.05%) | 76/420 (18.10%) | 5.277/5.174/5.579 | 6.904/7.483/16.651 |
 | lots, bounded ROI proposal recovery (v4) | 7 | 420 | 81/420 (19.29%) | 77/420 (18.33%) | 10.462/11.703/20.390 | 7.293/7.709/19.622 |
+| lots, bounded contour supplement (v6) | 7 | 420 | 102/420 (24.29%) | 87/420 (20.71%) | 13.292/19.349/21.577 | 6.736/9.434/14.554 |
 
 The fresh v3 `lots` run has the same 80 finder-stage-eligible and 76 grouped
 symbols, but makes the loss boundary explicit: **263/420 annotations have zero
@@ -72,6 +78,7 @@ The matching JSON artifacts are:
 - artifacts/wp010_proposal_grouping_eval_lots_roi_spatial_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_containment_v3_qrmax800.json
 - artifacts/wp010_proposal_grouping_eval_lots_roi_recovery_v4_qrmax800.json
+- artifacts/wp010_proposal_grouping_eval_lots_contour_recovery_v6_qrmax800.json
 
 ## Interpretation and remaining work
 
@@ -98,6 +105,15 @@ observations; the per-image cap is independently unit-tested. It retains all
 193/193 controlled dense symbols at the finder stage. The small gain and
 higher proposal latency mean this is evidence for a more selective future ROI
 proposal strategy, not acceptance completion.
+
+The v6 contour supplement is the first material proposal-stage improvement
+after the ROI experiment. Its 189 independently cross-checked raw contour
+observations yielded 112 appended, non-overlapping proposals across the seven
+`lots` images. Finder recall rose 81→102 and grouping recall 77→87, while
+spurious proposals rose only 41→44. It retains all 193 controlled dense
+symbols at the finder stage. The detector still has 215 symbols with zero
+contained proposals and is far from the full-corpus acceptance gate; this is
+bounded evidence, not a production recall claim.
 
 The remaining WP-010 implementation work is unchanged:
 

@@ -55,3 +55,10 @@ attempts and remained at bright_spots 0/3 and glare 0/1, with zero false
 positives. The candidate was reverted. This rules out retaining that global
 retry as a category fix; a future change must first demonstrate that its
 sampling predicate reaches the format-fail candidates.
+
+A second, tighter 0.72x-footprint retry was also tested after a normal
+format-path miss and then reverted. It left bright_spots at 0/3 with zero false
+positives but raised attempts from 23 to 94 (756.34 ms end-to-end); glare stayed
+at 0/1 with zero false positives (52 attempts; 1,918.88 ms end-to-end).
+Neither run had a successful scale retry. The extra bounded work therefore had
+no recall value and is not retained.
