@@ -62,3 +62,11 @@ positives but raised attempts from 23 to 94 (756.34 ms end-to-end); glare stayed
 at 0/1 with zero false positives (52 attempts; 1,918.88 ms end-to-end).
 Neither run had a successful scale retry. The extra bounded work therefore had
 no recall value and is not retained.
+
+The exact bright_spots/image001 trace at `QR_MAX_DIM=800` and a 2,500 ms
+cooperative deadline remained 0/3 with zero false positives/duplicates in
+463.25 ms end-to-end. Binarization, finder, grouping, and transform stages all
+succeeded, while `format_extracted` stayed zero across 23 bounded decode
+attempts. Saturation masking and confidence-guided RS erasures were never
+entered. The bounded failure is sampled-format extraction rather than proposal
+or grouping loss; the transient trace is `/tmp/wp011_bright_trace.json`.

@@ -110,20 +110,22 @@ comparison.
 
 ## Photographic gate scope (2026-07-13)
 
-`tests/decode_regression_tests.rs` now contains one strict, ignored
-photographic gate instead of warning-only pass cases:
+`tests/decode_regression_tests.rs` now contains two strict, ignored
+photographic gates instead of warning-only pass cases:
 
 ```sh
 cargo test --test decode_regression_tests \
-  monitor_image001_decodes_payload_and_localizes_label -- --ignored
+  --release --all-features -- --ignored
 ```
 
-It fixes the resize policy at an 800px maximum dimension and asserts the
-monitor fixture's raw/text payload, version, EC level, one expected result,
-and a one-to-one IoU >= 0.5 geometry match against its BoofCV label. The
-other historical image001 fixtures are not declared passing regressions: their
-labels establish expected counts (blurred 1, high-version 1, rotations 3,
-damaged 1, lots 60, nominal 2), while current known misses remain explicitly
-outside the strict acceptance set. The labels do not contain payloads, so a
-full photographic recall gate still needs independently sourced payload data
-as well as count and geometry assertions.
+They fix the resize policy at an 800px maximum dimension. The monitor fixture
+asserts its raw/text payload, version, EC level, one expected result, and a
+one-to-one IoU >= 0.5 geometry match against its BoofCV label. The close
+fixture asserts its independently observed raw/text payload, Model 2 version
+7, EC-L, one expected result, and the same one-to-one geometry condition with
+no false positives or duplicates. The other historical image001 fixtures are
+not declared passing regressions: their labels establish expected counts
+(blurred 1, high-version 1, rotations 3, damaged 1, lots 60, nominal 2), while
+current known misses remain explicitly outside the strict acceptance set. The
+labels do not contain payloads, so a full photographic recall gate still needs
+independently sourced payload data as well as count and geometry assertions.

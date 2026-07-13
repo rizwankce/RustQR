@@ -911,6 +911,16 @@ counts 1, 1, 3, 1, 60, and 2 respectively), not warning-only passing decoder
 tests. This creates one legitimate strict photographic regression but does not
 prove the packet-wide no-recall-loss acceptance criterion.
 
+**2026-07-13 second strict photographic gate:** Added the successful labeled
+`close/image002` fixture to the ignored release regression command. At the
+same fixed 800px Triangle resize it requires exactly one Model 2 version-7
+EC-L result, its stable raw/text payload, and one-to-one IoU >= 0.5
+localization against the BoofCV annotation, with no false positives or
+duplicates. The ignored release suite passes both strict gates. The known
+blurred, high-version, rotations, damaged, lots, and nominal shortfalls remain
+explicitly unresolved; this is stronger successful-case evidence, not a
+packet-wide recall-completion claim.
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
@@ -1264,6 +1274,15 @@ rose from 23 to 94 (393.66 ms baseline core; 756.34 ms repeat end-to-end), and
 glare remained 0/1 with zero false positives (52 attempts; 1,918.88 ms
 end-to-end). Neither probe produced a successful scale retry. This excludes a
 global tighter sampling retry as a bounded category fix.
+
+**2026-07-13 bright-spots format trace:** The exact `bright_spots/image001`
+probe at `QR_MAX_DIM=800` and a 2,500 ms cooperative deadline remained 0/3
+with zero false positives/duplicates in 463.25 ms end-to-end. Binarization,
+finder detection, grouping, and transform construction all succeeded, but
+`format_extracted` stayed zero across 23 bounded decode attempts. Saturation
+masking and confidence-guided RS erasures were never entered. The failure is
+therefore sampled-format extraction, not an upstream proposal miss; its trace
+is `/tmp/wp011_bright_trace.json`.
 
 **2026-07-13 bounded homography slice:** Grayscale decoding now refines the
 finder-derived transform against timing contrast and alignment residuals. It

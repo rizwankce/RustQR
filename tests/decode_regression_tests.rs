@@ -6,6 +6,8 @@
 //! localization contract.  Known no-decode cases are intentionally excluded
 //! rather than being represented by warning-only passing tests.
 
+#![cfg(feature = "tools")]
+
 use image::GenericImageView;
 use rust_qr::{
     ECLevel, Version, detect,
@@ -14,6 +16,8 @@ use rust_qr::{
 
 const MONITOR_IMAGE: &str = "benches/images/boofcv/monitor/image001.jpg";
 const MONITOR_LABEL: &str = "benches/images/boofcv/monitor/image001.txt";
+const CLOSE_IMAGE: &str = "benches/images/boofcv/close/image002.jpg";
+const CLOSE_LABEL: &str = "benches/images/boofcv/close/image002.txt";
 const MAX_DIMENSION: u32 = 800;
 const MINIMUM_IOU: f32 = 0.5;
 
@@ -84,6 +88,46 @@ fn monitor_image001_decodes_payload_and_localizes_label() {
     assert_eq!(
         score.true_positives, 1,
         "monitor symbol must localize at IoU >= {MINIMUM_IOU}"
+    );
+    assert_eq!(score.false_negatives, 0);
+    assert_eq!(score.false_positives, 0);
+    assert_eq!(score.duplicate_predictions, 0);
+}
+
+#[test]
+#[ignore = "slow real-image regression; run with cargo test --test decode_regression_tests -- --ignored"]
+fn close_image002_decodes_payload_and_localizes_label() {
+    let image = load_rgb_downscaled(CLOSE_IMAGE);
+    assert_eq!((image.width, image.height), (600, 800));
+    let labels = parse_localization_labels(CLOSE_LABEL).expect("close label is valid");
+    let expected = scale_quadrilaterals(
+        &labels.quadrilaterals,
+        (image.source_width, image.source_height),
+        (image.width, image.height),
+    );
+    assert_eq!(expected.len(), 1, "close fixture has one annotated symbol");
+
+    let codes = detect(&image.pixels, image.width, image.height);
+    assert_eq!(
+        codes.len(),
+        1,
+        "close fixture must not miss or duplicate its symbol"
+    );
+    let code = &codes[0];
+    let expected_payload = "ABC 123456789 ".repeat(14) + "ABC 123456789";
+    assert_eq!(code.data, expected_payload.as_bytes());
+    assert_eq!(code.content, expected_payload);
+    assert_eq!(code.version, Version::Model2(7));
+    assert_eq!(code.error_correction, ECLevel::L);
+
+    let predicted: Vec<Quadrilateral> = codes
+        .iter()
+        .map(|code| code.position.map(|point| [point.x, point.y]))
+        .collect();
+    let score = score_localizations(&expected, &predicted, MINIMUM_IOU);
+    assert_eq!(
+        score.true_positives, 1,
+        "close symbol must localize at IoU >= {MINIMUM_IOU}"
     );
     assert_eq!(score.false_negatives, 0);
     assert_eq!(score.false_positives, 0);
