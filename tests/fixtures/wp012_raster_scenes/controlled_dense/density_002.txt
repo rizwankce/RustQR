@@ -1,0 +1,4 @@
+# WP-012 controlled raster scene; quadrilaterals exclude quiet zones
+SETS
+36 36 141 36 141 141 36 141
+193 36 298 36 298 141 193 141

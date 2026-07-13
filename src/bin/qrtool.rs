@@ -578,6 +578,7 @@ fn reading_rate_cmd(options: ReadingRateOptions) {
         ("bright_spots", "Bright spots/glare"),
         ("brightness", "Various brightness levels"),
         ("close", "Close-up QR codes"),
+        ("controlled_dense", "Controlled dense multi-QR scenes"),
         ("curved", "Curved surface QR codes"),
         ("damaged", "Damaged QR codes"),
         ("glare", "Glare/light reflections"),

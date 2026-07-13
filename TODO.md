@@ -1125,7 +1125,7 @@ before/after evidence.
 
 ## WP-012: Dense multi-QR detection
 
-**Status:** In progress; first proposal-assignment and result-dedupe slice
+**Status:** In progress; controlled raster baseline exposes dense-scene gap
 
 **Goal:** Make the seven `lots` images and realistic dense scenes first-class,
 not edge cases.
@@ -1163,6 +1163,19 @@ The module-scaled grouping follow-up above also applies to dense raster scenes:
 large images no longer discard a valid local symbol solely for being rendered
 past a global coordinate limit. It is unit-level proposal/group evidence only,
 not the required controlled raster-scene throughput result.
+
+**2026-07-13 controlled raster baseline:** Added deterministic, labeled
+version-1 EC-M scenes at 1, 2, 5, 10, 25, 50, and 100 symbols (193 total),
+with a manifest that records the `python-qrcode==11.1.0` backend and pixel/
+label hashes. `scripts/evaluate_wp012_raster_scenes.py` evaluates every scene
+through the public `qrtool reading-rate` path. Its localization metric is
+IoU >= 0.5 maximum-cardinality bipartite geometry matching, so this is
+end-to-end result recall rather than a count-based claim. The native-resolution
+release baseline is 14/193 (7.25%) with zero false positives/duplicates and
+782.61 ms mean image runtime. The 50-symbol scene is 2/50 (4.00%) at
+3607.59 ms (13.86 symbols/s), far short of the 90%/<500 ms target. See
+`docs/wp012_raster_scenes.md` and
+`artifacts/wp012_controlled_dense_by_density_qrmax0.json`.
 
 **Acceptance criteria:**
 
