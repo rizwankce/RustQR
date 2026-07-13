@@ -3,6 +3,7 @@ use crate::detector::connected_components::find_black_regions;
 use crate::detector::proposal::{FinderProposal, rank_and_suppress};
 use crate::detector::pyramid::ImagePyramid;
 use crate::models::{BitMatrix, Point};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct FinderPattern {
@@ -32,6 +33,15 @@ pub struct FinderScanTelemetry {
     pub columns_skipped_low_edges: usize,
     pub raw_candidates: usize,
     pub proposals_after_nms: usize,
+    /// Candidate-backed dense windows selected for the bounded supplemental
+    /// proposal pass. Zero means the normal whole-image scan was sufficient.
+    pub roi_windows_considered: usize,
+    /// Rows scanned by the supplemental exact-edge ROI pass.
+    pub roi_rows_considered: usize,
+    /// Columns scanned by the supplemental exact-edge ROI pass.
+    pub roi_columns_considered: usize,
+    /// Raw candidates contributed by the supplemental ROI pass before NMS.
+    pub roi_raw_candidates: usize,
 }
 
 /// Result of the ranked finder-proposal stage.
@@ -84,6 +94,16 @@ impl FinderDetector {
             candidates.extend(col_candidates);
         }
 
+        // A dense raster can contain valid small finders on scanlines whose
+        // 4-pixel edge probe happens to miss their transitions. Do not rerun
+        // the entire raster with a costly exact gate: use the already observed
+        // raw candidates to select at most twelve 192px cells, then rescan only
+        // those cells with exact edge evidence. This is detector-only proposal
+        // recovery; it neither builds groups nor changes downstream routing.
+        let roi_candidates =
+            Self::recover_dense_roi_candidates(matrix, &candidates, &mut telemetry);
+        candidates.extend(roi_candidates);
+
         telemetry.raw_candidates = candidates.len();
         let proposals = rank_and_suppress(matrix, candidates);
         telemetry.proposals_after_nms = proposals.len();
@@ -91,6 +111,123 @@ impl FinderDetector {
             proposals,
             telemetry,
         }
+    }
+
+    fn recover_dense_roi_candidates(
+        matrix: &BitMatrix,
+        primary: &[FinderPattern],
+        telemetry: &mut FinderScanTelemetry,
+    ) -> Vec<FinderPattern> {
+        const DENSE_TRIGGER_CANDIDATES: usize = 32;
+        const ROI_SIDE: usize = 192;
+        const ROI_MARGIN: usize = 12;
+        const MAX_ROI_WINDOWS: usize = 12;
+
+        if matrix.width() < ROI_SIDE
+            || matrix.height() < ROI_SIDE
+            || primary.len() < DENSE_TRIGGER_CANDIDATES
+        {
+            return Vec::new();
+        }
+
+        let mut cells = BTreeMap::<(usize, usize), usize>::new();
+        for pattern in primary {
+            let x = pattern.center.x.max(0.0) as usize / ROI_SIDE;
+            let y = pattern.center.y.max(0.0) as usize / ROI_SIDE;
+            *cells.entry((x, y)).or_default() += 1;
+        }
+        let mut cells: Vec<_> = cells.into_iter().collect();
+        cells.sort_by(|(left_cell, left_count), (right_cell, right_count)| {
+            right_count
+                .cmp(left_count)
+                .then_with(|| left_cell.cmp(right_cell))
+        });
+
+        let mut recovered = Vec::new();
+        for ((cell_x, cell_y), _) in cells.into_iter().take(MAX_ROI_WINDOWS) {
+            let min_x = cell_x.saturating_mul(ROI_SIDE).saturating_sub(ROI_MARGIN);
+            let min_y = cell_y.saturating_mul(ROI_SIDE).saturating_sub(ROI_MARGIN);
+            let max_x = ((cell_x + 1) * ROI_SIDE + ROI_MARGIN).min(matrix.width() - 1);
+            let max_y = ((cell_y + 1) * ROI_SIDE + ROI_MARGIN).min(matrix.height() - 1);
+            telemetry.roi_windows_considered += 1;
+
+            for y in min_y..=max_y {
+                telemetry.roi_rows_considered += 1;
+                if !Self::has_significant_edges_in_row_range(matrix, y, min_x, max_x) {
+                    continue;
+                }
+                recovered.extend(Self::scan_row_in_range(
+                    matrix,
+                    y,
+                    matrix.width(),
+                    min_x,
+                    max_x,
+                ));
+            }
+            for x in min_x..=max_x {
+                telemetry.roi_columns_considered += 1;
+                if !Self::has_significant_edges_in_column_range(matrix, x, min_y, max_y) {
+                    continue;
+                }
+                recovered.extend(Self::scan_column_in_range(
+                    matrix,
+                    x,
+                    matrix.height(),
+                    min_y,
+                    max_y,
+                ));
+            }
+        }
+        telemetry.roi_raw_candidates = recovered.len();
+        recovered
+    }
+
+    fn has_significant_edges_in_row_range(
+        matrix: &BitMatrix,
+        y: usize,
+        min_x: usize,
+        max_x: usize,
+    ) -> bool {
+        if min_x >= max_x || y >= matrix.height() {
+            return false;
+        }
+        let mut transitions = 0;
+        let mut previous = matrix.get(min_x, y);
+        for x in (min_x + 1)..=max_x.min(matrix.width() - 1) {
+            let color = matrix.get(x, y);
+            if color != previous {
+                transitions += 1;
+                previous = color;
+                if transitions >= 2 {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn has_significant_edges_in_column_range(
+        matrix: &BitMatrix,
+        x: usize,
+        min_y: usize,
+        max_y: usize,
+    ) -> bool {
+        if min_y >= max_y || x >= matrix.width() {
+            return false;
+        }
+        let mut transitions = 0;
+        let mut previous = matrix.get(x, min_y);
+        for y in (min_y + 1)..=max_y.min(matrix.height() - 1) {
+            let color = matrix.get(x, y);
+            if color != previous {
+                transitions += 1;
+                previous = color;
+                if transitions >= 2 {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Detect finder patterns using parallel processing
@@ -1107,6 +1244,30 @@ mod tests {
         );
         assert!(report.proposals[0].evidence.horizontal_ratio > 0.5);
         assert!(report.proposals[0].evidence.vertical_ratio > 0.5);
+    }
+
+    #[test]
+    fn dense_roi_recovery_has_a_fixed_scan_budget() {
+        let matrix = BitMatrix::new(1_000, 1_000);
+        let primary = (0..48)
+            .map(|index| {
+                FinderPattern::new(
+                    16.0 + (index % 8) as f32 * 120.0,
+                    16.0 + (index / 8) as f32 * 120.0,
+                    2.0,
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut telemetry = FinderScanTelemetry::default();
+        let recovered =
+            FinderDetector::recover_dense_roi_candidates(&matrix, &primary, &mut telemetry);
+        assert!(recovered.is_empty());
+        assert!(telemetry.roi_windows_considered <= 12);
+        // Each window adds at most its 192px cell plus the 12px margin on
+        // either side. This stays bounded even when every cell is candidate-rich.
+        assert!(telemetry.roi_rows_considered <= 12 * 216);
+        assert!(telemetry.roi_columns_considered <= 12 * 216);
+        assert_eq!(telemetry.roi_raw_candidates, 0);
     }
 
     #[test]

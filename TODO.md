@@ -621,6 +621,21 @@ slices from both.
   running either local or Actions comparisons; historical v1 results remain
   diagnostic only.
 
+**2026-07-13 adapter-contract groundwork:** Added the external throwaway
+`rustqr.wp005.prediction-stream.v1` contract and
+`scripts/normalize_wp005_prediction_stream.py`. A branch adapter must export
+per-image identity, original/working dimensions, every original-coordinate
+prediction quadrilateral, optional payloads, core/end-to-end times, timeout,
+and matching dataset/preprocessing fingerprints; one shared truth manifest
+provides the labels and label fingerprint. The normalizer validates coverage,
+dimensions, and fingerprints, then applies the current v2
+`quad-iou=0.5;matching=max-cardinality` score and emits compatible v2 summary
+and category fields including false positives, false negatives, duplicates,
+and timeouts. Synthetic parser tests cover duplicate/timeout scoring and
+dimension rejection. No `main`, rebuild, or current all-branch stream exists
+yet, so this is contract/tooling preparation only—not a normalized comparison,
+an accuracy result, or a latency claim. See `docs/wp005_prediction_stream.md`.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
@@ -868,6 +883,19 @@ evidence rather than proof of recall preservation. WP-007 cannot be marked
 complete until a measured latency threshold and payload/count-asserting
 photographic recall gate exist and pass.
 
+**2026-07-13 photographic regression strengthening:** Replaced the seven
+warning-only ignored image tests with a strict, label-backed
+`monitor_image001_decodes_payload_and_localizes_label` gate. At a fixed 800px
+maximum dimension it requires exactly one result, raw/text payload
+`4376471154038`, Model 2 version 1, EC-L, and one-to-one localization at IoU
+>= 0.5 against the checked-in BoofCV annotation, with no false positives or
+duplicates. BoofCV provides geometry/count labels but no payload labels, so
+the remaining blurred, high-version, rotations, damaged, lots, and nominal
+fixtures are retained as explicitly unresolved label-validated scope (expected
+counts 1, 1, 3, 1, 60, and 2 respectively), not warning-only passing decoder
+tests. This creates one legitimate strict photographic regression but does not
+prove the packet-wide no-recall-loss acceptance criterion.
+
 ---
 
 ## WP-008: Introduce request-scoped configuration and diagnostics
@@ -1098,6 +1126,18 @@ three-centre symbols fail to group. Proposal loss therefore explains 340 of
 344 stage misses and establishes raster ROI proposal recovery—not more global
 group tuning—as the next measured slice. This does not alter candidate routing
 or claim an acceptance improvement.
+
+**2026-07-13 bounded ROI proposal-recovery experiment:** Dense images with at
+least 32 raw finder observations now choose at most twelve candidate-populated
+192px cells and rescan only those cells with an exact edge gate. On `lots` at
+`QR_MAX_DIM=800`, this improves finder/group recall from 80/420 and 76/420 to
+81/420 (19.29%) and 77/420 (18.33%), raises contained proposals 376→377, and
+does not add spurious proposals (41). The v4 artifact records 48 windows,
+9,874 row scans, 10,284 column scans, and 790 supplemental observations over
+seven images; a unit test proves the 12-window/216-row-or-column-per-window
+cap. The controlled 1–100 scene evaluator retains 193/193 finder-stage
+symbols. This is a bounded measured gain, not a sufficient dense recall or
+latency improvement to complete WP-010.
 
 Verified with:
 

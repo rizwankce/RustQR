@@ -161,6 +161,10 @@ struct ProposalEvalStats {
     duplicate_contained_groups: usize,
     raw_candidates: usize,
     proposals_after_nms: usize,
+    roi_windows_considered: usize,
+    roi_rows_considered: usize,
+    roi_columns_considered: usize,
+    roi_raw_candidates: usize,
     proposal_ms: Vec<f64>,
     grouping_ms: Vec<f64>,
 }
@@ -186,6 +190,10 @@ impl ProposalEvalStats {
         self.duplicate_contained_groups += evaluation.duplicate_contained_groups;
         self.raw_candidates += evaluation.scan_telemetry.raw_candidates;
         self.proposals_after_nms += evaluation.scan_telemetry.proposals_after_nms;
+        self.roi_windows_considered += evaluation.scan_telemetry.roi_windows_considered;
+        self.roi_rows_considered += evaluation.scan_telemetry.roi_rows_considered;
+        self.roi_columns_considered += evaluation.scan_telemetry.roi_columns_considered;
+        self.roi_raw_candidates += evaluation.scan_telemetry.roi_raw_candidates;
         self.proposal_ms.push(evaluation.proposal_latency_ms);
         self.grouping_ms.push(evaluation.grouping_latency_ms);
     }
@@ -278,6 +286,13 @@ fn proposal_eval_cmd(
         stats.raw_candidates, stats.proposals_after_nms,
     );
     println!(
+        "ROI recovery windows/rows/columns/raw: {}/{}/{}/{}",
+        stats.roi_windows_considered,
+        stats.roi_rows_considered,
+        stats.roi_columns_considered,
+        stats.roi_raw_candidates,
+    );
+    println!(
         "Proposal ms (mean/p50/p95): {:.3}/{:.3}/{:.3} | grouping: {:.3}/{:.3}/{:.3}",
         proposal_summary.0,
         proposal_summary.1,
@@ -289,8 +304,8 @@ fn proposal_eval_cmd(
     if let Some(path) = artifact_json {
         let artifact = format!(
             r#"{{
-  "schema_version": 3,
-  "evaluator": "finder-proposal-grouping-contained-centres-v3",
+  "schema_version": 4,
+  "evaluator": "finder-proposal-grouping-contained-centres-v4",
   "dataset": "{}",
   "dataset_fingerprint": "{}",
   "label_fingerprint": "{}",
@@ -309,6 +324,7 @@ fn proposal_eval_cmd(
   "duplicate_contained_groups": {},
   "raw_candidates": {},
   "proposals_after_nms": {},
+  "roi_recovery": {{"windows": {}, "rows": {}, "columns": {}, "raw_candidates": {}}},
   "proposal_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}},
   "grouping_latency_ms": {{"mean": {:.6}, "p50": {:.6}, "p95": {:.6}}}
 }}
@@ -334,6 +350,10 @@ fn proposal_eval_cmd(
             stats.duplicate_contained_groups,
             stats.raw_candidates,
             stats.proposals_after_nms,
+            stats.roi_windows_considered,
+            stats.roi_rows_considered,
+            stats.roi_columns_considered,
+            stats.roi_raw_candidates,
             proposal_summary.0,
             proposal_summary.1,
             proposal_summary.2,
