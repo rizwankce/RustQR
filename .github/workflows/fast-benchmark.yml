@@ -62,23 +62,20 @@ jobs:
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ inputs.category }}" ]; then
             echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
-            # Run each category separately
             for CAT in $(echo "${{ inputs.category }}" | tr ',' '\n'); do
-              echo "Running: $CAT" >> $GITHUB_STEP_SUMMARY
+              PROFILE="boofcv-$(echo "$CAT" | tr '_' '-')"
+              echo "Running historical profile: $PROFILE" >> $GITHUB_STEP_SUMMARY
               cargo run --features tools --bin qrtool --release -- \
-                reading-rate \
-                --non-interactive \
-                --category "$CAT" \
-                --artifact-json "reading_rate_${CAT}.json" \
+                reading-rate --profile "$PROFILE" --limit "${{ inputs.bench_limit }}" \
+                --max-working-dim 1024 --artifact "reading_rate_${CAT}.json" \
                 2>&1 | tee "reading_rate_${CAT}.txt"
               echo "---" >> $GITHUB_STEP_SUMMARY
             done
           else
-            echo "Category: all" >> $GITHUB_STEP_SUMMARY
+            echo "Profile: boofcv-all" >> $GITHUB_STEP_SUMMARY
             cargo run --features tools --bin qrtool --release -- \
-              reading-rate \
-              --non-interactive \
-              --artifact-json "reading_rate_linux.json" \
+              reading-rate --profile boofcv-all --limit "${{ inputs.bench_limit }}" \
+              --max-working-dim 1024 --artifact "reading_rate_linux.json" \
               2>&1 | tee "reading_rate_linux.txt"
             cat "reading_rate_linux.txt" >> $GITHUB_STEP_SUMMARY
           fi
@@ -128,23 +125,20 @@ jobs:
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ inputs.category }}" ]; then
             echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
-            # Run each category separately
             for CAT in $(echo "${{ inputs.category }}" | tr ',' '\n'); do
-              echo "Running: $CAT" >> $GITHUB_STEP_SUMMARY
+              PROFILE="boofcv-$(echo "$CAT" | tr '_' '-')"
+              echo "Running historical profile: $PROFILE" >> $GITHUB_STEP_SUMMARY
               cargo run --features tools --bin qrtool --release -- \
-                reading-rate \
-                --non-interactive \
-                --category "$CAT" \
-                --artifact-json "reading_rate_${CAT}.json" \
+                reading-rate --profile "$PROFILE" --limit "${{ inputs.bench_limit }}" \
+                --max-working-dim 1024 --artifact "reading_rate_${CAT}.json" \
                 2>&1 | tee "reading_rate_${CAT}.txt"
               echo "---" >> $GITHUB_STEP_SUMMARY
             done
           else
-            echo "Category: all" >> $GITHUB_STEP_SUMMARY
+            echo "Profile: boofcv-all" >> $GITHUB_STEP_SUMMARY
             cargo run --features tools --bin qrtool --release -- \
-              reading-rate \
-              --non-interactive \
-              --artifact-json "reading_rate_macos.json" \
+              reading-rate --profile boofcv-all --limit "${{ inputs.bench_limit }}" \
+              --max-working-dim 1024 --artifact "reading_rate_macos.json" \
               2>&1 | tee "reading_rate_macos.txt"
             cat "reading_rate_macos.txt" >> $GITHUB_STEP_SUMMARY
           fi
@@ -194,23 +188,20 @@ jobs:
           echo "Limit: \`${{ inputs.bench_limit }}\`" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ inputs.category }}" ]; then
             echo "Category: \`${{ inputs.category }}\`" >> $GITHUB_STEP_SUMMARY
-            # Run each category separately
             for CAT in $(echo "${{ inputs.category }}" | tr ',' '\n'); do
-              echo "Running: $CAT" >> $GITHUB_STEP_SUMMARY
+              PROFILE="boofcv-$(echo "$CAT" | tr '_' '-')"
+              echo "Running historical profile: $PROFILE" >> $GITHUB_STEP_SUMMARY
               cargo run --features tools --bin qrtool --release -- \
-                reading-rate \
-                --non-interactive \
-                --category "$CAT" \
-                --artifact-json "reading_rate_${CAT}.json" \
+                reading-rate --profile "$PROFILE" --limit "${{ inputs.bench_limit }}" \
+                --max-working-dim 1024 --artifact "reading_rate_${CAT}.json" \
                 2>&1 | tee "reading_rate_${CAT}.txt"
               echo "---" >> $GITHUB_STEP_SUMMARY
             done
           else
-            echo "Category: all" >> $GITHUB_STEP_SUMMARY
+            echo "Profile: boofcv-all" >> $GITHUB_STEP_SUMMARY
             cargo run --features tools --bin qrtool --release -- \
-              reading-rate \
-              --non-interactive \
-              --artifact-json "reading_rate_windows.json" \
+              reading-rate --profile boofcv-all --limit "${{ inputs.bench_limit }}" \
+              --max-working-dim 1024 --artifact "reading_rate_windows.json" \
               2>&1 | tee "reading_rate_windows.txt"
             cat "reading_rate_windows.txt" >> $GITHUB_STEP_SUMMARY
           fi
