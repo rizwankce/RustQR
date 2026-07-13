@@ -1,7 +1,7 @@
 {
   "schema_version": "rustqr.negative-corpus.v1",
   "license": "MIT OR Apache-2.0",
-  "source": "Self-authored deterministic raster generators in tests/negative_image_corpus_tests.rs; no third-party image material is included.",
+  "source": "Self-authored deterministic raster generators in tests/negative_image_corpus_tests.rs; no third-party image material is included. The corpus contains source-generated approximations only, not photographs, screenshots, packaging, or valid non-QR barcode samples.",
   "cases": [
     {"id": "block_text", "kind": "block_text", "width": 256, "height": 256},
     {"id": "checkerboard", "kind": "checkerboard", "width": 256, "height": 256},
@@ -11,6 +11,10 @@
     {"id": "aztec_like", "kind": "aztec_like", "width": 256, "height": 256},
     {"id": "linear_barcode", "kind": "linear_barcode", "width": 256, "height": 256},
     {"id": "finder_like_graphics", "kind": "finder_like_graphics", "width": 256, "height": 256},
-    {"id": "seeded_noise", "kind": "seeded_noise", "width": 256, "height": 256}
+    {"id": "seeded_noise", "kind": "seeded_noise", "width": 256, "height": 256},
+    {"id": "halftone_dots", "kind": "halftone_dots", "width": 128, "height": 128},
+    {"id": "moire_stripes", "kind": "moire_stripes", "width": 128, "height": 128},
+    {"id": "finder_triplet_broken_timing", "kind": "finder_triplet_broken_timing", "width": 128, "height": 128},
+    {"id": "nested_square_texture", "kind": "nested_square_texture", "width": 128, "height": 128}
   ]
 }

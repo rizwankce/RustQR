@@ -603,6 +603,24 @@ slices from both.
   same targeted categories and Fast Benchmark configuration at 1024 px before
   accepting any slice. The ADR contains the slice-by-slice rollback sequence.
 
+**Normalization audit (2026-07-13):**
+
+- Re-inspected `main`, `scratch_from_scratch_rebuild` (`295b97c`), the current
+  `qrtool`, and the Fast Benchmark workflow. The rebuild retains image-space
+  corners internally, but its CLI artifact records only image-level match
+  booleans and runtime. Its `wp007-reading-rate-v1` evaluator treats a BoofCV
+  annotation image as a success if any code is returned; it cannot be
+  retrospectively converted to one-to-one localization, false-positive, or
+  duplicate metrics. `main` likewise does not emit v2 artifacts.
+- No fresh benchmark claim was made. The ADR now names the required throwaway
+  adapters, exact prediction-stream fields, seven-category local sequence,
+  comparator artifacts, and the matched macOS Fast Benchmark dispatch. This
+  is a source/contract audit, not the required normalized comparison itself.
+- WP-005 remains **Direction decided; normalized cross-branch v2 benchmark
+  pending**. The next implementation must produce adapter artifacts before
+  running either local or Actions comparisons; historical v1 results remain
+  diagnostic only.
+
 ---
 
 ## WP-006: Build an ISO conformance and differential corpus
@@ -949,15 +967,16 @@ be compiled locally because this environment cannot resolve `index.crates.io`
 for `libfuzzer-sys`; the workflow is the first networked validation.
 
 **2026-07-13 synthetic negative baseline:** Added the self-authored,
-deterministic nine-image corpus in `tests/negative_corpus/manifest.json` and
+deterministic thirteen-image corpus in `tests/negative_corpus/manifest.json` and
 its source renderer/test in `tests/negative_image_corpus_tests.rs`. It covers
 synthetic block text, checkerboard, package-panel, screen-grid,
-Data-Matrix-like, Aztec-like, linear-barcode-like, finder-like, and seeded-noise
-patterns; it does not claim external photographs, screenshots, packaging, or
-valid examples of those barcode formats. The public grayscale API evaluator
-reported 0 positive images and 0 false-positive detections across 589,824
-pixels (0.589824 MP): 0.0 false positives/image and 0.0 false
-positives/megapixel. Reproduce it with
+Data-Matrix-like, Aztec-like, linear-barcode-like, finder-like, seeded-noise,
+halftone, moire-like, nested-square, and QR-corner finder-triplet-with-broken-
+timing patterns; it does not claim external photographs, screenshots, packaging,
+or valid examples of those barcode formats. The expanded corpus has 655,360
+pixels (0.655360 MP); the four added patterns each have focused zero-detection
+public-API regressions. The public grayscale API evaluator reports aggregate
+false-positive rates; reproduce it with
 `python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json`.
 This is a reproducible synthetic baseline, not a production FPR budget: the
 broader licensed, annotated corpus and agreed budget remain required.
@@ -1315,9 +1334,12 @@ likewise labelled as non-localization/non-payload accuracy.
 
 Local setup evidence: OpenCV 4.12.0 was detected and decoded the one-image
 monitor smoke lane; locally installed ZBar 0.23.93 was detected but returned
-no decode for that image. ZXing-C++, quirc, BoofCV, and rqrr wrappers are
-recorded as unavailable until their pinned builds are placed in
-`competitors/bin/`. Passed:
+no decode for that image. A fresh six-adapter smoke artifact
+(`artifacts/competitors/wp013-local-smoke-2026-07-13.json`) records the exact
+missing pinned build outputs: `ZXingReader`, `quirc_decode`,
+`boofcv_decode.jar`, and `rqrr_decode` under `competitors/bin/`. The harness
+records each adapter's setup state and passes an explicit one-thread
+OpenMP/BLAS environment to every child process. Passed:
 
 ```bash
 python3 -m unittest scripts/tests/test_run_competitor_harness.py

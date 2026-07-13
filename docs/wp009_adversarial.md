@@ -20,8 +20,8 @@ limits of its false-positive measurements.
 
 ## Deterministic negative-image corpus
 
-`tests/negative_corpus/manifest.json` declares a nine-image, 256 by 256 pixel
-synthetic corpus. Its images are rendered deterministically by
+`tests/negative_corpus/manifest.json` declares a thirteen-image synthetic
+corpus (256 by 256 or 128 by 128 pixels). Its images are rendered deterministically by
 `tests/negative_image_corpus_tests.rs`, which is the corpus asset: no opaque
 binary image or third-party material is included. The manifest and renderer are
 licensed `MIT OR Apache-2.0` and self-authored by this repository.
@@ -33,6 +33,9 @@ The current generators cover these *synthetic approximations*:
   linear-barcode-like bars;
 - isolated finder-like targets with inconsistent placement; and
 - seeded black/white noise.
+- source-generated halftone dots, crossed moire-like stripes, inconsistent
+  nested square rings, and a QR-corner finder triplet with intentionally broken
+  timing/data structure.
 
 They do **not** claim to be photographs, screenshots, commercial packaging, or
 valid Data Matrix/Aztec/barcode examples. Those external categories still need
@@ -40,8 +43,12 @@ appropriately licensed, annotated material before a production false-positive
 budget can be accepted.
 
 The evaluator runs the public grayscale image API and counts every returned QR
-object as a false-positive detection. On the recorded local run it processed 9
-images / 589,824 pixels (0.589824 megapixels) and observed:
+object as a false-positive detection. The expanded corpus contains 655,360
+pixels (0.655360 megapixels). The four added adversarial cases each have a
+focused public-API regression asserting zero detections; the full evaluator is
+the authoritative command for emitting the aggregate JSON report. The corpus
+is deliberately synthetic, so these metrics are bounded to the thirteen
+generated images rather than an estimate of production FPR.
 
 | Metric | Result |
 | --- | ---: |

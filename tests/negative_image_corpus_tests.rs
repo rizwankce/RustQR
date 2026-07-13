@@ -178,6 +178,61 @@ fn render(case: &CorpusCase) -> Vec<u8> {
                 *value = if seeded_bit(&mut state) { 0 } else { 255 };
             }
         }
+        "halftone_dots" => {
+            // A regular printed-halftone-like texture. The varying dot size
+            // creates repeated square edges without borrowing a photograph.
+            for gy in (12..h - 12).step_by(15) {
+                for gx in (12..w - 12).step_by(15) {
+                    let radius = 2 + ((gx / 15 + gy / 15 * 3) % 5);
+                    fill_rect(
+                        &mut image,
+                        w,
+                        gx.saturating_sub(radius),
+                        gy.saturating_sub(radius),
+                        radius * 2 + 1,
+                        radius * 2 + 1,
+                    );
+                }
+            }
+        }
+        "moire_stripes" => {
+            // Two non-QR periodic line fields approximate interference from
+            // resampled screen/print content, while staying source-generated.
+            for y in 0..h {
+                for x in 0..w {
+                    let diagonal = (x + 2 * y) % 19 < 3;
+                    let vertical = x % 23 < 3;
+                    if diagonal || vertical {
+                        image[y * w + x] = 0;
+                    }
+                }
+            }
+        }
+        "finder_triplet_broken_timing" => {
+            // Near-QR corner geometry, but the three target scales disagree
+            // and the sparse timing strokes break at different intervals. It
+            // exercises finder grouping without constructing a costly, valid-
+            // looking matrix that would be inappropriate for a bounded test.
+            draw_finder_like(&mut image, w, 13, 13, 3);
+            draw_finder_like(&mut image, w, w - 16 - 7 * 3, 16, 3);
+            draw_finder_like(&mut image, w, 17, h - 17 - 7 * 4, 4);
+            for x in (40..88).step_by(11) {
+                fill_rect(&mut image, w, x, 37, 4, 2);
+            }
+            for y in (42..82).step_by(13) {
+                fill_rect(&mut image, w, 37, y, 2, 4);
+            }
+        }
+        "nested_square_texture" => {
+            // Multiple off-centre square rings have inconsistent spacing,
+            // centres, and line widths, unlike a valid Aztec target.
+            for (cx, cy, half, line) in [(46, 56, 35, 2), (70, 55, 25, 3), (58, 73, 14, 2)] {
+                fill_rect(&mut image, w, cx - half, cy - half, half * 2, line);
+                fill_rect(&mut image, w, cx - half, cy + half - line, half * 2, line);
+                fill_rect(&mut image, w, cx - half, cy - half, line, half * 2);
+                fill_rect(&mut image, w, cx + half - line, cy - half, line, half * 2);
+            }
+        }
         other => panic!("unknown negative corpus generator: {other}"),
     }
     image
@@ -236,4 +291,48 @@ fn corpus_manifest_has_unique_case_ids_and_known_renderers() {
     for case in &manifest.cases {
         assert_eq!(render(case).len(), case.width * case.height);
     }
+}
+
+fn assert_case_is_negative(id: &str) {
+    let manifest: CorpusManifest = serde_json::from_str(MANIFEST).expect("valid corpus manifest");
+    let case = manifest
+        .cases
+        .iter()
+        .find(|case| case.id == id)
+        .unwrap_or_else(|| panic!("missing negative corpus case {id}"));
+    let image = render(case);
+    let detections = try_detect(ImageInput::new(
+        &image,
+        case.width,
+        case.height,
+        PixelFormat::Grayscale,
+    ))
+    .expect("generated corpus image is a valid grayscale input");
+    assert!(
+        detections.is_empty(),
+        "negative corpus case {} ({}) unexpectedly returned {} detections",
+        case.id,
+        case.kind,
+        detections.len()
+    );
+}
+
+#[test]
+fn halftone_dots_are_not_qr() {
+    assert_case_is_negative("halftone_dots");
+}
+
+#[test]
+fn moire_stripes_are_not_qr() {
+    assert_case_is_negative("moire_stripes");
+}
+
+#[test]
+fn broken_finder_triplet_is_not_qr() {
+    assert_case_is_negative("finder_triplet_broken_timing");
+}
+
+#[test]
+fn nested_square_texture_is_not_qr() {
+    assert_case_is_negative("nested_square_texture");
 }
