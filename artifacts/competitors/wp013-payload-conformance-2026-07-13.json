@@ -1,15 +1,30 @@
 {
   "schema_version": "rustqr.competitor-payload-conformance.v1",
-  "scope": "verified competitor payload-only conformance; not RustQR latency or localization comparison",
+  "scope": "verified shared-PGM payload-only conformance; not localization or end-to-end latency comparison",
   "manifest": {
     "path": "conformance/manifest.json",
     "sha256": "5a065bfe25febd9a9285cb507bd22a85a2ff3d68ea27e42647b89fbff9e5f48c"
   },
   "lock": {
     "path": "competitors/lock.json",
-    "sha256": "c6ad3ba1bd1017fdd12bb1d335448e1f1a569989cb5bef3fffe061b3a970fd50"
+    "sha256": "5bc65b19d8f10ca575d355f874490d749762018c2f639c6af23643592b7b0004"
   },
   "runners": {
+    "rustqr": {
+      "status": "verified_pinned_runner",
+      "expected_version": "0.1.0",
+      "version_observed": "rust_qr 0.1.0",
+      "setup": {
+        "status": "available",
+        "command": [
+          "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/rustqr_pgm_decode",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "capabilities": {},
+      "provenance_verified": true,
+      "provenance_verification_detail": null
+    },
     "zbar": {
       "status": "verified_pinned_runner",
       "expected_version": "0.23.93",
@@ -54,6 +69,9 @@
     "v20-L-m0-byte"
   ],
   "summary": {
+    "rustqr": {
+      "exact_match": 6
+    },
     "zbar": {
       "exact_match": 6
     },
@@ -73,6 +91,19 @@
       ],
       "expected_payload_hex": "323034336163",
       "adapters": {
+        "rustqr": {
+          "status": "decoded",
+          "detail": null,
+          "payloads_hex": [
+            "323034336163"
+          ],
+          "metadata": [],
+          "metadata_status": "adapter_protocol_does_not_expose_metadata",
+          "raw_stdout_hex": "3230343361630a",
+          "raw_stderr_hex": "",
+          "latency_ms": 7.722125,
+          "payload_status": "exact_match"
+        },
         "zbar": {
           "status": "decoded",
           "detail": null,
@@ -83,7 +114,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3230343361630a",
           "raw_stderr_hex": "",
-          "latency_ms": 41.8025,
+          "latency_ms": 38.776791,
           "payload_status": "exact_match"
         },
         "quircs": {
@@ -96,7 +127,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3230343361630a",
           "raw_stderr_hex": "",
-          "latency_ms": 5.164709,
+          "latency_ms": 8.913584,
           "payload_status": "exact_match"
         }
       }
@@ -112,6 +143,19 @@
       ],
       "expected_payload_hex": "3730303036343533",
       "adapters": {
+        "rustqr": {
+          "status": "decoded",
+          "detail": null,
+          "payloads_hex": [
+            "3730303036343533"
+          ],
+          "metadata": [],
+          "metadata_status": "adapter_protocol_does_not_expose_metadata",
+          "raw_stdout_hex": "37303030363435330a",
+          "raw_stderr_hex": "",
+          "latency_ms": 18.926667,
+          "payload_status": "exact_match"
+        },
         "zbar": {
           "status": "decoded",
           "detail": null,
@@ -122,7 +166,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "37303030363435330a",
           "raw_stderr_hex": "",
-          "latency_ms": 25.175792,
+          "latency_ms": 32.223416,
           "payload_status": "exact_match"
         },
         "quircs": {
@@ -135,7 +179,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "37303030363435330a",
           "raw_stderr_hex": "",
-          "latency_ms": 5.705583,
+          "latency_ms": 5.483416,
           "payload_status": "exact_match"
         }
       }
@@ -151,6 +195,19 @@
       ],
       "expected_payload_hex": "522f394e4135",
       "adapters": {
+        "rustqr": {
+          "status": "decoded",
+          "detail": null,
+          "payloads_hex": [
+            "522f394e4135"
+          ],
+          "metadata": [],
+          "metadata_status": "adapter_protocol_does_not_expose_metadata",
+          "raw_stdout_hex": "522f394e41350a",
+          "raw_stderr_hex": "",
+          "latency_ms": 7.567042,
+          "payload_status": "exact_match"
+        },
         "zbar": {
           "status": "decoded",
           "detail": null,
@@ -161,7 +218,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "522f394e41350a",
           "raw_stderr_hex": "",
-          "latency_ms": 26.11575,
+          "latency_ms": 25.760292,
           "payload_status": "exact_match"
         },
         "quircs": {
@@ -174,7 +231,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "522f394e41350a",
           "raw_stderr_hex": "",
-          "latency_ms": 5.67975,
+          "latency_ms": 5.698625,
           "payload_status": "exact_match"
         }
       }
@@ -190,6 +247,19 @@
       ],
       "expected_payload_hex": "356666613366",
       "adapters": {
+        "rustqr": {
+          "status": "decoded",
+          "detail": null,
+          "payloads_hex": [
+            "356666613366"
+          ],
+          "metadata": [],
+          "metadata_status": "adapter_protocol_does_not_expose_metadata",
+          "raw_stdout_hex": "3566666133660a",
+          "raw_stderr_hex": "",
+          "latency_ms": 20.237292,
+          "payload_status": "exact_match"
+        },
         "zbar": {
           "status": "decoded",
           "detail": null,
@@ -200,7 +270,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3566666133660a",
           "raw_stderr_hex": "",
-          "latency_ms": 25.436375,
+          "latency_ms": 25.350917,
           "payload_status": "exact_match"
         },
         "quircs": {
@@ -213,7 +283,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3566666133660a",
           "raw_stderr_hex": "",
-          "latency_ms": 6.192708,
+          "latency_ms": 5.725333,
           "payload_status": "exact_match"
         }
       }
@@ -229,6 +299,19 @@
       ],
       "expected_payload_hex": "356465613332",
       "adapters": {
+        "rustqr": {
+          "status": "decoded",
+          "detail": null,
+          "payloads_hex": [
+            "356465613332"
+          ],
+          "metadata": [],
+          "metadata_status": "adapter_protocol_does_not_expose_metadata",
+          "raw_stdout_hex": "3564656133320a",
+          "raw_stderr_hex": "",
+          "latency_ms": 105.198875,
+          "payload_status": "exact_match"
+        },
         "zbar": {
           "status": "decoded",
           "detail": null,
@@ -239,7 +322,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3564656133320a",
           "raw_stderr_hex": "",
-          "latency_ms": 25.9,
+          "latency_ms": 26.979875,
           "payload_status": "exact_match"
         },
         "quircs": {
@@ -252,7 +335,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3564656133320a",
           "raw_stderr_hex": "",
-          "latency_ms": 6.735958,
+          "latency_ms": 6.232708,
           "payload_status": "exact_match"
         }
       }
@@ -268,6 +351,19 @@
       ],
       "expected_payload_hex": "363439643366",
       "adapters": {
+        "rustqr": {
+          "status": "decoded",
+          "detail": null,
+          "payloads_hex": [
+            "363439643366"
+          ],
+          "metadata": [],
+          "metadata_status": "adapter_protocol_does_not_expose_metadata",
+          "raw_stdout_hex": "3634396433660a",
+          "raw_stderr_hex": "",
+          "latency_ms": 443.183708,
+          "payload_status": "exact_match"
+        },
         "zbar": {
           "status": "decoded",
           "detail": null,
@@ -278,7 +374,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3634396433660a",
           "raw_stderr_hex": "",
-          "latency_ms": 35.839541,
+          "latency_ms": 34.280208,
           "payload_status": "exact_match"
         },
         "quircs": {
@@ -291,7 +387,7 @@
           "metadata_status": "adapter_protocol_does_not_expose_metadata",
           "raw_stdout_hex": "3634396433660a",
           "raw_stderr_hex": "",
-          "latency_ms": 7.985166,
+          "latency_ms": 7.807916,
           "payload_status": "exact_match"
         }
       }

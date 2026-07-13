@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Compare verified payload-only competitors on a small conformance subset.
 
-This is deliberately not a RustQR latency/localization comparison: ZBar and
-quircs expose payload lines only, and RustQR does not currently consume this
-shared-PGM runner protocol.  It supplies exact payload truth for two pinned
-competitor runners without inventing geometry metrics.
+This is deliberately not a localization or end-to-end latency comparison:
+every adapter exposes payload lines only. It supplies exact payload truth for
+the RustQR, ZBar, and quircs shared-PGM runners without inventing geometry.
 """
 
 from __future__ import annotations
@@ -78,9 +77,9 @@ def run(manifest_path: Path, lock_path: Path, selected: tuple[str, ...]) -> dict
         raise ValueError("unexpected conformance manifest schema")
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
     runners = {name: HARNESS.adapter_preflight(name, lock["adapters"][name])
-               for name in ("zbar", "quircs")}
+               for name in ("rustqr", "zbar", "quircs")}
     if any(row["status"] != "verified_pinned_runner" for row in runners.values()):
-        raise RuntimeError("payload conformance requires verified ZBar and quircs runners")
+        raise RuntimeError("payload conformance requires all verified shared-PGM runners")
     cases = select_cases(manifest, selected)
     rows = []
     with tempfile.TemporaryDirectory(prefix="rustqr-competitor-conformance-") as temporary:
@@ -104,7 +103,7 @@ def run(manifest_path: Path, lock_path: Path, selected: tuple[str, ...]) -> dict
                                           for row in rows).items())) for name in runners}
     return {
         "schema_version": SCHEMA,
-        "scope": "verified competitor payload-only conformance; not RustQR latency or localization comparison",
+        "scope": "verified shared-PGM payload-only conformance; not localization or end-to-end latency comparison",
         "manifest": {"path": str(manifest_path), "sha256": hashlib.sha256(manifest_bytes).hexdigest()},
         "lock": {"path": str(lock_path), "sha256": sha256(lock_path)},
         "runners": runners, "selected_case_ids": list(selected), "summary": summary, "cases": rows,

@@ -150,13 +150,15 @@ runner hash identifies the locally tested release artifact on this platform.
 
 ## Verified payload-only conformance subset
 
-`scripts/run_competitor_payload_conformance.py` materializes six fixed,
+`competitors/adapters/rustqr` is a source-controlled P5 adapter using
+`try_detect_with_options` and `ImageInput::new(..., PixelFormat::Grayscale)`
+from the public RustQR API. `scripts/run_competitor_payload_conformance.py` materializes six fixed,
 ASCII-safe generated cases from `conformance/manifest.json` once to the same
-1024px PGM contract and requires digest-verified ZBar and quircs runners. It
+1024px PGM contract and requires digest-verified RustQR, ZBar, and quircs runners. It
 checks each returned raw payload line against the manifest's exact payload hex
 and records source/matrix and materialized-pixel hashes. It deliberately has
-no RustQR timing or localization result: the two competitor CLIs do not expose
-geometry and RustQR does not currently use this shared-PGM runner protocol.
+no localization or end-to-end timing result: all three adapters expose payload
+lines only and the competitor CLIs do not expose geometry.
 
 ```sh
 python3 scripts/run_competitor_payload_conformance.py \

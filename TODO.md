@@ -1923,9 +1923,15 @@ fixed ASCII-safe generated conformance matrices with exact raw-payload truth,
 source hashes, and shared materialized-PGM hashes. Both SHA-pinned runners
 (ZBar 0.23.93 and quircs 0.10.3) returned the one expected payload line for
 all six cases. This is reproducible payload-only competitor evidence, not a
-RustQR accuracy/latency comparison or localization evidence: neither CLI
-reports quadrilaterals and RustQR is not yet an adapter on the shared-PGM
-timing boundary.
+localization evidence: neither competitor CLI reports quadrilaterals. At that
+point RustQR was not yet an adapter on the shared-PGM timing boundary; the
+following record supersedes that limitation for payload-only fixtures.
+
+**2026-07-13 RustQR shared-pixel adapter:** A source-controlled P5 adapter now
+uses RustQR's public `ImageInput`/`try_detect_with_options` API. The same six
+fixture PGM bytes produced exact payload matches from SHA-pinned RustQR 0.1.0,
+ZBar 0.23.93, and quircs 0.10.3 runners. This remains deterministic
+payload-only evidence, with no geometry or end-to-end latency claim.
 
 ---
 

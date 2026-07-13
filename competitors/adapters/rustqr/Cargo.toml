@@ -1,0 +1,8 @@
+[package]
+name = "rustqr_pgm_decode"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+rust_qr = { path = "../../.." }
