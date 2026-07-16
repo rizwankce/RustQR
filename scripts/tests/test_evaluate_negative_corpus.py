@@ -28,6 +28,9 @@ class ParseMetricsTests(unittest.TestCase):
             "WIKIMEDIA_BOOKSHELF_NEGATIVE_CORPUS_METRICS cases=1 pixels=135000 megapixels=0.135000 "
             "positive_images=0 timeout_images=0 false_positive_detections=0 fp_per_image=0.000000 "
             "fp_per_megapixel=0.000000\n"
+            "WIKIMEDIA_PACKAGING_NEGATIVE_CORPUS_METRICS cases=1 pixels=10668000 megapixels=10.668000 "
+            "positive_images=0 timeout_images=0 false_positive_detections=0 fp_per_image=0.000000 "
+            "fp_per_megapixel=0.000000\n"
         )
         reports = MODULE.parse_metrics(
             output,
@@ -37,6 +40,7 @@ class ParseMetricsTests(unittest.TestCase):
                 "zxing_cross_symbology_negative_corpus",
                 "wikimedia_commons_negative_corpus",
                 "wikimedia_bookshelf_negative_corpus",
+                "wikimedia_packaging_negative_corpus",
             },
         )
         self.assertEqual(
@@ -47,6 +51,7 @@ class ParseMetricsTests(unittest.TestCase):
                 "zxing_cross_symbology_negative_corpus",
                 "wikimedia_commons_negative_corpus",
                 "wikimedia_bookshelf_negative_corpus",
+                "wikimedia_packaging_negative_corpus",
             },
         )
         self.assertEqual(reports["negative_corpus"]["cases"], 9)
@@ -56,6 +61,7 @@ class ParseMetricsTests(unittest.TestCase):
         )
         self.assertEqual(reports["wikimedia_commons_negative_corpus"]["cases"], 1)
         self.assertEqual(reports["wikimedia_bookshelf_negative_corpus"]["cases"], 1)
+        self.assertEqual(reports["wikimedia_packaging_negative_corpus"]["cases"], 1)
 
     def test_rejects_missing_metric_line(self):
         with self.assertRaisesRegex(ValueError, "expected"):

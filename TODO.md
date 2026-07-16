@@ -1244,8 +1244,21 @@ The strict public-RGB release gate completed with zero detections/timeouts in
 0.35 s. It too times out in an unoptimized debug build, so it is included only
 in the ignored release qualification. `--include-wikimedia` now validates both
 Commons manifests and runs both release gates. These two assets cover screen
-and text categories only; packaging and an agreed production FPR budget remain
-open.
+and text categories; photographed packaging and an agreed production FPR budget
+remain open.
+
+**2026-07-16 Wikimedia packaging admission:** The unmodified `Packaging fragile
+items for delivery.jpg` original is now a separate CC-BY-2.0 photographed-
+packaging slice. Its manifest pins the permanent oldid, author (Meanwell
+Packaging), Commons source SHA-1, local SHA-256, dimensions (4000x2667), and
+manual visual zero-QR annotation; the source page records FlickrreviewR license
+confirmation. The strict public-RGB release gate completed with zero
+detections/timeouts in 1.23 s and a normal geometry rejection. Its debug run
+exceeded the cooperative deadline, so it is included only in the ignored
+release qualification. `--include-wikimedia` now verifies and qualifies all
+three Commons fixtures. This completes the initial screen/text/packaging
+category coverage, but it remains a three-image slice—not a representative
+production corpus or an agreed FPR budget.
 
 **2026-07-13 licensed ZXing corpus admission:** Vendored exactly 47 PNGs from
 the Apache-2.0 `zxing/zxing` commit

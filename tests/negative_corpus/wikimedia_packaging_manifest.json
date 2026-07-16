@@ -1,0 +1,26 @@
+{
+  "schema_version": "rustqr.external-negative-corpus.v1",
+  "name": "wikimedia-commons-negative-packaging-photo",
+  "source_repository": "https://commons.wikimedia.org",
+  "source_commit": "680020989",
+  "source_license": "CC-BY-2.0",
+  "license_file": "licenses/WIKIMEDIA-COMMONS-CC-BY-2.0.md",
+  "notice_file": "licenses/WIKIMEDIA-COMMONS-PACKAGING-NOTICE.md",
+  "reuse_declaration": "licenses/WIKIMEDIA-COMMONS-PACKAGING-REUSE-dep5",
+  "cases": [
+    {
+      "id": "wikimedia-packaging-fragile-items-for-delivery",
+      "local_path": "wikimedia_commons/packaging-fragile-items-for-delivery.jpg",
+      "source_path": "https://upload.wikimedia.org/wikipedia/commons/9/9e/Packaging_fragile_items_for_delivery.jpg",
+      "source_page": "https://commons.wikimedia.org/w/index.php?title=File:Packaging_fragile_items_for_delivery.jpg&oldid=680020989",
+      "source_sha1": "fa0426a3212cc0edc61923e224207649882c2cf2",
+      "author": "Meanwell Packaging",
+      "manual_zero_qr_annotation": "Visual review of the original on 2026-07-16: no QR symbols present.",
+      "category": "photographed_packaging",
+      "width": 4000,
+      "height": 2667,
+      "expected_qr_count": 0,
+      "sha256": "32db98a56dda57e8817f9ace405279225398f4321bf447d798f4ec987921e9ae"
+    }
+  ]
+}

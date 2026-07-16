@@ -121,9 +121,25 @@ dimensions, permanent revision, and manual original-image zero-QR annotation.
 The strict public-RGB release evaluator completed this 300 by 450 photograph
 with zero QR objects or cooperative timeouts in 0.35 seconds. It exceeds the
 same deadline in a debug build, so it is release-qualified and ignored by
-default. `--include-wikimedia` checks both Commons manifests and runs both
-release gates. The two fixtures broaden category coverage, but they do not
-cover packaging or establish a production false-positive budget.
+default. `--include-wikimedia` checks the admitted Commons manifests and runs
+their release gates. This slice alone does not establish a production
+false-positive budget.
+
+### Admitted slice: Wikimedia Commons photographed packaging
+
+`wikimedia_commons/packaging-fragile-items-for-delivery.jpg` is the unmodified
+original of [Packaging fragile items for delivery.jpg](https://commons.wikimedia.org/w/index.php?title=File:Packaging_fragile_items_for_delivery.jpg&oldid=680020989), authored by Meanwell Packaging and licensed CC BY 2.0. Its separate
+manifest, notice, and REUSE declaration preserve the permanent source
+revision, original URL, source/local checksums, attribution, dimensions, and
+manual visual zero-QR annotation.
+
+The strict public-RGB release evaluator completed this 4000 by 2667 photograph
+with zero QR objects or cooperative timeouts in 1.23 seconds, ending at a
+normal geometry rejection. It exceeds that deadline in debug mode, so it is
+release-qualified and ignored by default. `--include-wikimedia` verifies all
+three Commons fixtures and runs their release gates. This now supplies one
+licensed photo each for screen, text, and packaging; it remains a tiny slice,
+not a production false-positive budget or representative corpus.
 
 ### Admitted slice: ZXing negative black-box images
 

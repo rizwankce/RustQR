@@ -57,8 +57,10 @@ before editing. `TODO.md` is the canonical detailed queue.
    exceeds the five-second cooperative deadline, so it is release-only and
    ignored by default. A separate CC-BY-3.0 Commons book-shelf photo now adds a
    300x450 photographed-text slice with the same per-asset provenance and
-   release-only qualification (zero detections/timeouts in 0.35 s). Packaging
-   and the agreed production FPR budget remain open.
+   release-only qualification (zero detections/timeouts in 0.35 s). A third
+   CC-BY-2.0 packaging photo is release-qualified (zero detections/timeouts in
+   1.23 s). The initial category coverage is now screen/text/packaging, but an
+   agreed production FPR budget and representative scale remain open.
 4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both

@@ -1,0 +1,6 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+
+Files: wikimedia_commons/packaging-fragile-items-for-delivery.jpg
+Copyright: Meanwell Packaging
+License: CC-BY-2.0
+Comment: Source page pinned in wikimedia_packaging_manifest.json; unmodified original.
