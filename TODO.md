@@ -1234,12 +1234,13 @@ the original for zero QR symbols, then record a local SHA-256 and dimensions in
 the external manifest before it can run as a gate.
 
 **2026-07-16 Wikimedia screen admission:** The unmodified `Computer Screen
-Monitor.jpg` original is now vendored as a one-image photographed-screen slice.
-`wikimedia_commons_manifest.json` pins the original URL, permanent oldid,
-author (`U3211603`), Commons source SHA-1, local SHA-256, dimensions
-(4624x3468), CC-BY-SA-4.0 attribution, and a dated manual visual zero-QR
-annotation. `scripts/verify_wp009_wikimedia_corpus.py` verifies each recorded
-field that is locally testable, including the JPEG dimensions and local hash.
+Monitor.jpg` original is the photographed-screen entry in
+`wikimedia_commons_manifest.json`. Its per-asset record pins the original URL,
+permanent oldid, author (`U3211603`), Commons source SHA-1, local SHA-256,
+dimensions (4624x3468), CC-BY-SA-4.0 attribution, and a dated manual visual
+zero-QR annotation. `scripts/verify_wp009_wikimedia_corpus.py` verifies each
+recorded field that is locally testable, including JPEG dimensions and local
+hashes.
 The strict public-RGB release gate completed with one image (16.036032 MP),
 zero detections, and zero timeouts in 2.88 s; it terminated at a normal
 Reed-Solomon rejection. An unoptimized debug run exceeded the cooperative
@@ -1250,12 +1251,12 @@ representative photographed-screen *slice*, not a production FPR claim: photos
 of packaging plus an agreed budget still remain open.
 
 **2026-07-16 Wikimedia book-shelf admission:** The unmodified `Book
-shelf-use.png` original is now a separate CC-BY-3.0 photographed-text slice;
-it does not share the screen fixture's CC-BY-SA-4.0 manifest. Its manifest
-independently pins the permanent oldid, author (`Valdes-and-Rauber`), Commons
-source SHA-1, local SHA-256, dimensions (300x450), selected CC-BY-3.0 license,
-and manual visual zero-QR annotation. The permanent source page additionally
-offers GFDL, but this repository redistributes under its CC-BY-3.0 alternative.
+shelf-use.png` original is the CC-BY-3.0 photographed-text entry in the shared
+multi-asset manifest. Its per-asset record independently pins the permanent
+oldid, author (`Valdes-and-Rauber`), Commons source SHA-1, local SHA-256,
+dimensions (300x450), selected CC-BY-3.0 license, and manual visual zero-QR
+annotation. The permanent source page additionally offers GFDL, but this
+repository redistributes under its CC-BY-3.0 alternative.
 The strict public-RGB release gate completed with zero detections/timeouts in
 0.35 s. It too times out in an unoptimized debug build, so it is included only
 in the ignored release qualification. `--include-wikimedia` now validates both
@@ -1264,11 +1265,11 @@ and text categories; photographed packaging and an agreed production FPR budget
 remain open.
 
 **2026-07-16 Wikimedia packaging admission:** The unmodified `Packaging fragile
-items for delivery.jpg` original is now a separate CC-BY-2.0 photographed-
-packaging slice. Its manifest pins the permanent oldid, author (Meanwell
-Packaging), Commons source SHA-1, local SHA-256, dimensions (4000x2667), and
-manual visual zero-QR annotation; the source page records FlickrreviewR license
-confirmation. The strict public-RGB release gate completed with zero
+items for delivery.jpg` original is the CC-BY-2.0 photographed-packaging entry
+in the shared multi-asset manifest. Its per-asset record pins the permanent
+oldid, author (Meanwell Packaging), Commons source SHA-1, local SHA-256,
+dimensions (4000x2667), and manual visual zero-QR annotation; the source page
+records FlickrreviewR license confirmation. The strict public-RGB release gate completed with zero
 detections/timeouts in 1.23 s and a normal geometry rejection. Its debug run
 exceeded the cooperative deadline, so it is included only in the ignored
 release qualification. `--include-wikimedia` now verifies and qualifies all
@@ -1319,6 +1320,15 @@ matched label-backed nominal/rotation slices retained 5/9 and 7/15 recall.
 Ignored strict monitor/close regressions and matrix conformance also passed.
 This admits the cross-symbology slice as a bounded negative measurement; it
 does not complete the representative-corpus or production-FPR-budget gates.
+
+**2026-07-16 Wikimedia manifest consolidation:** The three released Commons
+fixtures now use one multi-asset `rustqr.wikimedia-negative-corpus.v2` manifest
+with case-level immutable revision, license, notice, and REUSE references. The
+single stdlib verifier and release-only public-RGB test iterate every entry,
+preserving each asset's independently licensed redistribution conditions. This
+removes the one-fixture validator/test paths without adding images, so the
+evidence remains exactly three photographs (26.839032 MP) and does not establish
+a representative corpus or production FPR budget.
 
 **2026-07-16 CI qualification correction:** The 47-image ZXing gate has the
 same five-second cooperative per-image deadline as the release-qualified

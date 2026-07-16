@@ -106,38 +106,39 @@ it is not part of the normal debug test suite. Run
 hash/dimensions and execute the strict release gate.
 
 This is one photographed-screen category example, not a license to infer that
-all Commons assets are QR-free, a production FPR estimate, or coverage for the
-still-missing photographed text and packaging categories.
+all Commons assets are QR-free or a production FPR estimate. The consolidated
+corpus separately records its text and packaging entries with their own
+provenance and attribution obligations.
 
 ### Admitted slice: Wikimedia Commons photographed text
 
 `wikimedia_commons/book-shelf-use.png` is the unmodified original of
 [`Book shelf-use.png`](https://commons.wikimedia.org/w/index.php?title=File:Book_shelf-use.png&oldid=828586508), authored by Valdes-and-Rauber. The source page offers CC BY 3.0
 and GFDL 1.2-or-later; this fixture uses the CC BY 3.0 alternative and keeps a
-separate manifest, notice, and REUSE declaration rather than combining its
-license with the screen fixture. The manifest pins source/local checksums,
+case-level license, notice, and REUSE declaration rather than combining its
+license with the screen fixture. The shared manifest pins source/local checksums,
 dimensions, permanent revision, and manual original-image zero-QR annotation.
 
 The strict public-RGB release evaluator completed this 300 by 450 photograph
 with zero QR objects or cooperative timeouts in 0.35 seconds. It exceeds the
 same deadline in a debug build, so it is release-qualified and ignored by
-default. `--include-wikimedia` checks the admitted Commons manifests and runs
-their release gates. This slice alone does not establish a production
+default. `--include-wikimedia` checks the admitted Commons manifest and runs
+its aggregate release gate. This slice alone does not establish a production
 false-positive budget.
 
 ### Admitted slice: Wikimedia Commons photographed packaging
 
 `wikimedia_commons/packaging-fragile-items-for-delivery.jpg` is the unmodified
-original of [Packaging fragile items for delivery.jpg](https://commons.wikimedia.org/w/index.php?title=File:Packaging_fragile_items_for_delivery.jpg&oldid=680020989), authored by Meanwell Packaging and licensed CC BY 2.0. Its separate
-manifest, notice, and REUSE declaration preserve the permanent source
-revision, original URL, source/local checksums, attribution, dimensions, and
-manual visual zero-QR annotation.
+original of [Packaging fragile items for delivery.jpg](https://commons.wikimedia.org/w/index.php?title=File:Packaging_fragile_items_for_delivery.jpg&oldid=680020989), authored by Meanwell Packaging and licensed CC BY 2.0. The shared
+multi-asset manifest keeps its per-case notice and REUSE declaration alongside
+the permanent source revision, original URL, source/local checksums,
+attribution, dimensions, and manual visual zero-QR annotation.
 
 The strict public-RGB release evaluator completed this 4000 by 2667 photograph
 with zero QR objects or cooperative timeouts in 1.23 seconds, ending at a
 normal geometry rejection. It exceeds that deadline in debug mode, so it is
 release-qualified and ignored by default. `--include-wikimedia` verifies all
-three Commons fixtures and runs their release gates. This now supplies one
+three Commons cases and runs their release gate. This now supplies one
 licensed photo each for screen, text, and packaging; it remains a tiny slice,
 not a production false-positive budget or representative corpus.
 

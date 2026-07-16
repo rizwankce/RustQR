@@ -71,17 +71,15 @@ before editing. `TODO.md` is the canonical detailed queue.
    candidates; it preserves caller-stricter limits and leaves dense large-input
    budgets unchanged. Neither slice is representative enough for the
    production FPR gate; BoofCV remains positive-only and cannot be repurposed.
-   A one-image CC-BY-SA-4.0 Wikimedia Commons photographed-screen slice is now
-   vendored with a permanent oldid, author, source SHA-1, local SHA-256,
-   dimensions, attribution, and manual zero-QR annotation. Its strict release
-   gate passes (1/1, 16.036032 MP, zero detections/timeouts in 2.88 s); debug
-   exceeds the five-second cooperative deadline, so it is release-only and
-   ignored by default. A separate CC-BY-3.0 Commons book-shelf photo now adds a
-   300x450 photographed-text slice with the same per-asset provenance and
-   release-only qualification (zero detections/timeouts in 0.35 s). A third
-   CC-BY-2.0 packaging photo is release-qualified (zero detections/timeouts in
-   1.23 s). The initial category coverage is now screen/text/packaging, but an
-   agreed production FPR budget and representative scale remain open.
+   Three Commons photographs now share one multi-asset, case-level-provenance
+   manifest: CC-BY-SA-4.0 screen (1/1, 16.036032 MP, 2.88 s), CC-BY-3.0
+   book-shelf text (1/1, 0.135000 MP, 0.35 s), and CC-BY-2.0 packaging (1/1,
+   10.668000 MP, 1.23 s), each with an immutable oldid, author, source/local
+   hashes, license/notice/REUSE files, and manual zero-QR annotation. One
+   verifier and release-only gate now iterate all three (26.839032 MP); debug
+   exceeds the five-second cooperative deadline, so it remains ignored by
+   default. This improves future intake but does not add images: representative
+   scale and an agreed production FPR budget remain open.
 4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both

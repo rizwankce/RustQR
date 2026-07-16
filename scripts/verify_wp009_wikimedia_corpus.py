@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Verify the pinned Wikimedia Commons negative-corpus asset."""
+"""Verify the pinned multi-asset Wikimedia Commons negative corpus."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import struct
+import string
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS_ROOT = ROOT / "tests" / "negative_corpus"
 MANIFEST_PATH = CORPUS_ROOT / "wikimedia_commons_manifest.json"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def jpeg_dimensions(path: Path) -> tuple[int, int]:
@@ -36,19 +39,8 @@ def jpeg_dimensions(path: Path) -> tuple[int, int]:
         if length < 2 or offset + length > len(data):
             break
         if marker in {
-            0xC0,
-            0xC1,
-            0xC2,
-            0xC3,
-            0xC5,
-            0xC6,
-            0xC7,
-            0xC9,
-            0xCA,
-            0xCB,
-            0xCD,
-            0xCE,
-            0xCF,
+            0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+            0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF,
         }:
             if length < 8:
                 break
@@ -59,35 +51,65 @@ def jpeg_dimensions(path: Path) -> tuple[int, int]:
     raise ValueError(f"{path} has no JPEG start-of-frame segment")
 
 
-def main() -> int:
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == "rustqr.external-negative-corpus.v1"
+def png_dimensions(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()
+    if data[:8] != PNG_SIGNATURE or data[12:16] != b"IHDR":
+        raise ValueError(f"{path} is not a PNG with an IHDR header")
+    return struct.unpack(">II", data[16:24])
+
+
+def image_dimensions(path: Path) -> tuple[int, int]:
+    if path.suffix.lower() in {".jpg", ".jpeg"}:
+        return jpeg_dimensions(path)
+    if path.suffix.lower() == ".png":
+        return png_dimensions(path)
+    raise ValueError(f"unsupported Wikimedia fixture type: {path}")
+
+
+def verify_manifest(manifest_path: Path = MANIFEST_PATH, corpus_root: Path = CORPUS_ROOT) -> tuple[int, int]:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "rustqr.wikimedia-negative-corpus.v2"
     assert manifest["name"] == "wikimedia-commons-negative-photos"
     assert manifest["source_repository"] == "https://commons.wikimedia.org"
-    assert manifest["source_commit"] == "1131317639"
-    assert manifest["source_license"] == "CC-BY-SA-4.0"
-    for key in ("license_file", "notice_file", "reuse_declaration"):
-        assert (CORPUS_ROOT / manifest[key]).is_file(), f"missing {key}: {manifest[key]}"
-
     cases = manifest["cases"]
-    assert len(cases) == 1, f"expected one Wikimedia fixture, found {len(cases)}"
-    case = cases[0]
-    assert case["id"] == "wikimedia-computer-screen-monitor"
-    assert case["expected_qr_count"] == 0
-    assert case["category"] == "photographed_screen"
-    assert case["author"] == "U3211603"
-    assert case["source_page"].endswith("oldid=1131317639")
-    assert case["source_path"].startswith("https://upload.wikimedia.org/")
-    assert len(case["source_sha1"]) == 40
-    assert case["manual_zero_qr_annotation"]
-    path = CORPUS_ROOT / case["local_path"]
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert digest == case["sha256"], "SHA-256 mismatch"
-    assert jpeg_dimensions(path) == (case["width"], case["height"]), "dimension mismatch"
-    pixels = case["width"] * case["height"]
+    assert cases, "Wikimedia corpus must not be empty"
+    seen_ids: set[str] = set()
+    seen_paths: set[str] = set()
+    total_pixels = 0
+    for case in cases:
+        assert case["id"] not in seen_ids, f"duplicate id: {case['id']}"
+        assert case["local_path"] not in seen_paths, f"duplicate path: {case['local_path']}"
+        seen_ids.add(case["id"])
+        seen_paths.add(case["local_path"])
+        assert case["expected_qr_count"] == 0, f"not a negative: {case['id']}"
+        assert case["category"].startswith("photographed_"), f"unexpected category: {case['id']}"
+        assert case["source_path"].startswith("https://upload.wikimedia.org/")
+        assert case["source_page"].startswith("https://commons.wikimedia.org/")
+        assert case["source_page"].endswith(f"oldid={case['source_revision']}")
+        assert len(case["source_sha1"]) == 40
+        assert all(character in string.hexdigits for character in case["source_sha1"])
+        assert case["author"]
+        assert case["manual_zero_qr_annotation"]
+        assert case["source_license"].startswith("CC-BY")
+        for key in ("license_file", "notice_file", "reuse_declaration"):
+            assert (corpus_root / case[key]).is_file(), f"missing {key}: {case[key]}"
+        path = corpus_root / case["local_path"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == case["sha256"], (
+            f"SHA-256 mismatch: {case['id']}"
+        )
+        dimensions = image_dimensions(path)
+        assert dimensions == (case["width"], case["height"]), (
+            f"dimension mismatch: {case['id']}: {dimensions}"
+        )
+        total_pixels += case["width"] * case["height"]
+    return len(cases), total_pixels
+
+
+def main() -> int:
+    cases, pixels = verify_manifest()
     print(
         "WIKIMEDIA_CORPUS_INTEGRITY "
-        f"cases=1 pixels={pixels} megapixels={pixels / 1_000_000:.6f}"
+        f"cases={cases} pixels={pixels} megapixels={pixels / 1_000_000:.6f}"
     )
     return 0
 

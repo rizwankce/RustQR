@@ -17,10 +17,6 @@ const ZXING_CROSS_SYMBOLOGY_MANIFEST: &str =
     include_str!("negative_corpus/zxing_cross_symbology_manifest.json");
 const WIKIMEDIA_COMMONS_MANIFEST: &str =
     include_str!("negative_corpus/wikimedia_commons_manifest.json");
-const WIKIMEDIA_BOOKSHELF_MANIFEST: &str =
-    include_str!("negative_corpus/wikimedia_bookshelf_manifest.json");
-const WIKIMEDIA_PACKAGING_MANIFEST: &str =
-    include_str!("negative_corpus/wikimedia_packaging_manifest.json");
 const PER_IMAGE_DEADLINE: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +54,35 @@ struct ExternalCorpusCase {
     source_path: String,
     category: String,
     source_expected_format: Option<String>,
+    width: u32,
+    height: u32,
+    expected_qr_count: usize,
+    sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct WikimediaCorpusManifest {
+    schema_version: String,
+    name: String,
+    source_repository: String,
+    cases: Vec<WikimediaCorpusCase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WikimediaCorpusCase {
+    id: String,
+    local_path: String,
+    source_path: String,
+    source_page: String,
+    source_revision: String,
+    source_sha1: String,
+    author: String,
+    source_license: String,
+    license_file: String,
+    notice_file: String,
+    reuse_declaration: String,
+    manual_zero_qr_annotation: String,
+    category: String,
     width: u32,
     height: u32,
     expected_qr_count: usize,
@@ -600,125 +625,25 @@ fn admitted_zxing_cross_symbology_corpus_has_zero_false_positive_detections() {
 
 #[test]
 #[ignore = "strict Wikimedia qualification is release-only; debug builds exceed the five-second request budget"]
-fn admitted_wikimedia_commons_corpus_has_zero_false_positive_detections() {
-    let manifest: ExternalCorpusManifest = serde_json::from_str(WIKIMEDIA_COMMONS_MANIFEST)
+fn admitted_wikimedia_corpus_has_zero_false_positive_detections() {
+    let manifest: WikimediaCorpusManifest = serde_json::from_str(WIKIMEDIA_COMMONS_MANIFEST)
         .expect("valid Wikimedia Commons corpus manifest");
     assert_eq!(
         manifest.schema_version,
-        "rustqr.external-negative-corpus.v1"
+        "rustqr.wikimedia-negative-corpus.v2"
     );
     assert_eq!(manifest.name, "wikimedia-commons-negative-photos");
     assert_eq!(manifest.source_repository, "https://commons.wikimedia.org");
-    assert_eq!(manifest.source_commit, "1131317639");
-    assert_eq!(manifest.source_license, "CC-BY-SA-4.0");
-
     let root = external_corpus_root();
-    for required_file in [
-        &manifest.license_file,
-        &manifest.notice_file,
-        &manifest.reuse_declaration,
-    ] {
-        assert!(
-            root.join(required_file).is_file(),
-            "missing {required_file}"
-        );
-    }
-    assert_eq!(manifest.cases.len(), 1);
-
-    let mut total_pixels = 0_u64;
-    let mut positive_images = 0_usize;
-    let mut false_positive_detections = 0_usize;
-    let mut timeout_images = 0_usize;
-    for case in &manifest.cases {
-        assert_eq!(
-            case.expected_qr_count, 0,
-            "{} is no longer a negative",
-            case.id
-        );
-        assert_eq!(case.category, "photographed_screen");
-        assert!(
-            case.source_path
-                .starts_with("https://upload.wikimedia.org/")
-        );
-        let image_path = root.join(&case.local_path);
-        let image = image::open(&image_path)
-            .unwrap_or_else(|error| panic!("{} did not load: {error}", image_path.display()));
-        assert_eq!(image.width(), case.width, "{} width changed", case.id);
-        assert_eq!(image.height(), case.height, "{} height changed", case.id);
-        let rgb = image.to_rgb8();
-        let result = try_detect_with_options(
-            ImageInput::new(
-                rgb.as_raw(),
-                case.width as usize,
-                case.height as usize,
-                PixelFormat::Rgb,
-            ),
-            DecoderOptions::default()
-                .with_deadline(PER_IMAGE_DEADLINE)
-                .with_diagnostics(true),
-        )
-        .expect("admitted corpus image is a valid RGB input");
-        total_pixels += u64::from(case.width) * u64::from(case.height);
-        if result.diagnostics.failure_stage == Some(FailureStage::Timeout) {
-            timeout_images += 1;
-            continue;
-        }
-        false_positive_detections += result.codes.len();
-        positive_images += usize::from(!result.codes.is_empty());
-        assert_eq!(
-            result.codes.len(),
-            case.expected_qr_count,
-            "negative corpus case {} ({}) unexpectedly returned {} detections",
-            case.id,
-            case.category,
-            result.codes.len()
-        );
-    }
-
+    assert!(!manifest.cases.is_empty());
+    let mut ids: Vec<_> = manifest.cases.iter().map(|case| case.id.as_str()).collect();
+    ids.sort_unstable();
+    ids.dedup();
     assert_eq!(
-        timeout_images, 0,
-        "a timeout is not a passing Wikimedia negative-corpus result"
-    );
-    let megapixels = total_pixels as f64 / 1_000_000.0;
-    println!(
-        "WIKIMEDIA_COMMONS_NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} timeout_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
+        ids.len(),
         manifest.cases.len(),
-        total_pixels,
-        positive_images,
-        timeout_images,
-        false_positive_detections,
-        false_positive_detections as f64 / manifest.cases.len() as f64,
-        false_positive_detections as f64 / megapixels,
+        "duplicate Wikimedia case id"
     );
-}
-
-#[test]
-#[ignore = "strict Wikimedia qualification is release-only; debug builds exceed the five-second request budget"]
-fn admitted_wikimedia_bookshelf_corpus_has_zero_false_positive_detections() {
-    let manifest: ExternalCorpusManifest = serde_json::from_str(WIKIMEDIA_BOOKSHELF_MANIFEST)
-        .expect("valid Wikimedia Commons book-shelf corpus manifest");
-    assert_eq!(
-        manifest.schema_version,
-        "rustqr.external-negative-corpus.v1"
-    );
-    assert_eq!(manifest.name, "wikimedia-commons-negative-bookshelf-photo");
-    assert_eq!(manifest.source_repository, "https://commons.wikimedia.org");
-    assert_eq!(manifest.source_commit, "828586508");
-    assert_eq!(manifest.source_license, "CC-BY-3.0");
-
-    let root = external_corpus_root();
-    for required_file in [
-        &manifest.license_file,
-        &manifest.notice_file,
-        &manifest.reuse_declaration,
-    ] {
-        assert!(
-            root.join(required_file).is_file(),
-            "missing {required_file}"
-        );
-    }
-    assert_eq!(manifest.cases.len(), 1);
-
     let mut total_pixels = 0_u64;
     let mut positive_images = 0_usize;
     let mut false_positive_detections = 0_usize;
@@ -729,11 +654,46 @@ fn admitted_wikimedia_bookshelf_corpus_has_zero_false_positive_detections() {
             "{} is no longer a negative",
             case.id
         );
-        assert_eq!(case.category, "photographed_text");
+        assert!(case.category.starts_with("photographed_"));
         assert!(
             case.source_path
                 .starts_with("https://upload.wikimedia.org/")
         );
+        assert!(
+            case.source_page
+                .starts_with("https://commons.wikimedia.org/")
+        );
+        assert!(
+            case.source_page
+                .ends_with(&format!("oldid={}", case.source_revision))
+        );
+        assert_eq!(
+            case.source_sha1.len(),
+            40,
+            "{} has invalid source SHA-1",
+            case.id
+        );
+        assert!(
+            case.source_sha1
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+        );
+        assert!(!case.author.is_empty());
+        assert!(case.source_license.starts_with("CC-BY"));
+        assert!(!case.manual_zero_qr_annotation.is_empty());
+        assert_eq!(case.sha256.len(), 64, "{} has invalid SHA-256", case.id);
+        assert!(case.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        for required_file in [
+            &case.license_file,
+            &case.notice_file,
+            &case.reuse_declaration,
+        ] {
+            assert!(
+                root.join(required_file).is_file(),
+                "{} is missing {required_file}",
+                case.id
+            );
+        }
         let image_path = root.join(&case.local_path);
         let image = image::open(&image_path)
             .unwrap_or_else(|error| panic!("{} did not load: {error}", image_path.display()));
@@ -775,99 +735,7 @@ fn admitted_wikimedia_bookshelf_corpus_has_zero_false_positive_detections() {
     );
     let megapixels = total_pixels as f64 / 1_000_000.0;
     println!(
-        "WIKIMEDIA_BOOKSHELF_NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} timeout_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
-        manifest.cases.len(),
-        total_pixels,
-        positive_images,
-        timeout_images,
-        false_positive_detections,
-        false_positive_detections as f64 / manifest.cases.len() as f64,
-        false_positive_detections as f64 / megapixels,
-    );
-}
-
-#[test]
-#[ignore = "strict Wikimedia qualification is release-only; debug builds exceed the five-second request budget"]
-fn admitted_wikimedia_packaging_corpus_has_zero_false_positive_detections() {
-    let manifest: ExternalCorpusManifest = serde_json::from_str(WIKIMEDIA_PACKAGING_MANIFEST)
-        .expect("valid Wikimedia Commons packaging corpus manifest");
-    assert_eq!(
-        manifest.schema_version,
-        "rustqr.external-negative-corpus.v1"
-    );
-    assert_eq!(manifest.name, "wikimedia-commons-negative-packaging-photo");
-    assert_eq!(manifest.source_repository, "https://commons.wikimedia.org");
-    assert_eq!(manifest.source_commit, "680020989");
-    assert_eq!(manifest.source_license, "CC-BY-2.0");
-    let root = external_corpus_root();
-    for required_file in [
-        &manifest.license_file,
-        &manifest.notice_file,
-        &manifest.reuse_declaration,
-    ] {
-        assert!(
-            root.join(required_file).is_file(),
-            "missing {required_file}"
-        );
-    }
-    assert_eq!(manifest.cases.len(), 1);
-
-    let mut total_pixels = 0_u64;
-    let mut positive_images = 0_usize;
-    let mut false_positive_detections = 0_usize;
-    let mut timeout_images = 0_usize;
-    for case in &manifest.cases {
-        assert_eq!(
-            case.expected_qr_count, 0,
-            "{} is no longer a negative",
-            case.id
-        );
-        assert_eq!(case.category, "photographed_packaging");
-        assert!(
-            case.source_path
-                .starts_with("https://upload.wikimedia.org/")
-        );
-        let image_path = root.join(&case.local_path);
-        let image = image::open(&image_path)
-            .unwrap_or_else(|error| panic!("{} did not load: {error}", image_path.display()));
-        assert_eq!(image.width(), case.width, "{} width changed", case.id);
-        assert_eq!(image.height(), case.height, "{} height changed", case.id);
-        let rgb = image.to_rgb8();
-        let result = try_detect_with_options(
-            ImageInput::new(
-                rgb.as_raw(),
-                case.width as usize,
-                case.height as usize,
-                PixelFormat::Rgb,
-            ),
-            DecoderOptions::default()
-                .with_deadline(PER_IMAGE_DEADLINE)
-                .with_diagnostics(true),
-        )
-        .expect("admitted corpus image is a valid RGB input");
-        total_pixels += u64::from(case.width) * u64::from(case.height);
-        if result.diagnostics.failure_stage == Some(FailureStage::Timeout) {
-            timeout_images += 1;
-            continue;
-        }
-        false_positive_detections += result.codes.len();
-        positive_images += usize::from(!result.codes.is_empty());
-        assert_eq!(
-            result.codes.len(),
-            case.expected_qr_count,
-            "negative corpus case {} ({}) unexpectedly returned {} detections",
-            case.id,
-            case.category,
-            result.codes.len()
-        );
-    }
-    assert_eq!(
-        timeout_images, 0,
-        "a timeout is not a passing Wikimedia negative-corpus result"
-    );
-    let megapixels = total_pixels as f64 / 1_000_000.0;
-    println!(
-        "WIKIMEDIA_PACKAGING_NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} timeout_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
+        "WIKIMEDIA_NEGATIVE_CORPUS_METRICS cases={} pixels={} megapixels={megapixels:.6} positive_images={} timeout_images={} false_positive_detections={} fp_per_image={:.6} fp_per_megapixel={:.6}",
         manifest.cases.len(),
         total_pixels,
         positive_images,

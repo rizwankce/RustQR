@@ -3,4 +3,4 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Files: wikimedia_commons/book-shelf-use.png
 Copyright: Valdes-and-Rauber
 License: CC-BY-3.0
-Comment: Source page pinned in wikimedia_bookshelf_manifest.json; unmodified original.
+Comment: Source page pinned in the multi-asset wikimedia_commons_manifest.json; unmodified original.
