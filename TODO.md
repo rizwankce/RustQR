@@ -2335,6 +2335,25 @@ separate core crate or target lane exists. The next required slice is to move
 the matrix result/budget plus decoder modules into a separately built crate and
 run the same fixtures there before adding any `no_std + alloc` target claim.
 
+**2026-07-16 matrix-core extraction boundary:** A `#![no_std]` + `alloc`
+matrix core is feasible, but the current `matrix_decode.rs` cannot move whole:
+its fallback/beam recovery depends on hosted `DecodeRequestContext` counters,
+deadline/cancellation/configuration, and `std::time::Instant`. The first core
+crate must therefore contain only `BitMatrix`, matrix metadata/result/error/
+erasure types, BCH/format/version/function-mask/unmask/bitstream/RS/modes/
+payload tables, and a deterministic strict plus known-erasure entry. It must
+not contain `QRCode`, detector/pipeline/geometry/image tooling, confidence
+recovery, or beam repair. The host will re-export/map the core result and keep
+all image confidence/recovery/telemetry behavior. The orientation helper must
+also stop importing detector timing/`Point`; use a small direct matrix-line
+sampler in core. Mechanical porting needs explicit `alloc::{Vec,String}` and
+`vec!`/`format!` imports. Required proof after the staged move: core
+`--no-default-features` check on a real bare-metal target; generated supported
+matrix corpus parity; host re-export parity; correctable-erasure/mutation
+parity; hosted minimal-feature tests; and an explicit strict-core test proving
+no fallback/beam recovery is reachable. Do not move the current recovery path
+until a separate no_std policy/callback API exists.
+
 **Validation:**
 
 ```bash
