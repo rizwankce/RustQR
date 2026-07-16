@@ -1,6 +1,9 @@
 use rust_qr::BitMatrix;
-use rust_qr::decoder::qr_decoder::{MatrixDataMode, MatrixDecodeError, QrDecoder};
+use rust_qr::decoder::qr_decoder::{
+    MatrixDataMode, MatrixDecodeError, MatrixDecodeResult, QrDecoder,
+};
 use rust_qr::decoder::version::{VersionInfo, VersionInfoCopy};
+use rust_qr::matrix_core;
 use rust_qr::models::{Fnc1Position, StructuredAppendInfo};
 use rust_qr::{ECLevel, Version};
 use serde_json::Value;
@@ -30,6 +33,49 @@ fn parse_matrix(path: &Path) -> BitMatrix {
         }
     }
     matrix
+}
+
+fn core_matrix(matrix: &BitMatrix) -> matrix_core::BitMatrix {
+    let mut result = matrix_core::BitMatrix::new(matrix.width(), matrix.height());
+    for y in 0..matrix.height() {
+        for x in 0..matrix.width() {
+            result.set(x, y, matrix.get(x, y));
+        }
+    }
+    result
+}
+
+fn assert_strict_core_parity(matrix: &BitMatrix, version: u8, host: &MatrixDecodeResult, id: &str) {
+    let core = matrix_core::decode_strict(&core_matrix(matrix), version)
+        .unwrap_or_else(|error| panic!("{id}: strict core result {error:?}"));
+    assert_eq!(core.data, host.data, "{id}: strict core payload");
+    assert_eq!(core.content, host.content, "{id}: strict core text");
+    assert_eq!(core.version, host.version, "{id}: strict core version");
+    assert_eq!(
+        core.error_correction as u8, host.error_correction as u8,
+        "{id}: strict core EC"
+    );
+    assert_eq!(
+        core.mask_pattern as u8, host.mask_pattern as u8,
+        "{id}: strict core mask"
+    );
+    assert_eq!(
+        core.metadata.eci_assignment, host.metadata.eci_assignment,
+        "{id}: strict core ECI"
+    );
+    assert_eq!(
+        core.metadata.structured_append.map(|value| (
+            value.index,
+            value.total_symbols,
+            value.parity
+        )),
+        host.metadata.structured_append.map(|value| (
+            value.index,
+            value.total_symbols,
+            value.parity
+        )),
+        "{id}: strict core Structured Append"
+    );
 }
 
 fn mode(value: &str) -> MatrixDataMode {
@@ -194,6 +240,7 @@ fn assert_generated_supported_corpus(root: &Path, expected_cases: Option<usize>)
                     core.metadata, decoded.metadata,
                     "{id}: core metadata parity"
                 );
+                assert_strict_core_parity(&matrix, version, &core, id);
                 let matches_matrix_metadata = decoded.version == Version::Model2(version)
                     && decoded.error_correction
                         == ec_level(fixture["expected"]["ec_level"].as_str().expect("EC level"))

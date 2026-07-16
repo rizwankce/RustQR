@@ -1,3 +1,4 @@
 /target
+/rustqr-matrix-core/target/
 /competitors/bin/
 /competitors/adapters/*/target/

@@ -58,6 +58,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --lib --no-default-features
 
+  matrix-core:
+    name: Matrix core bare-metal check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
+      - run: cargo check --manifest-path rustqr-matrix-core/Cargo.toml --no-default-features --target thumbv7em-none-eabihf
+
   msrv:
     name: MSRV all features (1.85)
     runs-on: ubuntu-latest

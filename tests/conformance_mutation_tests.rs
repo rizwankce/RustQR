@@ -2,6 +2,7 @@ use rust_qr::BitMatrix;
 use rust_qr::decoder::qr_decoder::{
     MatrixDataMode, MatrixDecodeError, MatrixErasureEvidence, QrDecoder,
 };
+use rust_qr::matrix_core;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -55,6 +56,16 @@ fn matrix(metadata: &Value) -> BitMatrix {
                     .0[0]
                     < 128,
             );
+        }
+    }
+    result
+}
+
+fn core_matrix(matrix: &BitMatrix) -> matrix_core::BitMatrix {
+    let mut result = matrix_core::BitMatrix::new(matrix.width(), matrix.height());
+    for y in 0..matrix.height() {
+        for x in 0..matrix.width() {
+            result.set(x, y, matrix.get(x, y));
         }
     }
     result
@@ -202,6 +213,22 @@ fn materialized_erasure_sidecars_decode_at_the_supported_boundary() {
                     .expect("payload"),
             ),
             "{}",
+            mutation["id"],
+        );
+        let strict_core = matrix_core::decode_with_erasures(
+            &core_matrix(&qr_matrix),
+            parent["version"].as_u64().expect("version") as u8,
+            matrix_core::MatrixErasureEvidence::ErasedModules(&coordinates),
+        )
+        .expect("strict core known erasures should decode");
+        assert_eq!(
+            strict_core.data,
+            decode_hex(
+                mutation["expected_raw_payload_hex"]
+                    .as_str()
+                    .expect("payload"),
+            ),
+            "{}: strict core erasure parity",
             mutation["id"],
         );
         executed += 1;

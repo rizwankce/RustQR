@@ -2354,6 +2354,26 @@ parity; hosted minimal-feature tests; and an explicit strict-core test proving
 no fallback/beam recovery is reachable. Do not move the current recovery path
 until a separate no_std policy/callback API exists.
 
+**2026-07-16 strict matrix-core crate:** Added the separately compiled,
+`publish = false` `rustqr-matrix-core` crate. It is `#![no_std]` with `alloc`
+only and owns `BitMatrix`, Model 2 metadata/result/error/erasure types, BCH,
+format/version, function mask, unmask, bitstream, RS, mode, and payload code.
+Its only public decode entries are deterministic `decode_strict` and bounded
+known-erasure `decode_with_erasures`; it contains no image/detector API,
+deadline/cancellation, soft-format fallback, non-canonical traversal, or beam
+repair. The host re-exports it as `rust_qr::matrix_core` while retaining its
+existing hosted result and recovery APIs. Generated supported-corpus tests now
+prove exact host/core payload, text, version, EC/mask, and metadata parity;
+the 34 materialized correctable-erasure mutations also pass through both
+entries. `cargo test --manifest-path rustqr-matrix-core/Cargo.toml` (37 tests),
+`cargo test --test conformance_matrix_tests --all-features` (7 passed, 1
+ignored), `cargo test --test conformance_mutation_tests --all-features` (4
+passed), and `cargo test --lib --no-default-features` (124 passed) passed
+locally. The local toolchain lacks `thumbv7em-none-eabihf`; CI now installs it
+and runs the core's explicit no-default-feature bare-metal check. This proves
+the staged strict core only, not whole-crate `no_std`, platform support, or a
+policy for hosting recovery callbacks.
+
 **Validation:**
 
 ```bash

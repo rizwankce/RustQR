@@ -26,6 +26,9 @@ pub mod tools;
 pub mod utils;
 
 pub use models::{BitMatrix, ECLevel, MaskPattern, Point, QRCode, Version};
+/// Strict `no_std + alloc` matrix decoder, re-exported without the hosted
+/// detector, recovery, or image-pipeline APIs.
+pub use rustqr_matrix_core as matrix_core;
 
 use std::sync::{
     Arc,
