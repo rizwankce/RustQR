@@ -4,14 +4,13 @@ use crate::decoder::function_mask::FunctionMask;
 use crate::decoder::modes::{
     alphanumeric::AlphanumericDecoder, kanji::KanjiDecoder, numeric::NumericDecoder,
 };
-use crate::decoder::qr_decoder::DecodeRequestContext;
+use crate::decoder::qr_decoder::{DecodeRequestContext, MatrixDecodeResult};
 use crate::decoder::reed_solomon::ReedSolomonDecoder;
 use crate::decoder::tables::ec_block_info;
 use crate::decoder::unmask::unmask;
 use crate::decoder::version::VersionInfo;
-use crate::models::{
-    BitMatrix, ECLevel, Fnc1Position, QRCode, QRCodeMetadata, StructuredAppendInfo, Version,
-};
+use crate::models::{BitMatrix, ECLevel, Fnc1Position, QRCodeMetadata, StructuredAppendInfo};
+use alloc::{string::String, vec::Vec};
 fn record_erasure_hist(context: &mut DecodeRequestContext, count: usize) {
     let counters = context.counters_mut();
     match count {
@@ -34,7 +33,7 @@ pub(super) fn try_decode_single(
     reverse_stream: bool,
     module_confidence: Option<&[u8]>,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     try_decode_single_internal(
         oriented,
         version_num,
@@ -55,7 +54,7 @@ pub(super) fn try_decode_single_deterministic_erasures(
     version_num: u8,
     format_info: &FormatInfo,
     module_confidence: &[u8],
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     let mut context = DecodeRequestContext::default();
     [(true, false), (true, true), (false, false), (false, true)]
         .into_iter()
@@ -87,7 +86,7 @@ fn try_decode_single_internal(
     module_confidence: Option<&[u8]>,
     deterministic_erasures: bool,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     let dimension = oriented.width();
     let func = FunctionMask::new(version_num);
     let mut unmasked = oriented.clone();
@@ -166,22 +165,19 @@ fn try_decode_single_internal(
     }
 
     let version = if dimension >= 45 {
-        VersionInfo::extract(oriented)
-            .map(Version::Model2)
-            .unwrap_or(Version::Model2(version_num))
+        VersionInfo::extract(oriented).unwrap_or(version_num)
     } else {
-        Version::Model2(version_num)
+        version_num
     };
 
-    let mut qr = QRCode::new(
-        decoded.data,
-        decoded.content,
+    Some(MatrixDecodeResult {
+        data: decoded.data,
+        content: decoded.content,
         version,
-        format_info.ec_level,
-        format_info.mask_pattern,
-    );
-    qr.metadata = decoded.metadata;
-    Some(qr)
+        error_correction: format_info.ec_level,
+        mask_pattern: format_info.mask_pattern,
+        metadata: decoded.metadata,
+    })
 }
 
 /// QR remainder bits are not payload bits and must be zero before masking.

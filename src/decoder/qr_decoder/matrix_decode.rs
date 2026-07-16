@@ -1,7 +1,7 @@
 use crate::decoder::format::FormatInfo;
 use crate::decoder::function_mask::FunctionMask;
-use crate::decoder::qr_decoder::{DecodeRequestContext, orientation, payload};
-use crate::models::{BitMatrix, ECLevel, MaskPattern, QRCode};
+use crate::decoder::qr_decoder::{DecodeRequestContext, MatrixDecodeResult, orientation, payload};
+use crate::models::{BitMatrix, ECLevel, MaskPattern};
 
 fn fallback_ec_levels() -> &'static [ECLevel] {
     &[ECLevel::L, ECLevel::M, ECLevel::Q, ECLevel::H]
@@ -17,7 +17,10 @@ fn strict_fallback_version_match() -> bool {
 /// normal matrix decode path.
 const CANONICAL_TRAVERSAL: (bool, bool) = (true, false);
 
-pub(super) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
+pub(super) fn decode_from_matrix(
+    qr_matrix: &BitMatrix,
+    version_num: u8,
+) -> Option<MatrixDecodeResult> {
     decode_from_matrix_in_context(qr_matrix, version_num, &mut DecodeRequestContext::default())
 }
 
@@ -25,7 +28,7 @@ pub(super) fn decode_from_matrix_in_context(
     qr_matrix: &BitMatrix,
     version_num: u8,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     decode_from_matrix_internal(qr_matrix, version_num, None, true, context)
 }
 
@@ -33,7 +36,7 @@ pub(super) fn decode_from_matrix_with_confidence(
     qr_matrix: &BitMatrix,
     version_num: u8,
     module_confidence: &[u8],
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     decode_from_matrix_with_confidence_in_context(
         qr_matrix,
         version_num,
@@ -47,7 +50,7 @@ pub(super) fn decode_from_matrix_with_confidence_in_context(
     version_num: u8,
     module_confidence: &[u8],
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     decode_from_matrix_with_confidence_in_context_with_recovery(
         qr_matrix,
         version_num,
@@ -68,7 +71,7 @@ pub(super) fn decode_from_matrix_with_confidence_in_context_with_recovery(
     module_confidence: &[u8],
     allow_recovery: bool,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     decode_from_matrix_internal(
         qr_matrix,
         version_num,
@@ -84,7 +87,7 @@ fn decode_from_matrix_internal(
     module_confidence: Option<&[u8]>,
     allow_recovery: bool,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     let mut orientations = orientation::candidate_orientations(qr_matrix);
     if orientations.is_empty() {
         let mismatches = crate::decoder::config::relaxed_finder_mismatch();
@@ -166,7 +169,7 @@ fn try_decode_canonical(
     format_info: &FormatInfo,
     module_confidence: Option<&[u8]>,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     let (start_upward, swap_columns) = CANONICAL_TRAVERSAL;
     payload::try_decode_single(
         oriented,
@@ -190,7 +193,7 @@ fn decode_recovery_phase(
     corrected_versions: &[u8],
     module_confidence: Option<&[u8]>,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     const RECOVERY_TRAVERSALS: [(bool, bool); 3] = [(true, true), (false, false), (false, true)];
 
     for &v_num in corrected_versions {
@@ -342,7 +345,7 @@ fn try_decode_recovery_canonical(
     format_info: &FormatInfo,
     module_confidence: Option<&[u8]>,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     context.counters_mut().matrix_recovery_payload_attempts += 1;
     try_decode_canonical(
         oriented,
@@ -361,7 +364,7 @@ fn try_decode_recovery_traversal(
     swap_columns: bool,
     module_confidence: Option<&[u8]>,
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     context.counters_mut().matrix_recovery_payload_attempts += 1;
     payload::try_decode_single(
         oriented,
@@ -389,7 +392,7 @@ fn attempt_uncertain_module_beam_repair(
     version_num: u8,
     module_confidence: &[u8],
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     use std::time::Instant;
 
     if module_confidence.len() != qr_matrix.width() * qr_matrix.height() {
@@ -507,7 +510,7 @@ fn decode_with_flips(
     version_num: u8,
     flips: &[usize],
     context: &mut DecodeRequestContext,
-) -> Option<QRCode> {
+) -> Option<MatrixDecodeResult> {
     let dim = qr_matrix.width();
     let mut mutated = qr_matrix.clone();
     for &idx in flips {

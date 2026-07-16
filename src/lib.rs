@@ -6,6 +6,10 @@
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 
+// Matrix decoding deliberately names its owned payload types from `alloc` so
+// that the result seam can be shared by a future `no_std + alloc` core.
+extern crate alloc;
+
 /// Debug helpers (env-driven)
 pub(crate) mod debug;
 /// QR code decoding modules (error correction, format extraction, data modes)

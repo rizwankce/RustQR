@@ -1,6 +1,7 @@
 use crate::CancellationToken;
 /// Main QR code decoder - wires everything together
 use crate::models::{BitMatrix, Point, QRCode};
+use alloc::{string::String, vec::Vec};
 use std::time::Instant;
 
 mod geometry;
@@ -72,6 +73,76 @@ pub enum MatrixDecodeError {
     DecodeFailed,
 }
 
+/// Owned output of Model 2 matrix decoding before an image pipeline attaches
+/// positions, sampled modules, or detector confidence.
+///
+/// This is the `alloc`-only boundary for a future matrix-decoding core. It
+/// intentionally contains only payload and QR-format facts, so consumers that
+/// already own a sampled matrix do not have to depend on detector geometry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MatrixDecodeResult {
+    /// Raw payload bytes, preserving the symbol's byte-level result.
+    pub data: Vec<u8>,
+    /// Best-effort textual representation of the payload.
+    pub content: String,
+    /// Model 2 version encoded by the matrix.
+    pub version: u8,
+    /// Error-correction level extracted from format information.
+    pub error_correction: crate::models::ECLevel,
+    /// Data-mask pattern extracted from format information.
+    pub mask_pattern: crate::models::MaskPattern,
+    /// Optional ECI, GS1, and Structured Append headers.
+    pub metadata: crate::models::QRCodeMetadata,
+}
+
+impl MatrixDecodeResult {
+    pub(crate) fn into_qr_code(self) -> QRCode {
+        let mut qr = QRCode::new(
+            self.data,
+            self.content,
+            crate::models::Version::Model2(self.version),
+            self.error_correction,
+            self.mask_pattern,
+        );
+        qr.metadata = self.metadata;
+        qr
+    }
+}
+
+/// Allocation-free allowance for bounded matrix-recovery work.
+///
+/// Hosted callers layer deadlines and cancellation on top of this budget. A
+/// future `no_std + alloc` matrix core can use the same deterministic limit
+/// without importing clocks or synchronization primitives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MatrixRecoveryBudget {
+    erasure_attempts_remaining: usize,
+}
+
+impl MatrixRecoveryBudget {
+    /// Create a budget permitting at most `erasure_attempt_limit` erasure
+    /// correction attempts.
+    pub const fn new(erasure_attempt_limit: usize) -> Self {
+        Self {
+            erasure_attempts_remaining: erasure_attempt_limit,
+        }
+    }
+
+    /// Return the number of erasure correction attempts still permitted.
+    pub const fn erasure_attempts_remaining(&self) -> usize {
+        self.erasure_attempts_remaining
+    }
+
+    /// Consume one erasure correction attempt if the budget permits it.
+    pub fn try_consume_erasure_attempt(&mut self) -> bool {
+        if self.erasure_attempts_remaining == 0 {
+            return false;
+        }
+        self.erasure_attempts_remaining -= 1;
+        true
+    }
+}
+
 /// Request-scoped erasure evidence for deterministic matrix decoding.
 ///
 /// Confidence values are row-major, with `0` identifying an erased module and
@@ -133,7 +204,7 @@ pub(crate) struct DecodeCounters {
 pub(crate) struct DecodeRequestContext {
     deadline: Option<Instant>,
     cancellation: Option<CancellationToken>,
-    erasure_attempts_remaining: usize,
+    recovery_budget: MatrixRecoveryBudget,
     counters: DecodeCounters,
 }
 
@@ -142,7 +213,7 @@ impl DecodeRequestContext {
         Self {
             deadline: None,
             cancellation: None,
-            erasure_attempts_remaining: erasure_attempt_limit,
+            recovery_budget: MatrixRecoveryBudget::new(erasure_attempt_limit),
             counters: DecodeCounters::new(),
         }
     }
@@ -158,7 +229,7 @@ impl DecodeRequestContext {
         Self {
             deadline: Some(deadline),
             cancellation,
-            erasure_attempts_remaining: erasure_attempt_limit,
+            recovery_budget: MatrixRecoveryBudget::new(erasure_attempt_limit),
             counters: DecodeCounters::new(),
         }
     }
@@ -177,11 +248,7 @@ impl DecodeRequestContext {
     }
 
     pub(crate) fn try_consume_erasure_attempt(&mut self) -> bool {
-        if self.erasure_attempts_remaining == 0 {
-            return false;
-        }
-        self.erasure_attempts_remaining -= 1;
-        true
+        self.recovery_budget.try_consume_erasure_attempt()
     }
 
     pub(crate) fn counters(&self) -> DecodeCounters {
@@ -250,6 +317,15 @@ impl QrDecoder {
         qr_matrix: &BitMatrix,
         version_num: u8,
     ) -> Result<QRCode, MatrixDecodeError> {
+        Self::decode_matrix_result(qr_matrix, version_num).map(MatrixDecodeResult::into_qr_code)
+    }
+
+    /// Decode an already sampled Model 2 matrix into its alloc-owned payload
+    /// result, without attaching image-detection state.
+    pub fn decode_matrix_result(
+        qr_matrix: &BitMatrix,
+        version_num: u8,
+    ) -> Result<MatrixDecodeResult, MatrixDecodeError> {
         if qr_matrix.width() != qr_matrix.height()
             || version_num == 0
             || version_num > 40
@@ -271,7 +347,8 @@ impl QrDecoder {
         {
             return Err(MatrixDecodeError::DecodeFailed);
         }
-        Self::decode_from_matrix(qr_matrix, version_num).ok_or(MatrixDecodeError::DecodeFailed)
+        matrix_decode::decode_from_matrix(qr_matrix, version_num)
+            .ok_or(MatrixDecodeError::DecodeFailed)
     }
 
     /// Decode a matrix fixture while enforcing the decoder's advertised mode support.
@@ -345,6 +422,7 @@ impl QrDecoder {
             &format_info,
             &confidence,
         )
+        .map(MatrixDecodeResult::into_qr_code)
         .ok_or(MatrixDecodeError::DecodeFailed)
     }
 
@@ -541,7 +619,11 @@ impl QrDecoder {
                         context,
                     )
                 {
-                    return Some(Self::with_position(qr, &transform, dimension));
+                    return Some(Self::with_position(
+                        qr.into_qr_code(),
+                        &transform,
+                        dimension,
+                    ));
                 }
 
                 let inverted = orientation::invert_matrix(&qr_matrix);
@@ -554,7 +636,11 @@ impl QrDecoder {
                         context,
                     )
                 {
-                    return Some(Self::with_position(qr, &transform, dimension));
+                    return Some(Self::with_position(
+                        qr.into_qr_code(),
+                        &transform,
+                        dimension,
+                    ));
                 }
 
                 if allow_heavy_recovery && !budget_exhausted() {
@@ -921,8 +1007,10 @@ impl QrDecoder {
         )
     }
 
+    #[allow(dead_code)]
     pub(crate) fn decode_from_matrix(qr_matrix: &BitMatrix, version_num: u8) -> Option<QRCode> {
         matrix_decode::decode_from_matrix(qr_matrix, version_num)
+            .map(MatrixDecodeResult::into_qr_code)
     }
 
     pub(crate) fn decode_from_matrix_in_context(
@@ -931,6 +1019,7 @@ impl QrDecoder {
         context: &mut DecodeRequestContext,
     ) -> Option<QRCode> {
         matrix_decode::decode_from_matrix_in_context(qr_matrix, version_num, context)
+            .map(MatrixDecodeResult::into_qr_code)
     }
 
     #[allow(dead_code)]
@@ -940,6 +1029,7 @@ impl QrDecoder {
         module_confidence: &[u8],
     ) -> Option<QRCode> {
         matrix_decode::decode_from_matrix_with_confidence(qr_matrix, version_num, module_confidence)
+            .map(MatrixDecodeResult::into_qr_code)
     }
 
     pub(crate) fn decode_from_matrix_with_confidence_in_context(
@@ -954,6 +1044,7 @@ impl QrDecoder {
             module_confidence,
             context,
         )
+        .map(MatrixDecodeResult::into_qr_code)
     }
 }
 

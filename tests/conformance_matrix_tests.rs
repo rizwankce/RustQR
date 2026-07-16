@@ -177,6 +177,23 @@ fn assert_generated_supported_corpus(root: &Path, expected_cases: Option<usize>)
             mode(fixture["mode"].as_str().expect("mode")),
         ) {
             Ok(decoded) => {
+                let core = QrDecoder::decode_matrix_result(&matrix, version)
+                    .unwrap_or_else(|error| panic!("{id}: core result {error:?}"));
+                assert_eq!(core.data, decoded.data, "{id}: core payload parity");
+                assert_eq!(core.content, decoded.content, "{id}: core text parity");
+                assert_eq!(core.version, version, "{id}: core version parity");
+                assert_eq!(
+                    core.error_correction, decoded.error_correction,
+                    "{id}: core EC parity"
+                );
+                assert_eq!(
+                    core.mask_pattern, decoded.mask_pattern,
+                    "{id}: core mask parity"
+                );
+                assert_eq!(
+                    core.metadata, decoded.metadata,
+                    "{id}: core metadata parity"
+                );
                 let matches_matrix_metadata = decoded.version == Version::Model2(version)
                     && decoded.error_correction
                         == ec_level(fixture["expected"]["ec_level"].as_str().expect("EC level"))
