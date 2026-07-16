@@ -48,10 +48,13 @@ before editing. `TODO.md` is the canonical detailed queue.
    candidates; it preserves caller-stricter limits and leaves dense large-input
    budgets unchanged. Neither slice is representative enough for the
    production FPR gate; BoofCV remains positive-only and cannot be repurposed.
-   Wikimedia Commons now supplies a viable per-asset licensing route: permanent
-   file pages can pin oldid, author, license, and source metadata. It remains
-   intake-only until originals are visually zero-QR annotated and locally
-   hashed; do not treat category membership or page metadata as zero-QR proof.
+   A one-image CC-BY-SA-4.0 Wikimedia Commons photographed-screen slice is now
+   vendored with a permanent oldid, author, source SHA-1, local SHA-256,
+   dimensions, attribution, and manual zero-QR annotation. Its strict release
+   gate passes (1/1, 16.036032 MP, zero detections/timeouts in 2.88 s); debug
+   exceeds the five-second cooperative deadline, so it is release-only and
+   ignored by default. It advances the screen category only; text, packaging,
+   and the agreed production FPR budget remain open.
 4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both

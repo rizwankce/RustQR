@@ -1212,12 +1212,26 @@ For example, the permanent pages for `Book shelf-use.png` (CC-BY-3.0,
 oldid `828586508`) and `Computer Screen Monitor.jpg` (CC-BY-SA-4.0,
 oldid `1131317639`) are evidence-backed candidates for photographed text and
 screen categories respectively. This establishes a usable *per-asset* licensing
-route, not an admission: no asset was downloaded or vendored, and no visual
-zero-QR annotation, local SHA-256, or agreed production FPR budget exists yet.
-Any future Commons intake must pin each oldid and original URL, retain the
-applicable license/attribution requirements, visually inspect the original for
-zero QR symbols, then record a local SHA-256 and dimensions in the external
-manifest before it can run as a gate.
+route, not automatic admission: every candidate must pin its oldid and original
+URL, retain the applicable license/attribution requirements, visually inspect
+the original for zero QR symbols, then record a local SHA-256 and dimensions in
+the external manifest before it can run as a gate.
+
+**2026-07-16 Wikimedia screen admission:** The unmodified `Computer Screen
+Monitor.jpg` original is now vendored as a one-image photographed-screen slice.
+`wikimedia_commons_manifest.json` pins the original URL, permanent oldid,
+author (`U3211603`), Commons source SHA-1, local SHA-256, dimensions
+(4624x3468), CC-BY-SA-4.0 attribution, and a dated manual visual zero-QR
+annotation. `scripts/verify_wp009_wikimedia_corpus.py` verifies each recorded
+field that is locally testable, including the JPEG dimensions and local hash.
+The strict public-RGB release gate completed with one image (16.036032 MP),
+zero detections, and zero timeouts in 2.88 s; it terminated at a normal
+Reed-Solomon rejection. An unoptimized debug run exceeded the cooperative
+five-second request deadline, so this corpus gate is deliberately ignored and
+release-only, like the strict cross-symbology gate. Reproduce it with
+`python3 scripts/evaluate_negative_corpus.py --include-wikimedia`. This is a
+representative photographed-screen *slice*, not a production FPR claim: photos
+of text and packaging plus an agreed budget still remain open.
 
 **2026-07-13 licensed ZXing corpus admission:** Vendored exactly 47 PNGs from
 the Apache-2.0 `zxing/zxing` commit
@@ -1271,6 +1285,7 @@ cargo test --test adversarial_matrix_tests --all-features
 cargo test --test input_api_tests --all-features
 python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json
 python3 scripts/verify_wp009_zxing_corpus.py
+python3 scripts/verify_wp009_wikimedia_corpus.py
 git diff --check
 ```
 

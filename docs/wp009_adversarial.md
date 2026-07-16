@@ -86,6 +86,29 @@ false-positive budgets, decide whether failures include timeouts, and run the
 same public-API evaluator used by the synthetic corpus. A manifest missing any
 of those provenance fields remains an intake record, not safety evidence.
 
+### Admitted slice: Wikimedia Commons photographed screen
+
+`wikimedia_commons/computer-screen-monitor.jpg` is the unmodified original of
+[`Computer Screen Monitor.jpg`](https://commons.wikimedia.org/w/index.php?title=File:Computer_Screen_Monitor.jpg&oldid=1131317639), authored by U3211603 and
+licensed CC BY-SA 4.0. Its manifest pins the permanent Commons revision,
+original URL, Commons SHA-1, local SHA-256, dimensions, and a manual original-
+image visual annotation that no QR symbols are present. The accompanying
+license reference, notice, and REUSE declaration preserve the attribution and
+license link needed when redistributing the fixture.
+
+The strict public-RGB release evaluator completed this 4624 by 3468 image
+(16.036032 MP) with zero returned QR objects and no five-second cooperative
+timeout in 2.88 seconds. Its diagnostic terminal stage was Reed-Solomon
+rejection, not a timeout. An unoptimized debug build does time out under that
+same cooperative deadline, so this is an ignored release-qualification test;
+it is not part of the normal debug test suite. Run
+`python3 scripts/evaluate_negative_corpus.py --include-wikimedia` to verify its
+hash/dimensions and execute the strict release gate.
+
+This is one photographed-screen category example, not a license to infer that
+all Commons assets are QR-free, a production FPR estimate, or coverage for the
+still-missing photographed text and packaging categories.
+
 ### Admitted slice: ZXing negative black-box images
 
 The `falsepositives` (22 PNGs) and `falsepositives-2` (25 PNGs) directories
@@ -140,6 +163,7 @@ cargo test --test adversarial_matrix_tests --all-features
 cargo test --test input_api_tests --all-features
 python3 scripts/evaluate_negative_corpus.py --output /tmp/negative-corpus.json
 python3 scripts/verify_wp009_zxing_corpus.py
+python3 scripts/verify_wp009_wikimedia_corpus.py
 cargo fuzz run public_image_input -- -max_total_time=30
 cargo fuzz run matrix_decode -- -max_total_time=30
 ```

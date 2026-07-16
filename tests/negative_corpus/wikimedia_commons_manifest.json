@@ -1,0 +1,26 @@
+{
+  "schema_version": "rustqr.external-negative-corpus.v1",
+  "name": "wikimedia-commons-negative-photos",
+  "source_repository": "https://commons.wikimedia.org",
+  "source_commit": "1131317639",
+  "source_license": "CC-BY-SA-4.0",
+  "license_file": "licenses/WIKIMEDIA-COMMONS-CC-BY-SA-4.0.md",
+  "notice_file": "licenses/WIKIMEDIA-COMMONS-NOTICE.md",
+  "reuse_declaration": "licenses/WIKIMEDIA-COMMONS-REUSE-dep5",
+  "cases": [
+    {
+      "id": "wikimedia-computer-screen-monitor",
+      "local_path": "wikimedia_commons/computer-screen-monitor.jpg",
+      "source_path": "https://upload.wikimedia.org/wikipedia/commons/7/77/Computer_Screen_Monitor.jpg",
+      "source_page": "https://commons.wikimedia.org/w/index.php?title=File:Computer_Screen_Monitor.jpg&oldid=1131317639",
+      "source_sha1": "724d3303279c974f8c3537c1fab4a3718fbb117c",
+      "author": "U3211603",
+      "manual_zero_qr_annotation": "Visual review of the original on 2026-07-16: no QR symbols present.",
+      "category": "photographed_screen",
+      "width": 4624,
+      "height": 3468,
+      "expected_qr_count": 0,
+      "sha256": "10750a35a52e312545185d1bd2e86917234fe9879cdee67dd57637bcd2676f36"
+    }
+  ]
+}
