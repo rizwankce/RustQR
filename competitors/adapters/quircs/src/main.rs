@@ -44,7 +44,14 @@ fn pgm(path: &str) -> Result<(usize, usize, Vec<u8>), Box<dyn std::error::Error>
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let argument = env::args().nth(1).ok_or("expected PGM path or --version")?;
+    let mut arguments = env::args().skip(1);
+    let geometry = matches!(arguments.next().as_deref(), Some("--geometry"));
+    let argument = if geometry {
+        arguments.next()
+    } else {
+        env::args().nth(1)
+    }
+    .ok_or("expected PGM path or --version")?;
     if argument == "--version" {
         println!("quircs {}", quircs::version());
         return Ok(());
@@ -59,7 +66,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(data) = code.decode() {
             // The shared adapter protocol is newline-delimited raw payload
             // bytes; its binary-payload limitation is documented by WP-013.
-            println!("{}", String::from_utf8_lossy(&data.payload));
+            if geometry {
+                let corners = code.corners.map(|point| format!("{},{}", point.x, point.y));
+                println!("G\t{}\t{}", hex(&data.payload), corners.join(";"));
+            } else {
+                println!("{}", String::from_utf8_lossy(&data.payload));
+            }
             decoded += 1;
         }
     }
@@ -67,4 +79,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
     Ok(())
+}
+
+fn hex(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        text.push(DIGITS[(byte >> 4) as usize] as char);
+        text.push(DIGITS[(byte & 0x0f) as usize] as char);
+    }
+    text
 }

@@ -1811,6 +1811,20 @@ symbols while the residual candidates still exceeded the latency budget. Do
 not repeat this filter-plus-fixed-budget design; any future hybrid needs a
 cheaper candidate-level selector.
 
+**2026-07-16 rejected bounded Otsu geometry anti-join:** A reversible dense
+post-primary probe retained the gamma route and its request budget, then used
+only plain-Otsu binarization/finder/grouping to rank at most five
+spatially-distinct residual candidates for center-plus-cardinal strict decode.
+It did not improve the current 48/50 public `density_050` result. The two
+remaining payloads (`WP012-021`, `-047`) are absent from the current Otsu
+frontier too; an initial bbox-IoU anti-join selected five already-decoded or
+cross-symbol triples and still returned 48/50, while the corrected
+finder-center containment plus dense-scale filter selected no residual
+candidates. The latter isolated public run was 48/50 (96.00%) in 168.39 ms,
+with FP=0, duplicates=0, and timeouts=0. The selector code was reverted. Do
+not retry an Otsu-only residual selector without evidence that a remaining
+miss has a distinct Otsu finder/group candidate.
+
 **2026-07-13 release-binary correction:** A transient 27/50, 4.8-second
 `density_050` result came from stale `target/release/qrtool` bytes, not a
 source regression. After `cargo build --release --features tools --bin qrtool`,
@@ -2017,6 +2031,22 @@ on 15; ZBar decoded 1/no-decoded 16; quircs decoded 16/no-decoded 1. These are
 explicit runner observations only. The monitor labels lack payload truth and
 all adapters lack geometry output, so neither returned-line counts nor
 process-only timing is a correctness, recall, or fair-latency claim.
+
+**2026-07-16 synthetic shared-PGM geometry-v1:** The SHA-pinned RustQR,
+ZBar, and quircs runners now emit/parse payload-plus-corner records for the
+same six delimiter-safe ASCII fixtures. The verifier derives each reference
+quadrilateral from the generated symbol dimension, 4-module quiet zone, and
+4 pixels/module; it canonicalizes winding/start corner before calculating
+convex-polygon IoU, and requires one exact payload record plus IoU >= 0.99.
+It deliberately preserves native raw corners rather than snapping them to the
+generator grid. All 18 payload checks are exact and quircs has 1.0 IoU on all
+six, but the strict gate is currently **non-passing**: ZBar is 0.980100 on
+`v02-M-m0-byte` and 0.983395 on `v07-Q-m0-byte`; RustQR is 0.979994 on
+`v07-Q-m0-byte`. The checked-in artifact contains every raw record and IoU.
+This is synthetic shared-PGM geometry evidence only, not real-scene
+localization recall or a fair latency comparison. Do not soften the threshold
+or alter raw corners to make this gate pass; any recovery needs an independently
+justified geometry convention or actual detector improvement.
 
 ---
 

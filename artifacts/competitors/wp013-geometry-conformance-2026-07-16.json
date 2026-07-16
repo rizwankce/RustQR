@@ -1,0 +1,813 @@
+{
+  "schema_version": "rustqr.competitor-geometry-conformance.v1",
+  "scope": "synthetic shared-PGM exact payload and quadrilateral conformance; not real-scene localization recall or fair latency",
+  "iou_threshold": 0.99,
+  "manifest": {
+    "path": "conformance/manifest.json",
+    "sha256": "5a065bfe25febd9a9285cb507bd22a85a2ff3d68ea27e42647b89fbff9e5f48c"
+  },
+  "lock": {
+    "path": "competitors/lock.json",
+    "sha256": "cec7a7027745cf712cac4a2620716cdf2304d29b5eb7c0aa69ce03ae611cedc5"
+  },
+  "runners": {
+    "rustqr": {
+      "status": "verified_pinned_runner",
+      "expected_version": "0.1.0",
+      "version_observed": "rust_qr 0.1.0",
+      "setup": {
+        "status": "available",
+        "command": [
+          "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/rustqr_pgm_decode",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "capabilities": {},
+      "provenance_verified": true,
+      "provenance_verification_detail": null
+    },
+    "zbar": {
+      "status": "verified_pinned_runner",
+      "expected_version": "0.23.93",
+      "version_observed": "0.23.93",
+      "setup": {
+        "status": "available",
+        "command": [
+          "zbarimg",
+          "--quiet",
+          "--raw",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "capabilities": {
+        "raw_payload_lines": true
+      },
+      "provenance_verified": true,
+      "provenance_verification_detail": null
+    },
+    "quircs": {
+      "status": "verified_pinned_runner",
+      "expected_version": "0.10.3",
+      "version_observed": "quircs 0.10.3",
+      "setup": {
+        "status": "available",
+        "command": [
+          "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/quircs_decode",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "capabilities": {},
+      "provenance_verified": true,
+      "provenance_verification_detail": null
+    }
+  },
+  "case_ids": [
+    "v01-H-m0-byte",
+    "v01-M-m3-numeric",
+    "v01-M-m3-alphanumeric",
+    "v02-M-m0-byte",
+    "v07-Q-m0-byte",
+    "v20-L-m0-byte"
+  ],
+  "passed": false,
+  "cases": [
+    {
+      "id": "v01-H-m0-byte",
+      "source_sha256": "17b1e374c7e9709ee7769f6fb4776d8c1a5782bdcfbb3b97c1242a988f40e8ce",
+      "pixel_sha256": "86a7d2d95886f2cdddf69223942ce29b7c902a346e68c11340054940654124bb",
+      "pixel_dimensions": [
+        116,
+        116
+      ],
+      "expected_payload_hex": "323034336163",
+      "expected_corners": [
+        [
+          16,
+          16
+        ],
+        [
+          100,
+          16
+        ],
+        [
+          100,
+          100
+        ],
+        [
+          16,
+          100
+        ]
+      ],
+      "adapters": {
+        "rustqr": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093332333033343333363136330931352e3939393939372c31352e3939393939393b39392e3939393939322c31362e3030303030343b39392e3939393938352c39392e3939393938353b31352e3939393939372c3130302e3030303030300a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "323034336163",
+              "corners": [
+                [
+                  15.999997,
+                  15.999999
+                ],
+                [
+                  99.999992,
+                  16.000004
+                ],
+                [
+                  99.999985,
+                  99.999985
+                ],
+                [
+                  15.999997,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.9999997178571618,
+          "passes": true
+        },
+        "zbar": {
+          "returncode": 0,
+          "raw_stdout_hex": "2b31362c2b3136202b31362c2b313030202b3130302c2b313030202b3130302c2b31363a3230343361630a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "323034336163",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  100.0
+                ],
+                [
+                  16.0,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        },
+        "quircs": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093332333033343333363136330931362c31363b3130302c31363b3130302c3130303b31362c3130300a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "323034336163",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  100.0
+                ],
+                [
+                  16.0,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-numeric",
+      "source_sha256": "974a263560129f0c463f9589e94afde60f12a1ab4f5e91631652f553cfb8aebd",
+      "pixel_sha256": "59da83a8b755c5d22554919134923960a7b799a9133394db33611b0bfafeb808",
+      "pixel_dimensions": [
+        116,
+        116
+      ],
+      "expected_payload_hex": "3730303036343533",
+      "expected_corners": [
+        [
+          16,
+          16
+        ],
+        [
+          100,
+          16
+        ],
+        [
+          100,
+          100
+        ],
+        [
+          16,
+          100
+        ]
+      ],
+      "adapters": {
+        "rustqr": {
+          "returncode": 0,
+          "raw_stdout_hex": "4709333733303330333033363334333533330931352e3939393939372c31352e3939393939393b39392e3939393939322c31362e3030303030343b39392e3939393938352c39392e3939393938353b31352e3939393939372c3130302e3030303030300a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "3730303036343533",
+              "corners": [
+                [
+                  15.999997,
+                  15.999999
+                ],
+                [
+                  99.999992,
+                  16.000004
+                ],
+                [
+                  99.999985,
+                  99.999985
+                ],
+                [
+                  15.999997,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.9999997178571618,
+          "passes": true
+        },
+        "zbar": {
+          "returncode": 0,
+          "raw_stdout_hex": "2b31362c2b3136202b31362c2b313030202b3130302c2b313030202b3130302c2b31363a37303030363435330a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "3730303036343533",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  100.0
+                ],
+                [
+                  16.0,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        },
+        "quircs": {
+          "returncode": 0,
+          "raw_stdout_hex": "4709333733303330333033363334333533330931362c31363b3130302c31363b3130302c3130303b31362c3130300a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "3730303036343533",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  100.0
+                ],
+                [
+                  16.0,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        }
+      }
+    },
+    {
+      "id": "v01-M-m3-alphanumeric",
+      "source_sha256": "15cf8b5154037f884610820d7a10fb1d01caedc4300744b8fa25d382f4c05e0a",
+      "pixel_sha256": "c1477522ced7efca07780f2b74968b240bb4d33b0371df6866eb6b0d0d657db1",
+      "pixel_dimensions": [
+        116,
+        116
+      ],
+      "expected_payload_hex": "522f394e4135",
+      "expected_corners": [
+        [
+          16,
+          16
+        ],
+        [
+          100,
+          16
+        ],
+        [
+          100,
+          100
+        ],
+        [
+          16,
+          100
+        ]
+      ],
+      "adapters": {
+        "rustqr": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093532326633393465343133350931352e3939393939372c31352e3939393939393b39392e3939393939322c31362e3030303030343b39392e3939393938352c39392e3939393938353b31352e3939393939372c3130302e3030303030300a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "522f394e4135",
+              "corners": [
+                [
+                  15.999997,
+                  15.999999
+                ],
+                [
+                  99.999992,
+                  16.000004
+                ],
+                [
+                  99.999985,
+                  99.999985
+                ],
+                [
+                  15.999997,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.9999997178571618,
+          "passes": true
+        },
+        "zbar": {
+          "returncode": 0,
+          "raw_stdout_hex": "2b31362c2b3136202b31362c2b313030202b3130302c2b313030202b3130302c2b31363a522f394e41350a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "522f394e4135",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  100.0
+                ],
+                [
+                  16.0,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        },
+        "quircs": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093532326633393465343133350931362c31363b3130302c31363b3130302c3130303b31362c3130300a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "522f394e4135",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  16.0
+                ],
+                [
+                  100.0,
+                  100.0
+                ],
+                [
+                  16.0,
+                  100.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        }
+      }
+    },
+    {
+      "id": "v02-M-m0-byte",
+      "source_sha256": "d26148889453d908592945b5b621ad8ab02374c08d5727d03c28529132608853",
+      "pixel_sha256": "20057a0857b734371acccab2325a9f045e9135a17a7f9016933976fb6856055b",
+      "pixel_dimensions": [
+        132,
+        132
+      ],
+      "expected_payload_hex": "356666613366",
+      "expected_corners": [
+        [
+          16,
+          16
+        ],
+        [
+          116,
+          16
+        ],
+        [
+          116,
+          116
+        ],
+        [
+          16,
+          116
+        ]
+      ],
+      "adapters": {
+        "rustqr": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093335363636363631333336360931362e3030303030302c31362e3030303030323b3131362e3030303030302c31352e3939393939383b3131362e3030303030302c3131362e3030303030303b31362e3030303030302c3131362e3030303030300a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "356666613366",
+              "corners": [
+                [
+                  116.0,
+                  15.999998
+                ],
+                [
+                  116.0,
+                  116.0
+                ],
+                [
+                  16.0,
+                  116.0
+                ],
+                [
+                  16.0,
+                  16.000002
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.99999999,
+          "passes": true
+        },
+        "zbar": {
+          "returncode": 0,
+          "raw_stdout_hex": "2b31372c2b3137202b31362c2b313135202b3131362c2b313136202b3131352c2b31363a3566666133660a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "356666613366",
+              "corners": [
+                [
+                  115.0,
+                  16.0
+                ],
+                [
+                  116.0,
+                  116.0
+                ],
+                [
+                  16.0,
+                  115.0
+                ],
+                [
+                  17.0,
+                  17.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.9801,
+          "passes": false
+        },
+        "quircs": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093335363636363631333336360931362c31363b3131362c31363b3131362c3131363b31362c3131360a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "356666613366",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  116.0,
+                  16.0
+                ],
+                [
+                  116.0,
+                  116.0
+                ],
+                [
+                  16.0,
+                  116.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        }
+      }
+    },
+    {
+      "id": "v07-Q-m0-byte",
+      "source_sha256": "b727c5d8318f15b2fe49a85d86dabc2d14aeca0898f4f8bc4bb950f384b0a3ff",
+      "pixel_sha256": "408dd410b31988fe5a87e330a5e684891cac91a61498576425a713378a613d3a",
+      "pixel_dimensions": [
+        212,
+        212
+      ],
+      "expected_payload_hex": "356465613332",
+      "expected_corners": [
+        [
+          16,
+          16
+        ],
+        [
+          196,
+          16
+        ],
+        [
+          196,
+          196
+        ],
+        [
+          16,
+          196
+        ]
+      ],
+      "adapters": {
+        "rustqr": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093335363436353631333333320931352e3730383733372c31352e3730383733373b3139362e3030303031352c31362e3030303030363b3139322e3638343433332c3139322e3638343430323b31352e3939393939382c3139352e3939393938350a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "356465613332",
+              "corners": [
+                [
+                  15.708737,
+                  15.708737
+                ],
+                [
+                  196.000015,
+                  16.000006
+                ],
+                [
+                  192.684433,
+                  192.684402
+                ],
+                [
+                  15.999998,
+                  195.999985
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.9799943522488416,
+          "passes": false
+        },
+        "zbar": {
+          "returncode": 0,
+          "raw_stdout_hex": "2b31362c2b3136202b31372c2b313935202b3139352c2b313935202b3139352c2b31373a3564656133320a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "356465613332",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  195.0,
+                  17.0
+                ],
+                [
+                  195.0,
+                  195.0
+                ],
+                [
+                  17.0,
+                  195.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.9833950617283951,
+          "passes": false
+        },
+        "quircs": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093335363436353631333333320931362c31363b3139362c31363b3139362c3139363b31362c3139360a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "356465613332",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  196.0,
+                  16.0
+                ],
+                [
+                  196.0,
+                  196.0
+                ],
+                [
+                  16.0,
+                  196.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        }
+      }
+    },
+    {
+      "id": "v20-L-m0-byte",
+      "source_sha256": "4ea6e01e44a82ee8453a7cb20b653a339087997c5afeb676aff9137868bc3e95",
+      "pixel_sha256": "339171859a2da38a00b219e6e5db75e3aee7a1bc3875bc2b3f625851007d200e",
+      "pixel_dimensions": [
+        420,
+        420
+      ],
+      "expected_payload_hex": "363439643366",
+      "expected_corners": [
+        [
+          16,
+          16
+        ],
+        [
+          404,
+          16
+        ],
+        [
+          404,
+          404
+        ],
+        [
+          16,
+          404
+        ]
+      ],
+      "adapters": {
+        "rustqr": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093336333433393634333336360931352e3934353332302c31352e3935363833393b3430332e3938383039382c31362e3031313932313b3430322e3835353031312c3430322e3534393430383b31352e3938383037302c3430342e3031313936330a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "363439643366",
+              "corners": [
+                [
+                  15.94532,
+                  15.956839
+                ],
+                [
+                  403.988098,
+                  16.011921
+                ],
+                [
+                  402.855011,
+                  402.549408
+                ],
+                [
+                  15.98807,
+                  404.011963
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.996522710925579,
+          "passes": true
+        },
+        "zbar": {
+          "returncode": 0,
+          "raw_stdout_hex": "2b31362c2b3136202b31362c2b343034202b3430332c2b343033202b3430342c2b31363a3634396433660a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "363439643366",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  404.0,
+                  16.0
+                ],
+                [
+                  403.0,
+                  403.0
+                ],
+                [
+                  16.0,
+                  404.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 0.9974226804123711,
+          "passes": true
+        },
+        "quircs": {
+          "returncode": 0,
+          "raw_stdout_hex": "47093336333433393634333336360931362c31363b3430342c31363b3430342c3430343b31362c3430340a",
+          "raw_stderr_hex": "",
+          "records": [
+            {
+              "payload_hex": "363439643366",
+              "corners": [
+                [
+                  16.0,
+                  16.0
+                ],
+                [
+                  404.0,
+                  16.0
+                ],
+                [
+                  404.0,
+                  404.0
+                ],
+                [
+                  16.0,
+                  404.0
+                ]
+              ]
+            }
+          ],
+          "exact_payload": true,
+          "best_iou": 1.0,
+          "passes": true
+        }
+      }
+    }
+  ]
+}

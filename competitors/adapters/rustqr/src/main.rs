@@ -46,7 +46,16 @@ fn pgm(path: &str) -> Result<(usize, usize, Vec<u8>), Box<dyn std::error::Error>
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let argument = env::args().nth(1).ok_or("expected PGM path or --version")?;
+    let mut arguments = env::args().skip(1);
+    let geometry = matches!(arguments.next().as_deref(), Some("--geometry"));
+    let argument = if geometry {
+        arguments.next()
+    } else {
+        // Keep the original payload-lines protocol as the default so the
+        // existing monitor and payload conformance runners remain stable.
+        env::args().nth(1)
+    }
+    .ok_or("expected PGM path or --version")?;
     if argument == "--version" {
         println!("rust_qr {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
@@ -60,7 +69,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
     for code in result.codes {
-        println!("{}", String::from_utf8_lossy(&code.data));
+        if geometry {
+            // Delimiter-safe, ASCII-only protocol for the synthetic shared-PGM
+            // geometry runner: `G\t<payload hex>\t<x,y;...>`.  Payload bytes
+            // are hexadecimal so neither tabs nor newlines are ambiguous.
+            let corners = code
+                .position
+                .map(|point| format!("{:.6},{:.6}", point.x, point.y));
+            println!("G\t{}\t{}", hex(&code.data), corners.join(";"));
+        } else {
+            println!("{}", String::from_utf8_lossy(&code.data));
+        }
     }
     Ok(())
+}
+
+fn hex(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        text.push(DIGITS[(byte >> 4) as usize] as char);
+        text.push(DIGITS[(byte & 0x0f) as usize] as char);
+    }
+    text
 }

@@ -56,7 +56,7 @@
       "source": "https://crates.io/crates/quircs",
       "revision": "quircs 0.10.3",
       "license": "MIT",
-      "runner_sha256": "239544aedf5977f504ed4fa0da7eca8cdbcaf0e3e31ece7f2525dadf7ec45b81",
+      "runner_sha256": "04712a553a853cf7e01a794ff8005730433e5cae396c1cd31bbdbf8ad3eeeb42",
       "build": "cargo build --release --offline --locked --manifest-path competitors/adapters/quircs/Cargo.toml && install -m 755 competitors/adapters/quircs/target/release/quircs_decode competitors/bin/quircs_decode"
     },
     "rustqr": {
@@ -64,7 +64,7 @@
       "source": "local workspace public API",
       "revision": "workspace Cargo.toml version 0.1.0",
       "license": "MIT OR Apache-2.0",
-      "runner_sha256": "8ac28aed32570aa0a0adcaca267d67f954da34e9c51009bf1fbff796cdefdf1c",
+      "runner_sha256": "c4891d2dadb36ed1e6b358f4c2edc9d6d1300705e7f9b3b58206a0549a478a52",
       "build": "cargo build --release --offline --locked --manifest-path competitors/adapters/rustqr/Cargo.toml && install -m 755 competitors/adapters/rustqr/target/release/rustqr_pgm_decode competitors/bin/rustqr_pgm_decode"
     }
   }
