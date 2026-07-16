@@ -117,6 +117,12 @@ pub(crate) struct DecodeCounters {
     pub rs_erasure_count_hist: [usize; 4],
     pub phase11_time_budget_skips: usize,
     pub unsupported_payloads: usize,
+    /// Sampled matrices rejected by the fixed timing-pattern gate.
+    pub timing_pattern_rejections: usize,
+    /// Sum of horizontal timing alternation ratios for rejected matrices.
+    pub timing_pattern_horizontal_ratio_sum: f32,
+    /// Sum of vertical timing alternation ratios for rejected matrices.
+    pub timing_pattern_vertical_ratio_sum: f32,
 }
 
 /// Mutable state owned by one decode request.
@@ -222,6 +228,9 @@ impl DecodeCounters {
             rs_erasure_count_hist: [0; 4],
             phase11_time_budget_skips: 0,
             unsupported_payloads: 0,
+            timing_pattern_rejections: 0,
+            timing_pattern_horizontal_ratio_sum: 0.0,
+            timing_pattern_vertical_ratio_sum: 0.0,
         }
     }
 }
@@ -513,6 +522,13 @@ impl QrDecoder {
                     context.counters_mut().hv_subpixel_attempts += 1;
                 }
                 if !orientation::validate_timing_patterns(&qr_matrix) {
+                    context.counters_mut().timing_pattern_rejections += 1;
+                    if let Some((horizontal, vertical)) =
+                        orientation::timing_pattern_ratios(&qr_matrix)
+                    {
+                        context.counters_mut().timing_pattern_horizontal_ratio_sum += horizontal;
+                        context.counters_mut().timing_pattern_vertical_ratio_sum += vertical;
+                    }
                     continue;
                 }
 

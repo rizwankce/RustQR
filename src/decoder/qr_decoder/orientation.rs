@@ -269,10 +269,13 @@ pub(super) fn has_finders_with_tolerance(matrix: &BitMatrix, max_mismatches: usi
     mismatches <= max_mismatches
 }
 
-pub(super) fn validate_timing_patterns(matrix: &BitMatrix) -> bool {
+/// Return the horizontal and vertical timing-line alternation ratios used by
+/// the timing-pattern gate.  Keeping the measurement separate lets callers
+/// record rejected samples without changing the gate itself.
+pub(super) fn timing_pattern_ratios(matrix: &BitMatrix) -> Option<(f32, f32)> {
     let dim = matrix.width();
     if dim < 21 || matrix.height() != dim {
-        return false;
+        return None;
     }
 
     let horizontal = read_timing_pattern(
@@ -287,10 +290,17 @@ pub(super) fn validate_timing_patterns(matrix: &BitMatrix) -> bool {
     );
 
     let (Some(h_bits), Some(v_bits)) = (horizontal, vertical) else {
-        return false;
+        return None;
     };
 
-    alternation_ratio(&h_bits) >= 0.60 && alternation_ratio(&v_bits) >= 0.60
+    Some((alternation_ratio(&h_bits), alternation_ratio(&v_bits)))
+}
+
+pub(super) fn validate_timing_patterns(matrix: &BitMatrix) -> bool {
+    matches!(
+        timing_pattern_ratios(matrix),
+        Some((horizontal, vertical)) if horizontal >= 0.60 && vertical >= 0.60
+    )
 }
 
 /// Validate the fixed Model 2 patterns that are independent of payload and
@@ -493,5 +503,19 @@ mod structural_tests {
 
         assert_eq!(structural_mismatch_score(&clean), 0);
         assert!(structural_mismatch_score(&clean) < structural_mismatch_score(&damaged));
+    }
+
+    #[test]
+    fn timing_pattern_ratios_preserve_gate_decision() {
+        let mut matrix = structural_version_two_matrix();
+        assert_eq!(timing_pattern_ratios(&matrix), Some((1.0, 1.0)));
+        assert!(validate_timing_patterns(&matrix));
+
+        for x in 8..(matrix.width() - 8) {
+            matrix.set(x, 6, false);
+        }
+
+        assert_eq!(timing_pattern_ratios(&matrix), Some((0.0, 1.0)));
+        assert!(!validate_timing_patterns(&matrix));
     }
 }

@@ -1616,6 +1616,20 @@ performance claim while WP-014 changes share the worktree; the full artifact
 is `/tmp/wp011_high_version_scheduler_1_2500.json` and details are in
 `docs/wp011_high_version_probe.md`.
 
+**2026-07-16 timing-gate observation:** The fixed 0.60 horizontal-and-vertical
+timing alternation gate is now observable without changing its decision.
+Release one-image probes at `QR_MAX_DIM=800` and a 2,500 ms cooperative
+deadline remained 0/1 with zero BCH or RS evidence: glare recorded 1,545
+timing-gate rejections with mean rejected horizontal/vertical ratios of
+0.107/0.141; high-version recorded 433 rejections with means of 0.519/0.502
+and one cooperative timeout (3,420.92 ms core). The focused orientation test
+and `cargo clippy --all-targets --all-features -- -D warnings` pass. The
+artifacts are `artifacts/wp011_glare_timing_gate_2026-07-16.json` and
+`artifacts/wp011_high_version_timing_gate_2026-07-16.json`. These aggregate
+means are below the gate on both axes, especially for glare, so they do not
+justify relaxing the threshold; the next geometry work needs a sampling or
+transform change that measurably improves timing evidence first.
+
 **2026-07-13 bounded category audit:** Seven one-image local diagnostics at
 `QR_MAX_DIM=800` with `--timeout-ms 2500` are retained as
 `artifacts/wp011_category_*_qrmax800_limit1_2500.json`. The exact results are:

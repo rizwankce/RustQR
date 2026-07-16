@@ -357,6 +357,12 @@ pub struct DetectionTelemetry {
     pub rs_erasure_count_hist: [usize; 4],
     /// Number of candidate decode branches skipped by phase 9.11 time budget.
     pub phase11_time_budget_skips: usize,
+    /// Number of sampled matrices rejected by the fixed timing-pattern gate.
+    pub timing_pattern_rejections: usize,
+    /// Sum of horizontal timing alternation ratios for rejected sampled matrices.
+    pub timing_pattern_horizontal_ratio_sum: f32,
+    /// Sum of vertical timing alternation ratios for rejected sampled matrices.
+    pub timing_pattern_vertical_ratio_sum: f32,
 }
 
 impl DetectionTelemetry {
@@ -442,6 +448,9 @@ impl DetectionTelemetry {
             self.rs_erasure_count_hist[i] += other.rs_erasure_count_hist[i];
         }
         self.phase11_time_budget_skips += other.phase11_time_budget_skips;
+        self.timing_pattern_rejections += other.timing_pattern_rejections;
+        self.timing_pattern_horizontal_ratio_sum += other.timing_pattern_horizontal_ratio_sum;
+        self.timing_pattern_vertical_ratio_sum += other.timing_pattern_vertical_ratio_sum;
         if self.strategy_profile.is_empty() && !other.strategy_profile.is_empty() {
             self.strategy_profile = other.strategy_profile.clone();
         }
@@ -1680,6 +1689,9 @@ fn detect_with_telemetry_budget(
     tel.rs_erasure_successes = counters.rs_erasure_successes;
     tel.rs_erasure_count_hist = counters.rs_erasure_count_hist;
     tel.phase11_time_budget_skips = counters.phase11_time_budget_skips;
+    tel.timing_pattern_rejections = counters.timing_pattern_rejections;
+    tel.timing_pattern_horizontal_ratio_sum = counters.timing_pattern_horizontal_ratio_sum;
+    tel.timing_pattern_vertical_ratio_sum = counters.timing_pattern_vertical_ratio_sum;
     tel.unsupported_content = counters.unsupported_payloads;
     (results, tel)
 }

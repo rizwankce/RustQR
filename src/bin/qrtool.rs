@@ -1649,6 +1649,12 @@ struct StageTelemetry {
     rs_erasure_count_hist: [usize; 4],
     /// Phase 9.11 candidate branches skipped due to time budget.
     phase11_time_budget_skips: usize,
+    /// Sampled matrices rejected by the fixed timing-pattern gate.
+    timing_pattern_rejections: usize,
+    /// Sum of horizontal timing alternation ratios for rejected matrices.
+    timing_pattern_horizontal_ratio_sum: f64,
+    /// Sum of vertical timing alternation ratios for rejected matrices.
+    timing_pattern_vertical_ratio_sum: f64,
     /// Per-image decode-attempt histogram:
     /// [0, 1, 2-3, 4-7, 8+]
     attempts_used_histogram: [usize; 5],
@@ -1716,6 +1722,9 @@ impl StageTelemetry {
             self.rs_erasure_count_hist[i] += other.rs_erasure_count_hist[i];
         }
         self.phase11_time_budget_skips += other.phase11_time_budget_skips;
+        self.timing_pattern_rejections += other.timing_pattern_rejections;
+        self.timing_pattern_horizontal_ratio_sum += other.timing_pattern_horizontal_ratio_sum;
+        self.timing_pattern_vertical_ratio_sum += other.timing_pattern_vertical_ratio_sum;
         for i in 0..self.attempts_used_histogram.len() {
             self.attempts_used_histogram[i] += other.attempts_used_histogram[i];
         }
@@ -2068,6 +2077,11 @@ where
                 stats.stage_telemetry.rs_erasure_count_hist[i] += tel.rs_erasure_count_hist[i];
             }
             stats.stage_telemetry.phase11_time_budget_skips += tel.phase11_time_budget_skips;
+            stats.stage_telemetry.timing_pattern_rejections += tel.timing_pattern_rejections;
+            stats.stage_telemetry.timing_pattern_horizontal_ratio_sum +=
+                tel.timing_pattern_horizontal_ratio_sum as f64;
+            stats.stage_telemetry.timing_pattern_vertical_ratio_sum +=
+                tel.timing_pattern_vertical_ratio_sum as f64;
 
             if image_hits == 0 {
                 let signature = classify_failure_signature(&tel);
@@ -2723,6 +2737,21 @@ fn write_reading_rate_artifact(path: &Path, artifact: &ReadingRateArtifact) {
             &mut json,
             "        \"phase11_time_budget_skips\": {},",
             category.stage_telemetry.phase11_time_budget_skips
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"timing_pattern_rejections\": {},",
+            category.stage_telemetry.timing_pattern_rejections
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"timing_pattern_horizontal_ratio_sum\": {:.6},",
+            category.stage_telemetry.timing_pattern_horizontal_ratio_sum
+        );
+        let _ = writeln!(
+            &mut json,
+            "        \"timing_pattern_vertical_ratio_sum\": {:.6},",
+            category.stage_telemetry.timing_pattern_vertical_ratio_sum
         );
         let _ = writeln!(
             &mut json,
