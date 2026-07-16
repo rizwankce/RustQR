@@ -280,6 +280,22 @@ baseline.
 - Clearly label the BoofCV lane as annotation/count based and the custom lane as
   payload validated.
 
+**2026-07-16 brightness-route telemetry plumbing:** Diagnostics now retain
+the per-attempt decoder telemetry already produced by the legacy brightness
+route; no candidate cap, deadline ownership, routing, or decode result path
+changed. A rebuilt release `QR_MAX_DIM=800` `lots --limit 1 --timeout-ms 500`
+probe recorded a transform-bearing route (46 decode attempts), one BCH-valid
+format/RS candidate, and 1,320 fixed-timing rejections with horizontal/vertical
+ratio sums 299.083466/330.434784. The evaluator discarded its one internal
+decode because wall time was 753.19 ms (0/60, one timeout), so this is
+diagnostic evidence only, not a realistic-lots improvement. Its control,
+the public `density_050` 500-ms evaluator, retained 48/50 (96.00%) in
+172.01 ms with zero false positives, duplicates, or timeouts; its brightness
+telemetry reports 48 BCH/RS candidates and 20 timing rejections with H/V sums
+10.25/10.75. Temporary artifacts:
+`/tmp/wp012_brightness_telemetry_lots1_500_repeat.json` and
+`/tmp/wp012_brightness_telemetry_density50_500.json`.
+
 **Acceptance criteria:**
 
 - Artifacts have documented provenance and cannot be mistaken for main's

@@ -464,7 +464,7 @@ impl DetectionTelemetry {
     }
 }
 
-use decoder::qr_decoder::DecodeRequestContext;
+use decoder::qr_decoder::{DecodeCounters, DecodeRequestContext};
 use detector::contour::ContourDetector;
 use detector::finder::{FinderDetector, FinderPattern};
 use utils::binarization::{
@@ -745,6 +745,82 @@ fn budgeted_decode(
     decoded
 }
 
+/// Add request-local decoder counters to a telemetry aggregate.
+///
+/// This is intentionally additive: a brightness route can make several
+/// independent decode calls before the regular route owns its own context.
+fn accumulate_decoder_counters(telemetry: &mut DetectionTelemetry, counters: DecodeCounters) {
+    telemetry.format_extracted += counters.format_bch_candidates;
+    for i in 0..telemetry.format_bch_distance_hist.len() {
+        telemetry.format_bch_distance_hist[i] += counters.format_bch_distance_hist[i];
+    }
+    telemetry.rs_candidate_attempts += counters.rs_candidate_attempts;
+    telemetry.nonzero_remainder_bit_rejections += counters.nonzero_remainder_bit_rejections;
+    telemetry.rs_block_attempts += counters.rs_block_attempts;
+    telemetry.rs_block_successes += counters.rs_block_successes;
+    telemetry.rs_block_failures += counters.rs_block_failures;
+    telemetry.deskew_attempts += counters.deskew_attempts;
+    telemetry.deskew_successes += counters.deskew_successes;
+    telemetry.high_version_precision_attempts += counters.high_version_precision_attempts;
+    telemetry.recovery_mode_attempts += counters.recovery_mode_attempts;
+    telemetry.scale_retry_attempts += counters.scale_retry_attempts;
+    telemetry.scale_retry_successes += counters.scale_retry_successes;
+    telemetry.scale_retry_skipped_by_budget += counters.scale_retry_skipped_by_budget;
+    telemetry.hv_subpixel_attempts += counters.hv_subpixel_attempts;
+    telemetry.hv_refine_attempts += counters.hv_refine_attempts;
+    telemetry.hv_refine_successes += counters.hv_refine_successes;
+    telemetry.rs_erasure_attempts += counters.rs_erasure_attempts;
+    telemetry.rs_erasure_successes += counters.rs_erasure_successes;
+    for i in 0..telemetry.rs_erasure_count_hist.len() {
+        telemetry.rs_erasure_count_hist[i] += counters.rs_erasure_count_hist[i];
+    }
+    telemetry.phase11_time_budget_skips += counters.phase11_time_budget_skips;
+    telemetry.timing_pattern_rejections += counters.timing_pattern_rejections;
+    telemetry.timing_pattern_horizontal_ratio_sum += counters.timing_pattern_horizontal_ratio_sum;
+    telemetry.timing_pattern_vertical_ratio_sum += counters.timing_pattern_vertical_ratio_sum;
+    telemetry.unsupported_content += counters.unsupported_payloads;
+}
+
+/// Run the established bounded decode path while retaining its otherwise
+/// request-local decoder counters for an opt-in diagnostic caller.
+///
+/// The production brightness route historically used a fresh default context
+/// for each attempt. Keep that ownership and therefore its recovery, timeout,
+/// cap, routing, and result behaviour intact; this helper only copies the
+/// counters out after the attempt has completed.
+fn budgeted_decode_with_telemetry(
+    binary: &BitMatrix,
+    gray: &[u8],
+    width: usize,
+    height: usize,
+    patterns: &[FinderPattern],
+    remaining: &mut usize,
+    telemetry: &mut DetectionTelemetry,
+) -> Vec<QRCode> {
+    if *remaining == 0 {
+        return Vec::new();
+    }
+    let cap = if patterns.len() > 12 {
+        *remaining
+    } else {
+        (*remaining).min(24)
+    };
+    let mut context = DecodeRequestContext::default();
+    let (decoded, mut decode_tel) = pipeline::decode_groups_with_telemetry_limited_in_context(
+        binary,
+        gray,
+        width,
+        height,
+        patterns,
+        cap,
+        &mut context,
+    );
+    *remaining = remaining.saturating_sub(decode_tel.decode_attempts);
+    accumulate_decoder_counters(&mut decode_tel, context.counters());
+    telemetry.merge_high_water_from(&decode_tel);
+    decoded
+}
+
 /// Run brightness-specific detection for overexposed images
 /// Simplified and optimized to avoid timeouts
 fn run_brightness_detection<F: Fn() -> bool>(
@@ -753,14 +829,31 @@ fn run_brightness_detection<F: Fn() -> bool>(
     height: usize,
     is_expired: &F,
     remaining: &mut usize,
+    mut telemetry: Option<&mut DetectionTelemetry>,
 ) -> Vec<QRCode> {
     let window = auto_window(width, height);
 
     let gamma_corrected = gamma_correct(gray, 0.6);
     let gamma_otsu = otsu_binarize(&gamma_corrected, width, height);
     let patterns = detect_finder_patterns(&gamma_otsu, width, height);
+    if let Some(tel) = telemetry.as_deref_mut() {
+        tel.binarize_ok = true;
+        tel.finder_patterns_found = tel.finder_patterns_found.max(patterns.len());
+    }
     if patterns.len() >= 3 && patterns.len() <= FINDER_PATTERN_THRESHOLD {
-        let decoded = budgeted_decode(&gamma_otsu, gray, width, height, &patterns, remaining);
+        let decoded = if let Some(tel) = telemetry.as_deref_mut() {
+            budgeted_decode_with_telemetry(
+                &gamma_otsu,
+                gray,
+                width,
+                height,
+                &patterns,
+                remaining,
+                tel,
+            )
+        } else {
+            budgeted_decode(&gamma_otsu, gray, width, height, &patterns, remaining)
+        };
         if !decoded.is_empty() {
             return decoded;
         }
@@ -772,15 +865,30 @@ fn run_brightness_detection<F: Fn() -> bool>(
 
     if patterns.len() >= 2 {
         let contour_patterns = ContourDetector::detect(&gamma_otsu);
+        if let Some(tel) = telemetry.as_deref_mut() {
+            tel.finder_patterns_found = tel.finder_patterns_found.max(contour_patterns.len());
+        }
         if contour_patterns.len() >= 3 {
-            let decoded = budgeted_decode(
-                &gamma_otsu,
-                gray,
-                width,
-                height,
-                &contour_patterns,
-                remaining,
-            );
+            let decoded = if let Some(tel) = telemetry.as_deref_mut() {
+                budgeted_decode_with_telemetry(
+                    &gamma_otsu,
+                    gray,
+                    width,
+                    height,
+                    &contour_patterns,
+                    remaining,
+                    tel,
+                )
+            } else {
+                budgeted_decode(
+                    &gamma_otsu,
+                    gray,
+                    width,
+                    height,
+                    &contour_patterns,
+                    remaining,
+                )
+            };
             if !decoded.is_empty() {
                 return decoded;
             }
@@ -794,8 +902,23 @@ fn run_brightness_detection<F: Fn() -> bool>(
     let inverted = invert_gray(gray);
     let inv_otsu = otsu_binarize(&inverted, width, height);
     let inv_patterns = detect_finder_patterns(&inv_otsu, width, height);
+    if let Some(tel) = telemetry.as_deref_mut() {
+        tel.finder_patterns_found = tel.finder_patterns_found.max(inv_patterns.len());
+    }
     if inv_patterns.len() >= 3 && inv_patterns.len() <= FINDER_PATTERN_THRESHOLD {
-        let decoded = budgeted_decode(&inv_otsu, gray, width, height, &inv_patterns, remaining);
+        let decoded = if let Some(tel) = telemetry.as_deref_mut() {
+            budgeted_decode_with_telemetry(
+                &inv_otsu,
+                gray,
+                width,
+                height,
+                &inv_patterns,
+                remaining,
+                tel,
+            )
+        } else {
+            budgeted_decode(&inv_otsu, gray, width, height, &inv_patterns, remaining)
+        };
         if !decoded.is_empty() {
             return decoded;
         }
@@ -807,9 +930,23 @@ fn run_brightness_detection<F: Fn() -> bool>(
 
     if inv_patterns.len() >= 2 {
         let contour_patterns = ContourDetector::detect(&inv_otsu);
+        if let Some(tel) = telemetry.as_deref_mut() {
+            tel.finder_patterns_found = tel.finder_patterns_found.max(contour_patterns.len());
+        }
         if contour_patterns.len() >= 3 {
-            let decoded =
-                budgeted_decode(&inv_otsu, gray, width, height, &contour_patterns, remaining);
+            let decoded = if let Some(tel) = telemetry.as_deref_mut() {
+                budgeted_decode_with_telemetry(
+                    &inv_otsu,
+                    gray,
+                    width,
+                    height,
+                    &contour_patterns,
+                    remaining,
+                    tel,
+                )
+            } else {
+                budgeted_decode(&inv_otsu, gray, width, height, &contour_patterns, remaining)
+            };
             if !decoded.is_empty() {
                 return decoded;
             }
@@ -822,8 +959,23 @@ fn run_brightness_detection<F: Fn() -> bool>(
 
     let sauvola = sauvola_binarize_bright(gray, width, height, window);
     let sauv_patterns = detect_finder_patterns(&sauvola, width, height);
+    if let Some(tel) = telemetry.as_deref_mut() {
+        tel.finder_patterns_found = tel.finder_patterns_found.max(sauv_patterns.len());
+    }
     if sauv_patterns.len() >= 3 && sauv_patterns.len() <= FINDER_PATTERN_THRESHOLD {
-        let decoded = budgeted_decode(&sauvola, gray, width, height, &sauv_patterns, remaining);
+        let decoded = if let Some(tel) = telemetry {
+            budgeted_decode_with_telemetry(
+                &sauvola,
+                gray,
+                width,
+                height,
+                &sauv_patterns,
+                remaining,
+                tel,
+            )
+        } else {
+            budgeted_decode(&sauvola, gray, width, height, &sauv_patterns, remaining)
+        };
         if !decoded.is_empty() {
             return decoded;
         }
@@ -1231,7 +1383,8 @@ where
         if is_expired() {
             return Vec::new();
         }
-        let results = run_brightness_detection(gray, width, height, &is_expired, &mut remaining);
+        let results =
+            run_brightness_detection(gray, width, height, &is_expired, &mut remaining, None);
         if !results.is_empty() {
             return results;
         }
@@ -1474,6 +1627,7 @@ fn detect_with_telemetry_budget(
             height,
             &is_expired_tel,
             &mut remaining_attempts,
+            Some(&mut tel),
         );
         if !results.is_empty() {
             tel.qr_codes_found = results.len();
@@ -1672,31 +1826,7 @@ fn detect_with_telemetry_budget(
 
     tel.qr_codes_found = results.len();
     let counters = decode_context.counters();
-    tel.format_extracted = counters.format_bch_candidates;
-    tel.format_bch_distance_hist = counters.format_bch_distance_hist;
-    tel.rs_candidate_attempts = counters.rs_candidate_attempts;
-    tel.nonzero_remainder_bit_rejections = counters.nonzero_remainder_bit_rejections;
-    tel.rs_block_attempts = counters.rs_block_attempts;
-    tel.rs_block_successes = counters.rs_block_successes;
-    tel.rs_block_failures = counters.rs_block_failures;
-    tel.deskew_attempts = counters.deskew_attempts;
-    tel.deskew_successes = counters.deskew_successes;
-    tel.high_version_precision_attempts = counters.high_version_precision_attempts;
-    tel.recovery_mode_attempts = counters.recovery_mode_attempts;
-    tel.scale_retry_attempts = counters.scale_retry_attempts;
-    tel.scale_retry_successes = counters.scale_retry_successes;
-    tel.scale_retry_skipped_by_budget = counters.scale_retry_skipped_by_budget;
-    tel.hv_subpixel_attempts = counters.hv_subpixel_attempts;
-    tel.hv_refine_attempts = counters.hv_refine_attempts;
-    tel.hv_refine_successes = counters.hv_refine_successes;
-    tel.rs_erasure_attempts = counters.rs_erasure_attempts;
-    tel.rs_erasure_successes = counters.rs_erasure_successes;
-    tel.rs_erasure_count_hist = counters.rs_erasure_count_hist;
-    tel.phase11_time_budget_skips = counters.phase11_time_budget_skips;
-    tel.timing_pattern_rejections = counters.timing_pattern_rejections;
-    tel.timing_pattern_horizontal_ratio_sum = counters.timing_pattern_horizontal_ratio_sum;
-    tel.timing_pattern_vertical_ratio_sum = counters.timing_pattern_vertical_ratio_sum;
-    tel.unsupported_content = counters.unsupported_payloads;
+    accumulate_decoder_counters(&mut tel, counters);
     (results, tel)
 }
 
