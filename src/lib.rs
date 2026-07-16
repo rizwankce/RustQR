@@ -401,6 +401,37 @@ pub struct CandidateStageTelemetry {
     pub remainder_rejections: usize,
     pub rs_candidate_attempts: usize,
     pub rs_block_failures: usize,
+    /// One base-versus-selected transform observation for this request's
+    /// first traced candidate. Absent for normal requests and candidates
+    /// after the bounded observation has been captured.
+    pub transform_observation: Option<TransformSamplingObservation>,
+}
+
+/// Diagnostic comparison of one finder-derived transform and the transform
+/// selected by bounded alignment/timing refinement.
+///
+/// This is observation-only. The decoder selects exactly the same transform
+/// with or without this record; the base matrix is sampled once more only for
+/// an opt-in candidate-stage trace.
+#[derive(Debug, Clone, Copy)]
+pub struct TransformSamplingObservation {
+    /// QR version hypothesis used for this sample.
+    pub version: u8,
+    /// Sampled QR matrix dimension for this hypothesis.
+    pub dimension: usize,
+    /// Alignment locations considered by the bounded refinement routine.
+    pub alignment_probe_count: usize,
+    /// Combined refinement quality of the finder-derived transform.
+    pub base_quality: f32,
+    /// Combined refinement quality of the selected transform.
+    pub selected_quality: f32,
+    /// Whether bounded refinement replaced the finder-derived transform.
+    pub refinement_accepted: bool,
+    /// Timing alternation ratios [horizontal, vertical] from one base sample.
+    pub base_timing_ratios: Option<[f32; 2]>,
+    /// Timing alternation ratios [horizontal, vertical] from the selected
+    /// matrix already needed by the normal decode path.
+    pub selected_timing_ratios: Option<[f32; 2]>,
 }
 
 impl DetectionTelemetry {

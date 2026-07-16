@@ -238,9 +238,13 @@ fn candidate_stage_trace_cmd(image: &Path, timeout_ms: u64, output: &Path) {
         let region = stage
             .region_index
             .map_or("null".to_string(), |value| value.to_string());
+        let transform_observation = stage
+            .transform_observation
+            .map(transform_sampling_observation_json)
+            .unwrap_or_else(|| "null".to_string());
         let _ = writeln!(
             &mut json,
-            "    {{\"candidate_rank\":{},\"region_index\":{},\"proposal_indices\":[{},{},{}],\"module_size\":{:.6},\"geometry_confidence\":{:.6},\"matrix_decoded\":{},\"acceptance_passed\":{},\"timing_gate_rejections\":{},\"format_bch_candidates\":{},\"remainder_rejections\":{},\"rs_candidate_attempts\":{},\"rs_block_failures\":{}}}{}",
+            "    {{\"candidate_rank\":{},\"region_index\":{},\"proposal_indices\":[{},{},{}],\"module_size\":{:.6},\"geometry_confidence\":{:.6},\"matrix_decoded\":{},\"acceptance_passed\":{},\"timing_gate_rejections\":{},\"format_bch_candidates\":{},\"remainder_rejections\":{},\"rs_candidate_attempts\":{},\"rs_block_failures\":{},\"transform_observation\":{}}}{}",
             stage.candidate_rank,
             region,
             stage.proposal_indices[0],
@@ -255,12 +259,36 @@ fn candidate_stage_trace_cmd(image: &Path, timeout_ms: u64, output: &Path) {
             stage.remainder_rejections,
             stage.rs_candidate_attempts,
             stage.rs_block_failures,
+            transform_observation,
             comma
         );
     }
     let _ = writeln!(&mut json, "  ]");
     let _ = writeln!(&mut json, "}}");
     fs::write(output, json).expect("write candidate-stage artifact");
+}
+
+fn transform_sampling_observation_json(
+    observation: rust_qr::TransformSamplingObservation,
+) -> String {
+    fn timing_json(timing: Option<[f32; 2]>) -> String {
+        timing.map_or_else(
+            || "null".to_string(),
+            |[horizontal, vertical]| format!("[{horizontal:.6},{vertical:.6}]"),
+        )
+    }
+
+    format!(
+        "{{\"version\":{},\"dimension\":{},\"alignment_probe_count\":{},\"base_quality\":{:.6},\"selected_quality\":{:.6},\"refinement_accepted\":{},\"base_timing_ratios\":{},\"selected_timing_ratios\":{}}}",
+        observation.version,
+        observation.dimension,
+        observation.alignment_probe_count,
+        observation.base_quality,
+        observation.selected_quality,
+        observation.refinement_accepted,
+        timing_json(observation.base_timing_ratios),
+        timing_json(observation.selected_timing_ratios),
+    )
 }
 
 #[derive(Default)]

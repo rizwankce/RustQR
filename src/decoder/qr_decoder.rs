@@ -1,6 +1,6 @@
-use crate::CancellationToken;
 /// Main QR code decoder - wires everything together
 use crate::models::{BitMatrix, Point, QRCode};
+use crate::{CancellationToken, TransformSamplingObservation};
 use alloc::{string::String, vec::Vec};
 use std::time::Instant;
 
@@ -155,6 +155,8 @@ pub enum MatrixErasureEvidence<'a> {
 
 #[derive(Clone, Copy)]
 pub(crate) struct DecodeCounters {
+    /// First transform comparison captured by an opt-in candidate-stage trace.
+    pub transform_observation: Option<TransformSamplingObservation>,
     /// Exact BCH format candidates accepted from a sampled matrix.
     pub format_bch_candidates: usize,
     /// BCH distances of accepted format candidates: [0, 1, 2, 3].
@@ -282,6 +284,7 @@ impl Default for DecodeRequestContext {
 impl DecodeCounters {
     const fn new() -> Self {
         Self {
+            transform_observation: None,
             format_bch_candidates: 0,
             format_bch_distance_hist: [0; 4],
             rs_candidate_attempts: 0,
@@ -588,25 +591,72 @@ impl QrDecoder {
                         Some(t) => t,
                         None => continue,
                     };
-                let transform = geometry::refine_transform_with_timing_and_alignment(
-                    binary,
-                    Some(gray),
-                    width,
-                    height,
-                    &transform,
-                    version_num,
-                    dimension,
-                    module_size,
-                    top_left,
-                    top_right,
-                    bottom_left,
-                )
-                .unwrap_or(transform);
+                let base_transform = transform;
+                let refinement = context.candidate_stage_trace_enabled().then(|| {
+                    geometry::refine_transform_with_timing_and_alignment_observation(
+                        binary,
+                        Some(gray),
+                        width,
+                        height,
+                        &base_transform,
+                        version_num,
+                        dimension,
+                        module_size,
+                        top_left,
+                        top_right,
+                        bottom_left,
+                    )
+                });
+                let transform = match refinement.as_ref() {
+                    Some(observation) => observation
+                        .transform
+                        .clone()
+                        .unwrap_or_else(|| base_transform.clone()),
+                    None => geometry::refine_transform_with_timing_and_alignment(
+                        binary,
+                        Some(gray),
+                        width,
+                        height,
+                        &base_transform,
+                        version_num,
+                        dimension,
+                        module_size,
+                        top_left,
+                        top_right,
+                        bottom_left,
+                    )
+                    .unwrap_or_else(|| base_transform.clone()),
+                };
 
                 let (qr_matrix, module_confidence) =
                     Self::extract_qr_region_gray_with_transform_and_confidence(
                         gray, width, height, &transform, dimension,
                     );
+                if let Some(refinement) =
+                    refinement.filter(|_| context.counters().transform_observation.is_none())
+                {
+                    let (base_matrix, _) =
+                        Self::extract_qr_region_gray_with_transform_and_confidence(
+                            gray,
+                            width,
+                            height,
+                            &base_transform,
+                            dimension,
+                        );
+                    context.counters_mut().transform_observation =
+                        Some(TransformSamplingObservation {
+                            version: version_num,
+                            dimension,
+                            alignment_probe_count: refinement.alignment_probe_count,
+                            base_quality: refinement.base_quality,
+                            selected_quality: refinement.selected_quality,
+                            refinement_accepted: refinement.transform.is_some(),
+                            base_timing_ratios: orientation::timing_pattern_ratios(&base_matrix)
+                                .map(|(horizontal, vertical)| [horizontal, vertical]),
+                            selected_timing_ratios: orientation::timing_pattern_ratios(&qr_matrix)
+                                .map(|(horizontal, vertical)| [horizontal, vertical]),
+                        });
+                }
                 if version_num >= 7 {
                     context.counters_mut().hv_subpixel_attempts += 1;
                 }

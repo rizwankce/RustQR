@@ -55,6 +55,10 @@ before editing. `TODO.md` is the canonical detailed queue.
    The next safe diagnostic compares base versus selected refinement transforms
    on one high-version/glare proposal; high-version's near-gate timing ratios
    make it the most informative first case.
+   The trace-only base/selected transform observation is now present. On
+   high-version, accepted refinement can raise geometry quality without
+   raising timing ratios above the 0.60 gate; do not treat refinement as a
+   sampling fix or loosen that gate.
 3. **WP-009 safety:** synthetic baseline is present; acceptance requires a
    licensed, representative negative corpus and explicit false-positive
    budget. A 47-image/12.5184 MP Apache-2.0 ZXing high-contrast negative

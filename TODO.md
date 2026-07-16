@@ -1765,6 +1765,22 @@ case: its existing mean H/V values (~0.519/~0.502) are near the 0.60 gate,
 unlike glare (~0.107/~0.141). Only a measured base-versus-selected difference
 can distinguish geometry from sampling as the next bounded intervention.
 
+**2026-07-16 transform-observation result:** Candidate-stage traces now attach
+an optional base-versus-selected transform observation to the first candidate
+of each decoder context. This trace-only path records the version/dimension,
+bounded alignment-probe count, base/selected refinement quality, whether the
+existing refinement choice was accepted, and timing H/V ratios sampled from
+both transforms; normal decode keeps the same transform and does not take the
+extra base sample. On high-version `image000` at 800px/2,500 ms, accepted
+refinements improved geometry quality (for example 0.217282 to 0.233247) but
+did not improve sampled timing ratios (both 0.181818/0.272727 in that row).
+Another accepted row changed H from 0.75 to 0.4375 while V remained 0.5. The
+run remained 0/1 with timing-gate failures and elapsed 3397.94 ms. This is
+evidence that bounded geometric refinement alone does not repair the observed
+sampling barrier; do not relax the 0.60 timing gate. A trace can contain one
+observation per decoder context across the existing route ensemble, so it is
+not a single whole-image timing measurement.
+
 **Acceptance criteria:**
 
 - Improvements are demonstrated separately for `high_version`, `perspective`,

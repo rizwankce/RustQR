@@ -993,6 +993,12 @@ fn record_candidate_stage(
             rs_candidate_attempts: after.rs_candidate_attempts
                 - attempt.before.rs_candidate_attempts,
             rs_block_failures: after.rs_block_failures - attempt.before.rs_block_failures,
+            transform_observation: attempt
+                .before
+                .transform_observation
+                .is_none()
+                .then_some(after.transform_observation)
+                .flatten(),
         });
     }
 }

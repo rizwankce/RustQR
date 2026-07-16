@@ -393,8 +393,54 @@ pub(super) fn refine_transform_with_timing_and_alignment(
     top_right: &Point,
     bottom_left: &Point,
 ) -> Option<PerspectiveTransform> {
+    refine_transform_with_timing_and_alignment_observation(
+        binary,
+        gray,
+        gray_width,
+        gray_height,
+        transform,
+        version_num,
+        dimension,
+        module_size,
+        top_left,
+        top_right,
+        bottom_left,
+    )
+    .transform
+}
+
+/// The transform decision plus its bounded quality evidence.
+///
+/// The normal decoder uses only `transform`; the remaining fields are exposed
+/// exclusively to the opt-in candidate-stage diagnostic.
+pub(super) struct RefinementObservation {
+    pub transform: Option<PerspectiveTransform>,
+    pub base_quality: f32,
+    pub selected_quality: f32,
+    pub alignment_probe_count: usize,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn refine_transform_with_timing_and_alignment_observation(
+    binary: &BitMatrix,
+    gray: Option<&[u8]>,
+    gray_width: usize,
+    gray_height: usize,
+    transform: &PerspectiveTransform,
+    version_num: u8,
+    dimension: usize,
+    module_size: f32,
+    top_left: &Point,
+    top_right: &Point,
+    bottom_left: &Point,
+) -> RefinementObservation {
     if version_num < 2 || module_size < 1.0 {
-        return None;
+        return RefinementObservation {
+            transform: None,
+            base_quality: 0.0,
+            selected_quality: 0.0,
+            alignment_probe_count: 0,
+        };
     }
 
     let centers = prioritized_alignment_centers(version_num, dimension);
@@ -410,7 +456,7 @@ pub(super) fn refine_transform_with_timing_and_alignment(
     );
     let mut best: Option<(PerspectiveTransform, f32)> = None;
 
-    for (ax, ay) in centers {
+    for &(ax, ay) in &centers {
         let align_src = Point::new(ax as f32 + 0.5, ay as f32 + 0.5);
         let predicted = transform.transform(&align_src);
         let Some(found) = find_alignment_center(binary, predicted, module_size) else {
@@ -448,11 +494,23 @@ pub(super) fn refine_transform_with_timing_and_alignment(
         }
     }
 
-    let (best, score) = best?;
+    let Some((best, score)) = best else {
+        return RefinementObservation {
+            transform: None,
+            base_quality: original_score,
+            selected_quality: original_score,
+            alignment_probe_count: centers.len(),
+        };
+    };
     // A refinement is only allowed to replace the finder homography when the
     // combined residual improves by a small margin. This prevents a noisy
     // alignment-like blob from adding recovery work without improving samples.
-    (score > original_score + 0.002).then_some(best)
+    RefinementObservation {
+        transform: (score > original_score + 0.002).then_some(best),
+        base_quality: original_score,
+        selected_quality: score,
+        alignment_probe_count: centers.len(),
+    }
 }
 
 fn alignment_centers(version: u8, dimension: usize) -> Vec<(usize, usize)> {
@@ -1035,8 +1093,7 @@ mod tests {
     #[test]
     fn bounded_refinement_improves_timing_and_alignment_residuals() {
         let (binary, gray, base, finders) = synthetic_v7_geometry();
-        let before = refinement_quality(&binary, Some(&gray), 224, 224, &base, 45, 7, 4.0);
-        let refined = refine_transform_with_timing_and_alignment(
+        let observation = refine_transform_with_timing_and_alignment_observation(
             &binary,
             Some(&gray),
             224,
@@ -1048,10 +1105,22 @@ mod tests {
             &finders[0],
             &finders[1],
             &finders[2],
-        )
-        .expect("synthetic alignment pattern should produce an improved fit");
-        let after = refinement_quality(&binary, Some(&gray), 224, 224, &refined, 45, 7, 4.0);
-        assert!(after > before + 0.002, "before={before}, after={after}");
+        );
+        assert!(
+            observation.transform.is_some(),
+            "synthetic alignment pattern should produce an improved fit"
+        );
+        assert!(
+            (1..=6).contains(&observation.alignment_probe_count),
+            "bounded probe count={}",
+            observation.alignment_probe_count
+        );
+        assert!(
+            observation.selected_quality > observation.base_quality + 0.002,
+            "before={}, after={}",
+            observation.base_quality,
+            observation.selected_quality
+        );
     }
 
     #[test]
