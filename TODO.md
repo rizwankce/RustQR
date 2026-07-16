@@ -2483,6 +2483,13 @@ Linux/macOS/Windows library tests, and the
 the remote bare-metal compilation evidence for the staged core boundary only;
 the hosted recovery boundary above remains intentional.
 
+**2026-07-16 strict-core CI coverage:** The matrix-core CI job now runs the
+core crate's own 37-test suite and strict all-target clippy before its existing
+thumb bare-metal `--no-default-features` check. This turns local core behavior
+and lint proof into continuous evidence while retaining the separate host
+conformance jobs. It does not expand the staged strict-core boundary into
+whole-decoder `no_std`, bindings, or a supported mobile/WASM platform claim.
+
 **Validation:**
 
 ```bash
