@@ -33,7 +33,9 @@ before editing. `TODO.md` is the canonical detailed queue.
    from both routes (`021`, `047`) remain useful diagnosis, but global or
    residual Otsu retries are not viable under the bounded request policy.
    A residual-Otsu proposal with eight reserved decode attempts regressed to
-   40/50 in 911.42 ms and was reverted; do not repeat that design.
+   40/50 in 911.42 ms and was reverted; do not repeat that design. A later
+   geometry anti-join also held 48/50: `021` and `047` have no Otsu proposal,
+   so further Otsu-only selection cannot close the controlled gap.
 2. **WP-011 geometry/sampling:** expiry now prevents scheduling new image-wide
    passes, but scans already in flight cannot be interrupted. Continue only
    with bounded category-specific geometry or cancellable-stage evidence.
@@ -62,12 +64,12 @@ before editing. `TODO.md` is the canonical detailed queue.
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both
    refs. Keep the current Model 2 implementation; do not merge rebuild code.
    WP-013 has SHA-pinned local ZBar and offline-built quircs runners. A six
-   fixture shared-PGM subset now supplies exact payload truth for RustQR and
-   both runners. The shared 17-image monitor run records RustQR 2 decoded/15
-   timeout, ZBar 1 decoded/16 no-decode, and quircs 16 decoded/1 no-decode at
-   the external 1000ms process limit. Neither competitor CLI exposes geometry,
-   and the shared-PGM protocol is not an end-to-end timing boundary, so broader
-   matched payload/geometry evidence is still required before a fair comparison.
+   fixture shared-PGM subset supplies exact payload truth for RustQR and both
+   runners, and geometry-v1 records native corners against a generator-derived
+   reference. All 18 payloads match and quircs reaches 1.0 IoU, but RustQR/ZBar
+   miss the strict 0.99 gate on named fixtures; do not soften it or claim
+   geometry parity. The shared-PGM protocol remains neither real-scene
+   localization evidence nor an end-to-end timing boundary.
 5. **WP-010:** deterministic raster ordering now removes hash-map variance
    before the contour family's nearby merge. The reproducible `lots` artifact
    reports 104/420 finder and 91/420 grouping recall, but 214 labels still
