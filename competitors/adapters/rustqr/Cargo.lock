@@ -58,7 +58,12 @@ name = "rust_qr"
 version = "0.1.0"
 dependencies = [
  "rayon",
+ "rustqr-matrix-core",
 ]
+
+[[package]]
+name = "rustqr-matrix-core"
+version = "0.1.0"
 
 [[package]]
 name = "rustqr_pgm_decode"

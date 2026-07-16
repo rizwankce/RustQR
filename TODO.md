@@ -2252,6 +2252,15 @@ focused geometry tests and the shared-PGM gate. It left v7 RustQR at
 existing deterministic raster tie-break with predicted-center proximity; any
 future refinement must explain both symbols and preserve the raw-corner gate.
 
+**2026-07-16 rejected observed alignment-phase locator:** A bounded locator
+used observed alignment-template phase rather than predicted-center proximity
+to break the 4px/module plateau before the fourth homography point. The strict
+shared-PGM run improved RustQR v7 from 0.979994352 to 0.987377057 but still
+missed the 0.99 gate, regressed v2 from 0.99999999 to 0.952242180, and slightly
+reduced v20 from 0.996522711 to 0.996251806. The source was fully reverted.
+Do not retain a phase locator that trades an exact v2 corner for an insufficient
+v7 improvement; the ZBar and real-scene boundaries also remain separate.
+
 ---
 
 ## WP-014: Performance engineering after correctness
