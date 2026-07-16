@@ -1945,6 +1945,19 @@ not presently yield more successful decodes; broader routing alone is not the
 missing step. The temporary selector was reverted. Do not repeat a
 candidate-count-only `MultiQrHeavy` promotion.
 
+**2026-07-16 brightness proposal-bridge rejection:** A reversible telemetry
+bridge preserved the legacy gamma/Otsu brightness result, then (only after a
+non-empty result) rescanned the same gamma/Otsu proposals and called the
+context-owned bounded decoder with only unused request attempts. It neither
+changed global caps nor bypassed the shared deadline, and merged only observed
+BCH/RS telemetry. The rebuilt release ladder retained controlled `dense_50` at
+48/50 in 327.75 ms with zero false positives, duplicates, or timeouts, but the
+real `lots/image001` check at `QR_MAX_DIM=800` and `--timeout-ms 500` regressed
+to 0/60 in 689.73 ms. It therefore did not improve beyond the 1/60 baseline or
+meet the 500 ms gate; the source bridge was reverted. Do not retry an
+after-success gamma/Otsu rescan without a candidate-level indication that the
+legacy route left decodable geometry unused.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.
