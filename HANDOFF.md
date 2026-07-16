@@ -103,14 +103,13 @@ before editing. `TODO.md` is the canonical detailed queue.
    so it was reverted; do not re-enable it without a matched recall gain.
    WP-007 now has a clean V1-M path guard: exactly one strict payload attempt,
    one RS candidate, and no recovery payload attempts. It remains component
-   evidence, not a photographic or packet-completion claim. WP-015 now has an
-   alloc-owned `MatrixDecodeResult` and allocation-free `MatrixRecoveryBudget`
-   seam, with generated matrix-result parity evidence. It remains far short of
-   `no_std`: `DecodeRequestContext` still owns hosted deadline/cancellation,
-   uncertain-module repair reads `Instant`, and there is neither a separate
-   core crate nor a target lane. Next move the seam plus decoder modules into a
-   separately built crate and rerun the shared fixtures before making any
-   `no_std + alloc` claim.
+   evidence, not a photographic or packet-completion claim. WP-015 now has a
+   separately built `rustqr-matrix-core` `no_std + alloc` crate for strict and
+   known-erasure matrix decoding, with core/host generated-corpus and mutation
+   parity. Bare-metal compilation is CI-gated because the local target is not
+   installed. Hosted confidence/fallback/beam recovery, deadline/cancellation,
+   and `Instant` remain outside core; do not claim full decoder `no_std` or
+   move them without a dedicated policy/callback API.
    WP-014 also removed the rank-frontier copy without changing group order or
    caps; preserve it as allocation-only evidence, not a latency claim.
 
