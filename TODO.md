@@ -1231,7 +1231,21 @@ five-second request deadline, so this corpus gate is deliberately ignored and
 release-only, like the strict cross-symbology gate. Reproduce it with
 `python3 scripts/evaluate_negative_corpus.py --include-wikimedia`. This is a
 representative photographed-screen *slice*, not a production FPR claim: photos
-of text and packaging plus an agreed budget still remain open.
+of packaging plus an agreed budget still remain open.
+
+**2026-07-16 Wikimedia book-shelf admission:** The unmodified `Book
+shelf-use.png` original is now a separate CC-BY-3.0 photographed-text slice;
+it does not share the screen fixture's CC-BY-SA-4.0 manifest. Its manifest
+independently pins the permanent oldid, author (`Valdes-and-Rauber`), Commons
+source SHA-1, local SHA-256, dimensions (300x450), selected CC-BY-3.0 license,
+and manual visual zero-QR annotation. The permanent source page additionally
+offers GFDL, but this repository redistributes under its CC-BY-3.0 alternative.
+The strict public-RGB release gate completed with zero detections/timeouts in
+0.35 s. It too times out in an unoptimized debug build, so it is included only
+in the ignored release qualification. `--include-wikimedia` now validates both
+Commons manifests and runs both release gates. These two assets cover screen
+and text categories only; packaging and an agreed production FPR budget remain
+open.
 
 **2026-07-13 licensed ZXing corpus admission:** Vendored exactly 47 PNGs from
 the Apache-2.0 `zxing/zxing` commit
@@ -1423,6 +1437,18 @@ recall, 489/45 contained/spurious proposals, and 187/116 raw/appended contour
 observations. Nominal finder recall remains 71/78. This makes the evidence
 reproducible and modestly improves the prior recorded dense stage result; it
 does not complete WP-010, whose broad proposal gap remains.
+
+**2026-07-16 empty-cell ROI rejection:** On the first QR_MAX_DIM=800 `lots`
+image, the retained candidate-populated ROI policy measured 34/60 finder and
+29/60 grouping recall (143 contained and 5 spurious proposals). A bounded
+variant reserved four of the same twelve total 192px windows for highest-
+transition cells with no primary candidate, leaving eight populated windows.
+It measured the identical 34/60 finder and 29/60 grouping recall and identical
+contained/spurious proposal counts, while reducing raw observations 434→417.
+Because it produced no one-image recall improvement, the source change was
+reverted; the existing twelve populated-cell windows and downstream frontier
+remain unchanged. This is negative experiment evidence, not completion of
+WP-010.
 
 Verified with:
 
@@ -2136,6 +2162,23 @@ ignored), 4 mutation tests, 7 input API tests, 6 synthetic negative-corpus
 tests, and 7 intentionally ignored photographic regressions. The MSRV CI lane
 now runs that exact all-features command. This verifies the supported desktop
 feature matrix, not WASM, iOS, Android, bindings, or `no_std`.
+
+**2026-07-16 matrix-core seam:** Added the public alloc-owned
+`MatrixDecodeResult` and allocation-free `MatrixRecoveryBudget` types. The
+deterministic matrix decoder and payload path now return the matrix-only result;
+the hosted `QrDecoder` converts it to `QRCode` only where image-specific
+position, sampled modules, and confidence are needed. The generated supported
+corpus checks exact raw bytes, text, version, EC level, mask, and metadata
+parity between `decode_matrix_result` and the existing `decode_matrix_for_mode`
+API. `cargo test --lib --all-features` (142 tests), `cargo test --test
+conformance_matrix_tests --all-features` (7 passed; 3,840-fixture grid still
+ignored), `cargo test --lib --no-default-features` (122 tests), and `cargo
+clippy --lib --all-features -- -D warnings` passed. This is an extraction seam,
+not `no_std` support: `DecodeRequestContext` still owns hosted deadline and
+cancellation controls, uncertain-module repair still reads `Instant`, and no
+separate core crate or target lane exists. The next required slice is to move
+the matrix result/budget plus decoder modules into a separately built crate and
+run the same fixtures there before adding any `no_std + alloc` target claim.
 
 **Validation:**
 

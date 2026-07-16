@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 METRICS = re.compile(
-    r"(?P<name>(?:(?:ZXING(?:_CROSS_SYMBOLOGY)?|WIKIMEDIA_COMMONS)_)?NEGATIVE_CORPUS_METRICS) cases=(?P<cases>\d+) pixels=(?P<pixels>\d+) "
+    r"(?P<name>(?:(?:ZXING(?:_CROSS_SYMBOLOGY)?|WIKIMEDIA_(?:COMMONS|BOOKSHELF))_)?NEGATIVE_CORPUS_METRICS) cases=(?P<cases>\d+) pixels=(?P<pixels>\d+) "
     r"megapixels=(?P<megapixels>[0-9.]+) positive_images=(?P<positive_images>\d+) "
     r"timeout_images=(?P<timeout_images>\d+) "
     r"false_positive_detections=(?P<false_positive_detections>\d+) "
@@ -84,6 +84,16 @@ def main() -> int:
     sys.stdout.write(wikimedia_integrity.stdout)
     if wikimedia_integrity.returncode:
         return wikimedia_integrity.returncode
+    bookshelf_integrity = subprocess.run(
+        [sys.executable, "scripts/verify_wp009_wikimedia_bookshelf_corpus.py"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    sys.stdout.write(bookshelf_integrity.stdout)
+    if bookshelf_integrity.returncode:
+        return bookshelf_integrity.returncode
     command = [
         "cargo", "test", "--test", "negative_image_corpus_tests",
         "--all-features", "--", "--nocapture",
@@ -121,7 +131,7 @@ def main() -> int:
     if args.include_wikimedia:
         wikimedia_command = [
             "cargo", "test", "--release", "--test", "negative_image_corpus_tests",
-            "--all-features", "admitted_wikimedia_commons", "--", "--ignored", "--nocapture",
+            "--all-features", "admitted_wikimedia_", "--", "--ignored", "--nocapture",
         ]
         wikimedia_result = subprocess.run(
             wikimedia_command,
@@ -135,9 +145,14 @@ def main() -> int:
             return wikimedia_result.returncode
         output += wikimedia_result.stdout
         expected.add("wikimedia_commons_negative_corpus")
+        expected.add("wikimedia_bookshelf_negative_corpus")
     report = {
         "schema_version": "rustqr.negative-corpus-report.v1",
-        "integrity_command": f"{sys.executable} scripts/verify_wp009_zxing_corpus.py",
+        "integrity_commands": [
+            f"{sys.executable} scripts/verify_wp009_zxing_corpus.py",
+            f"{sys.executable} scripts/verify_wp009_wikimedia_corpus.py",
+            f"{sys.executable} scripts/verify_wp009_wikimedia_bookshelf_corpus.py",
+        ],
         "command": " ".join(command),
         "corpora": parse_metrics(output, expected),
     }

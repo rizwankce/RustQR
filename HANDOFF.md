@@ -53,7 +53,9 @@ before editing. `TODO.md` is the canonical detailed queue.
    dimensions, attribution, and manual zero-QR annotation. Its strict release
    gate passes (1/1, 16.036032 MP, zero detections/timeouts in 2.88 s); debug
    exceeds the five-second cooperative deadline, so it is release-only and
-   ignored by default. It advances the screen category only; text, packaging,
+   ignored by default. A separate CC-BY-3.0 Commons book-shelf photo now adds a
+   300x450 photographed-text slice with the same per-asset provenance and
+   release-only qualification (zero detections/timeouts in 0.35 s). Packaging
    and the agreed production FPR budget remain open.
 4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
@@ -88,16 +90,14 @@ before editing. `TODO.md` is the canonical detailed queue.
    so it was reverted; do not re-enable it without a matched recall gain.
    WP-007 now has a clean V1-M path guard: exactly one strict payload attempt,
    one RS candidate, and no recovery payload attempts. It remains component
-   evidence, not a photographic or packet-completion claim. WP-015's current
-   audit confirms that minimal hosted features have no normal third-party
-   dependencies, but a true `no_std` core needs a shared matrix-core crate and
-   target/parity validation; do not claim it is supported. The exact extraction
-   blockers are `QrDecoder`'s public matrix API and `DecodeRequestContext`
-   (`src/decoder/qr_decoder.rs`), plus uncertain-module repair's direct
-   `std::time::Instant` use (`matrix_decode.rs`). Core candidates also use
-   `Vec`/`String` without `alloc` imports. First define one alloc-facing
-   matrix-result/recovery-budget API, then move the hosted implementation to
-   depend on it and share conformance fixtures before adding a `no_std` target.
+   evidence, not a photographic or packet-completion claim. WP-015 now has an
+   alloc-owned `MatrixDecodeResult` and allocation-free `MatrixRecoveryBudget`
+   seam, with generated matrix-result parity evidence. It remains far short of
+   `no_std`: `DecodeRequestContext` still owns hosted deadline/cancellation,
+   uncertain-module repair reads `Instant`, and there is neither a separate
+   core crate nor a target lane. Next move the seam plus decoder modules into a
+   separately built crate and rerun the shared fixtures before making any
+   `no_std + alloc` claim.
    WP-014 also removed the rank-frontier copy without changing group order or
    caps; preserve it as allocation-only evidence, not a latency claim.
 

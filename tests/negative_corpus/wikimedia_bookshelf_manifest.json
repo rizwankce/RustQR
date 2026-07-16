@@ -1,0 +1,26 @@
+{
+  "schema_version": "rustqr.external-negative-corpus.v1",
+  "name": "wikimedia-commons-negative-bookshelf-photo",
+  "source_repository": "https://commons.wikimedia.org",
+  "source_commit": "828586508",
+  "source_license": "CC-BY-3.0",
+  "license_file": "licenses/WIKIMEDIA-COMMONS-CC-BY-3.0.md",
+  "notice_file": "licenses/WIKIMEDIA-COMMONS-BOOKSHELF-NOTICE.md",
+  "reuse_declaration": "licenses/WIKIMEDIA-COMMONS-BOOKSHELF-REUSE-dep5",
+  "cases": [
+    {
+      "id": "wikimedia-book-shelf-use",
+      "local_path": "wikimedia_commons/book-shelf-use.png",
+      "source_path": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Book_shelf-use.png",
+      "source_page": "https://commons.wikimedia.org/w/index.php?title=File:Book_shelf-use.png&oldid=828586508",
+      "source_sha1": "cf36bc89c30e3fc61cf590ed3c1e6cc1d0ea7d93",
+      "author": "Valdes-and-Rauber",
+      "manual_zero_qr_annotation": "Visual review of the original on 2026-07-16: no QR symbols present.",
+      "category": "photographed_text",
+      "width": 300,
+      "height": 450,
+      "expected_qr_count": 0,
+      "sha256": "29169ee9a2999925083f08107ef6361ceb1c91a2d79a8d82c77cde0da70c3f56"
+    }
+  ]
+}

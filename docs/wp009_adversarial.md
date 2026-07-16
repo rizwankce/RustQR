@@ -109,6 +109,22 @@ This is one photographed-screen category example, not a license to infer that
 all Commons assets are QR-free, a production FPR estimate, or coverage for the
 still-missing photographed text and packaging categories.
 
+### Admitted slice: Wikimedia Commons photographed text
+
+`wikimedia_commons/book-shelf-use.png` is the unmodified original of
+[`Book shelf-use.png`](https://commons.wikimedia.org/w/index.php?title=File:Book_shelf-use.png&oldid=828586508), authored by Valdes-and-Rauber. The source page offers CC BY 3.0
+and GFDL 1.2-or-later; this fixture uses the CC BY 3.0 alternative and keeps a
+separate manifest, notice, and REUSE declaration rather than combining its
+license with the screen fixture. The manifest pins source/local checksums,
+dimensions, permanent revision, and manual original-image zero-QR annotation.
+
+The strict public-RGB release evaluator completed this 300 by 450 photograph
+with zero QR objects or cooperative timeouts in 0.35 seconds. It exceeds the
+same deadline in a debug build, so it is release-qualified and ignored by
+default. `--include-wikimedia` checks both Commons manifests and runs both
+release gates. The two fixtures broaden category coverage, but they do not
+cover packaging or establish a production false-positive budget.
+
 ### Admitted slice: ZXing negative black-box images
 
 The `falsepositives` (22 PNGs) and `falsepositives-2` (25 PNGs) directories
