@@ -1854,6 +1854,20 @@ with FP=0, duplicates=0, and timeouts=0. The selector code was reverted. Do
 not retry an Otsu-only residual selector without evidence that a remaining
 miss has a distinct Otsu finder/group candidate.
 
+**2026-07-16 rejected breadth-first threshold-20 probe:** A scheduler-only
+experiment lowered the `MultiQrHeavy` breadth-first region threshold from 40
+to 20, without changing the 128-group frontier, candidate/transform caps,
+lane budgets, grouping, or decode acceptance. The focused pipeline tests
+passed, and a rebuilt release CLI ran the full controlled ladder. It did not
+recover the two 25-symbol misses: the results were 1/1 in 3.04 ms, 2/2 in
+4.96 ms, 5/5 in 192.05 ms, 10/10 in 349.24 ms, 23/25 in 53.96 ms, 48/50 in
+93.84 ms, and 63/100 in 193.68 ms; every point had zero false positives,
+duplicates, and timeouts. Since the required 24/25 density-25 improvement did
+not materialize, the threshold and its unit test were reverted. Do not retry
+this threshold-only schedule adjustment; future work needs evidence that the
+public density-25 route reaches a distinct schedulable candidate for either
+remaining label.
+
 **2026-07-13 release-binary correction:** A transient 27/50, 4.8-second
 `density_050` result came from stale `target/release/qrtool` bytes, not a
 source regression. After `cargo build --release --features tools --bin qrtool`,
