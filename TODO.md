@@ -1320,6 +1320,18 @@ Ignored strict monitor/close regressions and matrix conformance also passed.
 This admits the cross-symbology slice as a bounded negative measurement; it
 does not complete the representative-corpus or production-FPR-budget gates.
 
+**2026-07-16 CI qualification correction:** The 47-image ZXing gate has the
+same five-second cooperative per-image deadline as the release-qualified
+cross-symbology and Wikimedia gates. It timed out on 37 images in the debug
+MSRV `cargo test --all-features` lane, so treating it as a normal debug test
+made that lane fail without measuring the admitted release policy. The test is
+now explicitly ignored outside release qualification, and the default
+evaluator runs its synthetic baseline in debug followed by the ZXing gate in
+release. The exact release command passed locally: 47/47 images, 12.518400
+MP, zero positive images, zero timeouts, and zero false-positive detections in
+53.81 s. This corrects test classification only; it does not expand the
+three-image photographic slice or establish a production FPR budget.
+
 Focused local validation:
 
 ```bash

@@ -52,7 +52,8 @@ before editing. `TODO.md` is the canonical detailed queue.
    licensed, representative negative corpus and explicit false-positive
    budget. A 47-image/12.5184 MP Apache-2.0 ZXing high-contrast negative
    slice is now vendored with per-asset hashes, provenance, and zero-timeout
-   public-API evidence. A separate 17 Aztec/23 Data Matrix/7 Code128 ZXing
+   release public-API evidence; it is intentionally ignored in debug because
+   its five-second request budget is release-qualified. A separate 17 Aztec/23 Data Matrix/7 Code128 ZXing
    slice has complete membership/format/hash provenance and now passes its
    strict five-second release gate (47/47, zero detections/timeouts). The
    default request budget caps only current inputs with max side <=640 at 32

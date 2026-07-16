@@ -104,9 +104,23 @@ def main() -> int:
     sys.stdout.write(packaging_integrity.stdout)
     if packaging_integrity.returncode:
         return packaging_integrity.returncode
-    command = [
+    synthetic_command = [
         "cargo", "test", "--test", "negative_image_corpus_tests",
         "--all-features", "--", "--nocapture",
+    ]
+    synthetic_result = subprocess.run(
+        synthetic_command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    sys.stdout.write(synthetic_result.stdout)
+    if synthetic_result.returncode:
+        return synthetic_result.returncode
+    command = [
+        "cargo", "test", "--release", "--test", "negative_image_corpus_tests",
+        "--all-features", "admitted_zxing_negative_corpus", "--", "--ignored", "--nocapture",
     ]
     result = subprocess.run(
         command,
@@ -118,7 +132,7 @@ def main() -> int:
     sys.stdout.write(result.stdout)
     if result.returncode:
         return result.returncode
-    output = result.stdout
+    output = synthetic_result.stdout + result.stdout
     expected = {"negative_corpus", "zxing_negative_corpus"}
     if args.include_cross_symbology:
         cross_command = [
@@ -165,7 +179,7 @@ def main() -> int:
             f"{sys.executable} scripts/verify_wp009_wikimedia_bookshelf_corpus.py",
             f"{sys.executable} scripts/verify_wp009_wikimedia_packaging_corpus.py",
         ],
-        "command": " ".join(command),
+        "command": " && ".join((" ".join(synthetic_command), " ".join(command))),
         "corpora": parse_metrics(output, expected),
     }
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
