@@ -2091,6 +2091,17 @@ localization recall or a fair latency comparison. Do not soften the threshold
 or alter raw corners to make this gate pass; any recovery needs an independently
 justified geometry convention or actual detector improvement.
 
+**2026-07-16 rejected alignment tie-break:** The v7 RustQR miss is not an
+adapter convention issue: an exact-match 4x4 alignment-pixel plateau lets the
+row-major search select `(168,168)` although the predicted center is
+`(170,170)`, contracting the returned bottom-right corner. A narrow equal-
+mismatch tie-break that preferred the nearest predicted center was tested with
+focused geometry tests and the shared-PGM gate. It left v7 RustQR at
+0.979994 IoU but regressed the previously correct v2 RustQR fixture from
+0.99999999 to 0.9563219. The change was fully reverted. Do not replace the
+existing deterministic raster tie-break with predicted-center proximity; any
+future refinement must explain both symbols and preserve the raw-corner gate.
+
 ---
 
 ## WP-014: Performance engineering after correctness
