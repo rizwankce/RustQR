@@ -48,32 +48,46 @@ fn find_regions(matrix: &BitMatrix, value: bool) -> Vec<(usize, usize, usize, us
             }
 
             let idx = y * width + x;
-            let mut neighbor_labels = Vec::new();
+            // Eight-connectivity only examines these four already-labelled
+            // neighbours. Keep their labels on the stack: allocating a Vec
+            // here would otherwise allocate once for every foreground pixel.
+            // The insertion order deliberately matches the previous Vec path
+            // because union order participates in deterministic labelling.
+            let mut neighbor_labels = [0u32; 4];
+            let mut neighbor_count = 0usize;
 
             // Check left (4-connectivity)
             if x > 0 && matrix.get(x - 1, y) == value {
-                neighbor_labels.push(labels[y * width + x - 1]);
+                neighbor_labels[neighbor_count] = labels[y * width + x - 1];
+                neighbor_count += 1;
             }
             // Check above (4-connectivity)
             if y > 0 && matrix.get(x, y - 1) == value {
-                neighbor_labels.push(labels[(y - 1) * width + x]);
+                neighbor_labels[neighbor_count] = labels[(y - 1) * width + x];
+                neighbor_count += 1;
             }
             // Check upper-left diagonal (8-connectivity for finder patterns)
             if x > 0 && y > 0 && matrix.get(x - 1, y - 1) == value {
-                neighbor_labels.push(labels[(y - 1) * width + x - 1]);
+                neighbor_labels[neighbor_count] = labels[(y - 1) * width + x - 1];
+                neighbor_count += 1;
             }
             // Check upper-right diagonal (8-connectivity)
             if x + 1 < width && y > 0 && matrix.get(x + 1, y - 1) == value {
-                neighbor_labels.push(labels[(y - 1) * width + x + 1]);
+                neighbor_labels[neighbor_count] = labels[(y - 1) * width + x + 1];
+                neighbor_count += 1;
             }
 
-            if neighbor_labels.is_empty() {
+            if neighbor_count == 0 {
                 labels[idx] = next_label;
                 next_label += 1;
             } else {
-                let min_label = *neighbor_labels.iter().min().unwrap();
+                let min_label = neighbor_labels[..neighbor_count]
+                    .iter()
+                    .copied()
+                    .min()
+                    .expect("non-empty neighbour label window");
                 labels[idx] = min_label;
-                for &l in &neighbor_labels {
+                for &l in &neighbor_labels[..neighbor_count] {
                     if l != min_label {
                         uf.union(min_label, l);
                     }
@@ -155,6 +169,16 @@ mod tests {
             find_black_regions(&matrix),
             vec![(8, 2, 8, 2), (2, 7, 3, 7)]
         );
+    }
+
+    #[test]
+    fn diagonal_pixels_share_one_eight_connected_region() {
+        let mut matrix = BitMatrix::new(5, 5);
+        matrix.set(1, 1, true);
+        matrix.set(2, 2, true);
+        matrix.set(3, 3, true);
+
+        assert_eq!(find_black_regions(&matrix), vec![(1, 1, 3, 3)]);
     }
 
     #[test]

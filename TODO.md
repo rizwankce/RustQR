@@ -1781,6 +1781,18 @@ sampling barrier; do not relax the 0.60 timing gate. A trace can contain one
 observation per decoder context across the existing route ensemble, so it is
 not a single whole-image timing measurement.
 
+**2026-07-16 rejected subpixel-threshold-support trial:** A reversible
+high-version-only threshold experiment reduced the local threshold support
+from 5x5 to 3x3 only where the existing local pitch estimate was below 1.5px;
+it preserved centre samples, confidence, timing gate, transforms, candidate
+order, and recovery. The matched release traces made no decoding progress:
+high-version remained 0/1 with 2,145 timing rejections and zero
+BCH/remainder/RS evidence; glare remained 0/1 with 1,545 timing rejections
+and likewise zero downstream evidence. `monitor` and `close` controls each
+remained 1/1. The code was reverted: a narrower threshold window is not a
+measured sampling fix for these targets, and the fixed 0.60 gate remains
+unchanged.
+
 **Acceptance criteria:**
 
 - Improvements are demonstrated separately for `high_version`, `perspective`,
@@ -2326,6 +2338,18 @@ while reducing reallocations from 5,928 to 5,924 and requested bytes from
 33,156,089 to 33,155,961. This is allocation evidence only; the runs' timing
 samples are not a latency claim. Focused spatial-grouping tests and the full
 controlled-density ladder passed (including dense_50: 48/50, no timeout).
+
+**2026-07-16 connected-component neighbor buffer:** The first connected-
+component pass no longer allocates a temporary `Vec` for every foreground
+pixel's at-most-four neighbours. It now uses a fixed `[u32; 4]` stack buffer,
+preserving the L/above/upper-left/upper-right label and union order, component
+bounds, and stable raster output. A diagonal three-pixel regression protects
+eight-connectivity. Focused connected-component, contour, and spatial-
+grouping tests pass. The allocation-only one-iteration release `dense_50`
+profile retained 48 decoded symbols and reported 5,625 allocations, 5,936
+reallocations, and 40,157,517 requested bytes. This is post-change evidence
+only: it is not comparable with historical profiles from different source
+states and makes no latency claim.
 
 ---
 
