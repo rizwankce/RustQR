@@ -1974,6 +1974,23 @@ meet the 500 ms gate; the source bridge was reverted. Do not retry an
 after-success gamma/Otsu rescan without a candidate-level indication that the
 legacy route left decodable geometry unused.
 
+**2026-07-16 rejected finder-template threshold-plane reclassification:** A
+reversible sampling-only probe ran only after the ordinary fixed 0.60 timing
+gate rejected the estimated-version, central-bottom-right sample. It required
+each of the three fixed finder templates to retain a dark/light median
+separation of at least 24 gray levels, fit one threshold plane through those
+template medians, and permitted a matrix decode only when the reclassified
+grid passed the same unchanged timing gate. It did not widen the version,
+bottom-right, candidate, transform, routing, or frontier budgets. A fresh
+release `QR_MAX_DIM=800 lots --limit 1 --timeout-ms 500` run recorded 45
+bounded eligible samples and zero threshold-plane timing-gate passes; it
+remained 0/60 with zero false positives/duplicates and one cooperative timeout
+at 673.68 ms. The release controlled ladder retained `dense_50` at 48/50 in
+180.09 ms with zero false positives, duplicates, and timeouts, but did not
+recover any realistic-lots symbols (the required improvement was >=2/60).
+The code and telemetry were reverted. Do not retry this finder-template plane
+without evidence that an eligible candidate can pass the existing timing gate.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.
