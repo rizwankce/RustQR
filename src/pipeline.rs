@@ -1151,7 +1151,9 @@ fn cluster_regions(candidates: &[RankedGroupCandidate], max_regions: usize) -> V
     if candidates.is_empty() {
         return Vec::new();
     }
-    let mut regions: Vec<RegionCluster> = Vec::new();
+    // The region limit is already the hard routing cap. Reserve that bounded
+    // frontier up front so dense scenes do not grow this vector repeatedly.
+    let mut regions: Vec<RegionCluster> = Vec::with_capacity(max_regions.min(candidates.len()));
     for (idx, c) in candidates.iter().enumerate() {
         let center = candidate_center(c);
         let scale = ((c.tl.distance(&c.tr) + c.tl.distance(&c.bl)) * 0.5).max(20.0);

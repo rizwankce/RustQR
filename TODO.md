@@ -2189,6 +2189,16 @@ allocations and 33,155,609 requested bytes. This is allocation evidence only;
 the 86.13 ms dense and 42.76 ms clean samples are not latency claims. Passed
 pipeline grouping tests and `cargo test --all-features`.
 
+**2026-07-16 region-frontier capacity reservation:** `cluster_regions` now
+reserves only its existing `min(max_regions, candidate_count)` frontier before
+appending region clusters. Attachment traversal, centroid updates, sorting,
+and the normal/dense region caps remain unchanged. Matched one-warm-call
+release dense_50 probes retained 48 decoded symbols and 285,790 allocations,
+while reducing reallocations from 5,928 to 5,924 and requested bytes from
+33,156,089 to 33,155,961. This is allocation evidence only; the runs' timing
+samples are not a latency claim. Focused spatial-grouping tests and the full
+controlled-density ladder passed (including dense_50: 48/50, no timeout).
+
 ---
 
 ## WP-015: Platform and packaging roadmap
