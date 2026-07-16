@@ -25,6 +25,9 @@ before editing. `TODO.md` is the canonical detailed queue.
    s or 4/60 at 1.02 s and were reverted. Do not disable them globally.
    A one-frontier adaptive remainder also stayed 1/60 at 922.5 ms; do not
    repeat it.
+   Candidate-count-only promotion to `MultiQrHeavy` was also 1/60 despite
+   90–91 ranked candidates, 13 regions, and 37 attempts; routing alone is not
+   the missing step.
    The route audit's
    five Otsu-only payloads (`011`, `014`, `039`, `043`, `046`) and two absent
    from both routes (`021`, `047`) remain useful diagnosis, but global or
@@ -45,6 +48,10 @@ before editing. `TODO.md` is the canonical detailed queue.
    candidates; it preserves caller-stricter limits and leaves dense large-input
    budgets unchanged. Neither slice is representative enough for the
    production FPR gate; BoofCV remains positive-only and cannot be repurposed.
+   Wikimedia Commons now supplies a viable per-asset licensing route: permanent
+   file pages can pin oldid, author, license, and source metadata. It remains
+   intake-only until originals are visually zero-QR annotated and locally
+   hashed; do not treat category membership or page metadata as zero-QR proof.
 4. **WP-005 decision / WP-013 competitors:** WP-005 is complete: shared-v2
    evidence covers 157 matching images and 727 labels (rebuild 74/727 versus
    main 36/727), and matched macOS Fast Benchmark dispatches passed for both

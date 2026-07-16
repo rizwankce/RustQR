@@ -1205,6 +1205,20 @@ pin each image's source/license metadata and add a manual zero-QR annotation;
 until then, use only the locally verified ZXing slices below for external
 negative evidence.
 
+**2026-07-16 Wikimedia Commons intake route:** Unlike Open Images, individual
+Commons file-description pages can provide an immutable `oldid`, author,
+dimensions, original-file checksum, and a file-specific redistribution license.
+For example, the permanent pages for `Book shelf-use.png` (CC-BY-3.0,
+oldid `828586508`) and `Computer Screen Monitor.jpg` (CC-BY-SA-4.0,
+oldid `1131317639`) are evidence-backed candidates for photographed text and
+screen categories respectively. This establishes a usable *per-asset* licensing
+route, not an admission: no asset was downloaded or vendored, and no visual
+zero-QR annotation, local SHA-256, or agreed production FPR budget exists yet.
+Any future Commons intake must pin each oldid and original URL, retain the
+applicable license/attribution requirements, visually inspect the original for
+zero QR symbols, then record a local SHA-256 and dimensions in the external
+manifest before it can run as a gate.
+
 **2026-07-13 licensed ZXing corpus admission:** Vendored exactly 47 PNGs from
 the Apache-2.0 `zxing/zxing` commit
 `82333b3ed894ef097d41dd8c922689ede8880e01`: 22 `falsepositives` and 25
@@ -1795,6 +1809,14 @@ adaptive grouped frontier and merged only distinct payloads. It left realistic
 `dense_50` held 48/50 in 94.5 ms. The frontier neither selected a useful real
 candidate nor met the latency bound, so it was reverted. Do not repeat this
 post-primary adaptive-frontier design.
+
+**2026-07-16 post-group strategy rejection:** `lots/image001` had 90–91
+ranked candidates, 13 regions, and 37 bounded attempts. Forcing
+`MultiQrHeavy` once the frontier reached 12 candidates did not change its
+public result (still 1/60 at about 494 ms). The existing grouped candidates do
+not presently yield more successful decodes; broader routing alone is not the
+missing step. The temporary selector was reverted. Do not repeat a
+candidate-count-only `MultiQrHeavy` promotion.
 
 **Acceptance criteria:**
 
