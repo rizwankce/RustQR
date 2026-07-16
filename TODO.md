@@ -1656,6 +1656,22 @@ means are below the gate on both axes, especially for glare, so they do not
 justify relaxing the threshold; the next geometry work needs a sampling or
 transform change that measurably improves timing evidence first.
 
+**2026-07-16 rejected endpoint-phase probe:** A reversible high-version-only
+probe kept the three finder corners fixed and ranked a 3x3, plus-or-minus
+0.25-module bottom-right endpoint phase grid by raw grayscale timing contrast.
+It could replace at most one failed timing-gate sample, required a 3% score
+gain, and checked the request deadline before every score and replacement;
+the 0.60 gate and decode frontier were unchanged. The matched
+`QR_MAX_DIM=800`/`high_version --limit 1`/2,500 ms release run remained 0/1
+with one timeout, 433 timing-gate rejections, unchanged horizontal/vertical
+ratio sums of 224.934570/217.524475, and zero BCH or RS evidence. The
+eligible central high-version endpoint path did not occur on this route, so
+the selected replacement never ran; the code was reverted rather than left
+dormant. The paired `nominal --limit 1` control had one hit, zero false
+positives, duplicates, and timeouts. The transient artifacts are
+`/tmp/wp011_{hv,nominal}_brphase_trial.json`; a future geometry experiment
+must first prove that it reaches an actually sampled high-version hypothesis.
+
 **2026-07-13 bounded category audit:** Seven one-image local diagnostics at
 `QR_MAX_DIM=800` with `--timeout-ms 2500` are retained as
 `artifacts/wp011_category_*_qrmax800_limit1_2500.json`. The exact results are:
