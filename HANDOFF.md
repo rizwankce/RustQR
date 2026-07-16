@@ -36,6 +36,15 @@ before editing. `TODO.md` is the canonical detailed queue.
    40/50 in 911.42 ms and was reverted; do not repeat that design. A later
    geometry anti-join also held 48/50: `021` and `047` have no Otsu proposal,
    so further Otsu-only selection cannot close the controlled gap.
+   A dense-gated white-ring component source improved realistic `lots/image001`
+   proposal/grouping recall from 34/60 and 29/60 to 44/60 and 31/60 with no
+   added spurious proposals, but the public brightness route still returns
+   through its legacy path. Telemetry now proves that path reaches transform,
+   BCH, and RS but has 1,320 timing-gate rejections (mean H/V about .23/.25).
+   A shared-deadline bridge was slower and worse (0/60, 690ms); a central
+   finder-template threshold plane had 45 eligible samples but zero gate
+   passes. Both were reverted. Do not bypass the brightness return, relax the
+   timing gate, or repeat the threshold-plane probe without new evidence.
 2. **WP-011 geometry/sampling:** expiry now prevents scheduling new image-wide
    passes, but scans already in flight cannot be interrupted. Continue only
    with bounded category-specific geometry or cancellable-stage evidence.
