@@ -30,8 +30,9 @@ impl UnionFind {
     }
 }
 
-/// Find connected black regions and return their bounding boxes
-pub fn find_black_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize)> {
+/// Find connected regions of `value` and return their bounding boxes in
+/// deterministic raster order.
+fn find_regions(matrix: &BitMatrix, value: bool) -> Vec<(usize, usize, usize, usize)> {
     let width = matrix.width();
     let height = matrix.height();
 
@@ -42,7 +43,7 @@ pub fn find_black_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize
     // First pass: label components
     for y in 0..height {
         for x in 0..width {
-            if !matrix.get(x, y) {
+            if matrix.get(x, y) != value {
                 continue;
             }
 
@@ -50,19 +51,19 @@ pub fn find_black_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize
             let mut neighbor_labels = Vec::new();
 
             // Check left (4-connectivity)
-            if x > 0 && matrix.get(x - 1, y) {
+            if x > 0 && matrix.get(x - 1, y) == value {
                 neighbor_labels.push(labels[y * width + x - 1]);
             }
             // Check above (4-connectivity)
-            if y > 0 && matrix.get(x, y - 1) {
+            if y > 0 && matrix.get(x, y - 1) == value {
                 neighbor_labels.push(labels[(y - 1) * width + x]);
             }
             // Check upper-left diagonal (8-connectivity for finder patterns)
-            if x > 0 && y > 0 && matrix.get(x - 1, y - 1) {
+            if x > 0 && y > 0 && matrix.get(x - 1, y - 1) == value {
                 neighbor_labels.push(labels[(y - 1) * width + x - 1]);
             }
             // Check upper-right diagonal (8-connectivity)
-            if x + 1 < width && y > 0 && matrix.get(x + 1, y - 1) {
+            if x + 1 < width && y > 0 && matrix.get(x + 1, y - 1) == value {
                 neighbor_labels.push(labels[(y - 1) * width + x + 1]);
             }
 
@@ -110,6 +111,21 @@ pub fn find_black_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize
     regions
 }
 
+/// Find connected black regions and return their bounding boxes.
+pub fn find_black_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize)> {
+    find_regions(matrix, true)
+}
+
+/// Find connected white regions and return their bounding boxes.
+///
+/// A QR finder has an enclosed white ring around its centre square.  Keeping
+/// this as a sibling to the black-component helper lets the bounded detector
+/// supplement inspect that independent structural cue without inverting or
+/// copying the full image.
+pub fn find_white_regions(matrix: &BitMatrix) -> Vec<(usize, usize, usize, usize)> {
+    find_regions(matrix, false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +155,27 @@ mod tests {
             find_black_regions(&matrix),
             vec![(8, 2, 8, 2), (2, 7, 3, 7)]
         );
+    }
+
+    #[test]
+    fn finds_enclosed_white_ring_separately_from_background() {
+        let mut matrix = BitMatrix::new(9, 9);
+        for y in 1..8 {
+            for x in 1..8 {
+                matrix.set(x, y, true);
+            }
+        }
+        for y in 2..7 {
+            for x in 2..7 {
+                matrix.set(x, y, false);
+            }
+        }
+        for y in 3..6 {
+            for x in 3..6 {
+                matrix.set(x, y, true);
+            }
+        }
+
+        assert!(find_white_regions(&matrix).contains(&(2, 2, 6, 6)));
     }
 }

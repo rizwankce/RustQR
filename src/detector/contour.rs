@@ -1,4 +1,4 @@
-use crate::detector::connected_components::find_black_regions;
+use crate::detector::connected_components::{find_black_regions, find_white_regions};
 use crate::detector::finder::FinderPattern;
 use crate::models::BitMatrix;
 
@@ -44,6 +44,54 @@ impl ContourDetector {
 
         merge_nearby(candidates)
     }
+
+    /// Detect candidate finder centres from enclosed white component rings.
+    ///
+    /// The white 5x5-module ring surrounding a QR finder's black 3x3 centre
+    /// stays a separate component even when the outer black ring is joined to
+    /// QR data.  This is deliberately only a structural hint: callers still
+    /// require the normal horizontal/vertical/pitch evidence before it can
+    /// enter the shared appended proposal frontier.
+    pub fn detect_white_rings(matrix: &BitMatrix) -> Vec<FinderPattern> {
+        let mut candidates = Vec::new();
+        for (min_x, min_y, max_x, max_y) in find_white_regions(matrix) {
+            // The background is also a white component. A ring must be
+            // enclosed by black pixels, so it cannot touch the image edge.
+            if min_x == 0
+                || min_y == 0
+                || max_x + 1 >= matrix.width()
+                || max_y + 1 >= matrix.height()
+            {
+                continue;
+            }
+            let width = max_x.saturating_sub(min_x) + 1;
+            let height = max_y.saturating_sub(min_y) + 1;
+            let longest = width.max(height);
+            let shortest = width.min(height);
+            if shortest < 3 || longest > 256 {
+                continue;
+            }
+            let aspect = width as f32 / height as f32;
+            if !(0.70..=1.43).contains(&aspect) {
+                continue;
+            }
+
+            let center_x = (min_x + max_x) / 2;
+            let center_y = (min_y + max_y) / 2;
+            // The centre must be the black 3x3 finder core, not a white hole
+            // in unrelated text or packaging. Ratio evidence is an independent
+            // second gate in the finder detector.
+            if !matrix.get(center_x, center_y) {
+                continue;
+            }
+            candidates.push(FinderPattern::new(
+                center_x as f32,
+                center_y as f32,
+                (width as f32 + height as f32) / 10.0,
+            ));
+        }
+        candidates
+    }
 }
 
 fn black_pixels_in_bbox(
@@ -88,4 +136,37 @@ fn merge_nearby(mut candidates: Vec<FinderPattern>) -> Vec<FinderPattern> {
         }
     }
     merged
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn white_ring_detector_reports_enclosed_finder_core() {
+        let mut matrix = BitMatrix::new(15, 15);
+        for y in 2..13 {
+            for x in 2..13 {
+                matrix.set(x, y, true);
+            }
+        }
+        for y in 4..11 {
+            for x in 4..11 {
+                matrix.set(x, y, false);
+            }
+        }
+        for y in 6..9 {
+            for x in 6..9 {
+                matrix.set(x, y, true);
+            }
+        }
+
+        let candidates = ContourDetector::detect_white_rings(&matrix);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].center,
+            FinderPattern::new(7.0, 7.0, 1.4).center
+        );
+        assert!((candidates[0].module_size - 1.4).abs() < f32::EPSILON);
+    }
 }

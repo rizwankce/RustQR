@@ -74,6 +74,12 @@ pub struct FinderScanTelemetry {
     pub contour_raw_candidates: usize,
     /// Non-overlapping contour-family proposals retained after the fixed cap.
     pub contour_appended_proposals: usize,
+    /// White-ring connected-component observations admitted by the bounded
+    /// dense supplement before normal ratio/pitch verification.
+    pub white_ring_raw_candidates: usize,
+    /// White-ring proposals retained after sharing the existing appended cap
+    /// with the contour-family supplement.
+    pub white_ring_appended_proposals: usize,
 }
 
 /// Result of the ranked finder-proposal stage.
@@ -140,7 +146,8 @@ impl FinderDetector {
         // fields. This has a fixed one-pass bound and gives marker evidence
         // that scanline ratios can miss; shared NMS still prevents duplicate
         // observations from widening the downstream frontier.
-        let contour_candidates = if candidates.len() >= 32 {
+        let dense = candidates.len() >= 32;
+        let contour_candidates = if dense {
             let candidates = ContourDetector::detect(matrix)
                 .into_iter()
                 .filter(|candidate| {
@@ -156,15 +163,42 @@ impl FinderDetector {
             Vec::new()
         };
 
-        telemetry.raw_candidates = candidates.len() + contour_candidates.len();
+        // A QR finder’s enclosed white ring survives when its outer black
+        // component has merged with nearby data. Keep this independent cue
+        // behind the same dense gate and the same evidence thresholds as the
+        // contour family; it neither rescans the image nor changes grouping.
+        let white_ring_candidates = if dense {
+            let candidates = ContourDetector::detect_white_rings(matrix)
+                .into_iter()
+                .filter(|candidate| {
+                    let evidence = FinderProposal::from_pattern(matrix, candidate.clone()).evidence;
+                    evidence.horizontal_ratio >= 0.70
+                        && evidence.vertical_ratio >= 0.70
+                        && evidence.pitch_agreement >= 0.60
+                })
+                .collect::<Vec<_>>();
+            telemetry.white_ring_raw_candidates = candidates.len();
+            candidates
+        } else {
+            Vec::new()
+        };
+
+        telemetry.raw_candidates =
+            candidates.len() + contour_candidates.len() + white_ring_candidates.len();
         // Preserve the primary proposal order before appending secondary
         // contour-family evidence. The dense grouping frontier is bounded and
         // order-sensitive; re-ranking both families together could displace a
         // previously valid scanline triple with a coarse contour observation.
         let mut proposals = rank_and_suppress(matrix, candidates);
         let contour_proposals = rank_and_suppress(matrix, contour_candidates);
-        telemetry.contour_appended_proposals =
-            Self::append_distinct_contour_proposals(&mut proposals, contour_proposals);
+        let white_ring_proposals = rank_and_suppress(matrix, white_ring_candidates);
+        let (contour_appended, white_ring_appended) = Self::append_distinct_supplemental_proposals(
+            &mut proposals,
+            contour_proposals,
+            white_ring_proposals,
+        );
+        telemetry.contour_appended_proposals = contour_appended;
+        telemetry.white_ring_appended_proposals = white_ring_appended;
         telemetry.proposals_after_nms = proposals.len();
         FinderProposalReport {
             proposals,
@@ -172,16 +206,26 @@ impl FinderDetector {
         }
     }
 
-    fn append_distinct_contour_proposals(
+    fn append_distinct_supplemental_proposals(
         proposals: &mut Vec<FinderProposal>,
         contour_proposals: Vec<FinderProposal>,
-    ) -> usize {
+        white_ring_proposals: Vec<FinderProposal>,
+    ) -> (usize, usize) {
         const MAX_DENSE_CONTOUR_PROPOSALS: usize = 128;
-        let mut appended = 0;
-        for proposal in contour_proposals
+        let mut contour_appended = 0;
+        let mut white_ring_appended = 0;
+        for (is_white_ring, proposal) in contour_proposals
             .into_iter()
-            .take(MAX_DENSE_CONTOUR_PROPOSALS)
+            .map(|proposal| (false, proposal))
+            .chain(
+                white_ring_proposals
+                    .into_iter()
+                    .map(|proposal| (true, proposal)),
+            )
         {
+            if contour_appended + white_ring_appended >= MAX_DENSE_CONTOUR_PROPOSALS {
+                break;
+            }
             let duplicate = proposals.iter().any(|accepted| {
                 let radius = 2.5
                     * proposal
@@ -191,11 +235,15 @@ impl FinderDetector {
                 proposal.pattern.center.distance(&accepted.pattern.center) <= radius
             });
             if !duplicate {
-                appended += 1;
+                if is_white_ring {
+                    white_ring_appended += 1;
+                } else {
+                    contour_appended += 1;
+                }
                 proposals.push(proposal);
             }
         }
-        appended
+        (contour_appended, white_ring_appended)
     }
 
     fn recover_dense_roi_candidates(
@@ -1344,9 +1392,17 @@ mod tests {
     }
 
     #[test]
-    fn dense_contour_append_has_a_fixed_proposal_cap() {
+    fn dense_supplemental_append_shares_a_fixed_proposal_cap() {
         let matrix = BitMatrix::new(4_000, 32);
-        let contour_proposals = (0..160)
+        let contour_proposals = (0..100)
+            .map(|index| {
+                FinderProposal::from_pattern(
+                    &matrix,
+                    FinderPattern::new(8.0 + index as f32 * 24.0, 16.0, 1.0),
+                )
+            })
+            .collect();
+        let white_ring_proposals = (0..160)
             .map(|index| {
                 FinderProposal::from_pattern(
                     &matrix,
@@ -1355,9 +1411,15 @@ mod tests {
             })
             .collect();
         let mut proposals = Vec::new();
-        let appended =
-            FinderDetector::append_distinct_contour_proposals(&mut proposals, contour_proposals);
-        assert_eq!(appended, 128);
+        let (contour_appended, white_ring_appended) =
+            FinderDetector::append_distinct_supplemental_proposals(
+                &mut proposals,
+                contour_proposals,
+                white_ring_proposals,
+            );
+        assert_eq!(contour_appended + white_ring_appended, 128);
+        assert_eq!(contour_appended, 100);
+        assert_eq!(white_ring_appended, 28);
         assert_eq!(proposals.len(), 128);
     }
 

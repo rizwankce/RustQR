@@ -1463,6 +1463,21 @@ reverted; the existing twelve populated-cell windows and downstream frontier
 remain unchanged. This is negative experiment evidence, not completion of
 WP-010.
 
+**2026-07-16 bounded white-ring component supplement:** Dense inputs (at least
+32 primary observations) now make one additional white connected-component
+pass. Only enclosed, near-square white components with a black central core
+become candidates, and each still must pass the existing horizontal, vertical,
+and pitch evidence gates. They append after contour proposals and share—not
+expand—the existing 128-proposal supplemental cap. On the exact first
+QR_MAX_DIM=800 `lots` image, finder recall improves 34/60→44/60 and grouping
+29/60→31/60; contained/spurious proposals change 143/5→164/5, with 112 raw
+and 21 appended white-ring proposals (35 contour + 21 white-ring appended,
+well below the shared cap). The controlled 1–100 end-to-end ladder retains no
+false positives, duplicates, or timeouts and its 50-symbol scene remains
+48/50. `proposal-eval` artifact schema v8 now records white-ring raw/appended
+counts separately. This is bounded proposal recovery, not a grouping/frontier
+change or WP-010 completion.
+
 Verified with:
 
 ```bash
