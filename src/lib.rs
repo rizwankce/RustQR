@@ -239,6 +239,9 @@ pub struct DetectionResult {
 /// strategies tried (primary + fallback).
 #[derive(Debug, Clone, Default)]
 pub struct DetectionTelemetry {
+    /// Per-candidate diagnostic records. Empty unless an opt-in candidate
+    /// trace request enabled them; normal detection does not allocate them.
+    pub candidate_stages: Vec<CandidateStageTelemetry>,
     /// Whether binarization produced a non-empty binary matrix.
     pub binarize_ok: bool,
     /// Peak number of finder patterns detected across all binarization attempts.
@@ -372,6 +375,34 @@ pub struct DetectionTelemetry {
     pub timing_pattern_vertical_ratio_sum: f32,
 }
 
+/// Diagnostic outcome for one routed finder triple.
+///
+/// This is observation-only evidence: it does not influence candidate order,
+/// recovery budgets, sampling, or decode acceptance.
+#[derive(Debug, Clone)]
+pub struct CandidateStageTelemetry {
+    /// Zero-based rank in the bounded candidate frontier.
+    pub candidate_rank: usize,
+    /// Router region, when the candidate was attempted by region routing.
+    pub region_index: Option<usize>,
+    /// Finder-proposal indices that formed the triple.
+    pub proposal_indices: [usize; 3],
+    /// Estimated module pitch in pixels.
+    pub module_size: f32,
+    /// Geometry confidence used for routing.
+    pub geometry_confidence: f32,
+    /// Whether matrix decoding returned a QR code before acceptance/dedup.
+    pub matrix_decoded: bool,
+    /// Whether the returned code met the route's acceptance floor.
+    pub acceptance_passed: bool,
+    /// Decoder-counter deltas attributable to this candidate.
+    pub timing_gate_rejections: usize,
+    pub format_bch_candidates: usize,
+    pub remainder_rejections: usize,
+    pub rs_candidate_attempts: usize,
+    pub rs_block_failures: usize,
+}
+
 impl DetectionTelemetry {
     pub(crate) fn add_candidate_score(&mut self, score: f32) {
         let idx = if score < 2.0 {
@@ -387,6 +418,8 @@ impl DetectionTelemetry {
     }
 
     fn merge_high_water_from(&mut self, other: &Self) {
+        self.candidate_stages
+            .extend(other.candidate_stages.iter().cloned());
         self.groups_found = self.groups_found.max(other.groups_found);
         self.transforms_built = self.transforms_built.max(other.transforms_built);
         self.format_extracted = self.format_extracted.max(other.format_extracted);
@@ -809,6 +842,9 @@ fn budgeted_decode_with_telemetry(
         (*remaining).min(24)
     };
     let mut context = DecodeRequestContext::default();
+    if !telemetry.candidate_stages.is_empty() || telemetry.candidate_stages.capacity() > 0 {
+        context.enable_candidate_stage_trace();
+    }
     let (decoded, mut decode_tel) = pipeline::decode_groups_with_telemetry_limited_in_context(
         binary,
         gray,
@@ -1452,10 +1488,7 @@ pub fn try_detect_with_options(
             &rgb,
             width,
             height,
-            Some(options.deadline()),
-            Some(options.candidate_limit()),
-            Some(options.erasure_attempt_limit()),
-            options.cancellation(),
+            TelemetryBudget::from_options(&options),
         );
         return Ok(DetectionResult {
             codes,
@@ -1473,15 +1506,8 @@ pub fn try_detect_with_options(
         rgb.extend_from_slice(&[value, value, value]);
     }
     let started = std::time::Instant::now();
-    let (codes, telemetry) = detect_with_telemetry_budget(
-        &rgb,
-        width,
-        height,
-        Some(options.deadline()),
-        Some(options.candidate_limit()),
-        Some(options.erasure_attempt_limit()),
-        options.cancellation(),
-    );
+    let (codes, telemetry) =
+        detect_with_telemetry_budget(&rgb, width, height, TelemetryBudget::from_options(&options));
     let failure_stage = if codes.is_empty() {
         Some(if options.is_cancelled() {
             FailureStage::Cancelled
@@ -1558,7 +1584,7 @@ pub fn detect_with_telemetry(
     width: usize,
     height: usize,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, None, None, None, None)
+    detect_with_telemetry_budget(image, width, height, TelemetryBudget::default())
 }
 
 /// Detect with telemetry while applying a caller-supplied cooperative budget.
@@ -1573,35 +1599,91 @@ pub fn detect_with_telemetry_timeout(
     height: usize,
     timeout: std::time::Duration,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
-    detect_with_telemetry_budget(image, width, height, Some(timeout), None, None, None)
+    detect_with_telemetry_budget(image, width, height, TelemetryBudget::with_timeout(timeout))
+}
+
+/// Run the normal telemetry path while retaining one record per attempted
+/// finder triple. This is diagnostic-only and leaves scheduling unchanged.
+pub fn detect_with_candidate_stage_telemetry_timeout(
+    image: &[u8],
+    width: usize,
+    height: usize,
+    timeout: std::time::Duration,
+) -> (Vec<QRCode>, DetectionTelemetry) {
+    detect_with_telemetry_budget(
+        image,
+        width,
+        height,
+        TelemetryBudget::with_candidate_trace(timeout),
+    )
+}
+
+#[derive(Default)]
+struct TelemetryBudget {
+    timeout: Option<std::time::Duration>,
+    candidate_limit: Option<usize>,
+    erasure_attempt_limit: Option<usize>,
+    cancellation: Option<CancellationToken>,
+    capture_candidate_stages: bool,
+}
+
+impl TelemetryBudget {
+    fn from_options(options: &DecoderOptions) -> Self {
+        Self {
+            timeout: Some(options.deadline()),
+            candidate_limit: Some(options.candidate_limit()),
+            erasure_attempt_limit: Some(options.erasure_attempt_limit()),
+            cancellation: options.cancellation(),
+            capture_candidate_stages: false,
+        }
+    }
+    fn with_timeout(timeout: std::time::Duration) -> Self {
+        Self {
+            timeout: Some(timeout),
+            ..Self::default()
+        }
+    }
+    fn with_candidate_trace(timeout: std::time::Duration) -> Self {
+        Self {
+            timeout: Some(timeout),
+            capture_candidate_stages: true,
+            ..Self::default()
+        }
+    }
 }
 
 fn detect_with_telemetry_budget(
     image: &[u8],
     width: usize,
     height: usize,
-    requested_timeout: Option<std::time::Duration>,
-    requested_candidate_limit: Option<usize>,
-    requested_erasure_attempt_limit: Option<usize>,
-    cancellation: Option<CancellationToken>,
+    budget: TelemetryBudget,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     if validate_input(ImageInput::new(image, width, height, PixelFormat::Rgb)).is_err() {
         return (Vec::new(), DetectionTelemetry::default());
     }
     let mut tel = DetectionTelemetry::default();
+    if budget.capture_candidate_stages {
+        // The non-zero capacity is the allocation-only opt-in marker used by
+        // the brightness route and downstream pipeline telemetry.
+        tel.candidate_stages.reserve(1);
+    }
 
     let start_tel = std::time::Instant::now();
-    let budget_tel = requested_timeout.unwrap_or_else(|| {
+    let budget_tel = budget.timeout.unwrap_or_else(|| {
         std::time::Duration::from_millis(decoder::config::global_time_budget_ms())
     });
     let deadline_tel = start_tel + budget_tel;
     let mut decode_context = DecodeRequestContext::with_deadline_and_cancellation(
-        requested_erasure_attempt_limit.unwrap_or(0),
+        budget.erasure_attempt_limit.unwrap_or(0),
         deadline_tel,
-        cancellation.clone(),
+        budget.cancellation.clone(),
     );
+    if budget.capture_candidate_stages {
+        decode_context.enable_candidate_stage_trace();
+    }
     let is_expired_tel = || {
-        cancellation
+        budget
+            .cancellation
             .as_ref()
             .is_some_and(CancellationToken::is_cancelled)
             || start_tel.elapsed() >= budget_tel
@@ -1610,7 +1692,8 @@ fn detect_with_telemetry_budget(
     if is_expired_tel() {
         return (Vec::new(), tel);
     }
-    let request_candidate_limit = requested_candidate_limit
+    let request_candidate_limit = budget
+        .candidate_limit
         .unwrap_or_else(image_decode_attempt_budget)
         // Small, high-contrast inputs can produce many repeated finder-like
         // candidates even though their image work is cheap. Keep their

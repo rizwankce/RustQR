@@ -2026,6 +2026,22 @@ recover any realistic-lots symbols (the required improvement was >=2/60).
 The code and telemetry were reverted. Do not retry this finder-template plane
 without evidence that an eligible candidate can pass the existing timing gate.
 
+**2026-07-16 candidate-stage attribution:** Added the opt-in
+`qrtool candidate-stage-trace` artifact, which records one deterministic row
+per attempted finder triple with candidate rank/region/proposal IDs,
+module/geometry evidence, and request-local timing/BCH/remainder/RS deltas.
+The normal path does not allocate or emit these rows, and candidate ordering,
+caps, sampling, acceptance, and recovery are unchanged. On the exact release
+`QR_MAX_DIM=800 lots/image001` 500 ms slice, 46 candidates were attempted:
+45 recorded timing-gate rejections with no BCH evidence, while exactly one
+candidate reached BCH/RS and was accepted. Aggregate deltas were 1,320 timing
+rejections, one BCH candidate, one RS attempt, and zero remainder/RS-block
+failures. The process elapsed 525.83 ms despite the cooperative 500 ms
+deadline. This establishes timing/sampled geometry as the immediate residual
+barrier for the grouped frontier, not a missing proposal or recovery path; the
+next experiment must be transform/sampling observation, not another routing or
+threshold-plane change.
+
 **Acceptance criteria:**
 
 - Evaluator performs bipartite geometry matching.
@@ -2408,6 +2424,14 @@ locally. The local toolchain lacks `thumbv7em-none-eabihf`; CI now installs it
 and runs the core's explicit no-default-feature bare-metal check. This proves
 the staged strict core only, not whole-crate `no_std`, platform support, or a
 policy for hosting recovery callbacks.
+
+**2026-07-16 remote validation:** Manual CI run
+[`29488989514`](https://github.com/rizwankce/RustQR/actions/runs/29488989514)
+passed its MSRV 1.85 all-features test, minimal-feature test, clippy, format,
+Linux/macOS/Windows library tests, and the
+`thumbv7em-none-eabihf` strict-core `--no-default-features` check. This closes
+the remote bare-metal compilation evidence for the staged core boundary only;
+the hosted recovery boundary above remains intentional.
 
 **Validation:**
 

@@ -101,6 +101,15 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         output: PathBuf,
     },
+    /// Attribute the first failed stage for every attempted finder triple.
+    CandidateStageTrace {
+        #[arg(long)]
+        image: PathBuf,
+        #[arg(long, default_value_t = 500)]
+        timeout_ms: u64,
+        #[arg(long, value_name = "PATH")]
+        output: PathBuf,
+    },
     /// Iterate a dataset and run detection once per image
     DatasetBench {
         #[arg(long)]
@@ -176,6 +185,11 @@ fn main() {
             timeout_ms,
             output,
         } => dense_route_audit_cmd(&image, timeout_ms, &output),
+        Command::CandidateStageTrace {
+            image,
+            timeout_ms,
+            output,
+        } => candidate_stage_trace_cmd(&image, timeout_ms, &output),
         Command::DatasetBench { root, limit, smoke } => dataset_bench_cmd(root, limit, smoke),
         Command::PredictionExport {
             root,
@@ -185,6 +199,68 @@ fn main() {
             output,
         } => prediction_export_cmd(root, limit, category.as_deref(), timeout_ms, &output),
     }
+}
+
+fn candidate_stage_trace_cmd(image: &Path, timeout_ms: u64, output: &Path) {
+    let (rgb, width, height) = load_rgb(image).expect("load trace image");
+    let started = Instant::now();
+    let (codes, telemetry) = rust_qr::detect_with_candidate_stage_telemetry_timeout(
+        &rgb,
+        width,
+        height,
+        std::time::Duration::from_millis(timeout_ms),
+    );
+    let mut json = String::new();
+    let _ = writeln!(&mut json, "{{");
+    let _ = writeln!(
+        &mut json,
+        "  \"schema_version\": \"rustqr.candidate-stage-trace.v1\","
+    );
+    let _ = writeln!(
+        &mut json,
+        "  \"scope\": \"diagnostic-only; candidate order, caps, sampling, and acceptance are unchanged\","
+    );
+    let _ = writeln!(&mut json, "  \"image\": \"{}\",", image.display());
+    let _ = writeln!(&mut json, "  \"timeout_ms\": {timeout_ms},");
+    let _ = writeln!(
+        &mut json,
+        "  \"elapsed_ms\": {:.3},",
+        started.elapsed().as_secs_f64() * 1000.0
+    );
+    let _ = writeln!(&mut json, "  \"decoded_codes\": {},", codes.len());
+    let _ = writeln!(&mut json, "  \"candidate_stages\": [");
+    for (index, stage) in telemetry.candidate_stages.iter().enumerate() {
+        let comma = if index + 1 == telemetry.candidate_stages.len() {
+            ""
+        } else {
+            ","
+        };
+        let region = stage
+            .region_index
+            .map_or("null".to_string(), |value| value.to_string());
+        let _ = writeln!(
+            &mut json,
+            "    {{\"candidate_rank\":{},\"region_index\":{},\"proposal_indices\":[{},{},{}],\"module_size\":{:.6},\"geometry_confidence\":{:.6},\"matrix_decoded\":{},\"acceptance_passed\":{},\"timing_gate_rejections\":{},\"format_bch_candidates\":{},\"remainder_rejections\":{},\"rs_candidate_attempts\":{},\"rs_block_failures\":{}}}{}",
+            stage.candidate_rank,
+            region,
+            stage.proposal_indices[0],
+            stage.proposal_indices[1],
+            stage.proposal_indices[2],
+            stage.module_size,
+            stage.geometry_confidence,
+            stage.matrix_decoded,
+            stage.acceptance_passed,
+            stage.timing_gate_rejections,
+            stage.format_bch_candidates,
+            stage.remainder_rejections,
+            stage.rs_candidate_attempts,
+            stage.rs_block_failures,
+            comma
+        );
+    }
+    let _ = writeln!(&mut json, "  ]");
+    let _ = writeln!(&mut json, "}}");
+    fs::write(output, json).expect("write candidate-stage artifact");
 }
 
 #[derive(Default)]

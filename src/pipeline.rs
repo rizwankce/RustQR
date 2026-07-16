@@ -1,9 +1,9 @@
-use crate::DetectionTelemetry;
 use crate::decoder::format::FormatInfo;
 use crate::decoder::qr_decoder::{DecodeRequestContext, QrDecoder};
 use crate::detector::finder::FinderPattern;
 use crate::models::{BitMatrix, ECLevel, Point, QRCode};
 use crate::utils::geometry::PerspectiveTransform;
+use crate::{CandidateStageTelemetry, DetectionTelemetry};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
@@ -46,6 +46,13 @@ struct RankedGroupCandidate {
     rerank_score: f32,
     saturation_coverage: f32,
     geometry_confidence: f32,
+}
+
+struct CandidateStageAttempt<'a> {
+    candidate_rank: usize,
+    region_index: Option<usize>,
+    candidate: &'a RankedGroupCandidate,
+    before: crate::decoder::qr_decoder::DecodeCounters,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -958,6 +965,38 @@ fn decode_candidate(
     Some(qr)
 }
 
+fn record_candidate_stage(
+    telemetry: &mut Option<&mut DetectionTelemetry>,
+    attempt: CandidateStageAttempt<'_>,
+    after: crate::decoder::qr_decoder::DecodeCounters,
+    matrix_decoded: bool,
+    acceptance_passed: bool,
+) {
+    let Some(tel) = telemetry.as_mut() else {
+        return;
+    };
+    if !tel.candidate_stages.is_empty() || tel.candidate_stages.capacity() > 0 {
+        tel.candidate_stages.push(CandidateStageTelemetry {
+            candidate_rank: attempt.candidate_rank,
+            region_index: attempt.region_index,
+            proposal_indices: attempt.candidate.group,
+            module_size: attempt.candidate.module_size,
+            geometry_confidence: attempt.candidate.geometry_confidence,
+            matrix_decoded,
+            acceptance_passed,
+            timing_gate_rejections: after.timing_pattern_rejections
+                - attempt.before.timing_pattern_rejections,
+            format_bch_candidates: after.format_bch_candidates
+                - attempt.before.format_bch_candidates,
+            remainder_rejections: after.nonzero_remainder_bit_rejections
+                - attempt.before.nonzero_remainder_bit_rejections,
+            rs_candidate_attempts: after.rs_candidate_attempts
+                - attempt.before.rs_candidate_attempts,
+            rs_block_failures: after.rs_block_failures - attempt.before.rs_block_failures,
+        });
+    }
+}
+
 #[allow(dead_code)]
 fn probe_candidate_quality(
     candidate: &RankedGroupCandidate,
@@ -1509,7 +1548,8 @@ fn decode_ranked_groups(
         used_attempts += 1;
         let allow_heavy = used_attempts <= heavy_recovery_top_n;
         let allow_matrix_recovery = matrix_recovery_allowed(strategy, allow_heavy);
-        if let Some(qr) = decode_candidate(
+        let counters_before = context.counters();
+        let decoded_qr = decode_candidate(
             &first,
             binary,
             gray,
@@ -1519,8 +1559,24 @@ fn decode_ranked_groups(
             allow_matrix_recovery,
             fast_signals.blur_metric,
             context,
-        ) {
-            let acceptance = acceptance_score(&qr, first.geometry_confidence);
+        );
+        let acceptance = decoded_qr
+            .as_ref()
+            .map(|qr| acceptance_score(qr, first.geometry_confidence));
+        record_candidate_stage(
+            &mut telemetry,
+            CandidateStageAttempt {
+                candidate_rank: 0,
+                region_index: None,
+                candidate: &first,
+                before: counters_before,
+            },
+            context.counters(),
+            decoded_qr.is_some(),
+            acceptance.is_some_and(|value| value >= DECODE_ACCEPTANCE_FLOOR),
+        );
+        if let Some(qr) = decoded_qr {
+            let acceptance = acceptance.expect("decoded QR has an acceptance score");
             let floor = DECODE_ACCEPTANCE_FLOOR;
             if acceptance >= floor {
                 if let Some(tel) = telemetry.as_mut() {
@@ -1651,7 +1707,8 @@ fn decode_ranked_groups(
 
         let allow_heavy = used_attempts <= heavy_recovery_top_n;
         let allow_matrix_recovery = matrix_recovery_allowed(strategy, allow_heavy);
-        if let Some(qr) = decode_candidate(
+        let counters_before = context.counters();
+        let decoded_qr = decode_candidate(
             candidate,
             binary,
             gray,
@@ -1661,8 +1718,24 @@ fn decode_ranked_groups(
             allow_matrix_recovery,
             fast_signals.blur_metric,
             context,
-        ) {
-            let acceptance = acceptance_score(&qr, candidate.geometry_confidence);
+        );
+        let acceptance = decoded_qr
+            .as_ref()
+            .map(|qr| acceptance_score(qr, candidate.geometry_confidence));
+        record_candidate_stage(
+            &mut telemetry,
+            CandidateStageAttempt {
+                candidate_rank: idx,
+                region_index: Some(region_index),
+                candidate,
+                before: counters_before,
+            },
+            context.counters(),
+            decoded_qr.is_some(),
+            acceptance.is_some_and(|value| value >= relaxed_floor),
+        );
+        if let Some(qr) = decoded_qr {
+            let acceptance = acceptance.expect("decoded QR has an acceptance score");
             if acceptance < relaxed_floor {
                 if let Some(tel) = telemetry.as_mut() {
                     tel.acceptance_rejected += 1;
@@ -1744,6 +1817,11 @@ pub(crate) fn decode_groups_with_telemetry_limited_in_context(
     context: &mut DecodeRequestContext,
 ) -> (Vec<QRCode>, DetectionTelemetry) {
     let mut tel = DetectionTelemetry::default();
+    if context.candidate_stage_trace_enabled() {
+        // A non-zero capacity is the opt-in marker checked by
+        // `record_candidate_stage`; normal requests stay allocation-free.
+        tel.candidate_stages.reserve(1);
+    }
     let results = decode_ranked_groups(
         binary,
         gray,

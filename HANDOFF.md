@@ -45,6 +45,10 @@ before editing. `TODO.md` is the canonical detailed queue.
    finder-template threshold plane had 45 eligible samples but zero gate
    passes. Both were reverted. Do not bypass the brightness return, relax the
    timing gate, or repeat the threshold-plane probe without new evidence.
+   The new opt-in candidate-stage trace makes the residual explicit on
+   `lots/image001`: 46 attempted groups, 45 timing-gate-only failures, and one
+   accepted BCH/RS path (1,320 timing rejections total). Continue with a
+   base-versus-selected transform observation, not a new proposal route.
 2. **WP-011 geometry/sampling:** expiry now prevents scheduling new image-wide
    passes, but scans already in flight cannot be interrupted. Continue only
    with bounded category-specific geometry or cancellable-stage evidence.
@@ -111,7 +115,8 @@ before editing. `TODO.md` is the canonical detailed queue.
    separately built `rustqr-matrix-core` `no_std + alloc` crate for strict and
    known-erasure matrix decoding, with core/host generated-corpus and mutation
    parity. Bare-metal compilation is CI-gated because the local target is not
-   installed. Hosted confidence/fallback/beam recovery, deadline/cancellation,
+   installed; manual CI run 29488989514 passed that check together with MSRV,
+   format, clippy, and Linux/macOS/Windows library tests. Hosted confidence/fallback/beam recovery, deadline/cancellation,
    and `Instant` remain outside core; do not claim full decoder `no_std` or
    move them without a dedicated policy/callback API.
    WP-014 also removed the rank-frontier copy without changing group order or

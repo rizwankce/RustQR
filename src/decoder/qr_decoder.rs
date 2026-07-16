@@ -206,6 +206,7 @@ pub(crate) struct DecodeRequestContext {
     cancellation: Option<CancellationToken>,
     recovery_budget: MatrixRecoveryBudget,
     counters: DecodeCounters,
+    candidate_stage_trace: bool,
 }
 
 impl DecodeRequestContext {
@@ -215,6 +216,7 @@ impl DecodeRequestContext {
             cancellation: None,
             recovery_budget: MatrixRecoveryBudget::new(erasure_attempt_limit),
             counters: DecodeCounters::new(),
+            candidate_stage_trace: false,
         }
     }
 
@@ -231,6 +233,7 @@ impl DecodeRequestContext {
             cancellation,
             recovery_budget: MatrixRecoveryBudget::new(erasure_attempt_limit),
             counters: DecodeCounters::new(),
+            candidate_stage_trace: false,
         }
     }
 
@@ -257,6 +260,14 @@ impl DecodeRequestContext {
 
     pub(crate) fn counters_mut(&mut self) -> &mut DecodeCounters {
         &mut self.counters
+    }
+
+    pub(crate) fn enable_candidate_stage_trace(&mut self) {
+        self.candidate_stage_trace = true;
+    }
+
+    pub(crate) const fn candidate_stage_trace_enabled(&self) -> bool {
+        self.candidate_stage_trace
     }
 }
 
