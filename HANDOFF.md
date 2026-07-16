@@ -48,6 +48,9 @@ before editing. `TODO.md` is the canonical detailed queue.
 2. **WP-011 geometry/sampling:** expiry now prevents scheduling new image-wide
    passes, but scans already in flight cannot be interrupted. Continue only
    with bounded category-specific geometry or cancellable-stage evidence.
+   The next safe diagnostic compares base versus selected refinement transforms
+   on one high-version/glare proposal; high-version's near-gate timing ratios
+   make it the most informative first case.
 3. **WP-009 safety:** synthetic baseline is present; acceptance requires a
    licensed, representative negative corpus and explicit false-positive
    budget. A 47-image/12.5184 MP Apache-2.0 ZXing high-contrast negative

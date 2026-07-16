@@ -1513,6 +1513,18 @@ cargo test --lib detector:: --all-features
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
+**2026-07-16 next evidence packet:** Do not add another proposal source or
+route before explaining the grouped `lots/image001` frontier. A diagnostic-only
+packet should attribute every attempted group, in deterministic rank order, to
+its first terminal stage: transform, timing gate, BCH/remainder, RS, or
+accepted result. Record the group/region/proposal identifiers, pitch/score,
+transform outcome, and request-local decoder-counter deltas around
+`pipeline::decode_candidate`. Its invariant is no candidate ordering, cap, or
+result change. Validate it with the current one-image 500 ms release `lots`
+slice and the controlled 1--100 ladder; use the artifact to choose a geometry
+or sampling experiment rather than repeating the rejected breadth, Otsu,
+brightness-bridge, or threshold-plane routes.
+
 **Acceptance criteria:**
 
 - Finder and grouping recall can be evaluated independently.
@@ -1741,6 +1753,17 @@ bright_spots, glare, and curved still have no match, and glare demonstrates
 that an in-flight operation can outlast the cooperative deadline. See
 `docs/wp011_category_probe.md` for raw-artifact names, core timings, and
 attempt counts.
+
+**2026-07-16 next evidence packet:** Add a diagnostic-only observation for one
+selected proposal per `glare` and `high_version` image that compares the base
+transform with the transform selected by
+`refine_transform_with_timing_and_alignment`. It must record binary and gray
+timing/alignment quality, refinement score gain, alignment-probe count,
+sampled H/V alternation, and saturated-footprint coverage without changing the
+transform, gate, recovery, or benchmark path. High-version is the decisive
+case: its existing mean H/V values (~0.519/~0.502) are near the 0.60 gate,
+unlike glare (~0.107/~0.141). Only a measured base-versus-selected difference
+can distinguish geometry from sampling as the next bounded intervention.
 
 **Acceptance criteria:**
 
