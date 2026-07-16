@@ -176,3 +176,17 @@ of returned lines versus quadrilateral annotations: these labels contain no
 payload truth, and the ZBar CLI provides no localization output. It therefore
 does not establish payload accuracy, localization recall, a RustQR comparison,
 or a general ZBar accuracy/latency claim.
+
+## Shared-PGM monitor diagnostic (2026-07-13)
+
+`artifacts/competitors/wp013-shared-pgm-monitor-2026-07-13.json` runs the
+fixed 17-image `monitor` category once through SHA-verified RustQR 0.1.0,
+ZBar 0.23.93, and quircs 0.10.3 adapters. Every source image is materialized
+once to the same 1024px PGM, each child gets the recorded one-thread
+environment, and the measured interval is adapter-process invocation only.
+The 1000ms outer process limit produced clear but non-comparable statuses:
+RustQR decoded 2 and timed out on 15; ZBar decoded 1 and returned no decode on
+16; quircs decoded 16 and returned no decode on 1. Monitor labels contain
+quadrilateral counts but no payload truth, while these adapters expose no
+geometry. The returned-line counts and timing samples therefore do not
+establish payload accuracy, localization recall, or a fair latency comparison.

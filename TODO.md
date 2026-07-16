@@ -1933,6 +1933,14 @@ fixture PGM bytes produced exact payload matches from SHA-pinned RustQR 0.1.0,
 ZBar 0.23.93, and quircs 0.10.3 runners. This remains deterministic
 payload-only evidence, with no geometry or end-to-end latency claim.
 
+**2026-07-13 shared-PGM monitor diagnostic:** The fixed 17-image monitor lane
+now has a single artifact for the verified RustQR, ZBar, and quircs runners.
+At the common 1000ms external process timeout RustQR decoded 2 and timed out
+on 15; ZBar decoded 1/no-decoded 16; quircs decoded 16/no-decoded 1. These are
+explicit runner observations only. The monitor labels lack payload truth and
+all adapters lack geometry output, so neither returned-line counts nor
+process-only timing is a correctness, recall, or fair-latency claim.
+
 ---
 
 ## WP-014: Performance engineering after correctness

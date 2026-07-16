@@ -1,0 +1,1266 @@
+{
+  "schema_version": "rustqr.competitor-report.v1",
+  "lock": {
+    "path": "competitors/lock.json",
+    "sha256": "5bc65b19d8f10ca575d355f874490d749762018c2f639c6af23643592b7b0004"
+  },
+  "case_manifest": {
+    "schema_version": "rustqr.competitor-case-manifest.v1",
+    "lock_sha256": "5bc65b19d8f10ca575d355f874490d749762018c2f639c6af23643592b7b0004",
+    "pixel_contract": {
+      "format": "binary PGM (P5), 8-bit grayscale",
+      "preprocessing": "decode source pixels once, convert RGB to ITU-R BT.601 luma, optionally downscale with Pillow Triangle, then write PGM",
+      "timing_boundary": "adapter process/API invocation only; image decoding, normalization, PGM writing, manifest generation, and report generation are excluded",
+      "threads": 1,
+      "timeout_ms": 1000
+    },
+    "max_dim": 1024,
+    "cases": [
+      {
+        "id": "monitor/image001.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image001.jpg",
+        "source_sha256": "7aee6b038f09ee793cb18e3b09861e717e8d4e78a037a4dfd72ef8d548682093",
+        "expected_symbols": 1,
+        "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+        "pixel_dimensions": [
+          843,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image002.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image002.jpg",
+        "source_sha256": "217b4343fe79219ebe01981b45ce74b79bf1dd8925c107cb2ed0e7b79077bca9",
+        "expected_symbols": 1,
+        "pixel_sha256": "a9c01ab0010ad009d7847187b1d34116d6b58b1badaf1efc3874a76ab39cdd36",
+        "pixel_dimensions": [
+          843,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image003.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image003.jpg",
+        "source_sha256": "785eb84f07b66494764dfac9b4cbeb057b6b03f7eb893093f15d4bf46eba79a5",
+        "expected_symbols": 1,
+        "pixel_sha256": "e395dd476a8f1f956e04ab9d40a8718b5e4b6129bc14c4ee41e53708e853bf88",
+        "pixel_dimensions": [
+          986,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image004.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image004.jpg",
+        "source_sha256": "f613491f9469b0a90e27eaf7ddae6944c0b0743990c461dcc9c0612a453a398b",
+        "expected_symbols": 1,
+        "pixel_sha256": "35389e581eed6c58f4c25a4d42f8a9f8c73869d12cbfc9e03c0659715ce5a56f",
+        "pixel_dimensions": [
+          939,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image005.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image005.jpg",
+        "source_sha256": "f3e20b35d44e0bbdda7ff22f71fcf7590661607c26f95ebf80f5830f25d17405",
+        "expected_symbols": 1,
+        "pixel_sha256": "c570a2a3fc027a6fa2a65c5cb069fd9839716e2cd16c82fa1829c98b35769105",
+        "pixel_dimensions": [
+          1024,
+          962
+        ]
+      },
+      {
+        "id": "monitor/image006.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image006.jpg",
+        "source_sha256": "2f7b85c8ca328bd62bbe99f69d3188878801d7970338d5a34f92e54497b93999",
+        "expected_symbols": 1,
+        "pixel_sha256": "752348e5b522db47ec710e22ab6b38b2e413516d03e60ebbe6abd3025730ca61",
+        "pixel_dimensions": [
+          1024,
+          941
+        ]
+      },
+      {
+        "id": "monitor/image007.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image007.jpg",
+        "source_sha256": "11181ca5b08a6c12af94c6b62803c6668a73a98e6db0be637099862d21265183",
+        "expected_symbols": 1,
+        "pixel_sha256": "0cc508053e7c10e9b13eb8996b628c4317150dd52f39a693536c3cfebabd7152",
+        "pixel_dimensions": [
+          1024,
+          1013
+        ]
+      },
+      {
+        "id": "monitor/image008.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image008.jpg",
+        "source_sha256": "90b842cb59c7522cde4bb681861795b85297845e266190710be8a30faf3e9ddd",
+        "expected_symbols": 1,
+        "pixel_sha256": "0655e31648328f6c459d20e687070555ea4e57485dfb3643008441ef1a2cc659",
+        "pixel_dimensions": [
+          1024,
+          1011
+        ]
+      },
+      {
+        "id": "monitor/image009.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image009.jpg",
+        "source_sha256": "117b7595824b44339d30c49bcffe6b52adc16643b5d15dc7e2e85076ec865523",
+        "expected_symbols": 1,
+        "pixel_sha256": "b9a1ac991e889246376bb6dd26ab4bae68bda8437b5386b1bc112765e7015ff4",
+        "pixel_dimensions": [
+          1002,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image010.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image010.jpg",
+        "source_sha256": "f8c1d8fe1dfd3b4f522381f6c0039120d3b0a7527c488f13b4e33d1aad2307c6",
+        "expected_symbols": 1,
+        "pixel_sha256": "a322c99b953160debf0b9878c50367be281065b41acaf77dfec783b27f13f98a",
+        "pixel_dimensions": [
+          1024,
+          944
+        ]
+      },
+      {
+        "id": "monitor/image011.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image011.jpg",
+        "source_sha256": "3965c9b43349fee80009108eafb1480d787c84abaeed79e1699976c86dca90a6",
+        "expected_symbols": 1,
+        "pixel_sha256": "1f642a4b4b317b60d336208633ff87663f21378349361afe3178608ab03226c6",
+        "pixel_dimensions": [
+          1024,
+          979
+        ]
+      },
+      {
+        "id": "monitor/image012.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image012.jpg",
+        "source_sha256": "287acd3044bed2a39c1316577e11c248de5ad6eb47153d497fd122ac7e5bd78d",
+        "expected_symbols": 1,
+        "pixel_sha256": "029d12db8de9f9851e0c72834bfe0a588021f4b06a2e448110d47c64170e6149",
+        "pixel_dimensions": [
+          959,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image013.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image013.jpg",
+        "source_sha256": "78a1975dfb59be5907fa259960dda1db6c92e3d6e139a6c1329da45ecfcbbdb0",
+        "expected_symbols": 1,
+        "pixel_sha256": "13415af81a3188b737c242a609a790d006e49a9e07dabc60c103cce796bb91a1",
+        "pixel_dimensions": [
+          917,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image014.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image014.jpg",
+        "source_sha256": "f00a365843bd51ee93651fabcddff23262a74a97074f81bd42e5dc3e33d8af85",
+        "expected_symbols": 1,
+        "pixel_sha256": "f0c2b8c3600edcbb05c0be397baeaa814e7e38f2673da8af35887e1c31e6717d",
+        "pixel_dimensions": [
+          1024,
+          955
+        ]
+      },
+      {
+        "id": "monitor/image015.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image015.jpg",
+        "source_sha256": "665a237b65c6ae916fc04d899afe47b2f7d13c2887af864a5bd4fec411acc7e1",
+        "expected_symbols": 1,
+        "pixel_sha256": "6b4c46c6c31804406896576992eafa7a0cad73ccd56af1ff7307241f3d533d7d",
+        "pixel_dimensions": [
+          983,
+          1024
+        ]
+      },
+      {
+        "id": "monitor/image016.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image016.jpg",
+        "source_sha256": "78de73bf6f9fe52616aeb354f8c82bf01f72497c021ecb1d1eda24e032658480",
+        "expected_symbols": 1,
+        "pixel_sha256": "378b2372b0c7fb4efaa908e786602ffc5a680631d9248a708318ee4c4522381f",
+        "pixel_dimensions": [
+          1024,
+          1006
+        ]
+      },
+      {
+        "id": "monitor/image017.jpg",
+        "category": "monitor",
+        "source_path": "benches/images/boofcv/monitor/image017.jpg",
+        "source_sha256": "ac654fcb64cd7a64d743723a1a817ad1aeaf0b714f8d39c1c615da786b96ffdb",
+        "expected_symbols": 1,
+        "pixel_sha256": "7320ede39498ba2d60f918ce355532a8d50c6f367f11bc0060e72251ae31083c",
+        "pixel_dimensions": [
+          1024,
+          985
+        ]
+      }
+    ]
+  },
+  "hardware": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "processor": "arm",
+    "python": "3.13.2",
+    "cpu_count": 10
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1"
+  },
+  "adapters": {
+    "rustqr": {
+      "lock": {
+        "version": "0.1.0",
+        "source": "local workspace public API",
+        "revision": "workspace Cargo.toml version 0.1.0",
+        "license": "MIT OR Apache-2.0",
+        "runner_sha256": "8ac28aed32570aa0a0adcaca267d67f954da34e9c51009bf1fbff796cdefdf1c",
+        "build": "cargo build --release --offline --locked --manifest-path competitors/adapters/rustqr/Cargo.toml && install -m 755 competitors/adapters/rustqr/target/release/rustqr_pgm_decode competitors/bin/rustqr_pgm_decode"
+      },
+      "setup": {
+        "status": "available",
+        "command": [
+          "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/rustqr_pgm_decode",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "runner_preflight": {
+        "status": "verified_pinned_runner",
+        "expected_version": "0.1.0",
+        "version_observed": "rust_qr 0.1.0",
+        "setup": {
+          "status": "available",
+          "command": [
+            "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/rustqr_pgm_decode",
+            "<shared-pixels>.pgm"
+          ]
+        },
+        "capabilities": {},
+        "provenance_verified": true,
+        "provenance_verification_detail": null
+      },
+      "version_observed": "rust_qr 0.1.0",
+      "summary": {
+        "cases": 17,
+        "available_cases": 17,
+        "expected_annotation_symbols": 17,
+        "returned_symbols": 2,
+        "annotation_count_coverage": 0.11764705882352941,
+        "status_counts": {
+          "decoded": 2,
+          "timeout": 15
+        },
+        "latency_ms": {
+          "samples": 17,
+          "median": 1000,
+          "p95": 1000,
+          "median_95_ci": [
+            1000,
+            1000
+          ]
+        }
+      },
+      "cases": [
+        {
+          "id": "monitor/image001.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "34333736343731313534303338"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "343337363437313135343033380a",
+            "raw_stderr_hex": "",
+            "latency_ms": 76.061
+          }
+        },
+        {
+          "id": "monitor/image002.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "a9c01ab0010ad009d7847187b1d34116d6b58b1badaf1efc3874a76ab39cdd36",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "34333736343731313534303338"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "343337363437313135343033380a",
+            "raw_stderr_hex": "",
+            "latency_ms": 72.159958
+          }
+        },
+        {
+          "id": "monitor/image003.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "e395dd476a8f1f956e04ab9d40a8718b5e4b6129bc14c4ee41e53708e853bf88",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image004.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "35389e581eed6c58f4c25a4d42f8a9f8c73869d12cbfc9e03c0659715ce5a56f",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image005.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "c570a2a3fc027a6fa2a65c5cb069fd9839716e2cd16c82fa1829c98b35769105",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image006.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "752348e5b522db47ec710e22ab6b38b2e413516d03e60ebbe6abd3025730ca61",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image007.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "0cc508053e7c10e9b13eb8996b628c4317150dd52f39a693536c3cfebabd7152",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image008.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "0655e31648328f6c459d20e687070555ea4e57485dfb3643008441ef1a2cc659",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image009.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "b9a1ac991e889246376bb6dd26ab4bae68bda8437b5386b1bc112765e7015ff4",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image010.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "a322c99b953160debf0b9878c50367be281065b41acaf77dfec783b27f13f98a",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image011.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "1f642a4b4b317b60d336208633ff87663f21378349361afe3178608ab03226c6",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image012.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "029d12db8de9f9851e0c72834bfe0a588021f4b06a2e448110d47c64170e6149",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image013.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "13415af81a3188b737c242a609a790d006e49a9e07dabc60c103cce796bb91a1",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image014.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "f0c2b8c3600edcbb05c0be397baeaa814e7e38f2673da8af35887e1c31e6717d",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image015.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "6b4c46c6c31804406896576992eafa7a0cad73ccd56af1ff7307241f3d533d7d",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image016.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "378b2372b0c7fb4efaa908e786602ffc5a680631d9248a708318ee4c4522381f",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        },
+        {
+          "id": "monitor/image017.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "7320ede39498ba2d60f918ce355532a8d50c6f367f11bc0060e72251ae31083c",
+          "result": {
+            "status": "timeout",
+            "detail": "exceeded 1000 ms",
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_did_not_return_metadata",
+            "raw_stdout_hex": null,
+            "raw_stderr_hex": null,
+            "latency_ms": 1000
+          }
+        }
+      ]
+    },
+    "zbar": {
+      "lock": {
+        "version": "0.23.93",
+        "source": "https://github.com/mchehab/zbar.git",
+        "revision": "0.23.93",
+        "license": "LGPL-2.1-or-later",
+        "runner_sha256": "50a0f12b2353ea921ccb854b7a5271080d7dc295c65374566fe0057628f3d155",
+        "build": "Use the distribution package that reports 0.23.93; record zbarimg --version in the artifact. Do not redistribute its binary with RustQR."
+      },
+      "setup": {
+        "status": "available",
+        "command": [
+          "zbarimg",
+          "--quiet",
+          "--raw",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "runner_preflight": {
+        "status": "verified_pinned_runner",
+        "expected_version": "0.23.93",
+        "version_observed": "0.23.93",
+        "setup": {
+          "status": "available",
+          "command": [
+            "zbarimg",
+            "--quiet",
+            "--raw",
+            "<shared-pixels>.pgm"
+          ]
+        },
+        "capabilities": {
+          "raw_payload_lines": true
+        },
+        "provenance_verified": true,
+        "provenance_verification_detail": null
+      },
+      "version_observed": "0.23.93",
+      "summary": {
+        "cases": 17,
+        "available_cases": 17,
+        "expected_annotation_symbols": 17,
+        "returned_symbols": 1,
+        "annotation_count_coverage": 0.058823529411764705,
+        "status_counts": {
+          "decoded": 1,
+          "no_decode": 16
+        },
+        "latency_ms": {
+          "samples": 17,
+          "median": 108.908375,
+          "p95": 134.747584,
+          "median_95_ci": [
+            94.2965,
+            119.716208
+          ]
+        }
+      },
+      "cases": [
+        {
+          "id": "monitor/image001.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 112.311583
+          }
+        },
+        {
+          "id": "monitor/image002.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "a9c01ab0010ad009d7847187b1d34116d6b58b1badaf1efc3874a76ab39cdd36",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 98.523375
+          }
+        },
+        {
+          "id": "monitor/image003.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "e395dd476a8f1f956e04ab9d40a8718b5e4b6129bc14c4ee41e53708e853bf88",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 115.009875
+          }
+        },
+        {
+          "id": "monitor/image004.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "35389e581eed6c58f4c25a4d42f8a9f8c73869d12cbfc9e03c0659715ce5a56f",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 81.798583
+          }
+        },
+        {
+          "id": "monitor/image005.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "c570a2a3fc027a6fa2a65c5cb069fd9839716e2cd16c82fa1829c98b35769105",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 100.313042
+          }
+        },
+        {
+          "id": "monitor/image006.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "752348e5b522db47ec710e22ab6b38b2e413516d03e60ebbe6abd3025730ca61",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 85.461083
+          }
+        },
+        {
+          "id": "monitor/image007.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "0cc508053e7c10e9b13eb8996b628c4317150dd52f39a693536c3cfebabd7152",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 94.2965
+          }
+        },
+        {
+          "id": "monitor/image008.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "0655e31648328f6c459d20e687070555ea4e57485dfb3643008441ef1a2cc659",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 82.582708
+          }
+        },
+        {
+          "id": "monitor/image009.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "b9a1ac991e889246376bb6dd26ab4bae68bda8437b5386b1bc112765e7015ff4",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 98.248667
+          }
+        },
+        {
+          "id": "monitor/image010.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "a322c99b953160debf0b9878c50367be281065b41acaf77dfec783b27f13f98a",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 83.561167
+          }
+        },
+        {
+          "id": "monitor/image011.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "1f642a4b4b317b60d336208633ff87663f21378349361afe3178608ab03226c6",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 120.447125
+          }
+        },
+        {
+          "id": "monitor/image012.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "029d12db8de9f9851e0c72834bfe0a588021f4b06a2e448110d47c64170e6149",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 132.209167
+          }
+        },
+        {
+          "id": "monitor/image013.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "13415af81a3188b737c242a609a790d006e49a9e07dabc60c103cce796bb91a1",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 108.908375
+          }
+        },
+        {
+          "id": "monitor/image014.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "f0c2b8c3600edcbb05c0be397baeaa814e7e38f2673da8af35887e1c31e6717d",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 130.163542
+          }
+        },
+        {
+          "id": "monitor/image015.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "6b4c46c6c31804406896576992eafa7a0cad73ccd56af1ff7307241f3d533d7d",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 134.747584
+          }
+        },
+        {
+          "id": "monitor/image016.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "378b2372b0c7fb4efaa908e786602ffc5a680631d9248a708318ee4c4522381f",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 115.034834
+          }
+        },
+        {
+          "id": "monitor/image017.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "7320ede39498ba2d60f918ce355532a8d50c6f367f11bc0060e72251ae31083c",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 119.716208
+          }
+        }
+      ]
+    },
+    "quircs": {
+      "lock": {
+        "version": "0.10.3",
+        "source": "https://crates.io/crates/quircs",
+        "revision": "quircs 0.10.3",
+        "license": "MIT",
+        "runner_sha256": "239544aedf5977f504ed4fa0da7eca8cdbcaf0e3e31ece7f2525dadf7ec45b81",
+        "build": "cargo build --release --offline --locked --manifest-path competitors/adapters/quircs/Cargo.toml && install -m 755 competitors/adapters/quircs/target/release/quircs_decode competitors/bin/quircs_decode"
+      },
+      "setup": {
+        "status": "available",
+        "command": [
+          "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/quircs_decode",
+          "<shared-pixels>.pgm"
+        ]
+      },
+      "runner_preflight": {
+        "status": "verified_pinned_runner",
+        "expected_version": "0.10.3",
+        "version_observed": "quircs 0.10.3",
+        "setup": {
+          "status": "available",
+          "command": [
+            "/Users/rizwan/Documents/2-personal/RustQR/competitors/bin/quircs_decode",
+            "<shared-pixels>.pgm"
+          ]
+        },
+        "capabilities": {},
+        "provenance_verified": true,
+        "provenance_verification_detail": null
+      },
+      "version_observed": "quircs 0.10.3",
+      "summary": {
+        "cases": 17,
+        "available_cases": 17,
+        "expected_annotation_symbols": 17,
+        "returned_symbols": 16,
+        "annotation_count_coverage": 0.9411764705882353,
+        "status_counts": {
+          "decoded": 16,
+          "no_decode": 1
+        },
+        "latency_ms": {
+          "samples": 17,
+          "median": 9.933375,
+          "p95": 14.192917,
+          "median_95_ci": [
+            9.775042,
+            10.396708
+          ]
+        }
+      },
+      "cases": [
+        {
+          "id": "monitor/image001.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "be4b9f7dda8d4b2c5a640d6ffd9fbd8635440cc98092d64ce6193a3a481a5b61",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "34333736343731313534303338"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "343337363437313135343033380a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.693042
+          }
+        },
+        {
+          "id": "monitor/image002.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "a9c01ab0010ad009d7847187b1d34116d6b58b1badaf1efc3874a76ab39cdd36",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "34333736343731313534303338"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "343337363437313135343033380a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.920458
+          }
+        },
+        {
+          "id": "monitor/image003.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "e395dd476a8f1f956e04ab9d40a8718b5e4b6129bc14c4ee41e53708e853bf88",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.775042
+          }
+        },
+        {
+          "id": "monitor/image004.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "35389e581eed6c58f4c25a4d42f8a9f8c73869d12cbfc9e03c0659715ce5a56f",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 10.05575
+          }
+        },
+        {
+          "id": "monitor/image005.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "c570a2a3fc027a6fa2a65c5cb069fd9839716e2cd16c82fa1829c98b35769105",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.933375
+          }
+        },
+        {
+          "id": "monitor/image006.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "752348e5b522db47ec710e22ab6b38b2e413516d03e60ebbe6abd3025730ca61",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.872375
+          }
+        },
+        {
+          "id": "monitor/image007.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "0cc508053e7c10e9b13eb8996b628c4317150dd52f39a693536c3cfebabd7152",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 10.748125
+          }
+        },
+        {
+          "id": "monitor/image008.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "0655e31648328f6c459d20e687070555ea4e57485dfb3643008441ef1a2cc659",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 11.068667
+          }
+        },
+        {
+          "id": "monitor/image009.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "b9a1ac991e889246376bb6dd26ab4bae68bda8437b5386b1bc112765e7015ff4",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 10.396708
+          }
+        },
+        {
+          "id": "monitor/image010.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "a322c99b953160debf0b9878c50367be281065b41acaf77dfec783b27f13f98a",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 10.60825
+          }
+        },
+        {
+          "id": "monitor/image011.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "1f642a4b4b317b60d336208633ff87663f21378349361afe3178608ab03226c6",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 10.040042
+          }
+        },
+        {
+          "id": "monitor/image012.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "029d12db8de9f9851e0c72834bfe0a588021f4b06a2e448110d47c64170e6149",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.420875
+          }
+        },
+        {
+          "id": "monitor/image013.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "13415af81a3188b737c242a609a790d006e49a9e07dabc60c103cce796bb91a1",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.417
+          }
+        },
+        {
+          "id": "monitor/image014.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "f0c2b8c3600edcbb05c0be397baeaa814e7e38f2673da8af35887e1c31e6717d",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 14.192917
+          }
+        },
+        {
+          "id": "monitor/image015.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "6b4c46c6c31804406896576992eafa7a0cad73ccd56af1ff7307241f3d533d7d",
+          "result": {
+            "status": "no_decode",
+            "detail": null,
+            "payloads_hex": [],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.590416
+          }
+        },
+        {
+          "id": "monitor/image016.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "378b2372b0c7fb4efaa908e786602ffc5a680631d9248a708318ee4c4522381f",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.779375
+          }
+        },
+        {
+          "id": "monitor/image017.jpg",
+          "category": "monitor",
+          "expected_symbols": 1,
+          "pixel_sha256": "7320ede39498ba2d60f918ce355532a8d50c6f367f11bc0060e72251ae31083c",
+          "result": {
+            "status": "decoded",
+            "detail": null,
+            "payloads_hex": [
+              "54686973206973206120636f6d70757465722067656e65726174656420515220436f6465"
+            ],
+            "metadata": [],
+            "metadata_status": "adapter_protocol_does_not_expose_metadata",
+            "raw_stdout_hex": "54686973206973206120636f6d70757465722067656e65726174656420515220436f64650a",
+            "raw_stderr_hex": "",
+            "latency_ms": 9.985042
+          }
+        }
+      ]
+    }
+  }
+}
